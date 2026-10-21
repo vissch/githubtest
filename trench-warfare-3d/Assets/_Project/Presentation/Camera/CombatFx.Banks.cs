@@ -18,11 +18,17 @@ namespace TW.Presentation.Tactical
     {
         public const float BankMergeZoom = 120f;
         const float GasBankFirst = 17f, GasBankLast = 28f;       // the bank at its full spread (its early frames are a puff)
+        // Book.GasBody has 22 frames, not 30: the old 17..28 would run off its end and draw nothing (owner, 2026-10-21)
+        const float GasBodyFirst = 12f, GasBodyLast = 20.5f;
         // How clearly the bank reads (film 2026-10-07: at 0.3-0.8 it was fainter than the old wisps at night and gone on snow):
         // a thin cell's card and a full one's, and its colour by day, deeper than the sheet's so it is green ON snow
         public const float GasBankThin = 0.6f, GasBankFull = 1f;
-        /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.55 tops out at 1.28 m - gas pools, it does not stand over a man.</summary>
+        /// <summary>How flat a gas card WAS drawn (the mat GasBank sheet fills the bottom third, so a 7 m card squashed
+        /// to 0.55 topped out at 1.28 m - a horizontal stripe per cell). Kept for the old numbers; the draw no longer uses it.</summary>
         public const float GasBankSquash = 0.55f;
+        /// <summary>How tall a gas card is drawn against its width, on Book.GasBody (SmokeBank's drawing, ink 0.03..0.87):
+        /// a 7 m card's gas tops out at 7 * 0.75 * 0.87 = 4.6 m - one body a man is swallowed by, still a bank (owner, 2026-10-21).</summary>
+        public const float GasBodyHeight = 0.75f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -96,9 +102,9 @@ namespace TW.Presentation.Tactical
                 float slow = now * 0.22f + h3 * 6.2832f;
                 float width = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2) * step;
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width * GasBodyHeight, BankFrame(GasBodyFirst, GasBodyLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
             }
-            books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
+            books.DrawPacked(FlipbookFx.Book.GasBody, gasCards, bounds);
         }
 
         void DrawSmokeBank(GasSmokeSystem gas, float now, Bounds bounds)

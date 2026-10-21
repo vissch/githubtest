@@ -6,8 +6,10 @@
 // and ONE STILL PER BOOK from the same pose at the same spot, plus a plate with nothing drawn. One card to a picture,
 // so a missing card accuses that book alone and no card can hide behind another:
 //   - all three blank      -> the capture path misses every flipbook, whatever the book;
-//   - only the gas blank   -> the GasBank row's own numbers, or the gas card's size, squash and anchor;
+//   - only the gas blank   -> the GasBody row's own numbers, or the gas card's size, height and anchor;
 //   - all three there      -> the fault is upstream of the book: the field, the cache or the recipe switch.
+// The gas card is Book.GasBody since 2026-10-21 (the owner asked for one gas body like cards-smoke.jpg), so
+// cards-gas.jpg shows the card the bank now draws and not the old flat puddle.
 // docs/evidence/ability-fx-captures-r2/sheetink.py --blobs counts the changed pixels of a still against the plate.
 using System.Collections;
 using System.Collections.Generic;
@@ -32,11 +34,11 @@ namespace TW.Tests
     {
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
 
-        /// <summary>Every card is this wide; the gas one is squashed by CombatFx.GasBankSquash, as the bank is.</summary>
+        /// <summary>Every card is this wide; the gas one is CombatFx.GasBodyHeight as tall, as the bank's card is.</summary>
         const float CardWidth = 12f;
-        /// <summary>The frame of each book that is drawn: inside GasBankFirst 17 .. GasBankLast 28, where the sheet's
-        /// ink is (sheetink.py: mean alpha 0.18 at frames 17-28 of GasBank.png).</summary>
-        const float CardFrame = 22f;
+        /// <summary>The frame of each book that is drawn: inside GasBodyFirst 12 .. GasBodyLast 20.5, where the gas
+        /// body's sheet (SmokeBank.png, 22 frames) has its ink.</summary>
+        const float CardFrame = 16f;
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
@@ -53,9 +55,9 @@ namespace TW.Tests
             readonly List<Matrix4x4> one = new List<Matrix4x4>(1);
 
             /// <summary>The three books the still set walks through: the gas bank under suspicion, a second Deep bank
-            /// book, and an ordinary card. The gas one is squashed as the real bank is.</summary>
+            /// book, and an ordinary card. The gas one is drawn 0.75 as tall as it is wide, as the real bank is.</summary>
             public static readonly FlipbookFx.Book[] Which_Books =
-                { FlipbookFx.Book.GasBank, FlipbookFx.Book.SmokeBank, FlipbookFx.Book.Puff };
+                { FlipbookFx.Book.GasBody, FlipbookFx.Book.SmokeBank, FlipbookFx.Book.Puff };
             public static readonly string[] Which_Names = { "gas", "smoke", "puff" };
 
             void Update()
@@ -65,9 +67,9 @@ namespace TW.Tests
                 var size = map.SizeMeters;
                 var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f),
                                         new Vector3(size.x + 20f, 60f, size.y + 20f));
-                float height = Which == 0 ? CardWidth * CombatFx.GasBankSquash : CardWidth;
+                float height = Which == 0 ? CardWidth * CombatFx.GasBodyHeight : CardWidth;
                 one.Clear();
-                float y = RenderGround.Sample(map, At.x, At.z) - 0.35f;   // the gas bank's own anchor
+                float y = RenderGround.Sample(map, At.x, At.z) - 0.2f;   // the gas bank's own anchor
                 one.Add(FlipbookFx.Pack(new Vector3(At.x, y, At.z), CardWidth, height, CardFrame, 1f, 1f, 0f,
                                         FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, 1f));
                 Books.DrawPacked(Which_Books[Which], one, bounds);
