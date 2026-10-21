@@ -203,6 +203,54 @@ class PipelineTest(unittest.TestCase):
         P.main(["close-feedback", fid])
         self.assertEqual(self.states()["sim"], "DONE")
 
+    def test_start_refuses_while_the_recorded_child_still_runs(self):
+        """A dead wrapper with a live child is CRASHED, not a free name. start must exit naming stop."""
+        import run_detached as rd
+
+        child = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(120)"],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        gone = subprocess.Popen([sys.executable, "-c", "pass"])
+        gone.wait(timeout=30)
+        root = Path(self.tmp.name) / "runs"
+        name = "child-still-running"
+        old_root, old_popen = rd.runs_root, rd.subprocess.Popen
+
+        def no_spawn(*_a, **_k):
+            raise RuntimeError("spawned")
+
+        rd.runs_root = lambda: root
+        rd.subprocess.Popen = no_spawn
+        try:
+            child_start = rd.proc_start(child.pid)
+            self.assertIsNotNone(child_start)
+            d = root / name
+            d.mkdir(parents=True)
+            rd.write_json(d / "run.json", dict(
+                name=name, cmd=[sys.executable, "-c", "pass"], cwd=self.tmp.name, timeout_s=30,
+                log=str(d / "out.log"), state="RUNNING",
+                wrapper_pid=gone.pid, wrapper_start=1,
+                child_pid=child.pid, child_start=child_start,
+                heartbeat=rd.now(), log_size=0))
+            st, detail = rd.state(rd.read_json(d / "run.json"))
+            self.assertEqual(st, "CRASHED", detail)
+            self.assertIn("stop", detail)
+            try:
+                rd.main(["start", name, "--timeout", "30", "--min-headroom-gb", "0", "--",
+                         sys.executable, "-c", "pass"])
+            except SystemExit as caught:
+                self.assertIn("stop", str(caught))
+            except RuntimeError as spawned:
+                self.fail("start spawned a second job instead of naming stop: %s" % spawned)
+            else:
+                self.fail("start returned while the recorded child was still running")
+            self.assertEqual(rd.read_json(d / "run.json")["child_pid"], child.pid)
+        finally:
+            rd.runs_root, rd.subprocess.Popen = old_root, old_popen
+            if child.poll() is None:
+                child.kill()
+                child.wait(timeout=10)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
