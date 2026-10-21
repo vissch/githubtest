@@ -151,10 +151,17 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   the bank's footprint as height, and the side band is where thickness is actually measured
   (`docs/evidence/ability-fx-captures-r2-3-g2/probe.py`'s `gas_side_height_m`, bias-corrected by
   `footprint_bias_m`) - 18 stills a pass.
-  From r2-3-g2-g2 on, thickness is measured by `docs/evidence/ability-fx-captures-r2-3-g2-g2/probe.py`'s
+  From r2-3-g2-g2 on, thickness is measured by `docs/evidence/ability-fx-captures-r2-3-g2-g2-g1/probe.py`'s
   `side_face_px` - the side-band pixels standing above their own column's `footprint_bias_m`, the bank's upright
   face - because `gas_side_height_m` held 2.80-2.89 m while the side blob ran 83k to 303k pixels; it is still
-  reported there, but it is not the bar.
+  reported there, but it is not the bar. That probe gates the side mask by hue and by the bank's own column of
+  air before it measures (a burning wreck in frame is not the bank) and REFUSES a side still more than
+  `SIDE_SKEW_TICKS` = 2 from its plate, because the whole side mask is a plate subtraction.
+  From r2-3-g2-g2-g1 the harness runs the 8-frame wait after a call in BOTH passes, so a still and its plate land
+  on the same frame and the same tick, and shoots the bands in the order side, o240, t1, so the side still holds
+  ONE bank (`gas_cells_before` 0). `ClearView` beside `Open()` asks the side lens for a clear ground line to the
+  patch (widths 8, 6, 4 m, last rung 0 = no check, the rung used is logged): on the greybox corridor only 2 of 71
+  open patches pass even at 4 m, so it does not bite there.
   The O240 hue is read over the blob's CORE from r2-3-g2-g2 too (`HUE_CORE_PCTL`, the top quartile of plate
   difference) with a saturation-weighted MEDIAN hue: the card is alpha-blended, so its fringe is mostly ground
   showing through and a whole-blob mean moved 42 deg between seeds; the core median holds them to 14 deg.

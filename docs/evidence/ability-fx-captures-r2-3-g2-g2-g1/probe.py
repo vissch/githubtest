@@ -86,7 +86,9 @@ HOW
                 side_face_px         side-band pixels standing above their column's footprint bias         (bar)
                 side_mask_px         the ungated side mask, and side_box_px the patch box's area in pixels (row)
                 side_cut_frac        the share of the ungated mask the two gates removed                   (row)
-                side_tick_skew       this still's sim_tick less its plate's: why scenery does not subtract (row)
+                side_tick_skew       this still's sim_tick less its plate's (row) AND A REFUSAL: over
+                                     SIDE_SKEW_TICKS apart and the measure exits 1, because the whole side
+                                     mask is a plate subtraction and two ticks do not subtract
                 side_face_frac       that face as a share of the side blob (free of how big the cloud is)  (row)
                 side_face_col_px     the median column's face, in pixels (free of the bank's width)        (row)
                 gas_side_height_m    the median column's silhouette top less its footprint bias, in m      (row)
@@ -100,7 +102,8 @@ USAGE
     python probe.py --dir baseline --out baseline.json   measure a subfolder, write its own json
     python probe.py --selftest                        the camera maths against a hand calculation, no images
 
-Exit 0 only when all three lists hold three values and every bar is met by every seed.
+Exit 0 only when all three lists hold three values, every side still is within SIDE_SKEW_TICKS of its plate,
+and every bar is met by every seed.
 """
 import glob
 import json
@@ -163,20 +166,27 @@ BASELINE_MAX = {'t1_changed_frac': 0.0436, 'texture_var_drop': 0.0958, 'o240_hue
 # the bank's own spread, so that is the depth any single view can be fooled by).
 SIDE_PITCH_DEG = 8.0
 SIDE_FOOT_DEPTH_M = 10.0
+# r2-3-g2-g2-g1: how far a side still may be from its plate before the pair is refused (`side_tick_bad`). The
+# harness now runs the 8-frame wait after a call in both passes, so a matched pair reads 0; 2 is the slack a
+# capture frame's own rounding can cost (the sim runs 20 ticks against 30 frames, so a tick is 1.5 frames).
+SIDE_SKEW_TICKS = 2
 # bar = min(seeds) - margin, margin = the floor below (0.5 m / 5.0 deg): the capture of commit 2ba27d4 spreads
 # its three seeds 2.80-2.89 m (height) and 74.8-123.0 deg (hue) apart - a spread-sized margin on the hue reading
 # would undo "it does not police the look" by dropping the bar BELOW the 38.0 r2-3 already set, so the floor
 # governs and the bar is rounded DOWN from the arithmetic so rounding never moves it inside the spread. Never
 # lowered below the owner's bar (`o240_hue_dist_deg` only; `gas_side_height_m` has none), never widened to make a
 # run green. Set from the capture of commit 2ba27d4 (the build the owner accepted); see README.md, "The bars".
-BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 103.5, 'side_face_px': 25000}
-# r2-3-g2-g2-g1, the face bar: the reading changed (the two gates above), so the bar is re-derived from the
-# gated numbers with r2-3-g2-g2's UNCHANGED rule, `floor(0.8 * min(seeds) / 1000) * 1000`. The same stills now
-# read 120189 / 31917 / 131151 face pixels, min 31917, so the bar is floor(0.8 * 31917 / 1000) * 1000 = 25000.
-# It is LOWER than the 41000 the ungated reading supported, and it has to be: 41000 was partly paid for by
-# pixels that were never the bank (on seed 1 a burning wreck's own pixels, `side_cut_frac` 0.4849). A bar is
-# never widened to make a run green, and this one is not: the reading it bars is strictly smaller than the one
-# 41000 barred, and the 20 % margin is the same share of it.
+BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 108.0, 'side_face_px': 30000}
+# r2-3-g2-g2-g1, the face bar: the reading changed (the two gates above) AND the capture changed (frame parity,
+# the side band shot first on an empty field), so the bar is re-derived from THIS build's three seeds with
+# r2-3-g2-g2's UNCHANGED rule, `floor(0.8 * min(seeds) / 1000) * 1000`. They read 70304 / 37666 / 114148 face
+# pixels, min 37666, so the bar is floor(0.8 * 37666 / 1000) * 1000 = 30000 - outside the spread at the low end,
+# a 20 % margin, raised from the 25000 the skewed capture supported and never widened to make a run green.
+# It is LOWER than the 41000 the UNGATED reading once supported, and it has to be: 41000 was partly paid for by
+# pixels that were never the bank (on seed 1 a burning wreck's own pixels, `side_cut_frac` 0.4141 even now).
+# The hue bar is re-derived the same way on the same three seeds: they read 133.92 / 137.67 / 122.85 deg, so
+#   bar = min - max(10.0, max - min) = 122.85 - 14.82 = 108.03 -> 108.0 (rounded DOWN)
+# a raise from 103.5, which is the only direction a bar ever moves here.
 # r2-3-g2-g2, the hue bar: the old 69.8 sat 5 deg under a scatter of 74.8-123.0 deg, so a seed could drift 45 deg
 # and still pass. The reading is fixed first (the core, and a weighted median: HUE_CORE_PCTL), which brings the
 # three seeds' bank hue to 85.7-100.0 deg - a 14.3 deg spread - and their distance from the grass to
@@ -932,6 +942,27 @@ def side_pose_bad(d):
     return None
 
 
+def side_tick_bad(d):
+    """None if every side still sits within SIDE_SKEW_TICKS of its plate; else why.
+
+    A refusal, not a row: the whole side mask is `|luma(gas) - luma(plate)| >= LUMA_BAR`, so the claim rests on
+    the plate subtracting the scenery away. Two stills from different sim ticks subtract nothing static - every
+    man, flame and wreck that moved in between lands in the mask, and on r2-3-g2-g2's seed 1 that was a burning
+    tank. The gates (hue, box) keep such a thing out of the reading, but they cannot make a mismatched plate into
+    a control, so a skewed pair is refused outright instead of being gated and reported.
+    """
+    for seed in range(SEEDS):
+        stem = 'gas-side-s%d' % seed
+        gas_tick, plate_tick = tick_of(d, stem), tick_of(d, stem + '-plate')
+        if gas_tick is None or plate_tick is None:
+            return '%s: no sim_tick in the manifests, so the plate cannot be shown to be a control' % stem
+        if abs(gas_tick - plate_tick) > SIDE_SKEW_TICKS:
+            return ('%s: sim_tick %d against its plate\'s %d, %d ticks apart (at most %d), so the plate does not '
+                    'subtract the scenery' % (stem, gas_tick, plate_tick, abs(gas_tick - plate_tick),
+                                              SIDE_SKEW_TICKS))
+    return None
+
+
 def missing(d):
     """Every still, sidecar or manifest the measure needs and does not have, as the clean extract would find it."""
     out = []
@@ -965,6 +996,11 @@ def main():
     bad = side_pose_bad(d)
     if bad:
         print('side band pose is wrong, so its bar means nothing: ' + bad)
+        return 1
+
+    bad = side_tick_bad(d)
+    if bad:
+        print('side still and plate are not on the same tick, so the plate is no control: ' + bad)
         return 1
 
     bars, rows = {k: [] for k in BARS}, {}
