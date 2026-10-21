@@ -107,3 +107,114 @@ TW_STILLS_DIR='C:\...\tw-g2-before' Unity.exe -batchmode \
 ground at 10.000 m, one degree up stands 0.34311 m high, and `to_ndc` sends that point back to ndc_y 0.0788.
 
 The O240 overview still the harness also shoots is out of scope — the owner named zoom 30.
+
+# Part 2: the look against the frozen bars
+
+Five of the six bars are cleared with room. `bank_height_m` is not, and the reason is in the numbers below: it is
+not the bank standing up, it is the far field's gas sitting in the top of the window box. That needs the owner.
+
+## The sheet, frame by frame (step 1)
+
+`GasBank.png` is 8 x 4 cells of 256 px, 30 frames. Per frame, over the whole cell and over its bottom third
+(the drawing's own band), measured read-only off the PNG:
+
+| frame | mean alpha | share >= 0.45 | share >= 0.10 | bottom third: mean | bottom third: >= 0.45 |
+|---|---|---|---|---|---|
+| 0 | 0.061 | 0.057 | 0.085 | 0.182 | 0.169 |
+| 5 | 0.094 | 0.088 | 0.125 | 0.280 | 0.262 |
+| 10 | 0.131 | 0.126 | 0.157 | 0.387 | 0.374 |
+| 15 | 0.157 | 0.154 | 0.180 | 0.468 | 0.457 |
+| 17 | 0.167 | 0.163 | 0.191 | 0.497 | 0.486 |
+| 20 | 0.175 | 0.168 | 0.207 | 0.520 | 0.500 |
+| 22 | 0.179 | 0.171 | 0.215 | 0.534 | 0.510 |
+| 24 | 0.183 | 0.173 | 0.223 | 0.544 | 0.516 |
+| 26 | 0.181 | 0.169 | 0.231 | 0.539 | 0.502 |
+| 28 | 0.180 | 0.165 | 0.238 | 0.536 | 0.491 |
+| 29 | 0.178 | 0.163 | 0.240 | 0.530 | 0.484 |
+
+Mean alpha peaks at frame 24 and then flattens, but the **ink's coverage** — the share of the cell at or above
+alpha 0.10, which is what fills a footprint — climbs the whole way, 0.191 at frame 17 to 0.240 at frame 29. So
+`GasBankFirst/Last` moved from 17..28 to **22..29**: the window sits at the dense end of the book instead of
+across the growing puff. `BankFrame` sweeps a sine between the two, so what matters is the middle, 25.5 instead
+of 22.5.
+
+## The two ceilings that decided the approach
+
+- **The disc ceiling.** The window is 1104 x 522 = 576,288 px and does not move (`gas_cells_near` is 124 in all
+  three takes: the 25 m disc is saturated). Of that box, 405,916 px (**0.7044**) lie inside the footprint disc. So
+  fill 0.70 is the ceiling and the 0.35 bar wants half the disc painted; 0.196 of it was painted before.
+- **The brightness ceiling.** Scaling every pixel's lift over the plate by k and re-counting at `DIFF_BAR` 40, on
+  the before takes: k=1.3 gives fill 0.212, k=2.0 gives 0.251, k=3.0 gives 0.274. The sheet's ink covers only
+  ~27% of a card at any opacity, so **brightness alone cannot clear the fill bar**. Coverage had to roughly
+  double, and overlap was the lever.
+
+## What changed (knob by knob)
+
+| knob / line | was | is | why |
+|---|---|---|---|
+| `CombatFx.GasBankFirst/Last` | 17 / 28 | **22 / 29** | the sheet's densest run, measured above |
+| `DrawGasBank` card width | `(6 + 2.5 * Thick) * (0.9 + 0.2 * h2)` | **`(7.8 + 0.7 * Thick) * (0.9 + 0.2 * h2)`** | the same 9.35 m widest card (so the gas still tops out at 1.71 m and `BurstRecipeTests` is untouched), mean card ~7.5 m -> ~9.1 m, per-card ground footprint up ~1.45x |
+| `DrawGasBank` cards per cell | 1 | **2**, offset up to +-2 m in x and z from spare hash bits, boiling 2.1 rad out of phase, mirror flipped, guarded against `MaxCards` | the only lever that lifts coverage past the ink's 27% |
+| second card's anchor | - | `Ground - 0.95` (the first card keeps the owner's `Ground - 0.35`) | an attempt to buy height margin back; it did not work, see below |
+| `CombatFx.GasBankThin` | 0.85 | **1.00** | round 1 cleared every bar but contrast (60.17 against 64.59) |
+| `CombatFx.GasBankNight` | 0.86, 0.92, 0.52 | **0.95, 1.00, 0.60** | the same |
+
+Frozen and untouched: `GasBankSquash` 0.55, the first card's -0.35 anchor, `GasBankStandFloor` 0.8 (the owner's
+row of 2026-10-20).
+
+## The after takes
+
+Round 1 (coverage only: frames, width floor, second card):
+
+| take | `bank_area_frac` | `bank_fill` | `bank_contrast_p50` | `low_share` | `bank_height_m` | `gas_cards` | `draw_calls` |
+|---|---|---|---|---|---|---|---|
+| t1-after-1 | 0.25014 | 0.4000 | 60.17 | 0.9298 | 0.947 | 1194 | 126 |
+| t1-after-2 | 0.24884 | 0.3979 | 59.28 | 0.9307 | 0.927 | 1000 | 121 |
+| t1-after-3 | 0.23957 | 0.3831 | 58.29 | 0.9332 | 0.757 | 798 | 122 |
+
+Round 2 (the above plus `GasBankThin` 1.0 and the brighter night green) — **the committed build**:
+
+| take | sim tick | `bank_area_frac` | `bank_fill` | `bank_contrast_p50` | `low_share` | `bank_height_m` | `stripe_frac` | `pose_error_m` | `gas_cards` | `draw_calls` |
+|---|---|---|---|---|---|---|---|---|---|---|
+| t1-after-1 | 695 | 0.22993 | 0.3677 | 70.72 | 0.9225 | **1.368** | 0.07890 | 0.000 | 1194 | 127 |
+| t1-after-2 | 725 | 0.23028 | 0.3683 | 69.49 | 0.9245 | **1.312** | 0.07517 | 0.000 | 1000 | 122 |
+| t1-after-3 | 755 | 0.22528 | 0.3603 | 67.75 | 0.9283 | **1.119** | 0.07161 | 0.000 | 798 | 122 |
+| bar | | >= 0.12063 | >= 0.35 | >= 64.59 | >= 0.85 | <= 1.00 | row | < 0.50 | | <= 133 |
+
+Same three sim ticks as the before takes (695, 725, 755) at the same three frames (1012, 1057, 1102), each against
+its own plate, so the plates were not reshot. Draw calls **121-127 against the 133 of g1** — two cards a cell cost
+nothing, because it is still one `DrawPacked`. `t1-after-2`'s sidecar carries the "men barely separate from the
+ground: unreadable" warning (the plates carry it too; it is a row, not a bar).
+
+Bar against spread: the before spread was area 0.00327, fill 0.0052, contrast 1.61. Area is **36 spreads** above
+its bar, fill 2 above, contrast 2 above. The look is outside run-to-run noise on the three bars it clears.
+
+## Why `bank_height_m` is the one bar left, and why it is a question and not a knob
+
+`bank_height_m` is the p95 of each paint pixel's lowest possible gas, and `mins` is exactly 0 for every pixel
+whose ground crossing falls inside or in front of the footprint. Measured on the committed takes:
+
+| take | paint px | share with height 0 | share over 1.0 m | p92 | p93 | p95 |
+|---|---|---|---|---|---|---|
+| t1-after-1 | 211,907 | 0.9225 | 0.0574 | 0.000 | 0.328 | 1.367 |
+| t1-after-2 | 212,227 | 0.9246 | 0.0563 | 0.000 | 0.252 | 1.312 |
+| t1-after-3 | 207,621 | 0.9283 | 0.0525 | 0.000 | 0.069 | 1.119 |
+
+There is a cliff, not a slope: 92% of the paint is flat on the ground, p93 is a third of a metre, and then the top
+5% jumps past a metre. The bar is a p95, so it is decided entirely by whether the share of paint above the
+footprint's far rim is under or over 5%. It is 5.2% to 5.7%.
+
+That paint is **not the bank standing up**. The window is the bounding **box** of the footprint disc, so its upper
+corners lie above the disc's far rim; the gas beyond 25 m — the same field-wide bank the `stripe_frac` row names —
+is drawn there, and every pixel of it is scored as "at least 1.1 m high". Growing the bank grew it too: the before
+takes had so little paint anywhere that the share was under 5% and `bank_height_m` read 0.000.
+
+Two things follow:
+- Sinking the second band 0.6 m **did not help** (height went 0.947 -> 1.368 with the brightening on top of it):
+  the high paint is beyond the footprint, so moving the near cards down cannot reach it.
+- Every knob that clears contrast also widens that far-field paint. Measured on round 1's captures by scaling the
+  lift by k: contrast 64.59 wants k >= 1.15, and k = 1.08 already puts height at 1.04. **Contrast and height pull
+  against each other through the same paint**, so there is no setting of these knobs that clears both.
+
+The bars are frozen and were not moved. What to do about it is the owner's, and it is the open row written into
+`docs/reference/decisions.md`.

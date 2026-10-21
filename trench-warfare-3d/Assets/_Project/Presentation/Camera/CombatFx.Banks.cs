@@ -17,17 +17,22 @@ namespace TW.Presentation.Tactical
     public sealed partial class CombatFx
     {
         public const float BankMergeZoom = 120f;
-        const float GasBankFirst = 17f, GasBankLast = 28f;       // the bank at its full spread (its early frames are a puff)
+        // The densest run of the sheet (measured per frame, r2-2-g2; the table is in the g2 evidence README):
+        // the ink's coverage (the share of the cell at or above alpha 0.10) climbs the whole way, 0.19 at frame 17
+        // to 0.24 at frame 29, so the window sits at the end of the book and not across the growing puff.
+        const float GasBankFirst = 22f, GasBankLast = 29f;       // the bank at its full spread (its early frames are a puff)
         // How clearly the bank reads (r2-2-g1 2026-10-20: at 0.6-1.0 the bank was 0.13% of the zoom-30 night frame, invisible):
         // a thin cell's card and a full one's, and its colour by day, deeper than the sheet's so it is green ON snow
-        public const float GasBankThin = 0.85f, GasBankFull = 1f;
+        // r2-2-g2: the thin cell's card went 0.85 -> 1.0 and the night colour up a tenth, because the one bar the
+        // doubled coverage left short was contrast_bar 64.59 (60.17 measured, round 1 of this leg).
+        public const float GasBankThin = 1f, GasBankFull = 1f;
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so the widest card (9.35 m) squashed to 0.55 tops out at 1.71 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.55f;
         /// <summary>The least gas a cell must hold to stand as a card. One place, so a measure of the bank's footprint
         /// (GasBankStills' near count; decisions.md's open footprint row of 2026-10-20, option (a)) cannot drift from
         /// which cells DrawGasBank actually stands.</summary>
         public const float GasBankStandFloor = 0.8f;
-        public static readonly Color GasBankNight = new Color(0.86f, 0.92f, 0.52f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
+        public static readonly Color GasBankNight = new Color(0.95f, 1.00f, 0.60f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
         public static float GasBankAlpha(float thick) => Mathf.Lerp(GasBankThin, GasBankFull, Mathf.Clamp01(thick));
@@ -98,9 +103,28 @@ namespace TW.Presentation.Tactical
             {
                 float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
-                float width = (6f + 2.5f * b.Thick) * (0.9f + 0.2f * h2) * step;
+                // The floor of the card's width, not its ceiling: the widest card is still (7.8 + 0.7) * 1.1 = 9.35 m,
+                // so the gas it draws still tops out at 1.71 m (BurstRecipeTests), but the MEAN card is ~9.1 m instead
+                // of ~7.5, and a card's ground footprint goes as its width squared.
+                float width = (7.8f + 0.7f * b.Thick) * (0.9f + 0.2f * h2) * step;
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                float height = width * GasBankSquash, alpha = GasBankAlpha(b.Thick);
+                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, height, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, alpha));
+                // A second band per cell, offset on the ground from spare hash bits, boiling out of phase and mirrored
+                // the other way, so the two tile instead of landing on each other. The sheet's ink covers only ~27% of
+                // a card, so brightness cannot fill the footprint (measured: alpha x3 moves fill 0.17 -> 0.27) - two
+                // overlapping bands is the lever. Guarded, because two cards a cell for the map's ~775 live cells
+                // would otherwise walk into MaxCards and have cards silently dropped.
+                if (gasCards.Count + 1 >= FlipbookFx.MaxCards) continue;
+                float h4 = ((b.Hash >> 15) & 1023) / 1023f, h5 = ((b.Hash >> 25) & 127) / 127f;
+                var kind2 = kind ^ FlipbookFx.Kind.Mirror;
+                // The second band sits 0.6 m deeper than the first (the first card's -0.35 anchor is the owner's,
+                // 2026-10-20, and is untouched). Brightness and height pull against each other here: measured on
+                // round 1's captures, the lift needed to clear contrast_bar also carried paint over the footprint's
+                // far rim and bank_height_m past its 1.0 m bar. Sinking the SECOND band keeps every pixel of its
+                // coverage and takes it out of the high paint.
+                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X + (h4 - 0.5f) * 4f * step, b.Ground - 0.95f, b.Z + (h5 - 0.5f) * 4f * step),
+                                             width, height, BankFrame(GasBankFirst, GasBankLast, slow + 2.1f), 1f, 1f, 0f, kind2, alpha));
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }
