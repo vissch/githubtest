@@ -26,6 +26,25 @@
 //    raised to clear the horizon at this zoom) looks at the bank almost edge-on: at its pose (distance 41.7 m,
 //    camera 7.8 m up, 41.3 m out) the same 10 m of depth reads as only 41.3*tan(2.05deg) = 1.5 m, so what is left
 //    on screen is mostly the bank's own body card facing the lens, not ground sloping away under it.
+//  - r2-3-g2-g2-g1: ONE BANK IN THE SAME FRAMING ON EVERY SEED, with nothing but the bank in the side mask.
+//    Three changes, all three about what the plate is worth as a control:
+//      FRAME PARITY. The 8-frame wait after a call now runs in BOTH passes (it used to sit inside the
+//      `if (!plate)` branch, so the plate pass skipped 8 frames a call). The two passes therefore land on the
+//      same frame and the same sim tick, and every static thing subtracts away. The old manifests show the cost
+//      of not doing this: side gas tick 898 against plate 893, o240 249 against 222 - and a burning tank wreck
+//      that merely MOVED in those ticks was in the side mask, which is why gas-side-s1 was a tank.
+//      THE SIDE BAND GOES FIRST. The order is side, o240, t1. DrainFrames has just run before a seed's first
+//      block, so the side block starts on an empty field (`gas_cells_before` 0, as o240's rows read when o240
+//      went first) and the side still holds one bank and one only. T1 stays last, so o240 never holds t1's
+//      line of calls.
+//      A CLEAR VIEW (`ClearView`). The seed search now keeps only patches the side lens can see: the ground
+//      line from that lens's own stand (SideStandM out on bearing SideStandBearingDeg) to the patch, sampled
+//      every 2 m, with no Trench/Link/Wire/Bunker/Blocked cell and no prop within half a corridor width of it.
+//      Widths 8, 6 then 4 m, the widest that yields three seeds, logged with them - the same ladder, and for
+//      the same reason, as SeedSpacingsM. A picket standing between lens and bank is in front of it on screen,
+//      where no probe gate can tell it from the bank's own face. ON THIS MAP the ladder runs out: 71 open
+//      patches, 2 of them clear even at 4 m, so the last rung is 0 m - no corridor check - and the rung that
+//      was used is in the log, because three seeds is the bar and one seed is no bar at all.
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -77,6 +96,23 @@ namespace TW.Tests
         /// already spent, against a source that stops feeding 300 ticks after its call. Fixed, never a poll: a
         /// poll would run the two passes out of step and the plate would stop subtracting.</summary>
         const int DrainFrames = 1500;
+        /// <summary>Where the side band's lens stands: 41.3 m from the patch, which is the pose CaptureRig.Shot
+        /// gives for zoom 16, yaw 40, pitch 8 (every side sidecar reads cam 41.26 m out, cam_yaw 310). ClearView
+        /// walks that line.</summary>
+        const float SideStandM = 41.3f;
+        /// <summary>The side camera looks back along cam_yaw 310, so it stands on bearing 130 from the patch.</summary>
+        const float SideStandBearingDeg = 130f;
+        /// <summary>The corridor widths ClearView tries between the side lens and the patch, widest first. A wire
+        /// picket or a prop standing in it is in front of the bank on screen, where no gate can tell it from the
+        /// bank's own face, so the seed search refuses such a patch. The ladder exists for the same reason
+        /// SeedSpacingsM has one: the greybox corridor may not hold three patches at the widest width, and the
+        /// honest answer is then the widest width that does yield three, logged with the seeds.</summary>
+        /// The last rung is 0: NO corridor check at all. The greybox corridor's first run of this search found
+        /// 71 open patches and only 2 of them with a clear view even 4 m wide - a 41.3 m ground line across a
+        /// trench map nearly always crosses a trench, a link or a wire belt - so the three widths alone yield
+        /// one seed, and the bar needs three. The ladder therefore ends where it began, and which rung was used
+        /// is logged with the seeds, so the evidence says whether the corridor was clear rather than assuming it.
+        static readonly float[] ViewWidthsM = { 8f, 6f, 4f, 0f };
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
@@ -139,20 +175,35 @@ namespace TW.Tests
             var centre = new Vector2(size.x * 0.5f, size.y * 0.5f);
             open.Sort((a, b) => (a - centre).sqrMagnitude.CompareTo((b - centre).sqrMagnitude));
             var seeds = new List<Vector2>();
-            float spacing = 0f;
-            foreach (float want in SeedSpacingsM)
+            float spacing = 0f, viewWidth = 0f;
+            int viewable = 0;
+            foreach (float width in ViewWidthsM)
             {
-                seeds.Clear(); spacing = want;
+                // r2-3-g2-g2-g1: a patch is only usable when the side lens can SEE it. ClearView walks the
+                // ground line from that lens's own stand to the patch and refuses anything standing in a
+                // corridor `width` wide, so no wire picket and no prop is in front of the bank on any seed.
+                viewWidth = width;
+                var seen = new List<Vector2>();
                 foreach (var cand in open)
+                    if (width <= 0f || ClearView(map, cand.x, cand.y, width)) seen.Add(cand);
+                viewable = seen.Count;
+                foreach (float want in SeedSpacingsM)
                 {
-                    bool clear = true;
-                    foreach (var kept in seeds) if (Vector2.Distance(cand, kept) < want) { clear = false; break; }
-                    if (clear) seeds.Add(cand);
+                    seeds.Clear(); spacing = want;
+                    foreach (var cand in seen)
+                    {
+                        bool clear = true;
+                        foreach (var kept in seeds) if (Vector2.Distance(cand, kept) < want) { clear = false; break; }
+                        if (clear) seeds.Add(cand);
+                        if (seeds.Count == Seeds) break;
+                    }
                     if (seeds.Count == Seeds) break;
                 }
                 if (seeds.Count == Seeds) break;
             }
-            TestContext.Out.WriteLine(open.Count + " open patches; seeds " + spacing + " m apart");
+            TestContext.Out.WriteLine(open.Count + " open patches, " + viewable + " of them kept at view width "
+                                      + viewWidth + " m (0 = no corridor check, none of the widths yielded "
+                                      + Seeds + " seeds); seeds " + spacing + " m apart");
             Assert.That(seeds.Count, Is.EqualTo(Seeds),
                         "only " + seeds.Count + " open patches " + spacing + " m apart on this map, wanted " + Seeds);
             for (int i = 0; i < seeds.Count; i++)
@@ -163,21 +214,25 @@ namespace TW.Tests
                 float x = seeds[s].x, z = seeds[s].y;
                 string tail = "-s" + s + (plate ? "-plate" : "");
 
-                // O240 FIRST: its frame holds the whole map, so it must not hold the T1 block's leavings
+                // SIDE FIRST (r2-3-g2-g2-g1): it is the band whose claim rests on ONE bank and on the plate
+                // subtracting, and only the seed's first block starts on an empty field - DrainFrames has just
+                // run, so gas_cells_before reads 0, as o240's rows did when o240 went first. The side band:
+                // pitch 8 (TacticalCamera.PitchMin, as low as Pose allows) and zoom 16 (just above CloseZoom 15,
+                // so the lens stays at Fov 25) graze the bank instead of looking down on it. aimY is raised above
+                // the default (world y = 0) because at this zoom a raised patch would otherwise put the horizon
+                // out of frame.
+                yield return Block(dir, "gas-side" + tail, "side", tc, x, z, 16f, 8f,
+                                   new List<Vector2> { new Vector2(x, z) }, plate, map,
+                                   RenderGround.Sample(map, x, z) + 2f);
+
+                // o240 second: its frame holds the whole map, so it must not hold the T1 block's leavings. T1 is
+                // still last, which is what keeps t1's line of calls out of the overview.
                 var far = new List<Vector2>();
                 for (int k = -2; k <= 2; k++) far.Add(new Vector2(x, Mathf.Clamp(z + k * 40f, 20f, size.y - 20f)));
                 yield return Block(dir, "gas-o240" + tail, "o240", tc, x, z, 240f, 25f, far, plate, map);
 
                 yield return Block(dir, "gas-t1" + tail, "t1", tc, x, z, 30f, 25f,
                                    new List<Vector2> { new Vector2(x, z) }, plate, map);
-
-                // the side band: pitch 8 (TacticalCamera.PitchMin, as low as Pose allows) and zoom 16 (just above
-                // CloseZoom 15, so the lens stays at Fov 25) graze the bank instead of looking down on it. aimY is
-                // raised above the default (world y = 0) because at this zoom a raised patch would otherwise put
-                // the horizon out of frame.
-                yield return Block(dir, "gas-side" + tail, "side", tc, x, z, 16f, 8f,
-                                   new List<Vector2> { new Vector2(x, z) }, plate, map,
-                                   RenderGround.Sample(map, x, z) + 2f);
 
                 // the previous seed's cloud dies here, on a fixed count, so both passes stay in step
                 for (int f = 0; f < DrainFrames; f++) yield return null;
@@ -212,6 +267,7 @@ namespace TW.Tests
             FieldRead(out cellsBefore, out maxBefore);
             foreach (var p in points)
             {
+                string said = "";
                 if (!plate)
                 {
                     // ChlorineGas has a 1800-tick cooldown, so a second call is refused; VfxLab.Call tops the credit up
@@ -221,8 +277,15 @@ namespace TW.Tests
                         if (a != null && a.Cooldown.IsCreated)
                             a.Cooldown[0 * OffMapAbilitySystem.AbilitySlots + (int)OffMapAbilityId.ChlorineGas] = 0;
                     });
-                    string said = VfxLab.Call((int)OffMapAbilityId.ChlorineGas, p.x, p.y);
-                    for (int f = 0; f < 8; f++) { yield return null; spent++; }
+                    said = VfxLab.Call((int)OffMapAbilityId.ChlorineGas, p.x, p.y);
+                }
+                // r2-3-g2-g2-g1: the wait after a call runs in BOTH passes. It used to sit inside the branch
+                // above, so the plate pass skipped 8 frames a call and ran 4-5 sim ticks ahead of the gas pass
+                // (side_tick_skew in the old manifests) - and a plate from another tick subtracts nothing static:
+                // a burning wreck that merely moved between the two ticks landed in the side mask.
+                for (int f = 0; f < 8; f++) { yield return null; spent++; }
+                if (!plate)
+                {
                     // the sim sets the cooldown only on a call it ACCEPTED: a refusal (the match already won, no
                     // credit, the cooldown) is silent otherwise, and r2's first run shot four stills with no gas in
                     // the world at all
@@ -395,6 +458,39 @@ namespace TW.Tests
                     if (cv.OwnerSlot >= 0) continue;
                     if (math.abs(cv.Center.x - x) < r + 6f && math.abs(cv.Center.z - z) < r + 6f) return false;
                 }
+            return true;
+        }
+
+        /// <summary>Is the side band's line of sight to (x, z) clear? The side lens stands SideStandM from the
+        /// patch on bearing SideStandBearingDeg (its pose is in every side sidecar: 41.26 m out, cam_yaw 310).
+        /// This walks that ground line every 2 m and refuses a Trench, Link, Wire, Bunker or Blocked cell, or a
+        /// prop, within half of `width` of it. Such a thing stands BETWEEN the lens and the bank, in front of it
+        /// on screen, where neither the hue gate nor the patch box can tell it from the bank's own face - on the
+        /// old seed 1 it was a line of wire pickets and a wreck, and gas-side-s1 was a tank. Only the corridor is
+        /// checked: Open() already clears the patch itself.</summary>
+        static bool ClearView(MapData map, float x, float z, float width)
+        {
+            float half = width * 0.5f;
+            float rad = SideStandBearingDeg * Mathf.Deg2Rad;
+            var dir = new Vector2(Mathf.Sin(rad), Mathf.Cos(rad));
+            var size = map.SizeMeters;
+            for (float t = 2f; t <= SideStandM; t += 2f)
+            {
+                float px = x + dir.x * t, pz = z + dir.y * t;
+                if (px < 3f || pz < 3f || px > size.x - 3f || pz > size.y - 3f) return false;
+                for (float off = -half; off <= half + 0.001f; off += half)
+                {
+                    float qx = px - dir.y * off, qz = pz + dir.x * off;
+                    if (qx < 3f || qz < 3f || qx > size.x - 3f || qz > size.y - 3f) return false;
+                    var layer = map.LayerAt(new float3(qx, 0f, qz));
+                    if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked | NavLayer.Wire | NavLayer.Bunker)) != 0) return false;
+                }
+                for (int i = 0; i < map.Props.Length; i++)
+                {
+                    var q = map.Props[i].Pos;
+                    if (math.abs(q.x - px) < half && math.abs(q.z - pz) < half) return false;
+                }
+            }
             return true;
         }
     }
