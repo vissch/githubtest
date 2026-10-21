@@ -258,11 +258,24 @@ namespace TW.Tests
         [Test]
         public void TheGasBankLiesOnTheGround_NotOverAMansHead()
         {
-            // r1's critique: gas-t1 read as a standing wall (height_frac 0.32). The sheet's drawing fills the bottom
-            // third of the card, so the widest card's gas must still top out below a man's head.
-            float top = CombatFx.GasBankWidth(1f, 1f, 1) * CombatFx.GasBankSquash / 3f;
-            Assert.Less(top, 1.8f, "the gas the widest card draws stays under a 1.8 m man's head");
-            Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+            // r1's critique: gas-t1 read as a standing wall (height_frac 0.32). The gas now draws SmokeBank's cloud,
+            // whose ink reaches 0.87 of its cell (the row's Ink.y), so that is the share of the card the gas fills.
+            // The ceiling is the owner's own barred one, not a man's head: bank_height_frac <= 0.15 of the frame is
+            // about 3.4 m at the T1 median distance (g1 probe.json run1: bank_rise_m 1.845 at frac 0.0799), and
+            // bank_low_share >= 0.30 still holds the bank down on the ground.
+            float top = CombatFx.GasBankWidth(1f, 1f, 1) * CombatFx.GasBankSquash * 0.87f;
+            Assert.Less(top, 3.0f, "the gas the widest card draws stays under the owner's barred ceiling");
+            Assert.Greater(top, 1.2f, "and is still thick enough to read: not a painted line on the floor");
+        }
+        [Test]
+        public void TheGasBankDrawsTheSmokeSheetsCloud()
+        {
+            // the swap: GasBank.png is a flat lozenge with two beams, SmokeBank.png is one lobed cloud in the same pose
+            Assert.AreEqual("SmokeBank", FlipbookFx.SheetTex(FlipbookFx.Book.GasBank), "the gas book draws the smoke sheet's cloud");
+            Assert.AreEqual("GasBank", FlipbookFx.SheetName(FlipbookFx.Book.GasBank), "the book keeps its own name and ordinal");
+            // and its window must lie inside that 22-frame sheet
+            Assert.That(CombatFx.GasBankFirst, Is.InRange(0f, 21f), "GasBankFirst is a frame of the sheet it draws");
+            Assert.That(CombatFx.GasBankLast, Is.InRange(0f, 21f), "GasBankLast is a frame of the sheet it draws");
         }
         [Test]
         public void TheGasBankCardsOverlapIntoOneMass()

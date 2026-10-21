@@ -17,13 +17,16 @@ namespace TW.Presentation.Tactical
     public sealed partial class CombatFx
     {
         public const float BankMergeZoom = 120f;
-        const float GasBankFirst = 17f, GasBankLast = 28f;       // the bank at its full spread (its early frames are a puff)
+        public const float GasBankFirst = 12f, GasBankLast = 20.5f;    // the cloud grown: GasBank draws SmokeBank's 22-frame sheet, so its window is SmokeBank's (17..28 ran past the end)
         // How clearly the bank reads: a thin cell's card and a full one's. One card is a haze now, not a tile - three
         // stacked cards reach 1-(1-0.5)^3 = 0.875, about the old single card's core, so the bank is volume and not stripes.
         // Its colour by day is deeper than the sheet's so it is green ON snow
         public const float GasBankThin = 0.14f, GasBankFull = 0.5f;
-        /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so the widest card (14.3 m) squashed to 0.36 tops out at 1.72 m - gas to the chest, it does not stand over a man.</summary>
-        public const float GasBankSquash = 0.36f;
+        /// <summary>How flat a gas card is drawn. 0.36 assumed a drawing filling the card's bottom third; the cloud it
+        /// draws now (SmokeBank) fills 0.03..0.87 of its cell, so the card has to be shorter for the same gas height:
+        /// the widest card (14.3 m) squashed to 0.22 is 3.15 m tall and its drawing tops out near 2.7 m - a rolling
+        /// bank, chest-and-up, under the owner's barred ceiling (bank_height_frac 0.15, about 3.4 m at the T1 median).</summary>
+        public const float GasBankSquash = 0.22f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>

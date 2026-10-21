@@ -91,7 +91,9 @@ namespace TW.Presentation.Tactical
 
         // one book: its texture in Resources/VFX, grid, whether it adds light or is a cloud the moon lights, and which of
         // the drawing's values are its shade and its light (Low, High: measured from the pixels, so each book uses both bands)
-        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; public bool Ground; public bool Bank; public Vector2 InkRoot, InkPoint; }
+        // Tex: the PNG this row loads when it is not its own Name - one drawing shared by two books that differ only in
+        // tint, levels and how the caller sizes the card (GasBank draws SmokeBank's cloud). Empty: the Name is the file.
+        struct Sheet { public string Name; public string Tex; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; public bool Ground; public bool Bank; public Vector2 InkRoot, InkPoint; }
         // Bands: a fire book's own cel cuts (soot|fringe|body|core, then edge softness), read off ITS ink histogram by
         // Tools/firebooks.py; left at zero the shader's default is used, which was measured on FireBall. Ink: where the
         // drawing sits inside its cell as bottom-up fractions, so a card standing on something can be sized and sunk to
@@ -185,7 +187,10 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "FireBloom", Cols = 8, Rows = 4, Frames = 21, Fire = true, Snap = true, Tint = new Color(1.38f, 0.64f, 0.18f), Low = 0.12f, High = 0.74f, Fps = 12f, Bands = new Vector4(0.01f, 0.02f, 0.39f, 0.75f), Ink = new Vector2(0.05f, 0.98f), Fill = 0.84f },
             // VFX pass wave 1 (2026-09-28): Low/High, Ink, Fill and the fire Bands from the Tools/firebooks.py printout.
             // Tints are starting points: CombatFx.ApplyTints sets the biome's (catalogue IN-2). Smoke-like books erode like Smoke.
-            new Sheet { Name = "GasBank", Cols = 8, Rows = 4, Frames = 30, Snap = true, Fps = 12f, Erode = true, Deep = true, Bank = true, Mood = 0.45f, Lit = 0.75f, Tint = new Color(0.74f, 0.80f, 0.34f), Low = 0.17f, High = 0.60f, Ink = new Vector2(0.00f, 0.35f), Fill = 0.94f },   // Lit and High as the old Gas book: its middle ink (0.39) in the light, so it is green and not grey (film 2026-10-07)
+            // GasBank draws SmokeBank's DRAWING in chlorine: GasBank.png is a flat lozenge with two beams across the cell
+            // (cards-gas.jpg), and at zoom 30 the field read as bands, not one bank. Frames, Ink and High are facts about
+            // the drawing, so they are SmokeBank's; Lit and the chlorine Tint stay this book's (day/night: CombatFx.ApplyTints).
+            new Sheet { Name = "GasBank", Tex = "SmokeBank", Cols = 8, Rows = 4, Frames = 22, Snap = true, Fps = 12f, Erode = true, Deep = true, Bank = true, Mood = 0.45f, Lit = 0.75f, Tint = new Color(0.74f, 0.80f, 0.34f), Low = 0.17f, High = 0.31f, Ink = new Vector2(0.03f, 0.87f), Fill = 0.94f },
             new Sheet { Name = "GasVent", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.74f, 0.80f, 0.34f), Low = 0.17f, High = 0.66f, Ink = new Vector2(0.00f, 0.35f), Fill = 0.94f },
             new Sheet { Name = "SmokeBank", Cols = 8, Rows = 4, Frames = 22, Snap = true, Fps = 12f, Erode = true, Deep = true, Mood = 0.45f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.17f, High = 0.31f, Ink = new Vector2(0.03f, 0.87f), Fill = 0.94f },
             new Sheet { Name = "MortarBurst", Cols = 8, Rows = 4, Frames = 21, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.40f, 0.33f, 0.26f), Low = 0.09f, High = 0.77f, Ink = new Vector2(0.05f, 0.65f), Fill = 0.54f },
@@ -225,6 +230,8 @@ namespace TW.Presentation.Tactical
 
         /// <summary>The file a book draws: `Sheets` is indexed by the enum's number, so row and enum must agree.</summary>
         public static string SheetName(Book b) => Sheets[(int)b].Name;
+        /// <summary>The PNG a book actually draws: its own Name, or the drawing it borrows (Tex).</summary>
+        public static string SheetTex(Book b) => string.IsNullOrEmpty(Sheets[(int)b].Tex) ? Sheets[(int)b].Name : Sheets[(int)b].Tex;
         public static int SheetCount => Sheets.Length;
 
         /// <summary>Where a book's drawing sits in its cell: y as bottom-up fractions, and its width as a fraction of the cell.</summary>
@@ -644,7 +651,7 @@ namespace TW.Presentation.Tactical
             for (int k = 0; k < Sheets.Length; k++)
             {
                 var s = Sheets[k];
-                var tex = Resources.Load<Texture2D>("VFX/" + s.Name);
+                var tex = Resources.Load<Texture2D>("VFX/" + (string.IsNullOrEmpty(s.Tex) ? s.Name : s.Tex));
                 if (tex == null) continue;
                 found++;
                 var m = new Material(shader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave, mainTexture = tex };

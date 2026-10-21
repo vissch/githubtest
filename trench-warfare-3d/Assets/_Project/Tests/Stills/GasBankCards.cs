@@ -34,9 +34,10 @@ namespace TW.Tests
 
         /// <summary>Every card is this wide; the gas one is squashed by CombatFx.GasBankSquash, as the bank is.</summary>
         const float CardWidth = 12f;
-        /// <summary>The frame of each book that is drawn: inside GasBankFirst 17 .. GasBankLast 28, where the sheet's
-        /// ink is (sheetink.py: mean alpha 0.18 at frames 17-28 of GasBank.png).</summary>
-        const float CardFrame = 22f;
+        /// <summary>The frame of each book that is drawn: inside GasBankFirst 12 .. GasBankLast 20.5, which is now
+        /// SmokeBank's own window, because the gas book draws SmokeBank.png. Both books therefore draw the SAME cel
+        /// here and differ only in tint, levels and squash - the comparison the owner asked for.</summary>
+        const float CardFrame = 20f;
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
