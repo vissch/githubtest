@@ -98,7 +98,7 @@ again and the bar should be re-derived once, after it.
 
 | File | What it is |
 |---|---|
-| `probe.py` | g1's measure, copied unchanged. `--selftest` exits 0; no arguments measures the stills beside it |
+| `probe.py` | g1's measure plus the two readings below (`t1_rim_px`, `t1_gas_cards`). `--selftest` exits 0; no arguments measures the stills beside it |
 | `probe.json` | the readings of this run, one value per seed, with the bars |
 | `gas-t1-s*`, `gas-o240-s*`, `gas-side-s*` | three seeds, three bands, each with its `-plate` (same pose, same sim tick) and its `.json` sidecar |
 | `manifest.json`, `manifest-plate.json` | one row per still: patch, sim tick, pose error, gas field before and after the call, cards drawn, draw calls |
@@ -108,3 +108,48 @@ Reported, not barred: `side_tick_skew` (0 / 0 / 0), `side_cut_frac` (0.2658 / 0.
 94.7) against `o240_grass_hue_deg` (222.1 / 223.5 / 221.1), `o240_core_px` (6683 / 6420 / 5298), and
 `gas_t1_height_m` (2.454 / 5.105 / 4.464) against `t1_footprint_bias_m` (3.552 / 3.794 / 3.727). Pose error is
 0.0000 m on all eighteen stills.
+
+## Fault 2, the measure: a reading that catches a flat pad
+
+`texture_var_drop` cannot find the fault the owner named, because it **rewards** it: a flat pad flattens the
+ground under it, so the flatter and harder the pad, the better that number reads. Both builds pass it (0.56-0.74).
+Two readings are added so the drawing leg has something that bites. Their bars are deliberately **UNSET** here
+(the probe prints them and gates nothing); they are derived in the drawing leg, from three captures of the build
+that has the new drawing, by the same rule as every bar above.
+
+- **`t1_rim_px`** - how soft the bank's edge is, in pixels. From every boundary pixel of the T1 blob whose
+  outside neighbour lies left or right, walk outward along the row up to 24 px and count the steps until the
+  plate difference falls under 0.25 x the median difference inside the blob; the median of those walks is the
+  reading, `t1_rim_p90_px` sits beside it. A hard-edged pad reads 1-2 px (only JPEG softens it); a bank that
+  erodes into wisps reads high single figures. Hand-checked both ways in `--selftest`: a 20 px rectangle with a
+  10 px linear ramp reads **8 px** (the walk ends where 0.20 x (1 - i/10) < 0.05, so i = 8) and the same
+  rectangle with no ramp reads **1 px**.
+- **`t1_gas_cards`** - the cards the harness drew for the T1 still, read from its `manifest.json` row. This bar
+  runs the other way (`<=`, an upper limit): a carpet is more cards, one bank is fewer. A missing field reads as
+  a number no upper bar can pass, so it is never a free pass.
+
+### The old build against the new readings
+
+`python probe.py --dir ../ability-fx-captures-r2-3-g2-g2-g1 --out <outside this folder>`, so g1's folder is left
+untouched. The before numbers come from the stills committed at `1dd0a2750c`, not from the code that reads them.
+
+| Reading | g1, the carpet (s0 / s1 / s2) | here, one bank per block | What it says |
+|---|---|---|---|
+| `t1_gas_cards` | **1046 / 853 / 718** | **90 / 92 / 90** | the capture fix is visible in one number: 11x fewer cards |
+| `t1_rim_px` | 5 / 2 / 3 | 3 / 2 / 3 | **unchanged, and it should be**: the drawing is untouched here |
+| `t1_rim_p90_px` | 24 / 17 / 23 | 16 / 15 / 20 | the widest edges are the drifted leavings g1 still held |
+| `texture_var_drop` | 0.56 / 0.74 / 0.61 | 0.73 / 0.76 / 0.71 | passes on both: the reading that cannot see the fault |
+
+So the two readings do different jobs, and only one of them has fired yet:
+
+- `t1_gas_cards` separates the two builds outright, and would have refused g1 at any bar between 93 and 718.
+- **`t1_rim_px` does not separate them, because neither build has a soft edge.** Both read 2-3 px at worst, which
+  is the hard pad of the selftest's second case. That is the honest state of this folder: the capture is fixed,
+  the drawing is not, and the rim reading is the thing that will say when it is. It is proven to work by hand
+  calculation (8 px against 1 px), not by a difference between these two builds.
+
+### `side_face_px` still misses
+
+Unchanged from the section above, and not touched by this leg: seed 1 reads 28560 against the bar 30000, so
+`python probe.py` exits **1**. That bar is capture noise on the one seed with a burning wreck, and the drawing
+leg reshoots all three seeds; it is settled there, never by widening the bar.

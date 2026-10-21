@@ -1,8 +1,13 @@
 {
+ "bar_dir": {
+  "t1_gas_cards": "<="
+ },
  "bars": {
   "o240_hue_dist_deg": 108.0,
   "side_face_px": 30000,
   "t1_changed_frac": 0.08,
+  "t1_gas_cards": null,
+  "t1_rim_px": null,
   "texture_var_drop": 0.4
  },
  "o240_hue_dist_deg": [
@@ -151,6 +156,11 @@
    0.1111,
    0.1444,
    0.1286
+  ],
+  "t1_rim_p90_px": [
+   16.0,
+   15.0,
+   20.0
   ]
  },
  "side_face_px": [
@@ -162,6 +172,16 @@
   0.0854,
   0.1086,
   0.122
+ ],
+ "t1_gas_cards": [
+  90,
+  92,
+  90
+ ],
+ "t1_rim_px": [
+  3.0,
+  2.0,
+  3.0
  ],
  "texture_var_drop": [
   0.73,

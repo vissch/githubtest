@@ -128,6 +128,9 @@ HEIGHT_PCTL = 0.45          # a column's top, as a percentile of its masked pixe
 HUE_CORE_PCTL = 75          # the hue is read over the blob's CORE: the pixels in the top quartile of plate
                             # difference, where the card's own colour dominates instead of ground showing through
                             # the alpha-blended fringe (r2-3-g2-g2, step 7)
+RIM_WALK_PX = 24            # how far outward a rim walk may run before it gives up
+RIM_FRAC = 0.25             # the walk ends where the plate difference falls under this share of the blob's
+                            # median difference (r2-3-g2-g2-g1-g2, step 3)
 
 # r2-3-g2-g2-g1: the side mask's two extra gates.
 # The hue band. `CombatFx.GasBankNight` is painted (0.78, 0.86, 0.22), which by the HSV formula is max g 0.86,
@@ -176,7 +179,16 @@ SIDE_SKEW_TICKS = 2
 # governs and the bar is rounded DOWN from the arithmetic so rounding never moves it inside the spread. Never
 # lowered below the owner's bar (`o240_hue_dist_deg` only; `gas_side_height_m` has none), never widened to make a
 # run green. Set from the capture of commit 2ba27d4 (the build the owner accepted); see README.md, "The bars".
-BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 108.0, 'side_face_px': 30000}
+BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 108.0, 'side_face_px': 30000,
+        't1_rim_px': None, 't1_gas_cards': None}
+# A bar whose value is None is UNSET: the reading is measured and printed, and it gates nothing. The two new
+# readings of r2-3-g2-g2-g1-g2 (step 3) are unset here on purpose - this leg only has to show that they tell a
+# soft bank from a flat pad (README.md, "The old build against the new readings"); step 8 derives their values
+# from three captures of the finished build, by the same rule as every bar above.
+# `t1_gas_cards` runs the other way: a carpet of pads is MORE cards, so its bar is an upper limit.
+BAR_DIR = {'t1_gas_cards': '<='}
+BAR_ORDER = ('t1_changed_frac', 'texture_var_drop', 'o240_hue_dist_deg', 'side_face_px',
+             't1_rim_px', 't1_gas_cards')
 # r2-3-g2-g2-g1, the face bar: the reading changed (the two gates above) AND the capture changed (frame parity,
 # the side band shot first on an empty field), so the bar is re-derived from THIS build's three seeds with
 # r2-3-g2-g2's UNCHANGED rule, `floor(0.8 * min(seeds) / 1000) * 1000`. They read 70304 / 37666 / 114148 face
@@ -499,6 +511,35 @@ def selftest():
     assert abs(box[0] - 34) <= 1, 'the box starts at row %d, hand calculation says 34' % box[0]
     assert abs(box[1] - 540) <= 1, 'the box ends at row %d, hand calculation says 540' % box[1]
 
+    # (d) `rim_px` on two made-up frames, both worked by hand here and neither taken from the code.
+    # The plate is flat luma 0.30 everywhere. The gas frame holds a rectangle at 0.50, 20 px wide, on 5 rows, so
+    # the plate difference INSIDE it is 0.50 - 0.30 = 0.20 on every pixel: the median inside is 0.20 and the
+    # walk's threshold is RIM_FRAC * 0.20 = 0.05.
+    #   SOFT: the gas falls linearly back to the plate over 10 px on each side, so the difference i px outside
+    #   the rectangle is 0.20 * (1 - i/10). The walk ends at the first i where that is under 0.05, i.e. where
+    #   1 - i/10 < 0.25, i.e. i > 7.5 - so i = 8, and both the left and the right boundary pixel read 8. Median
+    #   and 90th percentile are both 8 px.
+    #   HARD: the same rectangle with no ramp. The first pixel outside already differs by 0, which is under
+    #   0.05, so the walk ends at step 1 and the rim is 1 px. That is the flat pad this reading must catch.
+    rows_n, cols_n, x0, x1, ramp = 5, 60, 20, 39, 10
+    soft = np.full((rows_n, cols_n), 0.20, dtype=np.float64)
+    hard = np.full((rows_n, cols_n), 0.20, dtype=np.float64)
+    blob = np.zeros((rows_n, cols_n), dtype=bool)
+    blob[:, x0:x1 + 1] = True
+    soft[:, :x0] = 0.0
+    soft[:, x1 + 1:] = 0.0
+    hard[:, :x0] = 0.0
+    hard[:, x1 + 1:] = 0.0
+    for i in range(1, ramp + 1):
+        soft[:, x0 - i] = 0.20 * (1.0 - i / float(ramp))
+        soft[:, x1 + i] = 0.20 * (1.0 - i / float(ramp))
+    rim_soft, p90_soft = rim_px(blob, soft)
+    rim_hard, p90_hard = rim_px(blob, hard)
+    assert rim_soft == 8.0, 'the soft rim read %.2f px, hand calculation says 8' % rim_soft
+    assert p90_soft == 8.0, 'the soft rim p90 read %.2f px, hand calculation says 8' % p90_soft
+    assert rim_hard == 1.0, 'the hard pad read %.2f px, hand calculation says 1' % rim_hard
+    assert p90_hard == 1.0, 'the hard pad p90 read %.2f px, hand calculation says 1' % p90_hard
+
     print('selftest ok: centre pixel 10.000 m out, one degree up %.5f m high (hand: 0.34311);' % h)
     print('             stripes -> flat grey is a texture drop of %.3f (hand: 1.000);' % drop)
     print('             red/green %.1f deg, red/magenta %.1f deg (hand: 120, 60);' % (rg, rm))
@@ -514,7 +555,9 @@ def selftest():
     print('             the hue gate read bank/grass/fire %.1f / %.1f / %.1f deg and kept %r'
           % (hues[0], hues[1], hues[2], keeps))
     print('             (hand: 67.5 / 230.0 / 23.3, the bank only);')
-    print('             a 2 m x 2 m patch box 10 m out spans rows %d..%d (hand: 34..540)' % (box[0], box[1]))
+    print('             a 2 m x 2 m patch box 10 m out spans rows %d..%d (hand: 34..540);' % (box[0], box[1]))
+    print('             a 10 px ramp reads a rim of %.0f px and a hard pad %.0f px (hand: 8 and 1)'
+          % (rim_soft, rim_hard))
     return 0
 
 
@@ -615,6 +658,38 @@ def block_variance(lum, mask):
     return float(var[centres].mean()) if centres.any() else 0.0
 
 
+def rim_px(blob, delta):
+    """How many pixels the blob's left/right edge takes to fade out: the median walk, and the 90th percentile.
+
+    `texture_var_drop` rewards the very fault it was meant to catch (a flat pad flattens the ground under it), so
+    it cannot tell a soft bank from a hard rectangle. This can. From every boundary pixel of `blob` whose outside
+    neighbour lies left or right, walk outward along the row up to RIM_WALK_PX pixels and count the steps until
+    `delta` falls under RIM_FRAC of the median `delta` inside the blob. A hard pad reads 1-2 px (its edge is as
+    sharp as JPEG allows); a bank that erodes into wisps reads high single figures. Hand-checked both ways in
+    `selftest` (r2-3-g2-g2-g1-g2, step 3).
+    """
+    if not blob.any():
+        return 0.0, 0.0
+    thr = RIM_FRAC * float(np.median(delta[blob]))
+    w = blob.shape[1]
+    walks = []
+    for y, x in zip(*np.nonzero(blob)):
+        for step in (-1, 1):
+            nx = x + step
+            if 0 <= nx < w and blob[y, nx]:
+                continue                                  # not a boundary in this direction
+            k = RIM_WALK_PX                               # never faded: the walk's own ceiling
+            for i in range(1, RIM_WALK_PX + 1):
+                px = x + step * i
+                if not (0 <= px < w) or delta[y, px] < thr:
+                    k = i
+                    break
+            walks.append(k)
+    if not walks:
+        return 0.0, 0.0
+    return float(np.median(walks)), float(np.percentile(walks, 90))
+
+
 def largest_blob(mask, dilate=BLOB_DILATE):
     """Keep only the mask pixels inside the single biggest coherent patch (r2-2's cleanup, on numpy arrays).
 
@@ -694,8 +769,8 @@ def load(d, stem):
         return img, json.load(f)
 
 
-def ground_of(d, stem):
-    """The ground height under this still's gas, from the pass manifest; the sidecar does not carry it."""
+def manifest_row(d, stem):
+    """This still's row in the pass manifest beside it (the gas pass first), or None if no manifest names it."""
     for name in ('manifest.json', 'manifest-plate.json'):
         path = os.path.join(d, name)
         if not os.path.exists(path):
@@ -703,8 +778,26 @@ def ground_of(d, stem):
         with open(path, encoding='utf-8') as f:
             for row in json.load(f).get('stills', []):
                 if row.get('still', '') == stem + '.png':
-                    return float(row.get('ground_y', 0.0))
+                    return row
     return None
+
+
+def ground_of(d, stem):
+    """The ground height under this still's gas, from the pass manifest; the sidecar does not carry it."""
+    row = manifest_row(d, stem)
+    return None if row is None else float(row.get('ground_y', 0.0))
+
+
+def gas_cards_of(d, stem):
+    """The cards the harness drew for this still, from the same manifest row.
+
+    One readable bank is a fraction of the carpet's 1046. Unknown reads as a number no upper bar can pass, so a
+    missing field is a miss and never a free pass.
+    """
+    row = manifest_row(d, stem)
+    if row is None or row.get('gas_cards') is None:
+        return 10 ** 9
+    return int(row['gas_cards'])
 
 
 def measure_t1(d, seed):
@@ -725,9 +818,13 @@ def measure_t1(d, seed):
     drop = float(1.0 - var_g / var_p) if var_p > 1e-12 else 0.0
 
     ground = ground_of(d, stem)
+    rim, rim_p90 = rim_px(blob, delta)
     return ({'t1_changed_frac': round(changed_frac, 4),
-             'texture_var_drop': round(drop, 4)},
-            {'t1_luma_delta': round(luma_delta, 4),
+             'texture_var_drop': round(drop, 4),
+             't1_rim_px': round(rim, 2),
+             't1_gas_cards': gas_cards_of(d, stem)},
+            {'t1_rim_p90_px': round(rim_p90, 2),
+             't1_luma_delta': round(luma_delta, 4),
              't1_blob_px': int(blob.sum()),
              't1_block_var_plate': round(var_p, 6),
              't1_block_var_gas': round(var_g, 6),
@@ -1015,27 +1112,36 @@ def main():
 
     result = dict(bars)
     result['bars'] = BARS
+    result['bar_dir'] = BAR_DIR
     result['owner_bars'] = OWNER_BARS
     result['rows'] = rows
     with open(os.path.join(d, out_name), 'w', encoding='utf-8') as f:
         json.dump(result, f, indent=1, sort_keys=True)
 
     ok = True
-    print('seed  t1_changed_frac  texture_var_drop  o240_hue_dist_deg  side_face_px  side_face_frac  '
-          'side_face_col_px  side_blob_px  side_cut_frac  side_skew  side_height_m  pose_err_m')
+    print('seed  t1_changed_frac  texture_var_drop  o240_hue_dist_deg  side_face_px  t1_rim_px  t1_rim_p90  '
+          't1_gas_cards  side_face_frac  side_face_col_px  side_blob_px  side_cut_frac  side_skew  '
+          'side_height_m  pose_err_m')
     for seed in range(SEEDS):
-        print('  s%d  %15.4f  %16.4f  %17.2f  %12d  %14.4f  %16d  %12d  %13.4f  %9s  %13.3f  %10.4f'
+        print('  s%d  %15.4f  %16.4f  %17.2f  %12d  %9.2f  %10.2f  %12d  %14.4f  %16d  %12d  %13.4f  %9s  '
+              '%13.3f  %10.4f'
               % (seed, bars['t1_changed_frac'][seed], bars['texture_var_drop'][seed],
-                 bars['o240_hue_dist_deg'][seed], bars['side_face_px'][seed], rows['side_face_frac'][seed],
+                 bars['o240_hue_dist_deg'][seed], bars['side_face_px'][seed], bars['t1_rim_px'][seed],
+                 rows['t1_rim_p90_px'][seed], bars['t1_gas_cards'][seed], rows['side_face_frac'][seed],
                  rows['side_face_col_px'][seed], rows['side_blob_px'][seed], rows['side_cut_frac'][seed],
                  rows['side_tick_skew'][seed],
                  rows['gas_side_height_m'][seed], max(rows['pose_error_m'][seed * 3:seed * 3 + 3])))
-    for k in ('t1_changed_frac', 'texture_var_drop', 'o240_hue_dist_deg', 'side_face_px'):
-        got = bars[k]
-        met = len(got) >= SEEDS and min(got) >= BARS[k]
+    for k in BAR_ORDER:
+        got, bar, up = bars[k], BARS[k], BAR_DIR.get(k, '>=')
+        worst = (max(got) if up == '<=' else min(got)) if got else None
+        if bar is None:
+            print('%-18s UNSET (step 8 derives it)   worst %-9s           (the owner asked for %s)'
+                  % (k, round(worst, 4) if worst is not None else 'none', OWNER_BARS.get(k, 'n/a')))
+            continue
+        met = len(got) >= SEEDS and (worst <= bar if up == '<=' else worst >= bar)
         ok = ok and met
-        print('%-18s want >= %-7s worst %-9s %s  (the owner asked for %s)'
-              % (k, BARS[k], round(min(got), 4) if got else 'none', 'OK' if met else 'MISSED',
+        print('%-18s want %s %-7s worst %-9s %s  (the owner asked for %s)'
+              % (k, up, bar, round(worst, 4) if worst is not None else 'none', 'OK' if met else 'MISSED',
                  OWNER_BARS.get(k, 'n/a')))
     print('OK' if ok else 'FAILED')
     return 0 if ok else 1
