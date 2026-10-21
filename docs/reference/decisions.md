@@ -296,6 +296,24 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-20 | **The chlorine bank at zoom 30 at night is grown and brightened: option (b) after all.** The owner reopened the 2026-10-19 row on r2-2's stills: "At zoom 30 at night there is no chlorine bank. gas-t1.jpg and gas-t1-plate.jpg are the same field, and this pass has no evidence folder of its own. Put a bank in the play frame, shot three times." So the look changes after all, the way option (b) named it on 2026-10-19: the bank is grown and brightened, it keeps pooling (`GasBankSquash` 0.55 and the -0.35 anchor are untouched), and the proof is three captures of the changed build against bars frozen from three captures of the build before it. The bank now covers 3.25% of the play frame against 0.13% before, at the same draw calls (131 against 133). Pictures, numbers and the knob-by-knob working: `docs/evidence/ability-fx-captures-r2-2-g1/`. Carried by the lane `lane/show/ability-fx-captures-r2-2-g1`. (owner, 2026-10-20) |
 
 ## Open: waiting on the owner
+- **The chlorine bank cannot clear both `contrast_bar` and `bank_height_m`: which gives? (2026-10-21,
+  ability-fx-captures-r2-2-g1-g2):** the look change doubled the bank's coverage and now clears five of the six
+  frozen bars with room (area 0.230 against 0.121, fill 0.368 against 0.350, contrast 70.7 against 64.59,
+  low_share 0.92 against 0.85, pose 0.000) at 121-127 draw calls against 133. `bank_height_m` reads 1.12-1.37 m
+  against its 1.00 m bar. Measured: 92% of the paint is flat on the ground, p93 is 0.33 m, and then the top 5%
+  jumps past a metre - the bar is a p95, so it turns entirely on the 5.2-5.7% of paint that sits ABOVE the
+  footprint's far rim. That paint is not the bank standing up; it is the gas BEYOND 25 m (the same field-wide bank
+  the `stripe_frac` row names) drawn in the upper corners of the window, which is the bounding BOX of the
+  footprint disc. Scaling the lift by k on the captures: contrast 64.59 wants k >= 1.15 and k = 1.08 already puts
+  height at 1.04, so the two bars pull against each other through the same pixels and no setting of these knobs
+  clears both. Sinking the second band 0.6 m did not reach it. Options: (a) **the default taken** - the look
+  lands as it is, with the height bar red and this row open, so the owner sees the bank at its new size and says
+  whether far-field gas in the top of the box is a fault at all; (b) `bank_height_m` is measured inside the
+  footprint DISC rather than its bounding box, which is a probe change, not a look change, and re-freezes nothing
+  (the before takes read 0.000 either way); (c) the far field is faded by distance so the bank reads near the
+  focus and not at the frame's rim, which is a new mechanism in `DrawGasBank` and a look the owner has not seen;
+  (d) the contrast bar stands and the height bar moves - **not taken**, the bars are frozen by his own word.
+  No sim change in any option.
 - **What is the chlorine bank's footprint, for the probe that measures it? (2026-10-20, ability-fx-captures-r2-2-g1-g2):**
   the owner's word on g1 was "count the paint a player sees, keep it on the ground". The new probe counts paint only
   inside the bank's footprint, a disc round the gas centre sized from the run's `gas_cells`. But `gas_cells` counts
