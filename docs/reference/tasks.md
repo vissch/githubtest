@@ -139,6 +139,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   the bank's footprint as height, and the side band is where thickness is actually measured
   (`docs/evidence/ability-fx-captures-r2-3-g2/probe.py`'s `gas_side_height_m`, bias-corrected by
   `footprint_bias_m`) - 18 stills a pass.
+  From r2-3-g2-g2 on, thickness is measured by `docs/evidence/ability-fx-captures-r2-3-g2-g2/probe.py`'s
+  `side_face_px` - the side-band pixels standing above their own column's `footprint_bias_m`, the bank's upright
+  face - because `gas_side_height_m` held 2.80-2.89 m while the side blob ran 83k to 303k pixels; it is still
+  reported there, but it is not the bar.
   The pipeline's `run_tests` selects
   no [Explicit] test, so run it as its own batch launch: `Unity.exe -batchmode -projectPath <checkout>/trench-warfare-3d
   -runTests -testPlatform EditMode -testFilter GasBankStills -testResults <xml> -logFile <log>`).
