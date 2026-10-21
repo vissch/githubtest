@@ -18,12 +18,15 @@ namespace TW.Presentation.Tactical
     {
         public const float BankMergeZoom = 120f;
         const float GasBankFirst = 17f, GasBankLast = 28f;       // the bank at its full spread (its early frames are a puff)
-        // How clearly the bank reads (film 2026-10-07: at 0.3-0.8 it was fainter than the old wisps at night and gone on snow):
-        // a thin cell's card and a full one's, and its colour by day, deeper than the sheet's so it is green ON snow
-        // GasBankThin raised r2-3: with Erode the shader cuts the drawing at threshold = (1 - cardAlpha) * (0.45 + 0.55 * edge);
-        // the sheet carries mean ink 0.167-0.183 in the frames the bank draws, so at 0.6 the threshold (0.18-0.40) cut the
-        // whole drawing away and the bank rendered as flat olive smears, not a cloud (harsh critic r1, 22/100).
-        public const float GasBankThin = 0.95f, GasBankFull = 1f;
+        // How clearly the bank reads: a thin cell's card and a full one's, and its colour by day, deeper than the
+        // sheet's so it is green ON snow. These two are a plain TRANSLUCENCY knob, nothing else. Read the shader:
+        // Flipbook_URP.shader:123-126 cuts the drawing at threshold = gone * (0.45 + 0.55 * edge) with
+        // gone = 1 - tone.x, and tone.x is the card's FADE (FlipbookFx.Pack puts fade in m01, opacity in m21).
+        // DrawGasBank packs fade = 1f, so gone = 0, the threshold is 0 and nothing is eroded away at any opacity;
+        // the opacity only multiplies alpha. r2-3 held these at 0.95-1.0 to "clear the erode threshold" - that was
+        // the wrong knob, and the result was a blanket of opaque, equal pads (the owner: "a carpet of flat green
+        // pads"). Lowered r2-3-g1: the fringe lets mud, wire and men through, the core still covers.
+        public const float GasBankThin = 0.30f, GasBankFull = 0.80f;
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.75 tops out at 1.75 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.75f;
         public static readonly Color GasBankNight = new Color(0.78f, 0.86f, 0.22f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
@@ -89,7 +92,8 @@ namespace TW.Presentation.Tactical
         }
 
         /// <summary>A 2 x 2 block of standing gas cells, folded into one wider body card (r2-3 step 7: the per-cell
-        /// cards alone left gaps the probe's texture_var_drop read as the bare ground showing through).</summary>
+        /// cards alone left gaps the probe's texture_var_drop read as the bare ground showing through). Drawn only
+        /// where the block is both crowded and thick, so it is one mass in the middle and not a blanket.</summary>
         struct GasBlock { public int Count; public float X, Z, Ground, Thick; public uint Hash; }
         readonly Dictionary<long, GasBlock> gasBlocks = new Dictionary<long, GasBlock>(256);
 
@@ -104,9 +108,12 @@ namespace TW.Presentation.Tactical
             {
                 float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
-                float width = (6f + 3f * b.Thick) * (0.9f + 0.2f * h2) * step;
+                float h1 = (b.Hash & 1023) / 1023f;
+                // not a tiling: the width spread is wide, a thin cell is a smear and a thick one the full pool, and
+                // each card sits at its own height in the 0.25 m band above the ground
+                float width = (6f + 3f * b.Thick) * (0.7f + 0.6f * h2) * step;
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.10f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.10f + 0.25f * h1, b.Z), width, width * GasBankSquash * (0.6f + 0.4f * b.Thick), BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
 
                 long key = ((long)Mathf.FloorToInt(b.X / blockSize) << 32) ^ (uint)Mathf.FloorToInt(b.Z / blockSize);
                 gasBlocks.TryGetValue(key, out var blk);
@@ -116,12 +123,15 @@ namespace TW.Presentation.Tactical
             foreach (var kv in gasBlocks)
             {
                 var blk = kv.Value;
+                // only the cloud's middle gets a body card: a block that is small or thin is the feathered edge, and a
+                // card there is what made the blanket (r2-3 drew one per block, everywhere)
+                if (blk.Count < 3 || blk.Thick < 0.55f) continue;
                 float cx = blk.X / blk.Count, cz = blk.Z / blk.Count, ground = blk.Ground / blk.Count;
                 float h3 = ((blk.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
                 float width = 11f * step;
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((blk.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(cx, ground - 0.10f, cz), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(blk.Thick)));
+                gasCards.Add(FlipbookFx.Pack(new Vector3(cx, ground - 0.10f, cz), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(blk.Thick) * 0.8f));
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }

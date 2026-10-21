@@ -266,14 +266,17 @@ namespace TW.Tests
             Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
         }
         [Test]
-        public void TheGasBankSurvivesTheErodeThreshold()
+        public void TheGasBankIsTranslucent_NotAnOpaquePad()
         {
-            // With Erode, the shader cuts the drawing at threshold = (1 - cardAlpha) * (0.45 + 0.55 * edge), at most
-            // (1 - cardAlpha) * 1.0 at the card's edge. The sheet's lowest measured mean ink in the frames the bank
-            // draws (frames 17-28) is 0.167 (docs/evidence/ability-fx-captures-r2/README.md, measurement 2): the
-            // threshold must stay under that or the drawing's own ink is cut away and the bank renders as nothing
-            // (r1's "flat olive smears", 22/100).
-            Assert.Less((1f - CombatFx.GasBankThin) * 1.0f, 0.167f, "the erode threshold stays under the sheet's thinnest drawn ink");
+            // This test used to guard the erode threshold against GasBankThin, which is the wrong knob:
+            // Flipbook_URP.shader:123-126 erodes at threshold = gone * (0.45 + 0.55 * edge) with gone = 1 - tone.x,
+            // and tone.x is the card's FADE. DrawGasBank packs fade = 1f, so gone = 0 and nothing is ever eroded;
+            // GasBankAlpha only multiplies alpha. So these two numbers are a translucency knob, and the thing worth
+            // guarding is that the bank stays see-through: a cloud mud, wire and men show through, not a flat pad
+            // (the owner: "a carpet of flat green pads").
+            Assert.LessOrEqual(CombatFx.GasBankAlpha(0f), 0.45f, "a thin cell's card is a fringe you can see through");
+            Assert.LessOrEqual(CombatFx.GasBankAlpha(1f), 0.85f, "even the core is not opaque");
+            Assert.Less(CombatFx.GasBankAlpha(0f), CombatFx.GasBankAlpha(1f), "and the core still reads thicker than the fringe");
         }
     }
 }
