@@ -45,6 +45,40 @@ namespace TW.Presentation.Tactical
         public static float ColumnWidth(float r, bool damp, float columnScale, float earth, float lookColumn, bool dayEarth) =>
             r * (damp ? 2.3f : 2.1f) * columnScale * earth * (dayEarth ? DayColumnWidth : 1f) * lookColumn;
 
+        // ability-fx-captures-r3-2-2-g1 (the owner, 2026-10-21: "the splash stills are a blue column, not water... paint a
+        // crown and foam on the water"): the water splash is the centre column PLUS a splayed cone of CrownSpokes narrower
+        // cards that go out and up from it (the crown), PLUS FoamRings flat rings lying on the water and widening after it
+        // (the foam). Same Splash and GroundRing books, so no new sheet and no new draw call per card beyond the ring's one.
+        public const int CrownSpokes = 6;            // spokes of the crown, evenly round the circle (no random draws)
+        public const float CrownWidth = 0.5f;        // x r: a SHORT stub, about a fifth of the centre column (ColumnWidth is 2.3 r wet).
+                                                     // The Splash sheet draws a tall column, so a spoke drawn at the column's own width is
+                                                     // a second column standing beside it: six of those were a fence, and they put the
+                                                     // burst's top edge at the top of the T1 frame instead of widening its base.
+        public const float CrownOut = 2.4f;          // x r, m/s outward: the spokes SPLAY, they do not tower - the g1 probe measures the
+                                                     // changed region's width across its bottom quarter over its full height, and at 1.1
+                                                     // the crown read 0.50-0.96 against a 1.633 bar, narrower at the base than baseline
+        public const float CrownRise = 0.5f;         // x r, m/s up: a fifth of the throw, so the cone is a low fan and not a second column
+        public const int FoamRings = 3;
+        public const float FoamFirst = 5.0f;         // x r: the innermost foam ring
+        public const float FoamLast = 10.0f;         // x r: the outermost. The old flat Splash card was 8.2 r, a ring of filled ink; a
+                                                     // GroundRing is thin ink lying on the water, so it has to reach further to read as
+                                                     // foam spreading - and the base has to be about 1.6x the burst's height for the
+                                                     // probe to call it a crown rather than a column
+        public const float FoamLife = 2.4f;          // s: foam outlives the crown, as it does on water
+
+        /// <summary>Spoke k of the crown's velocity: outward on its own bearing (k of CrownSpokes round the circle) and up.
+        /// Pure, so a test can hold hand sums - CrownThrow(0, 10) is exactly (11, 14, 0).</summary>
+        public static Vector3 CrownThrow(int k, float r)
+        {
+            float a = k * (Mathf.PI * 2f / CrownSpokes);
+            return new Vector3(Mathf.Cos(a) * CrownOut * r, CrownRise * r, Mathf.Sin(a) * CrownOut * r);
+        }
+
+        /// <summary>Foam ring k's width over r: FoamFirst to FoamLast across the FoamRings, so the outermost still covers the
+        /// 400 m^2 of ground the r3-2-2 probe asks for.</summary>
+        public static float FoamWidth(int k, float r) =>
+            r * Mathf.Lerp(FoamFirst, FoamLast, FoamRings <= 1 ? 0f : k / (float)(FoamRings - 1));
+
         /// <summary>The warm light on the young burst cloud's underside (0 with fx.shellFire 0): peach by day, an ember at night,
         /// where the moonlit grade was tuned against a darker cloud.</summary>
         public static Color EmberFor(bool night, float fire)

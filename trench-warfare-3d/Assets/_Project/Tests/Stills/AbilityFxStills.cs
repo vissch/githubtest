@@ -32,12 +32,6 @@ namespace TW.Tests
 
         static bool PlatePass => System.Environment.GetEnvironmentVariable("TW_ABILITYFX_PLATE") == "1";
 
-        static IEnumerator Drain(string path)
-        {
-            for (int f = 0; f < 900 && CaptureRig.Pending() != "0"; f++) yield return null;
-            for (int f = 0; f < 300 && !File.Exists(path); f++) yield return null;
-        }
-
         /// <summary>Open ground for an effect centred on (x, z): no trench, ladder, wire, bunker or blocked cell within
         /// `r` metres, no prop within r, and no ruin or wall the sim holds as cover within r + 6.
         /// Copied verbatim from VfxStills so both harnesses pick the same points in the same order.</summary>
@@ -230,9 +224,15 @@ namespace TW.Tests
 
                 string path = Path.Combine(dir, subject + "_" + tag + (plate ? "_plate" : "") + ".png");
                 CaptureRig.Shot(path, x, z, zoom, 40f, 25f, 1280, 720, pl.aim);
-                yield return Drain(path);
+                // ability-fx-captures-r3-2-2-g1: the drain is NOT a fixed number of frames - a frame with more cards in
+                // it reads back slower - so it is counted and paid for out of the block's tail. Without that, a still
+                // pass drained a few frames longer than its plate pass and every later block was shot 3 or 4 sim ticks
+                // off its plate's, which put the whole moving field into the difference instead of just the effect.
+                int drained = 0;
+                for (int f = 0; f < 900 && CaptureRig.Pending() != "0"; f++) { drained++; yield return null; }
+                for (int f = 0; f < 300 && !File.Exists(path); f++) { drained++; yield return null; }
                 if (File.Exists(path)) written++;
-                for (int f = 0; f < Mathf.Max(0, pl.block - pl.peak); f++) yield return null;   // the block is a fixed length either way
+                for (int f = 0; f < Mathf.Max(0, pl.block - pl.peak - drained); f++) yield return null;   // the block is a fixed length either way, drain included
 
                 if (subject == "drop")
                 {

@@ -908,12 +908,24 @@ namespace TW.Presentation.Tactical
                             books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f * look.Wings * far, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f, cut: dayEarth ? cut : 0f);
                             if (wet)
                             {
-                                // ability-fx-captures-r3-2-2: the crown alone read 0.0239 of a T1 frame against a 0.0709 floor. A shell in
-                                // water also leaves foam spreading flat on the surface, so two flat cards of the same Splash book lie on the
-                                // water and widen after it: at 6.0/8.2 r the splash covers 508 m^2 against the 400 m^2 asked for (3.2/4.4 r
-                                // read 246, 4.8/6.6 r 386). No new book, no new sheet, no new draw call - the barrage frame has none to spare.
-                                books.Add(FlipbookFx.Book.Splash, p + Vector3.up * 0.15f, r * 6.0f * far, 1.8f, FlipbookFx.Kind.Flat, grow: 0.6f, alpha: 0.5f, delay: 0.1f);
-                                books.Add(FlipbookFx.Book.Splash, p + Vector3.up * 0.15f, r * 8.2f * far, 2.4f, FlipbookFx.Kind.Flat, grow: 0.9f, alpha: 0.45f, delay: 0.35f);
+                                // ability-fx-captures-r3-2-2-g1 (the owner, 2026-10-21): r3-2-2's two flat Splash cards made the
+                                // splash big enough but kept it a translucent blue column with white dots. Water does two things a
+                                // column does not, so both are drawn here (numbers and the throw in CombatFx.ShellFire.cs):
+                                //  - the CROWN: CrownSpokes narrow upright Splash cards splaying out and up from the centre column,
+                                //    which stays exactly as it is. The splayed cone is the crown, and it is wide at its base, which
+                                //    is what the g1 probe's crown_spread measures.
+                                //  - the FOAM: FoamRings GroundRing cards lying flat on the water and widening after it. GroundRing
+                                //    is the one book drawn as a ring seen from above, and ApplyTints paints it with the biome's
+                                //    DustTint (0.88/0.91/0.95 on this snow field) - a foam white, which the probe's foam_frac wants.
+                                // The outermost ring is still FoamLast r, so the covered ground stays over the 400 m^2 floor. Both
+                                // books are already drawn in a wet frame bar the ring, so this costs one draw call.
+                                for (int k = 0; k < CrownSpokes; k++)
+                                    books.Add(FlipbookFx.Book.Splash, p, r * CrownWidth * far, 1.2f,
+                                        FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((k & 1) == 1 ? FlipbookFx.Kind.Mirror : 0),
+                                        velocity: CrownThrow(k, r), grow: 0.5f, alpha: 0.8f);
+                                for (int k = 0; k < FoamRings; k++)
+                                    books.Add(FlipbookFx.Book.GroundRing, p + Vector3.up * 0.15f, FoamWidth(k, r) * far, FoamLife,
+                                        FlipbookFx.Kind.Flat, grow: 0.8f, alpha: Mathf.Lerp(0.55f, 0.35f, FoamRings <= 1 ? 0f : k / (float)(FoamRings - 1)), delay: 0.15f * k);
                             }
                         }
                         // a tripwire's charge stands no column and no wings: its ring and its spark fan are its whole shape (CombatFx.Bursts.cs)
