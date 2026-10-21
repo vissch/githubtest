@@ -186,8 +186,10 @@ def main():
          and (w.home / 'parked' / 'relay-harness-rebase-b.json').exists() and w.started == [], (first, again, w.unqueued, w.briefs_written, w.started))
     w.shas = {'lane/show/relay-harness': 'L9'}
     back = autoloop.round_(w)
-    case('a parked unit goes back on the queue by itself once its lane has new commits',
-         any(a['id'] == 'relay-harness-rebase-b' for a in w.added) and any('back on the queue' in l for l in back), back)
+    came = [a for a in w.added if a.get('id') == 'relay-harness-rebase-b']
+    case('a parked unit goes back on the queue by itself once its lane has new commits, and the unit file has no priority (add refuses one; the old priority is relay.py prio)',
+         len(came) == 1 and 'priority' not in came[0] and any('back on the queue' in l for l in back) and not any('could not go back' in l for l in back),
+         (back, came))
     w = world(tmp, 'a2')
     put(w.main, 'queue', 'moving-1', lane='lane/show/moving', priority=40)
 

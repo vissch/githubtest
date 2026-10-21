@@ -402,12 +402,15 @@ def attempts(w, opens, dones, running, idle, extras=None):
                     out.append(f'attempts: {uid} is parked, its brief was refused again: {str(e)[:160]}')
             what = changed_since(w, parked.get('fp') or {}, parked)
             if what:
-                u = {k: v for k, v in parked.items() if k not in ('fp', 'boards', 'old_priority', 'at')}
-                u['priority'] = parked.get('old_priority', 50)
+                # relay add refuses a priority field. The old place is relay.py prio, after the file is queued.
+                old = parked.get('old_priority', 50)
+                u = {k: v for k, v in parked.items() if k not in ('fp', 'boards', 'old_priority', 'at', 'priority')}
                 ok, said = w.add(u)
                 if ok:
+                    code, psaid = w.prio(uid, old)
                     rec.update(parked=None, fails=[], fp={})
-                    out.append(f'attempts: {uid} is back on the queue: {what}' + (f' (its brief {rec["brief"]} stays: his B on it takes it off again)' if rec.get('brief') else ''))
+                    refused = f' (priority {old} was refused: {str(psaid)[:80]})' if code else ''
+                    out.append(f'attempts: {uid} is back on the queue: {what}' + refused + (f' (its brief {rec["brief"]} stays: his B on it takes it off again)' if rec.get('brief') else ''))
                 else:
                     out.append(f'attempts: {uid} could not go back on the queue: {said[:160]}')
             continue
