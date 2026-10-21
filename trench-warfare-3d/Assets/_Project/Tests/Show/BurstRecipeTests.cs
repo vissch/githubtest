@@ -283,5 +283,27 @@ namespace TW.Tests
             Assert.AreEqual(0f, FlipbookFx.BookHard(FlipbookFx.Book.GasBank, 1f, 0f), "the gas bank's edge is never stepped");
             Assert.AreEqual(0f, FlipbookFx.BookHard(FlipbookFx.Book.GasBank, 1f, 1f), "and no other knob reaches it either");
         }
+
+        [Test]
+        public void TheGasBankDrawsThreeRowsPerCell()
+        {
+            Assert.AreEqual(3, CombatFx.GasBankRows);
+            Assert.AreEqual(-1.3333f, CombatFx.GasBankRowOffset(0, 4f), 1e-4f, "the first sub-row sits a third of a cell back");
+            Assert.AreEqual(0f, CombatFx.GasBankRowOffset(1, 4f), 1e-4f, "the middle sub-row is centred on the cell");
+            Assert.AreEqual(1.3333f, CombatFx.GasBankRowOffset(2, 4f), 1e-4f, "the last sub-row sits a third of a cell forward");
+            // the span (first to last) stays under the 4 m cell, so the sub-rows never leave their own cell
+            Assert.Less(CombatFx.GasBankRowOffset(2, 4f) - CombatFx.GasBankRowOffset(0, 4f), 4f, "the bank's footprint does not grow");
+        }
+
+        [Test]
+        public void TheGasBankRowsCoverTheGroundBetweenThem()
+        {
+            // the T1 pose's pitch is 25 deg, so a row step of 4/GasBankRows metres needs step * tan(25) of upright
+            // drawing to hide the row behind it. The narrowest card draws only its sheet's bottom 35% of
+            // 5.4 m wide * GasBankSquash 0.75 = 4.05 m tall: 1.4175 m. Three rows need at most half of that - a 2x margin.
+            float step = 4f / CombatFx.GasBankRows;
+            float needed = step * 0.46631f; // tan(25 deg)
+            Assert.LessOrEqual(needed, 1.4175f * 0.5f, "three sub-rows cover the gap with a 2x margin to spare");
+        }
     }
 }

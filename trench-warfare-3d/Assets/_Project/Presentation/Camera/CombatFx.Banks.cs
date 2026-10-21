@@ -28,6 +28,16 @@ namespace TW.Presentation.Tactical
         public const float GasBankSquash = 0.75f;
         public static readonly Color GasBankNight = new Color(0.78f, 0.86f, 0.22f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
+        /// <summary>Sub-rows drawn per standing cell at step 1 (r2-3-g1-g1: the T1 pose is pitch 25 deg, so a 4 m
+        /// row needs 4*tan(25) = 1.865 m of upright drawing to hide the row behind it; the narrowest card draws only
+        /// its sheet's bottom 35% of 5.4*0.75 m = 1.418 m, short by 1.3x, so a single row per cell leaves a strip of
+        /// bare ground between rows. Three sub-rows step 4/3 = 1.333 m, needing only 0.622 m of cover against the
+        /// same 1.418 m - a 2.28x margin - so the hole strips close.</summary>
+        public const int GasBankRows = 3;
+
+        /// <summary>The Z offset of sub-row <paramref name="row"/> (0..GasBankRows-1) inside its own cell.</summary>
+        public static float GasBankRowOffset(int row, float cellSize) => (row - (GasBankRows - 1) * 0.5f) * (cellSize / GasBankRows);
+
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
         public static float GasBankAlpha(float thick) => Mathf.Lerp(GasBankThin, GasBankFull, Mathf.Clamp01(thick));
 
@@ -125,13 +135,19 @@ namespace TW.Presentation.Tactical
             float massSize = blockSize * 2f;
             gasBlocks.Clear();
             gasMasses.Clear();
+            int rows = step > 1 ? 1 : GasBankRows;
             foreach (var b in gasBank.Cells)
             {
-                float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
-                float slow = now * 0.22f + h3 * 6.2832f;
-                float width = (6f + 3f * b.Thick) * (0.9f + 0.2f * h2) * Mathf.Lerp(1.5f, 1f, b.Neighbors / 4f) * step;
-                var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.10f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                for (int r = 0; r < rows; r++)
+                {
+                    uint sh = b.Hash ^ (uint)(r * 2654435761u);
+                    float h2 = ((sh >> 10) & 1023) / 1023f, h3 = ((sh >> 20) & 1023) / 1023f;
+                    float slow = now * 0.22f + h3 * 6.2832f;
+                    float width = (6f + 3f * b.Thick) * (0.9f + 0.2f * h2) * Mathf.Lerp(1.5f, 1f, b.Neighbors / 4f) * step;
+                    var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((sh >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
+                    float rz = b.Z + GasBankRowOffset(r, MapData.FieldCellSize);
+                    gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.10f, rz), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                }
 
                 long key = ((long)Mathf.FloorToInt(b.X / blockSize) << 32) ^ (uint)Mathf.FloorToInt(b.Z / blockSize);
                 gasBlocks.TryGetValue(key, out var blk);
