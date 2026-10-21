@@ -132,21 +132,22 @@ namespace TW.Presentation.Tactical
             }
 
             float fall = Mathf.Min(DropCanopyFall, warm);
+            float firedSeconds = e.Tick * Host.Local.World.Config.TickSeconds;
             for (int k = 0; k < men; k++)
             {
                 float a = (k + 0.5f) / men * 6.2832f, d = 12f * Mathf.Sqrt(Hash01(at.x + k, at.z, 71 + k));
                 Vector3 g = at + new Vector3(Mathf.Cos(a) * d, 0f, Mathf.Sin(a) * d);
                 float gx = Mathf.Clamp(g.x, 1f, size.x - 1f), gz = Mathf.Clamp(g.z, 1f, size.y - 1f);
                 g.y = RenderGround.Sample(map, gx, gz);
-                // down at PlaneLow / (fall + linger), so the canopy is still a few metres up as the man lands and
-                // settles onto the ground a second later instead of sinking through it
-                float seconds = fall + DropCanopyLinger;
-                books.Add(FlipbookFx.Book.Puff, g + Vector3.up * PlaneLow, 6f * far, seconds, FlipbookFx.Kind.Upright,
-                          velocity: Vector3.down * (PlaneLow / seconds), alpha: 0.8f, delay: Mathf.Max(0f, warm - fall), grow: 0.1f);
+                // a canopy, not a card: a record per man, drawn per frame (CombatFx.Abilities, DrawCanopies), so it is
+                // a dome a player reads at both zooms and the off switch changes one frame's picture. It opens fall
+                // seconds before the landing and comes down from PlaneLow onto the man's ground point.
+                if (canopies.Count >= 48) canopies.RemoveAt(0);
+                canopies.Add(new Canopy { Ground = g, Open = firedSeconds + warm - fall, Land = firedSeconds + warm });
             }
 
             if (flyovers.Count >= 4) flyovers.RemoveAt(0);
-            flyovers.Add(new Flyover { Start = at, Dir = dir, Length = 0f, Fired = e.Tick * Host.Local.World.Config.TickSeconds, Warm = warm });
+            flyovers.Add(new Flyover { Start = at, Dir = dir, Length = 0f, Fired = firedSeconds, Warm = warm });
         }
 
         /// <summary>L11 (fx.recipes): a paratrooper down (DropLanded: pos): the dust he lands in, and the dust the drop

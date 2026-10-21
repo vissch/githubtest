@@ -65,12 +65,16 @@ namespace TW.Presentation.Tactical
         /// come down in both frames and the diff is the drop's drawing alone. Both handlers only add book cards and a
         /// Flyover, so skipping them shifts no shared random stream. Presentation only: the sim never reads it.</summary>
         public static bool DropFx = true;
+        /// <summary>Whether the paratroopers' canopies are drawn (DrawCanopies). They are drawn per frame, so turning
+        /// this off changes one frame's picture: that is what lets the ability-fx probe shoot the same tick with and
+        /// without the canopies and prove the canopy is what it measures. Presentation only: the sim never reads it.</summary>
+        public static bool DropCanopies = true;
         /// <summary>Whether the tracers are drawn. They are still kept and pruned either way, only not drawn. The night
         /// halo of the men's own fire (tracerNightA/B) is a wide green and red glow that an ability-fx plate pass cannot
         /// reproduce tick for tick, so both passes turn it off. Presentation only: the sim never reads it.</summary>
         public static bool ShowTracers = true;
         // an image run turns the overlays off; a Play session after it in the same editor must see them again
-        static CombatFx() => SceneStatics.Register(nameof(CombatFx), () => { ShowOverlays = true; DropFx = true; ShowTracers = true; });
+        static CombatFx() => SceneStatics.Register(nameof(CombatFx), () => { ShowOverlays = true; DropFx = true; DropCanopies = true; ShowTracers = true; });
 
         struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; public float Width, Life, Streak; }   // Hit: written by the strafe run (CombatFx.Abilities); Width: 0 = the usual round; Life: its time on screen (s); Streak: its length x the usual (0 = 1)
         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
@@ -106,6 +110,7 @@ namespace TW.Presentation.Tactical
         readonly Flamethrower flames = new Flamethrower();
         System.Func<int, Vector3> drawnAt; System.Func<float, float, float> groundAt;   // cached: Update must not allocate
         Material dirtMat, woodMat, smokeMat;
+        Material canopyMat;   // the paratroopers' canopies: unlit white, so a night drop still reads (DrawCanopies)
         Material smokeThin, smokeFaint;
         readonly List<Matrix4x4> batch = new List<Matrix4x4>(1023);
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
@@ -286,6 +291,8 @@ namespace TW.Presentation.Tactical
             smokeThin = Transparent(unlit, new Color(0.34f, 0.32f, 0.29f, 0.20f));
             smokeFaint = Transparent(unlit, new Color(0.34f, 0.32f, 0.29f, 0.07f));
             flashMat = new Material(unlit) { enableInstancing = true, color = new Color(1f, 0.91f, 0.65f) };
+            // unlit, not Painted: a toon-lit canopy would go dark at night, and the owner asked for canopies that read at night
+            canopyMat = new Material(unlit) { enableInstancing = true, color = Color.white, hideFlags = HideFlags.HideAndDontSave };
             plume = BuildPlume(); puff = BuildPuff(); flashMesh = BuildFlash();
             markMine = Transparent(unlit, new Color(1f, 0.85f, 0.3f, 0.35f));
             markTheirs = Transparent(unlit, new Color(1f, 0.2f, 0.15f, 0.35f));
@@ -502,7 +509,7 @@ namespace TW.Presentation.Tactical
             flames.Clear();
             SceneHooks.FootFall = null;
             books?.Dispose();
-            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
+            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat, canopyMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             foreach (var mat in markMats) if (mat != null) Destroy(mat);
             foreach (var mat in new[] { fallenMat, brassMat, helmetMat, vapourMat }) if (mat != null) Destroy(mat);

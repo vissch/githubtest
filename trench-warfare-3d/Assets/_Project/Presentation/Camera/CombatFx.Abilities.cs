@@ -25,7 +25,11 @@ namespace TW.Presentation.Tactical
     {
         struct Flyover { public Vector3 Start, Dir; public float Length, Fired, Warm; }        // Fired, Warm: sim seconds
         struct Sweep { public Vector3 Start, Dir; public float Length, HalfWidth, T0, T1, Trail; }     // T0, T1: sim seconds; Trail: metres burned so far
+        // a paratrooper's canopy (OnDropInbound): the ground point he comes down on, and the sim seconds his canopy
+        // opens at and he lands at. Drawn per frame by DrawCanopies, so the picture follows the sim's clock.
+        struct Canopy { public Vector3 Ground; public float Open, Land; }
         readonly List<Flyover> flyovers = new List<Flyover>(4);
+        readonly List<Canopy> canopies = new List<Canopy>(48);   // cap 48 (two drops of 24 men); the oldest is dropped
         readonly List<Sweep> sweeps = new List<Sweep>(4);
         readonly List<Matrix4x4> smokeCards = new List<Matrix4x4>(2048);
         readonly List<Matrix4x4> lanceCards = new List<Matrix4x4>(4);   // the beam's drawn column, packed afresh each frame
@@ -136,6 +140,36 @@ namespace TW.Presentation.Tactical
             }
         }
 
+        /// <summary>The paratroopers' canopies: a white dome per man on its riser, coming down from PlaneLow onto his
+        /// ground point between Open and Land. Unlit and white, so it reads at night; grown by FarGrow, so a bank of
+        /// them is still a white streak at zoom 240. Two instanced draws however many men are in the air.</summary>
+        void DrawCanopies(Bounds bounds)
+        {
+            if (canopies.Count == 0 || !DropFx || !DropCanopies || canopyMat == null) return;
+            float simNow = SimNow, w = 6f * DropGrow();
+            var rp = new RenderParams(canopyMat) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off };
+            batch.Clear();
+            for (int i = canopies.Count - 1; i >= 0; i--)
+            {
+                var c = canopies[i];
+                if (simNow > c.Land + DropCanopyLinger) { canopies.RemoveAt(i); continue; }
+                float t = Mathf.Clamp01((simNow - c.Open) / Mathf.Max(0.01f, c.Land - c.Open));
+                float height = Mathf.Lerp(PlaneLow, 0f, t);
+                batch.Add(Matrix4x4.TRS(c.Ground + Vector3.up * (height + w * 0.3f), Quaternion.identity, new Vector3(w, w * 0.55f, w)));
+            }
+            if (batch.Count == 0) return;
+            Flush(sphere, rp);
+            // the risers: the lines the men hang on, under each dome (the spent ones are already pruned above)
+            for (int i = 0; i < canopies.Count; i++)
+            {
+                var c = canopies[i];
+                float t = Mathf.Clamp01((simNow - c.Open) / Mathf.Max(0.01f, c.Land - c.Open));
+                float height = Mathf.Lerp(PlaneLow, 0f, t);
+                batch.Add(Matrix4x4.TRS(c.Ground + Vector3.up * (height - 1.1f + w * 0.3f), Quaternion.identity, new Vector3(0.12f * w / 6f, 2.2f, 0.12f * w / 6f)));
+            }
+            if (batch.Count > 0) Flush(cube, rp);
+        }
+
         void DrawSweeps(float now, Bounds bounds)
         {
             if (sweeps.Count == 0) return;
@@ -224,6 +258,7 @@ namespace TW.Presentation.Tactical
         void TickAbilities(float now, Bounds bounds)
         {
             DrawFlyovers(now, bounds);
+            DrawCanopies(bounds);
             DrawSweeps(now, bounds);
         }
 
