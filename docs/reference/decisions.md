@@ -397,6 +397,19 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   ref; (3) land directly from this checkout without pushing first (if `land.py` allows it). Default taken: none
   acted on; the rebase stays local on this checkout pending the owner's push.
 
+- **The gas bank's overview hue after the soft-side rebuild (2026-10-21, `lane/show/ability-fx-captures-r2-3-g2-g1`):**
+  the side look the owner asked for is built and shot (one 12 m body card per 2x2 block plus a fainter crest,
+  opacity 0.55/0.75 instead of 0.95-1.0) and every side bar is met: `side_blob_frac` <= 0.25, `side_edge_soft_px`
+  >= 21, `gas_side_height_m` >= 1.6. The thinner opacity costs hue at the OVERVIEW: on seed 2 the bank now stands
+  37.15 deg from the grass it covers, against the 69.8 deg bar g2's own captures set, so
+  `docs/evidence/ability-fx-captures-r2-3-g2-g1/probe.py` exits 1. Options: (a) raise `GasBankThin` /
+  `GasBankFull` by 0.10 and reshoot both passes, accepting a slightly denser side face; (b) re-set the hue bar -
+  the g2 rule on this build's spread gives 32.1, which the build the critic threw out already passed (32.14), and
+  even the owner-derived floor of 38.0 is still missed by 0.85 deg; (c) accept the overview hue as it is and drop
+  the bar's claim. Default taken: nothing re-set and nothing reshot, the probe left red and the three captures
+  committed as they are, because a bar is never widened to make a run green and the drawing's ink is out of this
+  lane's scope.
+
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
 summarised in the docs named; the files themselves are not readable from another machine or lane.

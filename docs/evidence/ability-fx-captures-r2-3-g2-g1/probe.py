@@ -31,6 +31,12 @@ The camera maths (`ray`, `ground_distance`, `height_at`, `selftest`) and the mas
 r2-2's and unchanged: they were sound, and the selftest is a hand calculation worked outside the code it checks.
 `gas_t1_height_m` is carried over as a REPORTED row, not a bar: it is the "visible height" claim in metres.
 
+r2-3-g2-g1 ADDS two side readings, because a height alone cannot tell a bank from a carpet. g2's side shots were a
+carpet of flat cards: `gas_side_height_m` read 2.80-2.89 m off pads spread over 0.09-0.33 of the FRAME, with hard
+card edges. `side_blob_frac` is a CEILING (one bank has a limited footprint) and `side_edge_soft_px` a floor (a
+hard card edge turns over in one or two rows; a soft bank takes several). Both come off the same plate-subtracted
+`largest_blob` the height does, so one blob answers all three.
+
 HOW
   the masks     T1: a pixel whose Rec.709 luma (0-1) moved from the no-gas PLATE of the same pose and the same sim
                 tick by LUMA_BAR or more. The plate IS the control: whatever changed between it and the shot with
@@ -48,6 +54,9 @@ HOW
                 t1_changed_frac      share of the T1 frame whose luma moved from the plate by >= LUMA_BAR  (bar)
                 texture_var_drop     1 - var_gas / var_plate over the 8x8 blocks centred inside the bank  (bar)
                 o240_hue_dist_deg    degrees between the bank's mean hue and the grass it covers          (bar)
+                gas_side_height_m    the side band's bias-corrected silhouette top, in metres              (bar)
+                side_edge_soft_px    rows a blob column takes to climb 20%->80% of its interior, median  (floor)
+                side_blob_frac       the side blob's share of the frame                                (CEILING)
                 t1_luma_delta        mean absolute luma change over the changed pixels                 (row)
                 gas_t1_height_m      median column height of the bank, in metres                       (row)
                 pose_error_m         the worst pose error of the seed's four sidecars                   (row)
@@ -80,6 +89,7 @@ BLOB_DILATE = 1             # largest_blob's bridge width; 2 chained the bank in
 BLOCK = 8                   # the texture window: one luma variance per 8x8 block
 MIN_COLUMN_PX = 8           # fewer masked pixels in a column is stray haze or JPEG noise
 HEIGHT_PCTL = 0.45          # a column's top, as a percentile of its masked pixels (r2-2's finding)
+EDGE_LOOK = 48              # rows above a column's blob top that `edge_softness_px` scans for the fade
 
 # The owner's bars, raised to clear the baseline spread of the UNCHANGED build (see README.md, "The bars"):
 # chosen = max(owner's bar, baseline_max + margin), margins 0.03 / 0.10 / 5 deg. A bar is never lowered below
@@ -101,7 +111,13 @@ SIDE_FOOT_DEPTH_M = 10.0
 # governs and the bar is rounded DOWN from the arithmetic so rounding never moves it inside the spread. Never
 # lowered below the owner's bar (`o240_hue_dist_deg` only; `gas_side_height_m` has none), never widened to make a
 # run green. Set from the capture of commit 2ba27d4 (the build the owner accepted); see README.md, "The bars".
-BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 69.8, 'gas_side_height_m': 2.2}
+BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 69.8, 'gas_side_height_m': 1.6,
+        'side_edge_soft_px': 21.0}
+# CEILINGS are the other direction: a reading that must stay AT OR BELOW its bar. One bank has a limited
+# footprint, so `side_blob_frac` is capped; set max(seeds) + margin, rounded UP, the same way round as a floor.
+CEILINGS = {'side_blob_frac': 0.25}
+CEIL_MARGIN = {'side_blob_frac': 0.03}
+SOFT_MARGIN = 1.0           # rows: `side_edge_soft_px`'s floor margin
 
 
 def stems():
@@ -216,10 +232,31 @@ def selftest():
     bias = footprint_bias_m((0.0, 10.0, 0.0), 45.0, 0.0, 0.0, 10.0)
     assert abs(bias - 3.3333) < 1e-3, 'footprint bias came back %.4f m, hand calculation says 3.3333' % bias
 
+    # a 100x100 frame with one 40-wide, 20-tall blob: 40*20 = 800 masked pixels of 100*100 = 10000, so
+    # side_blob_frac = 800 / 10000 = 0.0800 exactly.
+    frame_blob = np.zeros((100, 100), dtype=bool)
+    frame_blob[30:50, 20:60] = True
+    frac = float(frame_blob.mean())
+    assert abs(frac - 0.08) < 1e-12, 'a 40x20 blob in a 100x100 frame is %.6f of it, hand: 0.080000' % frac
+
+    # one column, 20 masked rows: rows 0-9 ramp linearly 0.05, 0.10 ... 0.50, rows 10-19 hold 0.50. The interior
+    # is the median of the lower half (rows 10-19) = 0.50. 20% of it is 0.10, first reached at row 1; 80% is
+    # 0.40, first reached at row 7. The span is 7 - 1 = 6 rows: the 20%-to-80% part of a 10-row ramp.
+    ramp_delta = np.zeros((40, 8), dtype=np.float64)
+    ramp_blob = np.zeros((40, 8), dtype=bool)
+    for r in range(10):
+        ramp_delta[r, 3] = 0.05 * (r + 1)
+    ramp_delta[10:20, 3] = 0.50
+    ramp_blob[0:20, 3] = True
+    soft = edge_softness_px(ramp_delta, ramp_blob)
+    assert abs(soft - 6.0) < 1e-9, 'a 10-row ramp came back %.2f rows, hand calculation says 6' % soft
+
     print('selftest ok: centre pixel 10.000 m out, one degree up %.5f m high (hand: 0.34311);' % h)
     print('             stripes -> flat grey is a texture drop of %.3f (hand: 1.000);' % drop)
     print('             red/green %.1f deg, red/magenta %.1f deg (hand: 120, 60);' % (rg, rm))
-    print('             10 m of footprint at the 10 m plane: %.3f m (hand: 3.333)' % bias)
+    print('             10 m of footprint at the 10 m plane: %.3f m (hand: 3.333);' % bias)
+    print('             a 40x20 blob is %.4f of a 100x100 frame (hand: 0.0800), and a 10-row ramp turns over in'
+          ' %.2f rows (hand: 6)' % (frac, soft))
     return 0
 
 
@@ -478,6 +515,39 @@ def measure_o240(d, seed):
              'pose_error_m': round(float(side.get('pose_error_m', 99.0)), 4)})
 
 
+def edge_softness_px(delta, blob, look=EDGE_LOOK, min_px=MIN_COLUMN_PX):
+    """Per blob column, over how many ROWS the plate difference climbs from 20% to 80% of the column's interior.
+
+    A hard card edge turns the difference over in one or two rows: outside the quad there is nothing, inside it
+    the card is already at full opacity. A soft bank fades in over several rows. The fade itself sits BELOW
+    LUMA_BAR, so it is outside the blob: the scan window is `look` rows above the column's top-most masked row
+    down to its bottom-most, and the difference is read raw, not masked. The interior is the median difference
+    over the lower half of the column's masked rows (the bank's body, under any top fade). The span is the first
+    window row reaching 80% of that interior minus the first reaching 20%; the reading is the median over
+    columns with at least `min_px` masked pixels (0.0 when no column qualifies).
+    """
+    ys, xs = np.nonzero(blob)
+    spans = []
+    for px in np.unique(xs):
+        rows_ = np.sort(ys[xs == px])
+        if rows_.size < min_px:
+            continue
+        body = delta[rows_, px]
+        interior = float(np.median(body[body.size // 2:]))
+        if interior <= 1e-9:
+            continue
+        col = delta[max(0, int(rows_[0]) - look):int(rows_[-1]) + 1, px]
+        lo = np.flatnonzero(col >= 0.2 * interior)
+        hi = np.flatnonzero(col >= 0.8 * interior)
+        if lo.size == 0 or hi.size == 0:
+            continue
+        spans.append(float(hi[0] - lo[0]))
+    if not spans:
+        return 0.0
+    spans.sort()
+    return round(spans[len(spans) // 2], 2)
+
+
 def measure_side(d, seed):
     """One seed's side (grazing) frame: the bank's silhouette top, bias-corrected for ground sloping away."""
     stem = 'gas-side-s%d' % seed
@@ -513,7 +583,9 @@ def measure_side(d, seed):
     side_top_m = tops[len(tops) // 2] if tops else 0.0
     bias_m = sorted(biases)[len(biases) // 2] if biases else 0.0
 
-    return ({'gas_side_height_m': round(max(0.0, side_top_m - bias_m), 3)},
+    return ({'gas_side_height_m': round(max(0.0, side_top_m - bias_m), 3),
+             'side_blob_frac': round(float(blob.mean()), 4),
+             'side_edge_soft_px': edge_softness_px(delta, blob)},
             {'side_top_m': round(side_top_m, 3),
              'side_bias_m': round(bias_m, 3),
              'side_blob_px': int(blob.sum()),
@@ -575,7 +647,7 @@ def main():
         print('side band pose is wrong, so its bar means nothing: ' + bad)
         return 1
 
-    bars, rows = {k: [] for k in BARS}, {}
+    bars, rows = {k: [] for k in list(BARS) + list(CEILINGS)}, {}
     for seed in range(SEEDS):
         b1, r1 = measure_t1(d, seed)
         b2, r2 = measure_o240(d, seed)
@@ -587,6 +659,7 @@ def main():
 
     result = dict(bars)
     result['bars'] = BARS
+    result['ceilings'] = CEILINGS
     result['owner_bars'] = OWNER_BARS
     result['rows'] = rows
     with open(os.path.join(d, out_name), 'w', encoding='utf-8') as f:
@@ -594,19 +667,28 @@ def main():
 
     ok = True
     print('seed  t1_changed_frac  t1_luma_delta  texture_var_drop  o240_hue_dist_deg  height_m  '
-          'side_top_m  bias_m  gas_side_height_m  pose_err_m')
+          'side_top_m  bias_m  gas_side_height_m  side_blob_frac  side_soft_px  pose_err_m')
     for seed in range(SEEDS):
-        print('  s%d  %15.4f  %13.4f  %16.4f  %17.2f  %8.3f  %10.3f  %6.3f  %17.3f  %10.4f'
+        print('  s%d  %15.4f  %13.4f  %16.4f  %17.2f  %8.3f  %10.3f  %6.3f  %17.3f  %14.4f  %12.2f  %10.4f'
               % (seed, bars['t1_changed_frac'][seed], rows['t1_luma_delta'][seed],
                  bars['texture_var_drop'][seed], bars['o240_hue_dist_deg'][seed],
                  rows['gas_t1_height_m'][seed], rows['side_top_m'][seed], rows['side_bias_m'][seed],
-                 bars['gas_side_height_m'][seed], max(rows['pose_error_m'][seed * 3:seed * 3 + 3])))
-    for k in ('t1_changed_frac', 'texture_var_drop', 'o240_hue_dist_deg', 'gas_side_height_m'):
+                 bars['gas_side_height_m'][seed], bars['side_blob_frac'][seed],
+                 bars['side_edge_soft_px'][seed], max(rows['pose_error_m'][seed * 3:seed * 3 + 3])))
+    for k in ('t1_changed_frac', 'texture_var_drop', 'o240_hue_dist_deg', 'gas_side_height_m',
+              'side_edge_soft_px'):
         got = bars[k]
         met = len(got) >= SEEDS and min(got) >= BARS[k]
         ok = ok and met
         print('%-18s want >= %-7s worst %-9s %s  (the owner asked for %s)'
               % (k, BARS[k], round(min(got), 4) if got else 'none', 'OK' if met else 'MISSED',
+                 OWNER_BARS.get(k, 'n/a')))
+    for k in sorted(CEILINGS):
+        got = bars[k]
+        met = len(got) >= SEEDS and max(got) <= CEILINGS[k]
+        ok = ok and met
+        print('%-18s want <= %-7s worst %-9s %s  (the owner asked for %s)'
+              % (k, CEILINGS[k], round(max(got), 4) if got else 'none', 'OK' if met else 'MISSED',
                  OWNER_BARS.get(k, 'n/a')))
     print('OK' if ok else 'FAILED')
     return 0 if ok else 1

@@ -1,9 +1,13 @@
 {
  "bars": {
-  "gas_side_height_m": 2.2,
+  "gas_side_height_m": 1.6,
   "o240_hue_dist_deg": 69.8,
+  "side_edge_soft_px": 21.0,
   "t1_changed_frac": 0.08,
   "texture_var_drop": 0.4
+ },
+ "ceilings": {
+  "side_blob_frac": 0.25
  },
  "gas_side_height_m": [
   2.154,
@@ -108,6 +112,16 @@
    0.0932
   ]
  },
+ "side_blob_frac": [
+  0.1284,
+  0.0477,
+  0.2187
+ ],
+ "side_edge_soft_px": [
+  28.0,
+  46.0,
+  22.0
+ ],
  "t1_changed_frac": [
   0.0958,
   0.1088,

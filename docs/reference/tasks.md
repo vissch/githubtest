@@ -151,6 +151,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   met by all three: how much of the T1 frame the bank moved, how far the ground texture under it flattened against
   the plate, and how far its hue stands from the grass it covers at O240 (`--dir baseline` measures the
   before-pictures; needs numpy and PIL);
+  `docs/evidence/ability-fx-captures-r2-3-g2-g1/probe.py` is the CURRENT gas evidence: g2's three bands plus two
+  side readings that tell one bank from a carpet of cards - `side_blob_frac` (a CEILING: the side blob's share of
+  the frame) and `side_edge_soft_px` (a floor: the rows a blob column takes to climb 20%->80% of its interior, so
+  a hard card edge fails it). Its README lists the bars and the one bar this build misses;
   `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
