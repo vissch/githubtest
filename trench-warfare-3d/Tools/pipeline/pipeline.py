@@ -6,7 +6,7 @@ each stage declares its inputs (repo paths, or path#/json/pointer for one field)
 the stages it comes after, the station that runs it and the zoom bands its evidence must cover. Nothing here stores
 a status: every state is derived from the repo and the board's results.
 
-  consumed_hash  declared inputs + feedback request ids + generator version   -> a change means REGENERATE
+  consumed_hash  declared inputs + lane + feedback ids + generator version  -> a change means REGENERATE
   upstream_rev   ids of the upstream stages' valid results                    -> a change means RECHECK
   DONE           a PASS result whose consumed_hash and upstream_rev both match now
 
@@ -220,8 +220,11 @@ def resolve_ref(lane):
 
 
 def consumed_hash(item, stage, board):
-    ref = resolve_ref(stage.get("lane") or item["lane"])
-    parts = [GENERATOR, canon({k: v for k, v in stage.items() if k not in ("notes",)}), "ref-found=%s" % bool(ref)]
+    """Hash only what the stage reads. Bands, station, outputs, role, notes and after say how it is run, or which
+    upstream results to recheck; putting them in the job id throws away a PASS when a finished stage gains a band."""
+    lane = stage.get("lane") or item["lane"]
+    ref = resolve_ref(lane)
+    parts = [GENERATOR, "lane=%s" % lane, "inputs=%s" % canon(stage.get("inputs", [])), "ref-found=%s" % bool(ref)]
     for inp in stage.get("inputs", []):
         path, _, pointer = inp.partition("#")
         parts.append(inp + "=" + ((field_value(ref, path, pointer) if pointer else blob_ids(ref, path)) if ref else ""))

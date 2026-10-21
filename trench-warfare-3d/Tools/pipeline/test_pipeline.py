@@ -192,6 +192,25 @@ class PipelineTest(unittest.TestCase):
             attempt=2, verdict="FAIL")))
         self.assertEqual(self.states()["balance"], "READY")
 
+    def test_a_band_on_a_done_stage_stays_done_inputs_or_lane_still_go_stale(self):
+        """Bands, station, outputs and role are how a stage is run, not what it reads."""
+        self.all_done()
+        item = json.loads((self.board / "items" / "crate.json").read_text())
+        sim = item["stages"][1]
+        sim["bands"] = ["t1", "t2", "t3"]
+        sim["station"] = "laptop"
+        sim["outputs"] = ["captures/", "notes/sim.md"]
+        sim["role"] = "critic"
+        (self.board / "items" / "crate.json").write_text(json.dumps(item))
+        self.assertEqual(self.states()["sim"], "DONE")
+        kept = json.loads(json.dumps(item))
+        sim["inputs"] = list(sim["inputs"]) + ["other.txt"]
+        (self.board / "items" / "crate.json").write_text(json.dumps(item))
+        self.assertEqual(self.states()["sim"], "STALE")
+        kept["stages"][1]["lane"] = "lane/show/pipe-crate-other"
+        (self.board / "items" / "crate.json").write_text(json.dumps(kept))
+        self.assertEqual(self.states()["sim"], "STALE")
+
     def test_feedback_regenerates_and_closing_does_not(self):
         self.all_done()
         os.environ["TW_STATION"] = "laptop"
