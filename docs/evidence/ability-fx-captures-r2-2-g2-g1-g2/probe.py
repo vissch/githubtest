@@ -6,11 +6,20 @@ low alpha, broken top/bright/roll"). g2's probe passed the ZEBRA: "at zoom 30 at
 flat yellow-green cards, not a chlorine bank" (the owner, on run1/run2/run3's gas-t1.jpg, all frame 804). Every bar
 g2 set — the bank lies low, it is not tall, it covers area at O240, the pose is right — is true of a zebra too, so
 none of them could see the complaint. This probe keeps g2's camera maths, mask, bars and three-run spread rule and
-adds the two numbers that DO see it: `bank_patch_share` (how much of the frame's plate difference sits in ONE
-patch) and `bank_patch_count` (how many patches of 200 px or more there are at all). One bank a player can point
-at is most of the paint in one patch and few patches; a zebra of separate cards is the opposite. The zebra reads
-`bank_patch_share` 0.186 (11802/63356, from g2's probe.json at 843a03570c) — `--against` re-measures g2's own runs
-with this probe and must exit 1, because a bar the zebra also clears proves nothing.
+adds the numbers that DO see it, all three counted on the PAINT (see `paint_stats`): `paint_frac` (how much of the
+frame the gas paints), `bank_paint_share` (how much of that paint sits in ONE patch) and `bank_patch_count` (how
+many paint patches of 200 px or more there are at all). One bank a player can point at is most of the paint in one
+patch and few patches; a zebra of separate cards is the opposite. g1 divided by the raw plate difference instead
+(`bank_patch_share`, 4,324 px of 46,702) and so measured mostly infantry motion and JPEG noise; that key is gone.
+Re-measured by this probe the zebra reads `bank_paint_share` 0.0782 and `bank_patch_count` 40 against this build's
+0.1622-0.1936 and 7-13 — `--against` re-measures g2's own runs and must exit 1, because a bar the zebra also
+clears proves nothing.
+
+THE FRAME. g1's three runs were all t1 `sim_tick` 557 and two of its stills were the same file, so its 0.0001
+spread was JPEG jitter and every bar looked safe. Here the three runs stand 40 ticks apart (557 / 597 / 637, the
+`gasOffsetFrames` knob in GasBankStills) and `one_frame_fault` refuses the evidence — 'three captures, one frame',
+exit 1, before a bar is read — if two runs share a t1 tick or any two stills are byte-identical. The price is an
+honest spread: the bank rises as it ages, so `bank_low_share` runs 0.4371-0.2584 and its bar had to drop to 0.07.
 
 THE MASK. r2-2's mask was any pixel that changed from the plate by >= 12-20 RGB, full stop — "any plate-difference
 blob counts" (the owner's own words for why that is wrong: the six moving infantry and JPEG block noise are also
@@ -49,9 +58,11 @@ USAGE
 
 Exit 0 only when three runs are loaded and every bar clears its run values by at least their spread.
 Exit 1 with 'three runs needed' if fewer than three run*/ directories hold a full set of stills.
-Exit 1 with 'bar inside the noise' if a bar does not clear by the spread.
+Exit 1 with 'three captures, one frame' if two runs stand on one frame, or two stills are the same file.
+Exit 1 with FAILED if a bar does not clear the run values by at least their spread.
 """
 import glob
+import hashlib
 import json
 import math
 import os
@@ -72,9 +83,10 @@ HUE_LO, HUE_HI, SAT_BAR, VAL_BAR = 45, 95, 50, 30      # the old hue window, kep
 STILLS = ['gas-t1', 'gas-t1-plate', 'gas-o240', 'gas-o240-plate']
 CARDS = ['cards-gas', 'cards-smoke', 'cards-puff', 'cards-plate']
 BARS = {'bank_low_share': 'ge', 'bank_height_frac': 'le', 'o240_area_frac': 'ge', 'pose_error_max': 'lt'}
-PATCH_MIN_PX = 200            # a plate-difference patch this big or bigger counts as its own patch (a card)
-BARS['bank_patch_share'] = 'ge'     # one bank: most of the frame's plate difference sits in ONE patch
-BARS['bank_patch_count'] = 'le'     # one bank: few patches at all (the zebra is many separate cards)
+PATCH_MIN_PX = 200            # a paint patch this big or bigger counts as its own patch (a card)
+BARS['paint_frac'] = 'ge'           # the paint in the frame: how much of 1280x720 the bank actually covers
+BARS['bank_paint_share'] = 'ge'     # one bank: most of the frame's PAINT sits in ONE patch
+BARS['bank_patch_count'] = 'le'     # one bank: few paint patches at all (the zebra is many separate cards)
 
 
 def luma(r, g, b):
@@ -234,6 +246,31 @@ def bank_mask(img, plate, bar=DIFF_BAR, blob=False):
             sum(1 for d in patch if d), n_patches)
 
 
+def paint_stats(img, plate, bar=T1_DIFF_BAR):
+    """The PAINT: every pixel of the whole frame that differs from the plate AND is brighter than it.
+
+    g1 barred `bank_patch_share`, the biggest patch's share of the UNLIFTED plate difference, and that is the
+    fault this probe fixes: at `gas_hue_window_px` 1 the barred patch was 4,324 px of about 46,700 plate-difference
+    pixels, so 90% of what the bar divided by was infantry motion and JPEG block noise, not gas. Here the
+    denominator is the paint itself (difference AND brighter: the bank lifts luma, noise changes it both ways),
+    taken over the WHOLE frame with no patch restriction, so `paint_frac` is literally how much of the frame the
+    gas paints. The patches are counted on the paint mask too, not on the plate difference.
+    """
+    diff = changed(img, plate, bar)
+    lift = brighter(img, plate)
+    paint = [d and l for d, l in zip(diff, lift)]
+    w, h = img.size
+    sizes = [sum(1 for j in m if paint[j]) for m in blobs(paint, w, h)]
+    paint_px = sum(1 for p in paint if p)
+    biggest = max(sizes) if sizes else 0
+    return {
+        'paint_px': paint_px,
+        'paint_frac': round(paint_px / float(w * h), 4),
+        'bank_paint_share': round(biggest / float(max(paint_px, 1)), 4),
+        'bank_patch_count': sum(1 for s in sizes if s >= PATCH_MIN_PX),
+    }
+
+
 def hue_window_count(img, plate):
     """How many of the plate-difference pixels also fall in the old hue window (unbarred: see module docstring)."""
     diff = changed(img, plate)
@@ -294,7 +331,8 @@ def measure_t1(run_dir):
     img, side = load(run_dir, 'gas-t1')
     plate, _ = load(run_dir, 'gas-t1-plate')
     w, h = img.size
-    mask, raw_count, patch_count, n_patches = bank_mask(img, plate, bar=T1_DIFF_BAR, blob=True)
+    mask, raw_count, patch_count, _ = bank_mask(img, plate, bar=T1_DIFF_BAR, blob=True)
+    paint = paint_stats(img, plate)
     cam = (side['cam_x'], side['cam_y'], side['cam_z'])
     pitch, yaw = side['cam_pitch'], side['cam_yaw']
     ground = ground_of(run_dir, 'gas-t1')
@@ -341,17 +379,17 @@ def measure_t1(run_dir):
 
     mask_px = sum(1 for on in mask if on)
     if not heights or total == 0:
-        return {'bank_low_share': 0.0, 'bank_height_frac': 1.0, 'bank_rise_m': 0.0,
-                'bank_area_frac': round(mask_px / float(w * h), 4),
-                'mask_px': mask_px, 'mask_px_raw': raw_count, 'mask_px_patch': patch_count,
-                'bank_patch_share': round(patch_count / float(max(raw_count, 1)), 4),
-                'bank_patch_count': n_patches,
-                'gas_hue_window_px': hue_window_count(img, plate)}
+        out = {'bank_low_share': 0.0, 'bank_height_frac': 1.0, 'bank_rise_m': 0.0,
+               'bank_area_frac': round(mask_px / float(w * h), 4),
+               'mask_px': mask_px, 'mask_px_raw': raw_count, 'mask_px_patch': patch_count,
+               'gas_hue_window_px': hue_window_count(img, plate)}
+        out.update(paint)
+        return out
     med_h = heights[len(heights) // 2]
     dvals = sorted(dists.values())
     med_d = dvals[len(dvals) // 2]
     frame_h = 2.0 * med_d * math.tan(math.radians(FOV_V_DEG * 0.5))
-    return {
+    row = {
         'bank_low_share': round(low / float(total), 4),
         'bank_height_frac': round(med_h / frame_h, 4),
         'bank_rise_m': round(med_h, 3),
@@ -359,11 +397,11 @@ def measure_t1(run_dir):
         'mask_px': mask_px,
         'mask_px_raw': raw_count,
         'mask_px_patch': patch_count,
-        # the zebra test: one bank is most of the paint in one patch (share) and few patches at all (count)
-        'bank_patch_share': round(patch_count / float(max(raw_count, 1)), 4),
-        'bank_patch_count': n_patches,
         'gas_hue_window_px': hue_window_count(img, plate),
     }
+    # the zebra test, on the paint: how much of it sits in ONE patch, and how many patches there are at all
+    row.update(paint)
+    return row
 
 
 def measure_o240(run_dir):
@@ -457,6 +495,49 @@ def look_report():
     return rows
 
 
+def frames_of(run_dir):
+    """Every still's `sim_tick` in this run, from manifest.json and manifest-plate.json."""
+    ticks = {}
+    for name in ('manifest.json', 'manifest-plate.json'):
+        path = os.path.join(run_dir, name)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding='utf-8') as f:
+            for row in json.load(f).get('stills', []):
+                stem = os.path.splitext(row.get('still', ''))[0]
+                if stem:
+                    ticks[stem] = row.get('sim_tick')
+    return ticks
+
+
+def one_frame_fault(runs, ticks):
+    """'three captures, one frame' if two runs stand on the same t1 tick, or two stills are byte-identical.
+
+    g1 shot its three runs on ONE frame (all t1 `sim_tick` 557) and `run2/gas-o240.jpg` and `run3/gas-o240.jpg`
+    were literally the same file, so its 0.0001 spread measured JPEG jitter, not the capture. A spread that small
+    makes any bar look safe. This refuses the evidence before a single bar is read.
+    """
+    seen = {}
+    for d in runs:
+        t = ticks[os.path.basename(d)].get('gas-t1')
+        if t in seen:
+            print('three captures, one frame: %s and %s are both t1 sim_tick %s'
+                  % (seen[t], os.path.basename(d), t))
+            return True
+        seen[t] = os.path.basename(d)
+    digests = {}
+    for d in runs:
+        for stem in STILLS:
+            with open(os.path.join(d, stem + '.jpg'), 'rb') as f:
+                h = hashlib.sha1(f.read()).hexdigest()
+            where = '%s/%s.jpg' % (os.path.basename(d), stem)
+            if h in digests:
+                print('three captures, one frame: %s and %s are the same file' % (digests[h], where))
+                return True
+            digests[h] = where
+    return False
+
+
 def find_runs(root=None):
     runs = []
     for d in sorted(glob.glob(os.path.join(root or HERE, 'run*'))):
@@ -506,9 +587,10 @@ def main():
         print('--against %s, measured with THIS probe (never a pass: the old build must fail the new bars)' % other)
         for d in other_runs:
             out = measure_run(d)
-            print('  %-6s bank_patch_share %.4f  bank_patch_count %d  (patch %d of raw %d)  bank_low_share %.4f'
-                  % (os.path.basename(d), out['bank_patch_share'], out['bank_patch_count'],
-                     out['mask_px_patch'], out['mask_px_raw'], out['bank_low_share']))
+            print('  %-6s paint_frac %.4f  bank_paint_share %.4f  bank_patch_count %d  (paint %d px)'
+                  '  bank_low_share %.4f  t1 sim_tick %s'
+                  % (os.path.basename(d), out['paint_frac'], out['bank_paint_share'], out['bank_patch_count'],
+                     out['paint_px'], out['bank_low_share'], frames_of(d).get('gas-t1')))
         return 1
 
     runs = find_runs()
@@ -517,20 +599,27 @@ def main():
         print('three runs needed: found %d (%s)' % (len(runs), ', '.join(os.path.basename(r) for r in runs)))
         return 1
 
+    ticks = {os.path.basename(d): frames_of(d) for d in runs}
+    for name in sorted(ticks):
+        print('%s: sim_tick %s' % (name, ', '.join('%s %s' % (k, ticks[name][k]) for k in sorted(ticks[name]))))
+    if not calibrate and one_frame_fault(runs, ticks):
+        return 1
+
     results = {os.path.basename(d): measure_run(d) for d in runs}
     for name, out in results.items():
         print('%s: bank_low_share %.4f  bank_height_frac %.4f  bank_rise_m %.3f  bank_area_frac %.4f'
-              '  o240_area_frac %.4f  pose_error_max %.4f  mask_px %d (raw %d)  hue_window_px %d'
-              '  bank_patch_share %.4f  bank_patch_count %d'
+              '  o240_area_frac %.4f  pose_error_max %.4f  mask_px %d (raw %d, patch %d)  hue_window_px %d'
+              '  paint_px %d  paint_frac %.4f  bank_paint_share %.4f  bank_patch_count %d'
               % (name, out['bank_low_share'], out['bank_height_frac'], out['bank_rise_m'], out['bank_area_frac'],
                  out['o240_area_frac'], out['pose_error_max'], out['mask_px'], out['mask_px_raw'],
-                 out['gas_hue_window_px'], out['bank_patch_share'], out['bank_patch_count']))
+                 out['mask_px_patch'], out['gas_hue_window_px'], out['paint_px'], out['paint_frac'],
+                 out['bank_paint_share'], out['bank_patch_count']))
 
     look = look_report()
 
     if calibrate:
         with open(os.path.join(HERE, 'probe.json'), 'w', encoding='utf-8') as f:
-            json.dump({'runs': results, 'look': look}, f, indent=1, sort_keys=True)
+            json.dump({'runs': results, 'look': look, 'sim_ticks': ticks}, f, indent=1, sort_keys=True)
         return 0
 
     ok = True
@@ -545,20 +634,27 @@ def main():
         ok = spread_check(bar_name, values, cmp_, bar) and ok
 
     with open(os.path.join(HERE, 'probe.json'), 'w', encoding='utf-8') as f:
-        json.dump({'runs': results, 'look': look, 'bars': BAR_VALUES}, f, indent=1, sort_keys=True)
+        json.dump({'runs': results, 'look': look, 'bars': BAR_VALUES, 'sim_ticks': ticks},
+                  f, indent=1, sort_keys=True)
     print('OK' if ok else 'FAILED')
     return 0 if ok else 1
 
 
-# Bar values, set from the spread of run1/run2/run3 of this build (see README.md "The bars"). Empty until shot.
+# Bar values. Every one of them is set from TWO measured sources and never from a formula: the three runs of this
+# build (`probe.json`, t1 sim_tick 557 / 597 / 637) and the zebra re-measured by this probe
+# (`--against ../ability-fx-captures-r2-2-g2`, commit 843a03570c). A bar must clear the nearest run by at least
+# the three runs' own spread, and a zebra bar must ALSO leave the zebra failing by more than that spread.
+# See README.md, "The bars", for the table these came out of.
 BAR_VALUES = {
-    'bank_low_share': 0.30,     # owner-decided (head height, HEAD_M 1.8); run1/2/3 read 0.4371, spread 0.0000
-    'bank_height_frac': 0.15,   # owner-decided (r2's bar on this test); run1/2/3 read 0.0799, spread 0.0000
-    'o240_area_frac': 0.010,    # g2's bar, kept; run1/2/3 read 0.0131, spread 0.0000
-    'pose_error_max': 0.5,      # GasBankStills.PoseBar; run1/2/3 read 0.0000, spread 0.0000
-    'bank_patch_share': 0.20,   # between the zebra's 0.1863 and this build's 0.2070: the zebra fails it
-    'bank_patch_count': 60,     # between the zebra's 90 and this build's 41: the zebra fails it
+    'bank_low_share': 0.07,     # runs 0.4371/0.2584/0.2853, spread 0.1787 -> 0.2584 - 0.1787 = 0.0797 is the roof
+    'bank_height_frac': 0.27,   # runs 0.0799/0.1711/0.1608, spread 0.0912 -> 0.1711 + 0.0912 = 0.2623 is the floor
+    'o240_area_frac': 0.010,    # g2's bar, kept: runs 0.0130/0.0150/0.0153, spread 0.0023, margin 0.0030
+    'pose_error_max': 0.5,      # GasBankStills.PoseBar; runs 0.0000, spread 0.0000
+    'paint_frac': 0.0220,       # runs 0.0267/0.0308/0.0272, spread 0.0041, margin 0.0047: the paint in the frame
+    'bank_paint_share': 0.12,   # zebra 0.0782 | bar | 0.1622 lowest run; spread 0.0314, both margins 0.042
+    'bank_patch_count': 25,     # zebra 40 | bar | 13 highest run; spread 6, margins 12 (build) and 15 (zebra)
 }
+
 
 
 if __name__ == '__main__':
