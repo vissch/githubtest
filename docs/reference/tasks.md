@@ -166,7 +166,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   (`TankRenderer`, `VATRenderer`, `DebrisRenderer` disabled for the block in BOTH passes, so the plate still
   subtracts), which takes the hull out of the picture and not only out of the mask; the side rows then carry
   `drawers_off` and `hulls_near`, and the measure is
-  `docs/evidence/ability-fx-captures-r2-3-g2-g2-g1-g1/probe.py`.
+  `docs/evidence/ability-fx-captures-r2-3-g2-g2-g1-g1/probe.py`. That measure also bars the pack as a whole:
+  `side_outside_frac` (the share of the pixels outside the patch box that moved from the plate, <= 0.40 - it
+  reads 0.38, so the box gate's assumption is measured, not confirmed) and `side_face_spread`
+  (`max/min` of `side_face_px` over the seeds, <= 3.55).
   The O240 hue is read over the blob's CORE from r2-3-g2-g2 too (`HUE_CORE_PCTL`, the top quartile of plate
   difference) with a saturation-weighted MEDIAN hue: the card is alpha-blended, so its fringe is mostly ground
   showing through and a whole-blob mean moved 42 deg between seeds; the core median holds them to 14 deg.

@@ -6,8 +6,9 @@ wreck filling the right half of the frame, with a green carpet behind it. A read
 tank; the number says bank. This round shoots the side band with the movable drawers switched off, so the still
 and its plate hold no hull, no man and no debris piece at all.
 
-Nothing in `probe.py` changed but one paragraph of its header. The measure, its gates and its four bars are g1's,
-unchanged: a capture whose side band holds LESS than g1's has to clear the same bar.
+The measure, its gates and g1's four bars are unchanged: a capture whose side band holds LESS than g1's has to
+clear the same bar. `probe.py` gained two readings of the pack that check this round's own claim -
+`side_outside_frac` and `side_face_spread` - with their bars derived from this capture (see below).
 
 ## What changed in the harness (`GasBankStills.cs`)
 
@@ -38,7 +39,36 @@ away two fifths of the mask to get there. It does **not** close the spread: `sid
 114148, 3.03x, and it always was the banks' own size (`side_blob_px` 122074 / 67925 / 201610 on three different
 patches), not a tank.
 
-## The bars: unchanged
+## Two new readings, and what they say
+
+Step 6 of the plan added the two readings that this round's own claim rests on, and neither had ever been read
+before, so both bars could only be derived after the capture.
+
+| Reading | What it is | This capture | Bar |
+|---|---|---|---|
+| `side_outside_frac` | the share of the pixels **outside** `patch_box` whose luma moved from the plate by `LUMA_BAR` or more. One value per pack: the worst of the three seeds | 0.2080 / 0.3041 / **0.3812** | **<= 0.40** = 0.3812 + 0.01, rounded up |
+| `side_face_spread` | `max(side_face_px) / min(side_face_px)` over the three seeds - the owner's complaint as a number | **3.0308** (114148 / 37663) | **<= 3.55** = 3.0308 + 0.5, rounded up |
+
+**`side_outside_frac` is 0.38, not near zero, and that is the honest finding of this round.** The box gate
+assumes that nothing outside the bank's own column of air differs between the shot and its plate; this reading
+measures that assumption instead of trusting it, and a third of the air outside the box does differ. Part of it
+is a wreck's fire, which cannot be switched off because the same `CombatFx` card system draws the gas. Part is
+the bank's own drift past `PATCH_R_M`. They are not shown to be all of it. The bar holds the number where this
+build leaves it, at the high end and outside the spread, so a round that lets something movable back into the
+frame fails; it does not call the frame clean. `GAS_HUE_DEG` / `GAS_HUE_TOL` were **not** widened, which would
+let fire into the mask.
+
+### The new bars do NOT bite on g1's capture
+
+The plan predicted they would (exit 1 on `--dir ../ability-fx-captures-r2-3-g2-g2-g1`). They do not: that folder
+reads `side_outside_frac` **0.3813** and `side_face_spread` **3.0305**, against this capture's 0.3812 and 3.0308
+- the same two numbers to four places, so the probe exits **0** there as well. The prediction rested on the tank
+being the thing outside the box; it was not. Switching the drawers off moved the wreck out of the PICTURE (see
+the table above: `side_mask_px` 139794 -> 226173 on seed 1) without moving the outside-the-box reading at all,
+because what changes outside the box is fire and drift, which both rounds have. Recorded as a failed check, not
+patched around: lowering either bar to separate the two rounds would put it inside this capture's own spread.
+
+## The bars: the four from g1 unchanged
 
 Every seed clears g1's bars, so by the rule "never lower a bar below what this capture supports" and "a bar only
 moves up", they stay where they are. The face bar's re-derivation on this capture would give
@@ -50,6 +80,8 @@ moves up", they stay where they are. The face bar's re-derivation on this captur
 | `texture_var_drop` | 0.5638 / 0.7428 / 0.6094 | 0.5638 | the owner's, unchanged | **>= 0.40** |
 | `o240_hue_dist_deg` | 133.92 / 137.67 / 122.85 | 122.85 | g1's, unchanged | **>= 108.0** |
 | `side_face_px` | 68982 / 37663 / 114148 | 37663 | `floor(0.8 * min / 1000) * 1000` = 30000 | **>= 30000** |
+| `side_outside_frac` | 0.2080 / 0.3041 / 0.3812 | worst 0.3812 | `worst + 0.01`, rounded up | **<= 0.40** |
+| `side_face_spread` | one value: 3.0308 | 3.0308 | `+ 0.5`, rounded up | **<= 3.55** |
 
 ## Final numbers (`probe.json`, this build)
 
@@ -59,6 +91,8 @@ moves up", they stay where they are. The face bar's re-derivation on this captur
 | `texture_var_drop` | >= 0.40 | 0.5638 | 0.7428 | 0.6094 |
 | `o240_hue_dist_deg` | >= 108.0 | 133.92 | 137.67 | 122.85 |
 | `side_face_px` | >= 30000 | 68982 | 37663 | 114148 |
+| `side_outside_frac` (pack: the worst seed) | <= 0.40 | 0.2080 | 0.3041 | 0.3812 |
+| `side_face_spread` (pack: one value) | <= 3.55 | 3.0308 | | |
 
 `python probe.py` exits 0 and prints `OK`; `python probe.py --selftest` exits 0.
 
@@ -101,7 +135,7 @@ moves up", they stay where they are. The face bar's re-derivation on this captur
 
 | File | What it is |
 |---|---|
-| `probe.py` | the measure, g1's but for one header paragraph. `--selftest` checks the camera maths, the texture/hue readings, `footprint_bias_m`, the face count, `project`, `gas_hue_gate` and `patch_box` against hand calculations; no arguments measures the stills beside it, and refuses a side still more than `SIDE_SKEW_TICKS` from its plate |
+| `probe.py` | the measure, g1's but for one header paragraph. `--selftest` checks the camera maths, the texture/hue readings, `footprint_bias_m`, the face count, `project`, `gas_hue_gate`, `patch_box`, `outside_frac` (two changed pixels of the eight outside a 4x4 box = 0.250) and `face_spread` ([2, 4, 8] = 4.0) against hand calculations; no arguments measures the stills beside it, and refuses a side still more than `SIDE_SKEW_TICKS` from its plate |
 | `probe.json` | the readings of this run, one value per seed, with the bars |
 | `gas-t1-s*`, `gas-o240-s*`, `gas-side-s*` | three seeds, three bands, each with its `-plate` (same pose, same sim tick) and its `.json` sidecar |
 | `manifest.json`, `manifest-plate.json` | one row per still: patch, sim tick, pose error, gas field before and after the call, cards drawn, draw calls, and on the side rows `drawers_off` and `hulls_near` |

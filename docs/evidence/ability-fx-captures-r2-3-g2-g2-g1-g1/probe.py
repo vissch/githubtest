@@ -185,6 +185,25 @@ SIDE_SKEW_TICKS = 2
 # lowered below the owner's bar (`o240_hue_dist_deg` only; `gas_side_height_m` has none), never widened to make a
 # run green. Set from the capture of commit 2ba27d4 (the build the owner accepted); see README.md, "The bars".
 BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 108.0, 'side_face_px': 30000}
+# r2-3-g2-g2-g1-g1: two readings of the PACK, not of a seed, and the only two bars here that are ceilings (<=).
+# Both are derived from this capture alone - they could not be set before it, because neither had ever been read:
+#   `side_outside_frac` - with the movable drawers off the only thing left to change outside the bank's column of
+#     air is a wreck's fire (`CombatFx` draws it and the gas with the same card system, so it cannot be switched
+#     off). The bar is this capture's worst seed plus the margin below, so it sits outside this build's spread at
+#     the high end. It is never WIDENED to pass a run: a rise means something movable got back into the frame.
+#   `side_face_spread` - max/min of `side_face_px` over the three seeds, which is the owner's own complaint as a
+#     number: one framing, three cloud sizes. This capture reads 3.03x. The bar is that plus the margin, so a
+#     future round that makes the three seeds MORE unlike each other fails, and one that closes the spread passes.
+# This capture reads `side_outside_frac` 0.2080 / 0.3041 / 0.3812 (the pack takes the worst, 0.3812) and
+# `side_face_spread` 3.0308. So the bars are
+#   side_outside_frac <= 0.3812 + 0.01 -> 0.40  (rounded UP, away from the spread)
+#   side_face_spread  <= 3.0308 + 0.5  -> 3.55  (rounded UP, away from the spread)
+# 0.38 is NOT near zero, and the box gate's assumption is therefore measured and found wanting, not confirmed:
+# a third of the air outside the bank's column differs from the plate. A wreck's fire is part of it (it cannot be
+# switched off without switching the gas off with it) and the bank's own drift is another, but they are not shown
+# to be all of it. The bar holds the number where this build leaves it; it does not call it clean.
+PACK_BARS = {'side_outside_frac': 0.40, 'side_face_spread': 3.55}
+PACK_MARGIN = {'side_outside_frac': 0.01, 'side_face_spread': 0.5}
 # r2-3-g2-g2-g1, the face bar: the reading changed (the two gates above) AND the capture changed (frame parity,
 # the side band shot first on an empty field), so the bar is re-derived from THIS build's three seeds with
 # r2-3-g2-g2's UNCHANGED rule, `floor(0.8 * min(seeds) / 1000) * 1000`. They read 70304 / 37666 / 114148 face
@@ -368,6 +387,27 @@ def gas_hue_gate(img):
     return d <= GAS_HUE_TOL
 
 
+def outside_frac(changed, box):
+    """The share of the pixels OUTSIDE `box` that `changed` marks.
+
+    r2-3-g2-g2-g1-g1: with the movable drawers off, nothing in the side frame but the bank's own column of air
+    should differ from the plate. The box gate ASSUMES that; this measures it. A high value says something
+    outside the bank moved between the two passes (a flame, a man, a hull) and the still is not the control the
+    bar rests on.
+    """
+    out = ~box_mask(changed.shape, box)
+    n = int(out.sum())
+    return float((changed & out).sum()) / n if n else 0.0
+
+
+def face_spread(values):
+    """max / min over the seeds: how far apart the three pictures of 'the same thing' are."""
+    vals = [float(v) for v in values if v]
+    if len(vals) < 2 or min(vals) <= 0.0:
+        return 0.0
+    return max(vals) / min(vals)
+
+
 def selftest():
     """Hand calculation, worked here and not taken from the code it checks.
 
@@ -507,6 +547,19 @@ def selftest():
     assert abs(box[0] - 34) <= 1, 'the box starts at row %d, hand calculation says 34' % box[0]
     assert abs(box[1] - 540) <= 1, 'the box ends at row %d, hand calculation says 540' % box[1]
 
+    # (d) r2-3-g2-g2-g1-g1's two pack readings, by hand.
+    #   a 4x4 frame, the box covering rows 0-1 (all four columns) = 8 pixels inside, 8 outside. Two of the
+    #   OUTSIDE pixels are marked changed, and one INSIDE one is too (which must not count). 2 of 8 = 0.250.
+    changed = np.zeros((4, 4), dtype=bool)
+    changed[0, 0] = True            # inside the box: ignored
+    changed[3, 0] = True            # outside
+    changed[2, 3] = True            # outside
+    of = outside_frac(changed, (0, 1, 0, 3))
+    assert abs(of - 0.25) < 1e-9, 'two changed pixels of eight outside read %.4f, hand says 0.250' % of
+    #   the spread of 2 / 4 / 8 is 8/2 = 4.0.
+    spread = face_spread([2, 4, 8])
+    assert abs(spread - 4.0) < 1e-9, 'the spread of 2/4/8 read %.4f, hand says 4.0' % spread
+
     print('selftest ok: centre pixel 10.000 m out, one degree up %.5f m high (hand: 0.34311);' % h)
     print('             stripes -> flat grey is a texture drop of %.3f (hand: 1.000);' % drop)
     print('             red/green %.1f deg, red/magenta %.1f deg (hand: 120, 60);' % (rg, rm))
@@ -523,6 +576,9 @@ def selftest():
           % (hues[0], hues[1], hues[2], keeps))
     print('             (hand: 67.5 / 230.0 / 23.3, the bank only);')
     print('             a 2 m x 2 m patch box 10 m out spans rows %d..%d (hand: 34..540)' % (box[0], box[1]))
+    print('             two changed pixels of the eight outside a 4x4 box: %.3f (hand: 0.250), and the spread'
+          % of)
+    print('             of 2/4/8 is %.1f (hand: 4.0)' % spread)
     return 0
 
 
@@ -920,6 +976,7 @@ def measure_side(d, seed):
              'side_mask_px': int(raw.sum()),
              'side_box_px': int((box[1] - box[0] + 1) * (box[3] - box[2] + 1)) if box[1] >= box[0] else 0,
              'side_cut_frac': round(1.0 - gated.sum() / float(raw.sum()), 4) if raw.any() else 0.0,
+             'side_outside_frac': round(outside_frac(raw, box), 4),
              'side_tick_skew': (gas_tick - plate_tick) if (gas_tick is not None and plate_tick is not None) else None,
              'side_top_m': round(side_top_m, 3),
              'side_bias_m': round(bias_m, 3),
@@ -1021,8 +1078,13 @@ def main():
         for k, v in list(r1.items()) + list(r2.items()) + list(r3.items()):
             rows.setdefault(k, []).append(v)
 
+    pack = {'side_outside_frac': round(max(rows['side_outside_frac']), 4),
+            'side_face_spread': round(face_spread(bars['side_face_px']), 4)}
+
     result = dict(bars)
+    result.update(pack)
     result['bars'] = BARS
+    result['pack_bars'] = PACK_BARS
     result['owner_bars'] = OWNER_BARS
     result['rows'] = rows
     with open(os.path.join(d, out_name), 'w', encoding='utf-8') as f:
@@ -1045,6 +1107,12 @@ def main():
         print('%-18s want >= %-7s worst %-9s %s  (the owner asked for %s)'
               % (k, BARS[k], round(min(got), 4) if got else 'none', 'OK' if met else 'MISSED',
                  OWNER_BARS.get(k, 'n/a')))
+    for k in ('side_outside_frac', 'side_face_spread'):
+        got = pack[k]
+        met = got <= PACK_BARS[k]
+        ok = ok and met
+        print('%-18s want <= %-7s read  %-9s %s  (one value per pack, not per seed)'
+              % (k, PACK_BARS[k], got, 'OK' if met else 'MISSED'))
     print('OK' if ok else 'FAILED')
     return 0 if ok else 1
 
