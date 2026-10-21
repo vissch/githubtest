@@ -132,6 +132,32 @@ def parse_pace(text):
     return float(m.group(1)) if m else None
 
 
+def parse_unit_cost(text):
+    """One unit's usual cost from `relay.py day`'s Queue line, in the same unit as the Pace free
+    figure (a percent of the week, or dollars). None when that line names no cost."""
+    line = next((x for x in str(text or '').splitlines() if x.startswith('Queue:')), None)
+    if not line:
+        return None
+    m = re.search(r'usual (?:cost of )?\$?([\d.]+)%? a unit', line)
+    return float(m.group(1)) if m else None
+
+
+def pace_covers_unit(text):
+    """False when the free pace is below one unit's usual cost. An extra started then waits, the start
+    time slides as the day is spent elsewhere, and the run ends with 0 legs. True when the day text does
+    not say (an older relay): a missing line is not a reason to hold every extra."""
+    blob = str(text or '')
+    if not blob.strip():
+        return True
+    if ('cap is spent' in blob or 'ahead of that' in blob or 'The next unit may start at' in blob
+            or 'does not cover another unit' in blob):
+        return False
+    free, cost = parse_pace(blob), parse_unit_cost(blob)
+    if free is None or cost is None:
+        return True
+    return free >= cost
+
+
 # ---- the outside world ---------------------------------------------------------------------------------------------------
 
 class World:
@@ -415,6 +441,15 @@ class World:
         """The percent of the week the day's pace has free now (relay.py day), 0.0 when none, None when unread."""
         code, text = self.relay(self.main, 'day')
         return parse_pace(text) if code == 0 else None
+
+    def day_text(self):
+        """What `relay.py day` printed. Once a round: feed asks before each extra starts."""
+        cached = getattr(self, '_day_text', None)
+        if cached is None:
+            code, text = self.relay(self.main, 'day')
+            cached = text if code == 0 else ''
+            self._day_text = cached
+        return cached
 
     def leg(self, prompt, usd):
         """One headless Sonnet answer at low effort, no tools, no project files, at most `usd`: (its text, its cost).
@@ -922,6 +957,9 @@ def feed(w):
             if blocked:                         # it would fail at once with 0 legs: not started
                 out.append(f'feed: relay {n} is not started: {", ".join(blocked)} cannot be switched to now')
                 continue
+        if not pace_covers_unit(w.day_text()):
+            out.append(f'feed: relay {n} is not started: the day\'s free pace is below one unit\'s usual cost')
+            continue
         if not w.acting:
             out.append(f'feed: relay {n} is not running and has work: it would be started')
             continue

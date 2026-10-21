@@ -120,6 +120,9 @@ class Fake(autoloop.World):
     def pace_free(self):
         return self.free
 
+    def day_text(self):
+        return getattr(self, 'day_report', '')
+
     def leg(self, prompt, usd):
         self.legs = self.legs + [prompt]
         return self.reply, 0.02
@@ -241,6 +244,27 @@ def main():
          'one with open units that reads "nothing left to do" is started too',
          got == ['free-1', 'free-2'] and w.prios == {'free-1': 99, 'free-2': 99} and sorted(w.started) == [2, 3]
          and 'priority' not in json.loads((w.extras[2] / 'relay' / 'queue' / 'free-1.json').read_text(encoding='utf-8')) and any(not p for _, _, p in w.pushed), (lines, got, w.prios, w.started))
+    def pace_world(name, report):
+        wp = Fake(tmp / name)
+        put(wp.main, 'queue', 'free-1', lane='lane/show/free', priority=20)
+        wp.text[wp.main] = RUN
+        wp.day_report = report
+        return wp, autoloop.feed(wp)
+    below, held = pace_world('pace-below',
+        'Pace: 2.0% of the week allowed by 21:26, about 0.2% of it free.\n'
+        'Queue: 80 units, about 32.0% of the week at the usual 0.4% a unit (plan and execute).')
+    case('an extra relay is not started while the day\'s free pace is below one unit\'s usual cost: it would wait, the start time would slide, and the run would end with 0 legs',
+         below.started == [] and any('free pace is below' in l for l in held), (held, below.started))
+    slide, slid = pace_world('pace-slide',
+        'Pace: 9.8% of the week allowed by 21:26, about 5.1% of it free. The next unit may start at 22:40.\n'
+        'Queue: 80 units, about 32.0% of the week at the usual 0.4% a unit (plan and execute).')
+    case('an extra relay is not started when relay.py day says the next unit must wait, even if the free percent prints above the usual cost',
+         slide.started == [] and any('free pace is below' in l for l in slid), (slid, slide.started))
+    room, went = pace_world('pace-room',
+        'Pace: 9.8% of the week allowed by 21:26, about 5.1% of it free.\n'
+        'Queue: 80 units, about 32.0% of the week at the usual 0.4% a unit (plan and execute).')
+    case('an extra relay still starts when the free pace covers one unit\'s usual cost',
+         room.started == [2], (went, room.started))
     w.started.clear()
     w.text[w.extras[3]] = IDLE
     w.clock += 60
