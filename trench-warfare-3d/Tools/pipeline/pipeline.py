@@ -372,6 +372,41 @@ def cmd_claim(board, a):
     print("claimed", a.job, "token", rec["token"])
 
 
+def pass_evidence_problem(board, item, stage, band, path):
+    """Why a PASS cannot hand this path to the critic, or None.
+
+    The relay reads one folder, evidence/<item>/<stage>/, and only its top-level files: <band>.jpg, a <band>.json
+    sidecar, and a frames.txt line that starts <band>.jpg:. A still the rig did not shoot says `no sidecar` on that
+    line instead. evidence/<band>.jpg is on the board and is one folder short, so the critic never sees it.
+    """
+    expect = "evidence/%s/%s/%s.jpg" % (item["id"], stage["id"], band)
+    given = path.replace("\\", "/")
+    if given != expect:
+        return "refused: evidence %s=%s is not %s" % (band, path, expect)
+    folder = board.root / "evidence" / item["id"] / stage["id"]
+    if not (folder / ("%s.jpg" % band)).is_file():
+        return "refused: evidence %s=%s is not on the board" % (band, path)
+    try:
+        lines = (folder / "frames.txt").read_text(encoding="utf-8").splitlines()
+    except (OSError, ValueError):
+        return "refused: no readable frames.txt beside %s" % expect
+    mine = [line for line in lines if line.startswith("%s.jpg:" % band)]
+    if not mine:
+        return "refused: frames.txt has no line that starts %s.jpg:" % band
+    side = folder / ("%s.json" % band)
+    if not side.is_file():
+        if "no sidecar" in mine[0].lower():
+            return None
+        return ("refused: evidence %s.jpg has no sidecar %s.json, and its frames.txt line does not say `no sidecar`"
+                % (band, band))
+    try:
+        if not isinstance(json.loads(side.read_text(encoding="utf-8")), dict):
+            raise ValueError
+    except (OSError, ValueError):
+        return "refused: sidecar %s.json is not a JSON object" % band
+    return None
+
+
 def cmd_complete(board, a):
     refuse_in_leg()
     st = station()
@@ -383,7 +418,14 @@ def cmd_complete(board, a):
     missing = [b for b in stage.get("bands", []) if b not in ev]
     if a.verdict == "PASS" and missing:
         raise SystemExit("refused: PASS needs evidence for bands %s" % ", ".join(missing))
+    if a.verdict == "PASS":
+        for band in stage.get("bands", []):
+            problem = pass_evidence_problem(board, item, stage, band, ev[band])
+            if problem:
+                raise SystemExit(problem)
     for band, path in ev.items():
+        if a.verdict == "PASS" and band in stage.get("bands", []):
+            continue
         if not (board.root / path).exists():
             raise SystemExit("refused: evidence %s=%s is not on the board" % (band, path))
     attempt = 1 + max([r["attempt"] for r in board.results(item["id"], stage["id"]) if r["job"] == a.job] or [0])

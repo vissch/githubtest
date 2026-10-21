@@ -70,11 +70,25 @@ class PipelineTest(unittest.TestCase):
         b = P.Board()
         return P.evaluate(b.items()["crate"], b)[stage]["job"]
 
+    def evidence_args(self, stage, bands):
+        """The folder a PASS must hand over: evidence/<item>/<stage>/<band>.jpg, its sidecar, and frames.txt."""
+        if not bands:
+            return []
+        folder = self.board / "evidence" / "crate" / stage
+        folder.mkdir(parents=True, exist_ok=True)
+        lines = []
+        for b in bands:
+            (folder / (b + ".jpg")).write_text("x")
+            (folder / (b + ".json")).write_text("{}\n")
+            lines.append("%s.jpg: %s %s, clock held, the subject" % (b, stage, b))
+        (folder / "frames.txt").write_text("\n".join(lines) + "\n")
+        return ["%s=evidence/crate/%s/%s.jpg" % (b, stage, b) for b in bands]
+
     def run_stage(self, stage, st, verdict="PASS", bands=()):
         os.environ["TW_STATION"] = st
         j = self.job(stage)
         P.main(["claim", j])
-        P.main(["complete", j, "--verdict", verdict, "--evidence"] + ["%s=evidence/%s.jpg" % (b, b) for b in bands])
+        P.main(["complete", j, "--verdict", verdict, "--evidence"] + self.evidence_args(stage, bands))
         return j
 
     def all_done(self):
@@ -158,6 +172,36 @@ class PipelineTest(unittest.TestCase):
         with self.assertRaises(SystemExit) as e:
             P.main(["complete", j, "--verdict", "PASS", "--evidence", "t1=evidence/t1.jpg"])
         self.assertIn("t2", str(e.exception))
+
+    def test_a_pass_needs_the_evidence_folder_not_just_a_file(self):
+        """evidence/t1.jpg is on the board and is still not the folder the critic reads."""
+        self.run_stage("balance", "laptop")
+        os.environ["TW_STATION"] = "desktop"
+        j = self.job("sim")
+        P.main(["claim", j])
+        with self.assertRaises(SystemExit) as e:
+            P.main(["complete", j, "--verdict", "PASS", "--evidence",
+                    "t1=evidence/t1.jpg", "t2=evidence/t2.jpg"])
+        self.assertIn("evidence/crate/sim/t1.jpg", str(e.exception))
+        folder = self.board / "evidence" / "crate" / "sim"
+        folder.mkdir(parents=True)
+        for band in ("t1", "t2"):
+            (folder / (band + ".jpg")).write_text("x")
+        with self.assertRaises(SystemExit) as e:
+            P.main(["complete", j, "--verdict", "PASS", "--evidence",
+                    "t1=evidence/crate/sim/t1.jpg", "t2=evidence/crate/sim/t2.jpg"])
+        self.assertIn("frames.txt", str(e.exception))
+        (folder / "frames.txt").write_text(
+            "t1.jpg: sim t1, clock held, the crate\nt2.jpg: sim t2, clock held, the crate\n")
+        with self.assertRaises(SystemExit) as e:
+            P.main(["complete", j, "--verdict", "PASS", "--evidence",
+                    "t1=evidence/crate/sim/t1.jpg", "t2=evidence/crate/sim/t2.jpg"])
+        self.assertIn("sidecar", str(e.exception))
+        for band in ("t1", "t2"):
+            (folder / (band + ".json")).write_text("{}\n")
+        P.main(["complete", j, "--verdict", "PASS", "--evidence",
+                "t1=evidence/crate/sim/t1.jpg", "t2=evidence/crate/sim/t2.jpg"])
+        self.assertEqual(self.states()["sim"], "DONE")
 
     def test_wrong_station_cannot_claim(self):
         os.environ["TW_STATION"] = "desktop"
