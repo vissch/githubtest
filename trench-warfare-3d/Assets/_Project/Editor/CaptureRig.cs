@@ -321,6 +321,10 @@ namespace TW.Editor
             // two captures minutes apart were compared in different weather without anybody knowing
             N(sb, "rain", TW.Presentation.Terrain.Atmosphere.RainNow);
             N(sb, "wind", TW.Presentation.Terrain.Atmosphere.WindNow.magnitude);
+            // night, and whether the ambient barrage is firing: "at night" and "with the barrage off" are then read
+            // off each still instead of assumed (ability-fx-captures-r3-2-2-g1)
+            N(sb, "night", SceneMood.Night ? 1 : 0);
+            N(sb, "ambient_shells_per_min", host != null ? host.BombardmentNow : -1f);
             if (vat != null)
             {
                 N(sb, "drawn_infantry", vat.DrawnInfantry); N(sb, "drawn_near", vat.DrawnNear); N(sb, "drawn_far", vat.DrawnFar);

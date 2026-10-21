@@ -139,6 +139,12 @@ namespace TW.Tests
             // 90 x 276 m map: the probe would have counted another subject's effect as this one's.
             string one = System.Environment.GetEnvironmentVariable("TW_ABILITYFX_SUBJECT");
             string[] subjects = string.IsNullOrEmpty(one) ? new[] { "smoke", "barrage", "splash", "drop" } : one.Split(',');
+            // How many times each band is shot (TW_ABILITYFX_REPS). A bar set on ONE capture is a bar set on noise, so
+            // the g1 probe asks for three captures a band and puts its bar outside their spread. At 1 - every other
+            // caller - the names and the frame counts are exactly what they were, so the r3-2-2 folder still pairs.
+            int reps = 1;
+            int.TryParse(System.Environment.GetEnvironmentVariable("TW_ABILITYFX_REPS"), out reps);
+            reps = Mathf.Max(1, reps);
 
             for (int f = 0; f < 120; f++) yield return null;   // let the field settle before the first block
 
@@ -149,14 +155,19 @@ namespace TW.Tests
             // cannot contain an earlier block's smoke, craters or paratroopers.
             foreach (string subject in subjects)
             foreach (float zoom in new[] { 240f, 30f })
+            for (int rep = 1; rep <= reps; rep++)
             {
                 string band = zoom < 100f ? "T1" : "O240";
+                string tag = reps > 1 ? band + "_r" + rep : band;
                 var pl = Plan(subject);
                 // How far this band's point must stand from the one the other band used. The overview band runs first,
                 // so this only keeps the standard view's frame clear of what the overview block left behind: water is
                 // scarce and a splash is gone in 1.5 s, and open ground a drop can land on is scarcer still (7 points
                 // on this map at room 12), so each gets what its own leavings need and no more.
-                float apart = subject == "splash" ? 20f : subject == "drop" ? 34f : 60f;
+                // Every rep takes its own point too, so three captures of a band are three different bits of water and
+                // not the same pixel three times. Water leaves no crater and a splash is gone in 1.5 s, and the blocks
+                // are 120 frames apart, so 12 m is enough room for the reps not to overlap (was 20 m, band to band).
+                float apart = subject == "splash" ? 12f : subject == "drop" ? 34f : 60f;
                 if (tc != null) { tc.BaseYaw = -90f; tc.Zoom = zoom; }
                 float x = -1f, z = -1f;
                 for (float zz = 40f; zz < size.y - 40f && x < 0f; zz += 6f)
@@ -188,7 +199,7 @@ namespace TW.Tests
                             if (Open(map, xx, zz, pl.room)) nOpen++;
                             if (abilities != null && abilities.CanLand(0, new float3(xx, 0f, zz))) nLand++;
                         }
-                    TestContext.Out.WriteLine(subject + " " + band + ": no point found; map " + size.x + "x" + size.y
+                    TestContext.Out.WriteLine(subject + " " + tag + ": no point found; map " + size.x + "x" + size.y
                         + ", cells clear " + nClear + ", open " + nOpen + ", CanLand " + nLand
                         + ", abilities " + (abilities == null ? "null" : "found"));
                     continue;
@@ -211,13 +222,13 @@ namespace TW.Tests
                                 : subject == "barrage" ? VfxLab.Call((int)OffMapAbilityId.HeBarrage, x, z)
                                 : subject == "splash" ? VfxLab.Shell(x, z)
                                 : VfxLab.Call((int)OffMapAbilityId.ParaDrop, x, z);
-                    TestContext.Out.WriteLine(subject + " " + band + " at " + x + ", " + z + ": " + said);
+                    TestContext.Out.WriteLine(subject + " " + tag + " at " + x + ", " + z + ": " + said);
                 }
-                else TestContext.Out.WriteLine(subject + " " + band + " at " + x + ", " + z + ": plate, nothing staged");
+                else TestContext.Out.WriteLine(subject + " " + tag + " at " + x + ", " + z + ": plate, nothing staged");
 
                 for (int f = 0; f < pl.peak; f++) yield return null;
 
-                string path = Path.Combine(dir, subject + "_" + band + (plate ? "_plate" : "") + ".png");
+                string path = Path.Combine(dir, subject + "_" + tag + (plate ? "_plate" : "") + ".png");
                 CaptureRig.Shot(path, x, z, zoom, 40f, 25f, 1280, 720, pl.aim);
                 yield return Drain(path);
                 if (File.Exists(path)) written++;
@@ -235,7 +246,7 @@ namespace TW.Tests
             TW.Presentation.Tactical.CameraShake.Strength = 1f;
             TestContext.Out.WriteLine("wrote " + written + (plate ? " plates to " : " stills to ") + dir);
             yield return new ExitPlayMode();
-            Assert.AreEqual(2 * subjects.Length, written, "a still is missing");
+            Assert.AreEqual(2 * subjects.Length * reps, written, "a still is missing");
             if (!plate && System.Array.IndexOf(subjects, "drop") >= 0) Assert.Greater(dropped, 0, "no paratrooper came down: the drop was refused, so the paradrop still photographs nothing");
         }
     }

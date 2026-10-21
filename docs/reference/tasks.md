@@ -136,8 +136,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `-twfield`, `TW_FILM_EFFECTS`, `TW_FILM_SECONDS`),
   `Tests/Stills/AbilityFxStills.cs` (one ability effect an editor run, shot at T1 and O240 against a no-effect plate
   of the same pose and the same sim tick, the ability-area marker hidden; `TW_STILLS_DIR`, `TW_ABILITYFX_SUBJECT`,
-  `TW_ABILITYFX_PLATE`; the pixels are measured by `docs/evidence/ability-fx-captures-r3-2-2/probe.py`, whose floor is
-  a ground footprint and is guarded by `AbilityFxReadAtEveryBand`).
+  `TW_ABILITYFX_PLATE`, `TW_ABILITYFX_REPS` (how many captures a band, default 1; above 1 the stills are named
+  `<subject>_<band>_r<n>.png`); the pixels are measured by `docs/evidence/ability-fx-captures-r3-2-2/probe.py`, whose
+  floor is a ground footprint and is guarded by `AbilityFxReadAtEveryBand`, and the three-a-band splash captures by
+  `docs/evidence/ability-fx-captures-r3-2-2-g1/probe.py`, which also measures foam and the crown's spread).
 - **Tests:** VfxStills (Explicit: run by name with a graphics device; it only checks that stills were written),
   EffectFilmStills (Explicit, a graphics device, about ten minutes a look: it only checks that stills were written),
   AbilityFxStills (Explicit, a graphics device, 24 s a subject: it checks that its two stills were written and, for
