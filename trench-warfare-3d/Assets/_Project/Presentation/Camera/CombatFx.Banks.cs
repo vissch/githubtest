@@ -23,7 +23,16 @@ namespace TW.Presentation.Tactical
         // GasBankThin raised r2-3: with Erode the shader cuts the drawing at threshold = (1 - cardAlpha) * (0.45 + 0.55 * edge);
         // the sheet carries mean ink 0.167-0.183 in the frames the bank draws, so at 0.6 the threshold (0.18-0.40) cut the
         // whole drawing away and the bank rendered as flat olive smears, not a cloud (harsh critic r1, 22/100).
-        public const float GasBankThin = 0.95f, GasBankFull = 1f;
+        // r2-3-g2-g1: at the grazing pose (zoom 16, pitch 8) dozens of near-opaque pads tiled the lower frame as a
+        // carpet. These feed Pack's OPACITY, not its fade, so the erode threshold ((1 - GasBankFade) * ...) is
+        // untouched: lowering them lets the mud and the far field read through the one bank instead.
+        public const float GasBankThin = 0.55f, GasBankFull = 0.75f;
+        /// <summary>The fade a gas card is packed with. 1 means no extra erode: the shader's threshold is (1 - fade) * (0.45 + 0.55 * edge) = 0, under the sheet's thinnest drawn ink.</summary>
+        public const float GasBankFade = 1f;
+        // The crest card riding each block's body: a soft dome top instead of a sheared edge. Its ink tops out at
+        // GasBankCrestRise + 12 * GasBankCrestWidth * GasBankSquash / 3 = 1.70 m, still under a 1.8 m man (L07).
+        // (The width is 0.45, not the plan's 0.72: at 0.72 that sum is 2.51 m, over a man's head.)
+        public const float GasBankCrestRise = 0.35f, GasBankCrestWidth = 0.45f, GasBankCrestAlpha = 0.55f;
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.75 tops out at 1.75 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.75f;
         public static readonly Color GasBankNight = new Color(0.78f, 0.86f, 0.22f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
@@ -96,18 +105,14 @@ namespace TW.Presentation.Tactical
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 14f, 2.4f, 73856093, 19349663);
+            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 14f, 1.2f, 73856093, 19349663);
             gasCards.Clear();
             float blockSize = 2f * MapData.FieldCellSize * step;
             gasBlocks.Clear();
             foreach (var b in gasBank.Cells)
             {
-                float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
-                float slow = now * 0.22f + h3 * 6.2832f;
-                float width = (6f + 3f * b.Thick) * (0.9f + 0.2f * h2) * step;
-                var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.10f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
-
+                // No card per cell any more (r2-3-g2-g1): a card each left a carpet of overlapping pads with no top
+                // edge. A cell only says which block stands and how thick it is; the block draws the bank.
                 long key = ((long)Mathf.FloorToInt(b.X / blockSize) << 32) ^ (uint)Mathf.FloorToInt(b.Z / blockSize);
                 gasBlocks.TryGetValue(key, out var blk);
                 blk.Count++; blk.X += b.X; blk.Z += b.Z; blk.Ground += b.Ground; blk.Thick = Mathf.Max(blk.Thick, b.Thick); blk.Hash ^= b.Hash;
@@ -119,9 +124,14 @@ namespace TW.Presentation.Tactical
                 float cx = blk.X / blk.Count, cz = blk.Z / blk.Count, ground = blk.Ground / blk.Count;
                 float h3 = ((blk.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
-                float width = 11f * step;
+                float width = 12f * step;
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((blk.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(cx, ground - 0.10f, cz), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(blk.Thick)));
+                float opacity = GasBankAlpha(blk.Thick);
+                gasCards.Add(FlipbookFx.Pack(new Vector3(cx, ground - 0.10f, cz), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, GasBankFade, 0f, kind, opacity));
+                // the crest: a narrower, fainter card lifted off the body, boiling out of step with it
+                float h2 = ((blk.Hash >> 10) & 1023) / 1023f;
+                float crest = width * GasBankCrestWidth;
+                gasCards.Add(FlipbookFx.Pack(new Vector3(cx, ground + GasBankCrestRise, cz), crest, crest * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow + h2 * 3.14f), 1f, GasBankFade, 0f, kind, opacity * GasBankCrestAlpha));
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }

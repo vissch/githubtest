@@ -273,7 +273,21 @@ namespace TW.Tests
             // draws (frames 17-28) is 0.167 (docs/evidence/ability-fx-captures-r2/README.md, measurement 2): the
             // threshold must stay under that or the drawing's own ink is cut away and the bank renders as nothing
             // (r1's "flat olive smears", 22/100).
-            Assert.Less((1f - CombatFx.GasBankThin) * 1.0f, 0.167f, "the erode threshold stays under the sheet's thinnest drawn ink");
+            // r2-3-g2-g1: this read GasBankThin as the card's fade, but GasBankAlpha feeds Pack's OPACITY and the
+            // fade the gas cards are packed with is GasBankFade. The invariant is on the fade; the opacity is now
+            // free to drop, and must, so the bank is soft enough to see the mud through.
+            Assert.AreEqual(1f, CombatFx.GasBankFade, 1e-6f, "gas cards are packed at fade 1, so the erode threshold is 0");
+            Assert.Less((1f - CombatFx.GasBankFade) * 1.0f, 0.167f, "the erode threshold stays under the sheet's thinnest drawn ink");
+            Assert.LessOrEqual(CombatFx.GasBankThin, 0.8f, "a thin cell's bank is soft enough to read the mud through");
+        }
+        [Test]
+        public void TheGasBankCrestStaysUnderAMansHead()
+        {
+            // The crest card rides on the block's 12 m body at GasBankCrestWidth of its width, lifted GasBankCrestRise
+            // off the ground. The sheet's ink fills the bottom third of a card, so its ink tops out here:
+            float top = CombatFx.GasBankCrestRise + 12f * CombatFx.GasBankCrestWidth * CombatFx.GasBankSquash / 3f;
+            Assert.Less(top, 1.8f, "the crest's gas stays under a 1.8 m man's head");
+            Assert.Greater(top, 1f, "and still stands above the body card, or it is not a crest");
         }
     }
 }
