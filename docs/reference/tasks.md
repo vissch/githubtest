@@ -137,12 +137,15 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, four stills at one pose, gas, smoke,
   puff and a plate - so a blank still accuses one book and not the sim, the field, the cache and the capture path at
   once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
-  `docs/evidence/ability-fx-captures-r2-2-g2-g1/probe.py` measures those stills in metres, barred against the SPREAD
-  of three repeat captures of the same build, not one JPEG (`--calibrate`, `--selftest`, `--pack`, `--against DIR`),
-  and adds the zebra test: `bank_patch_share` and `bank_patch_count`, how much of the frame's plate difference sits
-  in ONE patch and how many patches there are at all (`docs/evidence/ability-fx-captures-r2-2-g2/probe.py` is its
-  predecessor, which a zebra of separate cards passed; `docs/evidence/ability-fx-captures-r2/probe.py` is the
-  single-capture one before that);
+  `docs/evidence/ability-fx-captures-r2-2-g2-g1-g1/probe.py` measures those stills in metres, barred against the
+  SPREAD of three repeat captures of the same build, not one JPEG (`--calibrate`, `--selftest`, `--pack`,
+  `--against DIR`), and adds the bands test: `bank_fill`, the biggest patch's paint over the area of its own
+  bounding box, which separates bands over a wide box from one body where the patch keys cannot (its `bank_run_px`
+  is measured and reported but NOT barred: it cannot tell the two builds apart). It also fixes the card rise, which
+  read 0.000 m for every card before it (`docs/evidence/ability-fx-captures-r2-2-g2-g1/probe.py` is its
+  predecessor, with the zebra test `bank_patch_share` and `bank_patch_count`, which a FIELD of bands passed;
+  `docs/evidence/ability-fx-captures-r2-2-g2/probe.py` before that, which a zebra of separate cards passed; and
+  `docs/evidence/ability-fx-captures-r2/probe.py` the single-capture one at the start);
   `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).

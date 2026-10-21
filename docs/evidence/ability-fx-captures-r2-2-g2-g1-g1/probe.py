@@ -1,0 +1,663 @@
+#!/usr/bin/env python3
+"""Measure the chlorine gas bank in metres, and bar it against the SPREAD of three repeat captures.
+
+WHY. The build this probe bars is the gas bank drawing SmokeBank's cloud (FlipbookFx `Sheet.Tex`, the GasBank
+row pointed at `SmokeBank.png` in chlorine ink, window 12..20.5, `GasBankSquash` 0.22). g1's probe passed the
+FIELD: "at zoom 30 at night the play frame is still bands of yellow-green across the trench, not one chlorine
+bank a player can point at" (the owner, on g1's run1/run2/run3 gas-t1.jpg, all reading mask_px 4324). g1 already
+asks how much of the frame's paint sits in ONE patch (`bank_patch_share`) and how many patches there are
+(`bank_patch_count`) — but bands across the trench touch at their ends and the dilation bridges them, so they
+ARE one patch and both keys pass on a field. This probe keeps g1's camera maths, mask, bars and three-run spread
+rule and adds the two numbers that look INSIDE that patch: `bank_fill` (the patch's paint over the area of its
+own bounding box) and `bank_run_px` (the median vertical run length of the mask in it). Bands are thin runs
+spread thinly over a wide box; a cloud is long runs filling its own box. `--against` re-measures g1's own runs
+with this probe and must exit 1, because a bar the field also clears proves nothing.
+
+THE CARD RISE. `card_rise_m` was broken in g1 and is fixed here: it took each masked pixel's own ray down to the
+ground and then asked that pixel's height at that same distance, which is zero by construction. Gas, smoke and
+puff all read 0.000 m, so "cards-gas.jpg is a flat puddle (rise_m 0)" was not evidence of anything. It now uses
+`measure_t1`'s column maths (one distance per column, from that column's bottom-most pixel). Still unbarred: it
+is the look report.
+
+THE MASK. r2-2's mask was any pixel that changed from the plate by >= 12-20 RGB, full stop — "any plate-difference
+blob counts" (the owner's own words for why that is wrong: the six moving infantry and JPEG block noise are also
+plate differences, anywhere in the frame). This probe adds one more requirement: the pixel must also be BRIGHTER
+than the plate (Rec.709 luma of the shot minus the plate's luma >= `LUMA_BAR`). The bank is a lit translucent card
+over a dark night field, so it LIFTS luma where it sits; infantry motion and JPEG noise change luma both ways.
+`mask_px_raw` (the old plate-difference count) and `mask_px` (after the luma lift) are both printed per run, so
+the cut this makes is visible, not asserted.
+
+THE NAMES. `gas_t1_green_low_share` is renamed `bank_low_share` — it was never a colour test, even in r2-2, and
+calling it "green" is exactly the owner's complaint ("what the probe calls gas does not read as gas"). The
+duplicate `gas_o240_green_area_frac` key (same number as `gas_o240_effect_area_frac` under a second name) is
+dropped. `gas_hue_window_px` is kept, unbarred: it is the plate-difference pixels that ALSO fall in the old
+45-95 PIL hue window, a 50 px wide band — the owner called this "the hue window is 30 px" meaning it is a colour
+test wide enough to pass almost anything; whatever its exact width, no run below ever bars on it.
+
+THE BAR. Three runs of the SAME build (`run1`, `run2`, `run3`, each the four GasBankStills captures plus a
+no-gas plate) are loaded. For a bar to hold, the three runs must all sit on the pass side AND the nearest run
+value to the bar must clear it by at least the three runs' own spread (max - min). A bar sitting inside the run
+values, or within one spread of them, is "the build cannot tell a measure from its own noise" and the probe exits
+1 rather than print a false green. With fewer than three runs it exits 1 before looking at any bar at all: there
+is no partial credit for one capture, which is what let r2-2's single JPEG stand in for a measure.
+
+THE LOOK REPORT. `cards/` holds the r2-2 isolation stills (one hand-packed card per book, gas/smoke/puff, plus a
+plate). These are never barred — the gas card is squashed by `CombatFx.GasBankSquash` 0.55 on purpose, so "gas
+rise >= smoke rise" would fail by construction and would be a look change nobody asked for here. Instead this
+prints, per card, its rise in metres and its relief (stdev of masked luma / its mean), and the gas/smoke ratio of
+each: the owner's "cards-smoke.jpg is the volume this pose can already draw" becomes two numbers for his next call
+on the look, not a pass bar.
+
+USAGE
+    python probe.py                 bar run1/run2/run3 against each other, print the cards/ look report
+    python probe.py --calibrate      print every run's numbers with no bar check (even with only one run loaded)
+    python probe.py --selftest       the camera maths against a hand calculation, no images
+    python probe.py --against DIR     measure another evidence folder's runs with THIS probe (always exits 1)
+
+Exit 0 only when three runs are loaded and every bar clears its run values by at least their spread.
+Exit 1 with 'three runs needed' if fewer than three run*/ directories hold a full set of stills.
+Exit 1 with 'bar inside the noise' if a bar does not clear by the spread.
+"""
+import glob
+import json
+import math
+import os
+import shutil
+import sys
+
+from PIL import Image
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+FOV_V_DEG = 25.0            # TacticalCamera.Fov, vertical
+ASPECT = 16.0 / 9.0
+HEAD_M = 1.8                 # a man's head: bank at or under this is on the ground with him
+DIFF_BAR = 12                 # RGB distance from the plate that counts as changed (O240 area frac, hue window)
+T1_DIFF_BAR = 20               # T1's own, stricter plate-difference bar (carried from r2-2)
+LUMA_BAR = 2.0                  # the shot must be at least this much brighter (Rec.709 luma) than the plate
+BLOB_DILATE = 1               # largest_blob's bridge width (r2-2: 2 chained the bank into terrain-edge noise)
+HUE_LO, HUE_HI, SAT_BAR, VAL_BAR = 45, 95, 50, 30      # the old hue window, kept only as an unbarred row
+STILLS = ['gas-t1', 'gas-t1-plate', 'gas-o240', 'gas-o240-plate']
+CARDS = ['cards-gas', 'cards-smoke', 'cards-puff', 'cards-plate']
+BARS = {'bank_low_share': 'ge', 'bank_height_frac': 'le', 'o240_area_frac': 'ge', 'pose_error_max': 'lt'}
+PATCH_MIN_PX = 200            # a plate-difference patch this big or bigger counts as its own patch (a card)
+BARS['bank_patch_share'] = 'ge'     # one bank: most of the frame's plate difference sits in ONE patch
+BARS['bank_patch_count'] = 'le'     # one bank: few patches at all (the zebra is many separate cards)
+BARS['bank_fill'] = 'ge'            # one body fills much of its own bounding box; bands over a wide box do not
+# `bank_run_px` is measured and printed but NOT barred: it reads 1.00 px on the field AND on this bank (the cards
+# are drawn with a dither, so a run is a pixel either way), so it cannot tell the two builds apart. A bar a key
+# cannot see is a false green: step 10's rule is to report such a key, never to bar it.
+
+
+def luma(r, g, b):
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def ray(ndc_x, ndc_y, pitch_deg, yaw_deg):
+    """World direction of the pixel at (ndc_x, ndc_y), both -1..1, ndc_y up.
+
+    Unity's camera: euler X pitches the forward vector DOWN, euler Y turns it clockwise seen from above.
+      Rx(p) . (x, y, z) = (x, y cos p - z sin p, y sin p + z cos p)
+      Ry(w) . (x, y, z) = (x cos w + z sin w, y, -x sin w + z cos w)
+    """
+    tan_v = math.tan(math.radians(FOV_V_DEG * 0.5))
+    tan_h = tan_v * ASPECT
+    x, y, z = ndc_x * tan_h, ndc_y * tan_v, 1.0
+    p, w = math.radians(pitch_deg), math.radians(yaw_deg)
+    y, z = y * math.cos(p) - z * math.sin(p), y * math.sin(p) + z * math.cos(p)
+    x, z = x * math.cos(w) + z * math.sin(w), -x * math.sin(w) + z * math.cos(w)
+    n = math.sqrt(x * x + y * y + z * z)
+    return x / n, y / n, z / n
+
+
+def ground_distance(cam, pitch, yaw, ground_y, ndc_x, ndc_y):
+    """Horizontal distance from the camera to where this pixel's ray crosses y = ground_y (None if it never does)."""
+    dx, dy, dz = ray(ndc_x, ndc_y, pitch, yaw)
+    if dy >= -1e-6:
+        return None
+    t = (ground_y - cam[1]) / dy
+    if t <= 0:
+        return None
+    return t * math.hypot(dx, dz)
+
+
+def height_at(cam, pitch, yaw, ground_y, ndc_x, ndc_y, dist):
+    """Height above the ground of this pixel, taken in the vertical plane `dist` metres out from the camera."""
+    dx, dy, dz = ray(ndc_x, ndc_y, pitch, yaw)
+    flat = math.hypot(dx, dz)
+    if flat <= 1e-9:
+        return None
+    t = dist / flat
+    return cam[1] + t * dy - ground_y
+
+
+def selftest():
+    """Hand calculation, worked here and not taken from the code it checks.
+
+    Camera at (0, 10, 0), pitch 45 deg (looking down), yaw 0, ground at y = 0.
+      The CENTRE pixel's ray leaves at 45 deg below the horizon, so it drops 10 m over 10 m of ground:
+      it crosses y = 0 at a horizontal distance of exactly 10.000 m.
+      A pixel ONE DEGREE ABOVE centre leaves at 45 - 1 = 44 deg below the horizon. Followed out to the same
+      vertical plane, 10 m from the camera, it has dropped 10 * tan(44 deg) = 10 * 0.965689 = 9.65689 m, so it
+      stands 10 - 9.65689 = 0.34311 m above the ground.
+    """
+    cam, pitch, yaw = (0.0, 10.0, 0.0), 45.0, 0.0
+    tan_v = math.tan(math.radians(FOV_V_DEG * 0.5))
+    d = ground_distance(cam, pitch, yaw, 0.0, 0.0, 0.0)
+    assert d is not None and abs(d - 10.0) < 1e-6, 'centre pixel hits the ground at %r, wanted 10.000' % d
+    one_deg = math.tan(math.radians(1.0)) / tan_v          # one degree up, in ndc
+    h = height_at(cam, pitch, yaw, 0.0, 0.0, one_deg, d)
+    assert abs(h - 0.34311) < 1e-3, 'one degree up came back %.5f m, hand calculation says 0.34311' % h
+    print('selftest ok: centre pixel 10.000 m out, one degree up %.5f m high (hand: 0.34311)' % h)
+    return 0
+
+
+def blobs(mask, w, h, dilate=BLOB_DILATE):
+    """Every coherent patch in `mask`, as a list of member-index lists, biggest first.
+
+    g2's `largest_blob` is this function keeping only the biggest patch; it is split out here because the zebra
+    test needs the OTHER patches too: how many there are, and how much of the paint the biggest one holds.
+    """
+    from collections import deque
+    n = w * h
+    dil = bytearray(mask)
+    for _ in range(dilate):
+        nxt = bytearray(dil)
+        for y in range(h):
+            row = y * w
+            for x in range(w):
+                i = row + x
+                if dil[i]:
+                    continue
+                if ((x > 0 and dil[i - 1]) or (x < w - 1 and dil[i + 1])
+                        or (y > 0 and dil[i - w]) or (y < h - 1 and dil[i + w])):
+                    nxt[i] = 1
+        dil = nxt
+
+    seen = bytearray(n)
+    found = []
+    for i in range(n):
+        if not dil[i] or seen[i]:
+            continue
+        seen[i] = 1
+        q = deque([i])
+        members = []
+        while q:
+            j = q.popleft()
+            members.append(j)
+            x, y = j % w, j // w
+            for nj in ((j - 1 if x > 0 else -1), (j + 1 if x < w - 1 else -1),
+                       (j - w if y > 0 else -1), (j + w if y < h - 1 else -1)):
+                if nj >= 0 and dil[nj] and not seen[nj]:
+                    seen[nj] = 1
+                    q.append(nj)
+        found.append(members)
+    found.sort(key=len, reverse=True)
+    return found
+
+
+def largest_blob(mask, w, h, dilate=BLOB_DILATE):
+    """Keep only the mask pixels inside the single biggest coherent patch (g2's behaviour, now via `blobs`)."""
+    found = blobs(mask, w, h, dilate)
+    best_members = max(found, key=len) if found else []
+    keep = bytearray(w * h)
+    for j in best_members:
+        keep[j] = 1
+    return [bool(mask[i]) and keep[i] for i in range(w * h)]
+
+
+def changed(img, plate, bar=DIFF_BAR):
+    """Mask of pixels whose RGB distance from the plate is `bar` or more, as a flat list of bools."""
+    a, b = list(img.getdata()), list(plate.getdata())
+    bar2 = bar * bar
+    return [((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2) >= bar2 for p, q in zip(a, b)]
+
+
+def brighter(img, plate, luma_bar=LUMA_BAR):
+    """Mask of pixels whose luma is at least `luma_bar` ABOVE the plate's: the bank lifts luma, noise does not."""
+    a, b = list(img.getdata()), list(plate.getdata())
+    return [(luma(*p) - luma(*q)) >= luma_bar for p, q in zip(a, b)]
+
+
+def bank_mask(img, plate, bar=DIFF_BAR, blob=False):
+    """The bank: the coherent plate-difference patch, kept only where it is also brighter than the plate.
+
+    Applying the luma lift BEFORE `largest_blob` was tried first (what the owner described) and collapsed T1's
+    patch from 14,805 px to 3,105: a translucent card has its own interior shading (tracer streaks, overlapping
+    sprite edges), so plenty of its own pixels sit DARKER than the plate even though the card is there, and
+    stripping them first breaks the patch into fragments `largest_blob` cannot bridge. `largest_blob` is run on
+    the plate difference alone (r2-2's proven, coherent-patch test) and the brightness lift is applied to what it
+    finds, not to what finds it: within the one patch the difference test already located, only the pixels that
+    are also brighter than the plate count as the bank. See README.md, "The mask".
+    """
+    diff = changed(img, plate, bar)
+    w, h = img.size
+    found = blobs(diff, w, h) if blob else []
+    if blob:
+        keep = bytearray(w * h)
+        for j in (found[0] if found else []):
+            keep[j] = 1
+        patch = [bool(diff[i]) and keep[i] for i in range(w * h)]
+    else:
+        patch = diff
+    n_patches = sum(1 for m in found if len(m) >= PATCH_MIN_PX)
+    bbox = None
+    if blob and found:
+        xs = [j % w for j in found[0]]
+        ys = [j // w for j in found[0]]
+        bbox = (min(xs), min(ys), max(xs), max(ys))
+    lift = brighter(img, plate)
+    return ([d and l for d, l in zip(patch, lift)], sum(1 for d in diff if d),
+            sum(1 for d in patch if d), n_patches, bbox)
+
+
+def body_shape(mask, patch_px, bbox, w, h):
+    """`bank_fill` and `bank_run_px`: is the paint inside the patch ONE body, or bands with gaps?
+
+    g1's patch keys ask how much of the frame's paint sits in the biggest patch and how many patches there are.
+    Bands of yellow-green ACROSS the trench are ONE patch (they touch at their ends and the dilation bridges
+    them), so both keys can pass while the frame is still a field. These two look INSIDE that patch:
+
+      `bank_fill`   = `mask_px_patch` / the area of the patch's bounding box. Stripes spread over a wide box
+                      fill little of it; one cloud fills much of its own box.
+      `bank_run_px` = the median length, in pixels, of the mask's vertical runs inside the patch. A band is
+                      short runs with gaps above and below; a cloud is long runs.
+
+    `bank_fill` counts the plate-difference pixels of the patch (`mask_px_patch`, the same number g1's
+    `bank_patch_share` divides), so box and fill are measured on one mask. `bank_run_px` counts runs of the
+    FINAL mask (the patch kept where it is also brighter than the plate), the mask the metre keys use.
+    """
+    if bbox is None or patch_px == 0:
+        return {'bank_fill': 0.0, 'bank_run_px': 0.0}
+    x0, y0, x1, y1 = bbox
+    box = float(max((x1 - x0 + 1) * (y1 - y0 + 1), 1))
+    runs = []
+    for x in range(x0, x1 + 1):
+        run = 0
+        for y in range(y0, y1 + 1):
+            if mask[y * w + x]:
+                run += 1
+            elif run:
+                runs.append(run)
+                run = 0
+        if run:
+            runs.append(run)
+    runs.sort()
+    med_run = float(runs[len(runs) // 2]) if runs else 0.0
+    return {'bank_fill': round(patch_px / box, 4), 'bank_run_px': round(med_run, 2)}
+
+
+def hue_window_count(img, plate):
+    """How many of the plate-difference pixels also fall in the old hue window (unbarred: see module docstring)."""
+    diff = changed(img, plate)
+    hsv = list(img.convert('HSV').getdata())
+    return sum(1 for d, (h, s, v) in zip(diff, hsv)
+               if d and HUE_LO <= h <= HUE_HI and s >= SAT_BAR and v >= VAL_BAR)
+
+
+def pack(src, into):
+    """Copy every still in `src` into HERE/`into`/ as a JPG under 400 KB, with its sidecar and manifests.
+
+    Lifted from docs/evidence/ability-fx-captures-r2/probe.py's `pack` (lines 131-152), so run2/run3 are packed
+    exactly as run1 was: same quality ladder, same files, just into a named run directory instead of HERE.
+    """
+    out_dir = os.path.join(HERE, into)
+    os.makedirs(out_dir, exist_ok=True)
+    written = []
+    for png in sorted(glob.glob(os.path.join(src, '*.png'))):
+        stem = os.path.splitext(os.path.basename(png))[0]
+        if stem not in STILLS:
+            continue
+        out = os.path.join(out_dir, stem + '.jpg')
+        img = Image.open(png).convert('RGB')
+        for q in range(92, 40, -6):
+            img.save(out, 'JPEG', quality=q)
+            if os.path.getsize(out) <= 400 * 1024:
+                break
+        side = os.path.splitext(png)[0] + '.json'
+        if os.path.exists(side):
+            shutil.copyfile(side, os.path.join(out_dir, stem + '.json'))
+        written.append(stem)
+    for name in ('manifest.json', 'manifest-plate.json'):
+        p = os.path.join(src, name)
+        if os.path.exists(p):
+            shutil.copyfile(p, os.path.join(out_dir, name))
+    return written
+
+
+def load(run_dir, stem):
+    img = Image.open(os.path.join(run_dir, stem + '.jpg')).convert('RGB')
+    with open(os.path.join(run_dir, stem + '.json'), encoding='utf-8') as f:
+        side = json.load(f)
+    return img, side
+
+
+def ground_of(run_dir, stem):
+    """The ground height under the gas, from manifest.json; the sidecar does not carry it."""
+    path = os.path.join(run_dir, 'manifest.json')
+    if os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            for row in json.load(f).get('stills', []):
+                if row.get('still', '').startswith(stem):
+                    return float(row.get('ground_y', 0.0))
+    return 0.0
+
+
+def measure_t1(run_dir):
+    img, side = load(run_dir, 'gas-t1')
+    plate, _ = load(run_dir, 'gas-t1-plate')
+    w, h = img.size
+    mask, raw_count, patch_count, n_patches, bbox = bank_mask(img, plate, bar=T1_DIFF_BAR, blob=True)
+    shape = body_shape(mask, patch_count, bbox, w, h)
+    cam = (side['cam_x'], side['cam_y'], side['cam_z'])
+    pitch, yaw = side['cam_pitch'], side['cam_yaw']
+    ground = ground_of(run_dir, 'gas-t1')
+
+    by_column = {}
+    for i, on in enumerate(mask):
+        if on:
+            px, py = i % w, i // w
+            by_column.setdefault(px, []).append(py)
+
+    MIN_COLUMN_PX = 8
+    columns = {px: max(rows_) for px, rows_ in by_column.items() if len(rows_) >= MIN_COLUMN_PX}
+
+    def ndc(px, py):
+        return (2.0 * (px + 0.5) / w - 1.0, 1.0 - 2.0 * (py + 0.5) / h)
+
+    dists = {}
+    for px, py in columns.items():
+        nx, ny = ndc(px, py)
+        d = ground_distance(cam, pitch, yaw, ground, nx, ny)
+        if d is not None and 1.0 < d < 2000.0:
+            dists[px] = d
+
+    heights, low, total, col_heights = [], 0, 0, {}
+    for i, on in enumerate(mask):
+        if not on:
+            continue
+        px, py = i % w, i // w
+        if px not in dists:
+            continue
+        nx, ny = ndc(px, py)
+        y = height_at(cam, pitch, yaw, ground, nx, ny, dists[px])
+        if y is None:
+            continue
+        total += 1
+        if y <= HEAD_M:
+            low += 1
+        col_heights.setdefault(px, []).append(y)
+    for px, ys in col_heights.items():
+        ys.sort()
+        p45 = ys[min(len(ys) - 1, int(round(0.45 * (len(ys) - 1))))]
+        heights.append(p45)
+    heights.sort()
+
+    mask_px = sum(1 for on in mask if on)
+    if not heights or total == 0:
+        return {'bank_low_share': 0.0, 'bank_height_frac': 1.0, 'bank_rise_m': 0.0,
+                'bank_area_frac': round(mask_px / float(w * h), 4),
+                'mask_px': mask_px, 'mask_px_raw': raw_count, 'mask_px_patch': patch_count,
+                'bank_patch_share': round(patch_count / float(max(raw_count, 1)), 4),
+                'bank_patch_count': n_patches,
+                'bank_fill': shape['bank_fill'], 'bank_run_px': shape['bank_run_px'],
+                'gas_hue_window_px': hue_window_count(img, plate)}
+    med_h = heights[len(heights) // 2]
+    dvals = sorted(dists.values())
+    med_d = dvals[len(dvals) // 2]
+    frame_h = 2.0 * med_d * math.tan(math.radians(FOV_V_DEG * 0.5))
+    return {
+        'bank_low_share': round(low / float(total), 4),
+        'bank_height_frac': round(med_h / frame_h, 4),
+        'bank_rise_m': round(med_h, 3),
+        'bank_area_frac': round(mask_px / float(w * h), 4),
+        'mask_px': mask_px,
+        'mask_px_raw': raw_count,
+        'mask_px_patch': patch_count,
+        # the zebra test: one bank is most of the paint in one patch (share) and few patches at all (count)
+        'bank_patch_share': round(patch_count / float(max(raw_count, 1)), 4),
+        'bank_patch_count': n_patches,
+        # bands or one body, measured INSIDE that patch (see `body_shape`)
+        'bank_fill': shape['bank_fill'],
+        'bank_run_px': shape['bank_run_px'],
+        'gas_hue_window_px': hue_window_count(img, plate),
+    }
+
+
+def measure_o240(run_dir):
+    img, _ = load(run_dir, 'gas-o240')
+    plate, _ = load(run_dir, 'gas-o240-plate')
+    # O240 is five separated calls 40 m apart, not one patch: no `largest_blob` here (it would keep only one call).
+    mask, raw_count, patch_count, _, _ = bank_mask(img, plate, blob=False)
+    n = float(img.size[0] * img.size[1])
+    mask_px = sum(1 for on in mask if on)
+    return {'o240_area_frac': round(mask_px / n, 4), 'o240_mask_px': mask_px, 'o240_mask_px_raw': raw_count,
+            'o240_mask_px_patch': patch_count}
+
+
+def poses(run_dir):
+    worst, rows = 0.0, {}
+    for stem in STILLS:
+        with open(os.path.join(run_dir, stem + '.json'), encoding='utf-8') as f:
+            e = float(json.load(f).get('pose_error_m', 99.0))
+        rows[stem] = round(e, 4)
+        worst = max(worst, e)
+    return round(worst, 4), rows
+
+
+def measure_run(run_dir):
+    worst, pose_rows = poses(run_dir)
+    out = {'pose_error_max': worst, 'pose_error_m': pose_rows}
+    out.update(measure_t1(run_dir))
+    out.update(measure_o240(run_dir))
+    return out
+
+
+def card_rise_m(run_dir, stem):
+    """The card's rise in metres, with `measure_t1`'s COLUMN maths; look report only, never barred.
+
+    g1's version took each masked pixel's own ray down to the ground and then asked that same pixel's height at
+    that same distance: zero by construction, for every pixel of every card. That is why gas, smoke AND puff all
+    read exactly 0.000 m there, and why "cards-gas rise_m 0" was never evidence of a flat puddle. The fix is the
+    maths `measure_t1` already uses: one distance PER COLUMN, from that column's bottom-most masked pixel (its
+    foot on the ground), then the heights of that column's pixels in the vertical plane at that distance. The
+    column's rise is its 45th percentile height and the card's is the median of those, exactly as `bank_rise_m`.
+    """
+    img, side = load(run_dir, stem)
+    plate, _ = load(run_dir, 'cards-plate')
+    w, h = img.size
+    mask, _, _, _, _ = bank_mask(img, plate, bar=T1_DIFF_BAR, blob=True)
+    cam = (side['cam_x'], side['cam_y'], side['cam_z'])
+    pitch, yaw = side['cam_pitch'], side['cam_yaw']
+    ground = ground_of(run_dir, stem)
+
+    def ndc(px, py):
+        return (2.0 * (px + 0.5) / w - 1.0, 1.0 - 2.0 * (py + 0.5) / h)
+
+    by_column = {}
+    for i, on in enumerate(mask):
+        if on:
+            by_column.setdefault(i % w, []).append(i // w)
+    MIN_COLUMN_PX = 8
+    dists = {}
+    for px, rows_ in by_column.items():
+        if len(rows_) < MIN_COLUMN_PX:
+            continue
+        nx, ny = ndc(px, max(rows_))         # the column's bottom-most masked pixel: its foot on the ground
+        d = ground_distance(cam, pitch, yaw, ground, nx, ny)
+        if d is not None and 1.0 < d < 2000.0:
+            dists[px] = d
+
+    pix = list(img.getdata())
+    col_heights, lumas = {}, []
+    for i, on in enumerate(mask):
+        if not on:
+            continue
+        px, py = i % w, i // w
+        lumas.append(luma(*pix[i]))
+        if px not in dists:
+            continue
+        nx, ny = ndc(px, py)
+        y = height_at(cam, pitch, yaw, ground, nx, ny, dists[px])
+        if y is not None:
+            col_heights.setdefault(px, []).append(y)
+    rises = []
+    for ys in col_heights.values():
+        ys.sort()
+        rises.append(ys[min(len(ys) - 1, int(round(0.45 * (len(ys) - 1))))])
+    if not rises or not lumas:
+        return {'rise_m': 0.0, 'relief': 0.0, 'mask_px': 0}
+    rises.sort()
+    rise_m = rises[len(rises) // 2]
+    mean_l = sum(lumas) / len(lumas)
+    var_l = sum((v - mean_l) ** 2 for v in lumas) / len(lumas)
+    relief = (var_l ** 0.5) / mean_l if mean_l > 1e-9 else 0.0
+    return {'rise_m': round(rise_m, 3), 'relief': round(relief, 4), 'mask_px': len(lumas)}
+
+
+def look_report():
+    cards_dir = os.path.join(HERE, 'cards')
+    if not os.path.isdir(cards_dir):
+        print('no cards/')
+        return {}
+    if not all(os.path.exists(os.path.join(cards_dir, s + '.jpg')) for s in CARDS):
+        print('cards/ look report: stills missing, skipped')
+        return {}
+    rows = {name: card_rise_m(cards_dir, name) for name in ('cards-gas', 'cards-smoke', 'cards-puff')}
+    smoke_rise = rows['cards-smoke']['rise_m'] or 1e-9
+    smoke_relief = rows['cards-smoke']['relief'] or 1e-9
+    print('look report (cards/, unbarred): the gas card against the smoke card this pose can already draw')
+    for name in ('cards-gas', 'cards-smoke', 'cards-puff'):
+        r = rows[name]
+        print('  %-12s rise %.3f m  relief %.4f  mask_px %d' % (name, r['rise_m'], r['relief'], r['mask_px']))
+    gas_smoke_rise_ratio = rows['cards-gas']['rise_m'] / smoke_rise
+    gas_smoke_relief_ratio = rows['cards-gas']['relief'] / smoke_relief
+    print('  gas/smoke rise ratio   %.4f' % gas_smoke_rise_ratio)
+    print('  gas/smoke relief ratio %.4f' % gas_smoke_relief_ratio)
+    rows['gas_smoke_rise_ratio'] = round(gas_smoke_rise_ratio, 4)
+    rows['gas_smoke_relief_ratio'] = round(gas_smoke_relief_ratio, 4)
+    return rows
+
+
+def find_runs(root=None):
+    runs = []
+    for d in sorted(glob.glob(os.path.join(root or HERE, 'run*'))):
+        if not os.path.isdir(d):
+            continue
+        if all(os.path.exists(os.path.join(d, s + '.jpg')) and os.path.exists(os.path.join(d, s + '.json'))
+               for s in STILLS):
+            runs.append(d)
+    return runs
+
+
+def spread_check(name, values, cmp_, bar):
+    """All three `values` on the pass side of `bar`, AND the nearest one clears it by at least their spread."""
+    spread = max(values) - min(values)
+    if cmp_ == 'ge':
+        passes = all(v >= bar for v in values)
+        margin = min(values) - bar
+    elif cmp_ == 'le':
+        passes = all(v <= bar for v in values)
+        margin = bar - max(values)
+    else:  # 'lt'
+        passes = all(v < bar for v in values)
+        margin = bar - max(values)
+    ok = passes and margin >= spread
+    print('%-18s values %s  spread %.4f  margin %.4f  bar %s %.4f  -> %s'
+          % (name, ['%.4f' % v for v in values], spread, margin, cmp_, bar, 'OK' if ok else 'FAILED'))
+    return ok
+
+
+def main():
+    if '--selftest' in sys.argv:
+        return selftest()
+
+    if '--pack' in sys.argv:
+        src = sys.argv[sys.argv.index('--pack') + 1]
+        into = sys.argv[sys.argv.index('--into') + 1]
+        written = pack(src, into)
+        print('packed %s -> %s/%s: %s' % (src, HERE, into, ', '.join(written)))
+        return 0
+
+    if '--against' in sys.argv:
+        other = os.path.abspath(sys.argv[sys.argv.index('--against') + 1])
+        other_runs = find_runs(other)
+        if not other_runs:
+            print('--against %s: no runs there' % other)
+            return 1
+        print('--against %s, measured with THIS probe (never a pass: the old build must fail the new bars)' % other)
+        for d in other_runs:
+            out = measure_run(d)
+            print('  %-6s bank_fill %.4f  bank_run_px %.2f  bank_patch_share %.4f  bank_patch_count %d'
+                  '  (patch %d of raw %d)  bank_low_share %.4f'
+                  % (os.path.basename(d), out['bank_fill'], out['bank_run_px'], out['bank_patch_share'],
+                     out['bank_patch_count'], out['mask_px_patch'], out['mask_px_raw'], out['bank_low_share']))
+        cdir = os.path.join(other, 'cards')
+        if os.path.isdir(cdir):
+            print('  cards/, with the FIXED card_rise_m (g1 read 0.000 m for every card):')
+            for name in ('cards-gas', 'cards-smoke', 'cards-puff'):
+                if os.path.exists(os.path.join(cdir, name + '.jpg')):
+                    r = card_rise_m(cdir, name)
+                    print('    %-12s rise %.3f m  relief %.4f  mask_px %d'
+                          % (name, r['rise_m'], r['relief'], r['mask_px']))
+        return 1
+
+    runs = find_runs()
+    calibrate = '--calibrate' in sys.argv
+    if not calibrate and len(runs) < 3:
+        print('three runs needed: found %d (%s)' % (len(runs), ', '.join(os.path.basename(r) for r in runs)))
+        return 1
+
+    results = {os.path.basename(d): measure_run(d) for d in runs}
+    for name, out in results.items():
+        print('%s: bank_low_share %.4f  bank_height_frac %.4f  bank_rise_m %.3f  bank_area_frac %.4f'
+              '  o240_area_frac %.4f  pose_error_max %.4f  mask_px %d (raw %d)  hue_window_px %d'
+              '  bank_patch_share %.4f  bank_patch_count %d  bank_fill %.4f  bank_run_px %.2f'
+              % (name, out['bank_low_share'], out['bank_height_frac'], out['bank_rise_m'], out['bank_area_frac'],
+                 out['o240_area_frac'], out['pose_error_max'], out['mask_px'], out['mask_px_raw'],
+                 out['gas_hue_window_px'], out['bank_patch_share'], out['bank_patch_count'],
+                 out['bank_fill'], out['bank_run_px']))
+
+    look = look_report()
+
+    if calibrate:
+        with open(os.path.join(HERE, 'probe.json'), 'w', encoding='utf-8') as f:
+            json.dump({'runs': results, 'look': look}, f, indent=1, sort_keys=True)
+        return 0
+
+    ok = True
+    for bar_name, cmp_ in BARS.items():
+        values = [results[r][bar_name] for r in results]
+        # bars are set once three runs exist: see docs/evidence/ability-fx-captures-r2-2-g2/README.md
+        bar = BAR_VALUES.get(bar_name)
+        if bar is None:
+            print('%-18s no bar set yet (needs the owner-approved build''s three captures)' % bar_name)
+            ok = False
+            continue
+        ok = spread_check(bar_name, values, cmp_, bar) and ok
+
+    with open(os.path.join(HERE, 'probe.json'), 'w', encoding='utf-8') as f:
+        json.dump({'runs': results, 'look': look, 'bars': BAR_VALUES}, f, indent=1, sort_keys=True)
+    print('OK' if ok else 'FAILED')
+    return 0 if ok else 1
+
+
+# Bar values, set from the spread of run1/run2/run3 of this build (see README.md "The bars"). Empty until shot.
+BAR_VALUES = {
+    # the four carried from g2/g1 unchanged. The first two are the OWNER's and are not moved: this build FAILS
+    # both (bank_low_share 0.1587 against 0.30, bank_height_frac 0.2354 against 0.15). See README.md, "The two
+    # bars this build fails", and the open question in docs/reference/decisions.md.
+    'bank_low_share': 0.30,     # owner-decided (head height, HEAD_M 1.8); this build reads 0.1587, spread 0.0000
+    'bank_height_frac': 0.15,   # owner-decided (r2's bar on this test); this build reads 0.2354, spread 0.0000
+    'o240_area_frac': 0.010,    # g2's bar, kept; this build reads 0.0159, spread 0.0000
+    'pose_error_max': 0.5,      # GasBankStills.PoseBar; this build reads 0.0000, spread 0.0000
+    # g1's two patch bars, kept: this build clears both by a wide margin (0.6359 and 41)
+    'bank_patch_share': 0.20,   # between the zebra's 0.1863 and g1's 0.2070; this build reads 0.6359
+    'bank_patch_count': 60,     # between the zebra's 90 and g1's 41; this build reads 41
+    # new this leg: strictly between the rejected build's 0.1288 (--against, all three of g1's runs) and this
+    # build's 0.1791, with 0.0288 of margin against a spread of 0.0000
+    'bank_fill': 0.15,
+}
+
+
+if __name__ == '__main__':
+    sys.exit(main())

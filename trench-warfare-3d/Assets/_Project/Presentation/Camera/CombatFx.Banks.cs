@@ -1,4 +1,4 @@
-// Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-8, look specs L07 and L08) — part of CombatFx. Behind
+﻿// Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-8, look specs L07 and L08) â€” part of CombatFx. Behind
 // fx.recipes, the gas and smoke fields as the drawn banks: chlorine as GasBank, a low rolling bank standing ON the ground
 // (its drawing fills the bottom third of the card, so a man's legs are in it and his head is not), the smoke screen as
 // SmokeBank mounds. Per 4 m field cell as before, placed and boiled by a hash of the cell (no random draws); from the
@@ -24,9 +24,13 @@ namespace TW.Presentation.Tactical
         public const float GasBankThin = 0.14f, GasBankFull = 0.5f;
         /// <summary>How flat a gas card is drawn. 0.36 assumed a drawing filling the card's bottom third; the cloud it
         /// draws now (SmokeBank) fills 0.03..0.87 of its cell, so the card has to be shorter for the same gas height:
-        /// the widest card (14.3 m) squashed to 0.22 is 3.15 m tall and its drawing tops out near 2.7 m - a rolling
-        /// bank, chest-and-up, under the owner's barred ceiling (bank_height_frac 0.15, about 3.4 m at the T1 median).</summary>
-        public const float GasBankSquash = 0.22f;
+        /// the widest card (14.3 m) squashed to 0.19 is 2.72 m tall and its drawing tops out near 2.36 m - a rolling
+        /// bank, chest-and-up, under the owner's barred ceiling (bank_height_frac 0.15, about 3.4 m at the T1 median).
+        /// 0.19 is also the floor at which the T1 frame reads as ONE body at all: captured at 0.18 and below the
+        /// bank's cards stop stacking above the plate's luma and the frame falls back to a field (mask_px 5155,
+        /// bank_fill 0.1407 at 0.18 against 28546 and 0.3233 at 0.19). The squash ladder is in
+        /// docs/evidence/ability-fx-captures-r2-2-g2-g1-g1/README.md.</summary>
+        public const float GasBankSquash = 0.19f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>

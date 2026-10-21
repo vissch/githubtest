@@ -1,0 +1,107 @@
+{
+ "bars": {
+  "bank_fill": 0.15,
+  "bank_height_frac": 0.15,
+  "bank_low_share": 0.3,
+  "bank_patch_count": 60,
+  "bank_patch_share": 0.2,
+  "o240_area_frac": 0.01,
+  "pose_error_max": 0.5
+ },
+ "look": {
+  "cards-gas": {
+   "mask_px": 18349,
+   "relief": 0.1732,
+   "rise_m": 2.782
+  },
+  "cards-puff": {
+   "mask_px": 10937,
+   "relief": 0.1627,
+   "rise_m": 3.088
+  },
+  "cards-smoke": {
+   "mask_px": 16780,
+   "relief": 0.1773,
+   "rise_m": 3.361
+  },
+  "gas_smoke_relief_ratio": 0.9769,
+  "gas_smoke_rise_ratio": 0.8277
+ },
+ "runs": {
+  "run1": {
+   "bank_area_frac": 0.0363,
+   "bank_fill": 0.1791,
+   "bank_height_frac": 0.2354,
+   "bank_low_share": 0.1587,
+   "bank_patch_count": 41,
+   "bank_patch_share": 0.6359,
+   "bank_rise_m": 5.835,
+   "bank_run_px": 1.0,
+   "gas_hue_window_px": 2,
+   "mask_px": 33423,
+   "mask_px_patch": 46163,
+   "mask_px_raw": 72590,
+   "o240_area_frac": 0.0159,
+   "o240_mask_px": 14672,
+   "o240_mask_px_patch": 26563,
+   "o240_mask_px_raw": 26563,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  },
+  "run2": {
+   "bank_area_frac": 0.0363,
+   "bank_fill": 0.1791,
+   "bank_height_frac": 0.2354,
+   "bank_low_share": 0.1587,
+   "bank_patch_count": 41,
+   "bank_patch_share": 0.636,
+   "bank_rise_m": 5.835,
+   "bank_run_px": 1.0,
+   "gas_hue_window_px": 2,
+   "mask_px": 33423,
+   "mask_px_patch": 46163,
+   "mask_px_raw": 72587,
+   "o240_area_frac": 0.0159,
+   "o240_mask_px": 14649,
+   "o240_mask_px_patch": 26542,
+   "o240_mask_px_raw": 26542,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  },
+  "run3": {
+   "bank_area_frac": 0.0363,
+   "bank_fill": 0.1791,
+   "bank_height_frac": 0.2354,
+   "bank_low_share": 0.1587,
+   "bank_patch_count": 41,
+   "bank_patch_share": 0.636,
+   "bank_rise_m": 5.835,
+   "bank_run_px": 1.0,
+   "gas_hue_window_px": 2,
+   "mask_px": 33423,
+   "mask_px_patch": 46163,
+   "mask_px_raw": 72584,
+   "o240_area_frac": 0.0159,
+   "o240_mask_px": 14655,
+   "o240_mask_px_patch": 26543,
+   "o240_mask_px_raw": 26543,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  }
+ }
+}
