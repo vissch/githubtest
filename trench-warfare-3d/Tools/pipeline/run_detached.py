@@ -63,7 +63,8 @@ def cmd_start(a):
         if st in ("RUNNING", "STALLED"):
             raise SystemExit("run %s is still going" % a.name)
         # A wrapper that died leaves CRASHED while its child still runs. Starting again stacks two jobs.
-        child_alive = rec.get("child_pid") and proc_start(rec["child_pid"]) == rec.get("child_start")
+        child_alive = (rec.get("child_pid") and rec.get("child_start") is not None
+                       and proc_start(rec["child_pid"]) == rec["child_start"])
         if st == "CRASHED" and child_alive:
             raise SystemExit("refused: %s child still running (stop it or wait)" % a.name)
     if a.min_headroom_gb:
@@ -131,7 +132,8 @@ def state(rec):
     if rec.get("state") in ("DONE", "TIMEOUT", "STOPPED"):
         return rec["state"], "exit=%s" % rec.get("exit_code")
     wrapper_alive = rec.get("wrapper_pid") and proc_start(rec["wrapper_pid"]) == rec.get("wrapper_start")
-    child_alive = rec.get("child_pid") and proc_start(rec["child_pid"]) == rec.get("child_start")
+    child_alive = (rec.get("child_pid") and rec.get("child_start") is not None
+                   and proc_start(rec["child_pid"]) == rec["child_start"])
     if not wrapper_alive:
         return "CRASHED", "wrapper gone" + (", child still running (stop it or wait)" if child_alive else "")
     beat = datetime.datetime.strptime(rec["heartbeat"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)

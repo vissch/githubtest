@@ -222,7 +222,6 @@ class PipelineTest(unittest.TestCase):
         P.main(["close-feedback", fid])
         self.assertEqual(self.states()["sim"], "DONE")
 
-<<<<<<< HEAD
     def test_commit_headroom_floor_defaults_to_10(self):
         """A forgotten --min-headroom-gb must still refuse a heavy start. 0 is the way out."""
         import run_detached as rd
@@ -277,7 +276,7 @@ class PipelineTest(unittest.TestCase):
         finally:
             rd.cmd_start = old_start
             rd.headroom_gb, rd.runs_root = old_hr, old_root
-=======
+
     def test_start_refuses_while_the_recorded_child_still_runs(self):
         """A dead wrapper with a live child is CRASHED, not a free name. start must exit naming stop."""
         import run_detached as rd
@@ -325,7 +324,6 @@ class PipelineTest(unittest.TestCase):
             if child.poll() is None:
                 child.kill()
                 child.wait(timeout=10)
->>>>>>> 1cd26ca230 ([found-refuse-a-detached-restart-while-the-recorded-20261018-0] refuse a start while the recorded child still runs)
 
 
 if __name__ == "__main__":
