@@ -146,6 +146,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   The O240 hue is read over the blob's CORE from r2-3-g2-g2 too (`HUE_CORE_PCTL`, the top quartile of plate
   difference) with a saturation-weighted MEDIAN hue: the card is alpha-blended, so its fringe is mostly ground
   showing through and a whole-blob mean moved 42 deg between seeds; the core median holds them to 14 deg.
+  From r2-3-g2-g2-g2 the O240 hue is read ALPHA-FREE, from the shot-minus-plate difference vector
+  (`docs/evidence/ability-fx-captures-r2-3-g2-g2-g2/probe.py`'s `unmix_hue`), and barred as `o240_hue_off_deg`:
+  the circular distance from `GasBankNight`'s own painted hue, 67.5 deg.
   The pipeline's `run_tests` selects
   no [Explicit] test, so run it as its own batch launch: `Unity.exe -batchmode -projectPath <checkout>/trench-warfare-3d
   -runTests -testPlatform EditMode -testFilter GasBankStills -testResults <xml> -logFile <log>`).
