@@ -45,6 +45,20 @@
 //      where no probe gate can tell it from the bank's own face. ON THIS MAP the ladder runs out: 71 open
 //      patches, 2 of them clear even at 4 m, so the last rung is 0 m - no corridor check - and the rung that
 //      was used is in the log, because three seeds is the bar and one seed is no bar at all.
+//  - r2-3-g2-g2-g1-g1: THE MOVABLE DRAWERS ARE OFF IN THE SIDE BAND, in both passes. g1's side stills still held
+//    a tank: gas-side-s1 was a hull filling the frame, and the three seeds' side_face_px came out 37666, 70304
+//    and 114148 - a spread of 3.0x, so the three pictures were three different subjects and not one bank seen
+//    three times. The side band now sets enabled = false on the scene's TankRenderer, VATRenderer and
+//    DebrisRenderer for the block's frames, so no hull, no man and no debris piece is drawn into either the gas
+//    still or its plate; all three draw from LateUpdate, so disabling the component is enough and no production
+//    file changes. It is done UNCONDITIONALLY of the plate flag, so both passes skip the same drawing on the
+//    same frames and the plate still subtracts.
+//    Why not aim the lens away from the tank instead: the hull is dynamic, and from a seed's gas call on the two
+//    passes' worlds diverge (gas kills men), so any choice of pose that reacts to the world can differ between
+//    the gas pass and the plate pass - and a plate from a different pose is no control at all. Not drawing a
+//    thing is identical in both passes. The row says so: `drawers_off` on the side rows, and `hulls_near`, the
+//    count of alive Vehicle units within 80 m of the patch just before the shot, so the evidence states that
+//    hulls were about and are not in the picture.
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -59,6 +73,7 @@ using Unity.Mathematics;
 using TW.Editor;
 using TW.Presentation;
 using TW.Presentation.Tactical;
+using TW.Presentation.Units;
 using TW.Sim;
 using TW.Sim.Match;
 using TW.Sim.Terrain;
@@ -121,6 +136,8 @@ namespace TW.Tests
 
         static readonly List<string> rows = new List<string>();
         static float worstPose;
+        /// <summary>The drawers the side band switched off, held so they go back on even if a block throws.</summary>
+        static readonly List<Behaviour> drawersOff = new List<Behaviour>();
 
         [UnityTest, Explicit("Two gas stills and their plates in the night corridor; run by name, with a graphics device.")]
         public IEnumerator GasBankPoolsOnTheGroundAtBothBands()
@@ -134,7 +151,7 @@ namespace TW.Tests
 
         static IEnumerator Shoot()
         {
-            rows.Clear(); worstPose = 0f;
+            rows.Clear(); worstPose = 0f; DrawersOn();
             for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
             Assert.That(Host?.Local, Is.Not.Null, "no match");
 
@@ -242,6 +259,7 @@ namespace TW.Tests
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
             CameraShake.Strength = 1f;                // a player setting: put it back
             CombatFx.ShowOverlays = true;
+            DrawersOn();                              // a belt: the side blocks put them back themselves
             File.WriteAllText(Path.Combine(dir, plate ? "manifest-plate.json" : "manifest.json"),
                               "{\n  \"stills\": [\n" + string.Join(",\n", rows.ToArray()) + "\n  ]\n}\n");
             yield return new ExitPlayMode();
@@ -256,6 +274,10 @@ namespace TW.Tests
                                  float aimY = float.NaN)
         {
             int spent = 0;
+            // r2-3-g2-g2-g1-g1: the side band draws no hull, no man and no debris, in BOTH passes, so the two
+            // passes skip the same drawing on the same frames and the plate still subtracts. The frame the lens
+            // is posed on is the first of the block, so it goes here, before anything is framed.
+            if (band == "side") DrawersOff();
             tc.BaseYaw = -90f; tc.Zoom = zoom; tc.Focus = new Vector2(x, z);
             for (int f = 0; f < 10; f++) { yield return null; spent++; }
 
@@ -300,6 +322,8 @@ namespace TW.Tests
 
             for (int f = 0; f < WaitFrames; f++) { yield return null; spent++; }
 
+            int hullsNear = HullsNear(x, z, 80f);     // hulls that were about, whether or not they were drawn
+
             string path = Path.Combine(dir, stem + ".png");
             float best = float.MaxValue;
             for (int tryNo = 0; tryNo < 3; tryNo++)
@@ -313,6 +337,7 @@ namespace TW.Tests
                 if (err < PoseBar) break;
             }
             if (best > worstPose) worstPose = best;
+            DrawersOn();                              // the still is written: the drawers come back
 
             uint tick = Host.Local.World.Tick;
 
@@ -341,12 +366,54 @@ namespace TW.Tests
               .Append(", \"recipes\": ").Append(recipes.ToString("0.##"))
               .Append(", \"books_ready\": ").Append(ready ? "true" : "false")
               .Append(", \"draw_calls\": ").Append(FrameBudget.DrawCalls)
+              .Append(", \"drawers_off\": ").Append(band == "side" ? "true" : "false")
+              .Append(", \"hulls_near\": ").Append(hullsNear)
               .Append(", \"calls\": [");
             for (int i = 0; i < answers.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(answers[i]).Append('"');
             sb.Append("] }");
             rows.Add(sb.ToString());
 
             for (int f = spent; f < BlockFrames; f++) yield return null;
+        }
+
+        /// <summary>Switch off the drawers that move: the tank hulls and wrecks (TankRenderer), the men
+        /// (VATRenderer) and the debris pieces (DebrisRenderer). All three draw from LateUpdate, so disabling the
+        /// component stops the drawing and nothing in production changes.</summary>
+        static void DrawersOff()
+        {
+            Behaviour[] found =
+            {
+                Object.FindFirstObjectByType<TankRenderer>(),
+                Object.FindFirstObjectByType<VATRenderer>(),
+                Object.FindFirstObjectByType<DebrisRenderer>(),
+            };
+            foreach (var b in found)
+                if (b != null && b.enabled) { b.enabled = false; drawersOff.Add(b); }
+        }
+
+        /// <summary>Put back whatever DrawersOff switched off. Safe to call when nothing is off.</summary>
+        static void DrawersOn()
+        {
+            foreach (var b in drawersOff) if (b != null) b.enabled = true;
+            drawersOff.Clear();
+        }
+
+        /// <summary>Alive units carrying UnitFlags.Vehicle within `radius` m of (x, z). It says that hulls were
+        /// about when the still was taken, which is what makes "and none of them is in the picture" a claim.</summary>
+        static int HullsNear(float x, float z, float radius)
+        {
+            var w = Host?.Local?.World;
+            if (w == null) return -1;
+            int n = 0;
+            float r2 = radius * radius;
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                uint fl = w.Flags[i];
+                if ((fl & (uint)UnitFlags.Alive) == 0 || (fl & (uint)UnitFlags.Vehicle) == 0) continue;
+                float dx = w.Position[i].x - x, dz = w.Position[i].z - z;
+                if (dx * dx + dz * dz <= r2) n++;
+            }
+            return n;
         }
 
         /// <summary>The scene's CombatFx, or null: every reading below is read off it by reflection, because the
