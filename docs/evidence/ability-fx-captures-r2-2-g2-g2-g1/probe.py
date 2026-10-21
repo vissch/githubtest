@@ -74,6 +74,7 @@ BLOB_DILATE = 1               # largest_blob's bridge width (r2-2: 2 chained the
 STILLS = ['gas-t1', 'gas-t1-plate', 'gas-o240', 'gas-o240-plate']
 CARDS = ['cards-gas', 'cards-smoke', 'cards-puff', 'cards-plate']
 BARS = {'green_low_share': 'ge', 'green_height_frac': 'le', 'green_area_frac': 'ge',
+        'green_body_share': 'ge', 'green_relief': 'ge', 'green_rise_m': 'ge',
         'o240_green_area_frac': 'ge', 'pose_error_max': 'lt'}
 
 
@@ -313,10 +314,23 @@ def measure_t1(run_dir):
 
     mask_px = sum(1 for on in mask if on)
     diag = {'green_px': green_px, 'plate_diff_px': plate_diff_px, 'blob_px': blob_px}
+    # How much of the green one coherent patch holds: a body is one blob, stripes are many.
+    body_share = round(blob_px / float(green_px), 4) if green_px else 0.0
+    # Light and shade inside the body: stdev/mean of the luma in the blob, the same maths as `card_rise_m`.
+    pix = list(img.getdata())
+    blob_lumas = [luma(*pix[i]) for i, on in enumerate(mask) if on]
+    if blob_lumas:
+        mean_l = sum(blob_lumas) / len(blob_lumas)
+        var_l = sum((v - mean_l) ** 2 for v in blob_lumas) / len(blob_lumas)
+        relief = round((var_l ** 0.5) / mean_l, 4) if mean_l > 1e-9 else 0.0
+    else:
+        relief = 0.0
+    diag_new = {'green_body_share': body_share, 'green_relief': relief}
     if not heights or total == 0:
         out = {'green_low_share': 0.0, 'green_height_frac': 1.0, 'green_rise_m': 0.0,
                'green_area_frac': round(mask_px / float(w * h), 4)}
         out.update(diag)
+        out.update(diag_new)
         return out
     med_h = heights[len(heights) // 2]
     dvals = sorted(dists.values())
@@ -329,6 +343,7 @@ def measure_t1(run_dir):
         'green_area_frac': round(mask_px / float(w * h), 4),
     }
     out.update(diag)
+    out.update(diag_new)
     return out
 
 
@@ -497,6 +512,8 @@ def main():
               '  o240_green_area_frac %.4f  pose_error_max %.4f'
               % (name, out['green_low_share'], out['green_height_frac'], out['green_rise_m'],
                  out['green_area_frac'], out['o240_green_area_frac'], out['pose_error_max']))
+        print('  green_body_share %.4f  green_relief %.4f'
+              % (out['green_body_share'], out['green_relief']))
         print('  diagnostics (barred on nothing): green_px %d  plate_diff_px %d  blob_px %d'
               '  o240_green_px %d  o240_plate_diff_px %d'
               % (out['green_px'], out['plate_diff_px'], out['blob_px'],
@@ -536,10 +553,13 @@ def main():
 
 # Bar values, set from the spread of run1/run2/run3 at three different frames (see README.md "The bars").
 BAR_VALUES = {
-    'green_low_share': 0.30,        # owner-decided; the three runs read 1.0000 (every green pixel under HEAD_M 1.8)
-    'green_height_frac': 0.15,      # owner-decided; the runs read 0.0116 / 0.0116 / 0.0115
-    'green_area_frac': 0.005,       # runs 0.0055 / 0.0056 / 0.0055, spread 0.0001: the round number under 0.0054
-    'o240_green_area_frac': 0.008,  # runs 0.0108 / 0.0106 / 0.0111, spread 0.0005: 0.010 would clear by 0.0006 only
+    'green_low_share': 0.30,        # owner-decided on the flat bank; the body build reads 0.0968 / 0.0881 / 0.0997 - OPEN QUESTION, see README
+    'green_height_frac': 0.15,      # owner-decided on the flat bank; the body build reads 0.3913 / 0.4453 / 0.3826 - OPEN QUESTION, see README
+    'green_area_frac': 0.45,        # runs 0.5338 / 0.5585 / 0.5257, spread 0.0328: the round number under 0.4929
+    'green_body_share': 0.80,       # runs 0.9078 / 0.9548 / 0.9025, spread 0.0523: one blob holds the green (stripes read 0.11)
+    'green_relief': 0.09,           # owner anchor: at least half the smoke card's relief 0.1933; runs 0.2065 / 0.2184 / 0.2061
+    'green_rise_m': 7.0,            # runs 8.775 / 9.509 / 8.618, spread 0.891: the round number under 7.727
+    'o240_green_area_frac': 0.020,  # runs 0.0268 / 0.0272 / 0.0287, spread 0.0019: the round number under 0.0249
     'pose_error_max': 0.50,         # GasBankStills.PoseBar
 }
 

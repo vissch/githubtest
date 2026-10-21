@@ -296,6 +296,17 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-21 | **One gas BODY, not stripes.** The owner, on `-g2-g2`'s three captures: "gas-t1 run1, run2 and run3 (frames 804, 819, 834) are the same horizontal green stripes, and cards-gas.jpg is a flat puddle with rise_m 0" - draw one gas body like `cards-smoke.jpg`. The `GasBank` sheet's ink fills the bottom third of its cell and the card was squashed to `GasBankSquash` 0.55, so a 7 m card painted a 1.3 m band 7 m wide: a stripe per 4 m cell. The bank is now drawn from `FlipbookFx.Book.GasBody` - `SmokeBank`'s drawing, grid and ink in the gas colour, with `Bank` and `Deep` - `width` by `width * GasBodyHeight` 0.75, frames 12..20.5, anchored at `Ground - 0.2`, so its ink tops out near 4.6 m. This REVERSES the "changes no look: the bank is not grown, brightened or unsquashed" half of the 2026-10-19 row; the rest of that row (the capture-path fault, closed) stands. Pictures and numbers: `docs/evidence/ability-fx-captures-r2-2-g2-g2-g1/`. Carried by `lane/show/ability-fx-captures-r2-2-g2-g2-g1`. (owner, 2026-10-21) |
 
 ## Open: waiting on the owner
+- **The gas body against the flat-bank bars (2026-10-21, `docs/evidence/ability-fx-captures-r2-2-g2-g2-g1`):** the
+  owner asked for ONE gas BODY like `cards-smoke.jpg` instead of the horizontal stripes. The body is built and shot
+  (three captures, frames 804/819/834), and it reads as a body: `green_body_share` 0.90-0.95 (the stripes read 0.11)
+  and `green_relief` 0.21 (the smoke card's is 0.19). But a body that stands 4.6 m cannot also satisfy his two older
+  bars from the FLAT bank: `green_low_share >= 0.30` reads 0.09 and `green_height_frac <= 0.15` reads 0.38-0.45, so
+  `probe.py` exits 1. Lowering `GasBodyHeight` to 0.6 was shot too and moved them only to 0.13 and 0.27. Options:
+  (a) retire the two flat-bank bars for the body build and keep the body as shot, the default taken here (the bars
+  stay in `probe.py` and keep failing until he answers, nothing is relaxed in his name); (b) keep the bars and go
+  back to the flat stripes; (c) a smaller body (`GasBodyHeight` well under 0.6), which is the stripes by another
+  name. The T1 still also shows the body repeating per 4 m cell as a carpet of green pads, which may be its own
+  question.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
