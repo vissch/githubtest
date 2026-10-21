@@ -57,8 +57,15 @@ def kill_tree(pid):
 def cmd_start(a):
     d = runs_root() / a.name
     rj = d / "run.json"
-    if rj.exists() and state(read_json(rj))[0] in ("RUNNING", "STALLED"):
-        raise SystemExit("run %s is still going" % a.name)
+    if rj.exists():
+        rec = read_json(rj)
+        st = state(rec)[0]
+        if st in ("RUNNING", "STALLED"):
+            raise SystemExit("run %s is still going" % a.name)
+        # A wrapper that died leaves CRASHED while its child still runs. Starting again stacks two jobs.
+        child_alive = rec.get("child_pid") and proc_start(rec["child_pid"]) == rec.get("child_start")
+        if st == "CRASHED" and child_alive:
+            raise SystemExit("refused: %s child still running (stop it or wait)" % a.name)
     if a.min_headroom_gb:
         h = headroom_gb()
         if h is not None and h < a.min_headroom_gb:
