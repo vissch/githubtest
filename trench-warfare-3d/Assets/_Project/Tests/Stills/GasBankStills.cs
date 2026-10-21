@@ -45,6 +45,13 @@
 //      where no probe gate can tell it from the bank's own face. ON THIS MAP the ladder runs out: 71 open
 //      patches, 2 of them clear even at 4 m, so the last rung is 0 m - no corridor check - and the rung that
 //      was used is in the log, because three seeds is the bar and one seed is no bar at all.
+//  - r2-3-g2-g2-g1-g2: ONE BANK PER BAND, not per seed. DrainFrames now runs before EVERY block (side, o240,
+//    t1), where g1 ran it once per seed. g1's manifest says what that cost: `gas_cells_before` 0 on the side
+//    rows but 153 on o240 and 725 on T1, and 1046 gas cards in the T1 frame - the o240 block's five banks plus
+//    T1's own, drifted together into a lawn of pads. The loop is unconditional, like every wait here: a block
+//    one pass skips shifts the plate's sim tick and the probe then refuses the pair (`side_tick_bad`). o240
+//    keeps its five calls - its five banks are the far band's subject - and loses only the older blocks'
+//    leavings. The cost is six more DrainFrames blocks a pass.
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -122,7 +129,10 @@ namespace TW.Tests
         static readonly List<string> rows = new List<string>();
         static float worstPose;
 
-        [UnityTest, Explicit("Two gas stills and their plates in the night corridor; run by name, with a graphics device.")]
+        /// <summary>NUnit's default is 180 s and r2-3-g2-g2-g1-g2's nine DrainFrames blocks take the capture past
+        /// it (the plate pass died on "Timeout value of 180000 ms was exceeded" at 223 s). 900 s is five times the
+        /// measured run, so a slower machine or a colder asset database still finishes.</summary>
+        [UnityTest, Timeout(900000), Explicit("Two gas stills and their plates in the night corridor; run by name, with a graphics device.")]
         public IEnumerator GasBankPoolsOnTheGroundAtBothBands()
         {
             HudBootstrap.Disabled = true;
@@ -214,9 +224,21 @@ namespace TW.Tests
                 float x = seeds[s].x, z = seeds[s].y;
                 string tail = "-s" + s + (plate ? "-plate" : "");
 
+                // DRAIN BEFORE EVERY BLOCK (r2-3-g2-g2-g1-g2): the g1 lane drained once per seed, so only the
+                // seed's first block (side) started on an empty field. o240 then held side's bank and T1 held
+                // both - gas_cells_before 153 and 725 in g1's manifest - and the T1 frame was six banks drifted
+                // together, a lawn of pads instead of one bank. The loop below is unconditional, as every wait
+                // here is: a block one pass skips shifts the plate's sim tick and the probe refuses the pair.
+                // NOT before the very first block of the run: there are no leavings yet, and a drain there is
+                // 1000 ticks of live battle in which the AI's own chlorine can land on the field - it did, on
+                // the first run of this change: gas_cells_before 157 on gas-side-s0, the one block g1 shot with
+                // no drain in front of it and read 0 for. The condition is on the SEED, not on the pass, so
+                // both passes still run frame for frame.
+                if (s > 0) for (int f = 0; f < DrainFrames; f++) yield return null;
+
                 // SIDE FIRST (r2-3-g2-g2-g1): it is the band whose claim rests on ONE bank and on the plate
-                // subtracting, and only the seed's first block starts on an empty field - DrainFrames has just
-                // run, so gas_cells_before reads 0, as o240's rows did when o240 went first. The side band:
+                // subtracting. Every block now starts on an empty field, so gas_cells_before reads 0 on all
+                // three bands, not only this one. The side band:
                 // pitch 8 (TacticalCamera.PitchMin, as low as Pose allows) and zoom 16 (just above CloseZoom 15,
                 // so the lens stays at Fov 25) graze the bank instead of looking down on it. aimY is raised above
                 // the default (world y = 0) because at this zoom a raised patch would otherwise put the horizon
@@ -225,17 +247,21 @@ namespace TW.Tests
                                    new List<Vector2> { new Vector2(x, z) }, plate, map,
                                    RenderGround.Sample(map, x, z) + 2f);
 
+                for (int f = 0; f < DrainFrames; f++) yield return null;
+
                 // o240 second: its frame holds the whole map, so it must not hold the T1 block's leavings. T1 is
-                // still last, which is what keeps t1's line of calls out of the overview.
+                // still last, which is what keeps t1's line of calls out of the overview. o240 keeps its five
+                // calls - its five banks are the far band's subject - and only loses the side block's leavings.
                 var far = new List<Vector2>();
                 for (int k = -2; k <= 2; k++) far.Add(new Vector2(x, Mathf.Clamp(z + k * 40f, 20f, size.y - 20f)));
                 yield return Block(dir, "gas-o240" + tail, "o240", tc, x, z, 240f, 25f, far, plate, map);
 
+                for (int f = 0; f < DrainFrames; f++) yield return null;
+
+                // ONE bank in the T1 frame: the drain above takes the side block's bank and the o240 block's five
+                // out of it, which is the whole point of this capture.
                 yield return Block(dir, "gas-t1" + tail, "t1", tc, x, z, 30f, 25f,
                                    new List<Vector2> { new Vector2(x, z) }, plate, map);
-
-                // the previous seed's cloud dies here, on a fixed count, so both passes stay in step
-                for (int f = 0; f < DrainFrames; f++) yield return null;
             }
 
             Time.captureDeltaTime = 0f;
