@@ -70,6 +70,8 @@ namespace TW.Presentation.Tactical
             RocketHead,   // a Salvo rocket in flight: a hot head at the right, its flame tail back to the root
             SparkFan,     // a tripwire: thin sparks thrown up in a low fan from a point on the ground
             MineSmoke,    // a mine's column: the wreck's smoke drawn near black (it read as a shell's grey)
+            // close gas (the owner, 2026-10-21: "a puff with a rim and a height", cards-smoke.jpg)
+            GasPuff,      // the gas at the close camera: the smoke bank's drawing in gas green, standing, not a puddle
             Count
         }
 
@@ -91,7 +93,10 @@ namespace TW.Presentation.Tactical
 
         // one book: its texture in Resources/VFX, grid, whether it adds light or is a cloud the moon lights, and which of
         // the drawing's values are its shade and its light (Low, High: measured from the pixels, so each book uses both bands)
-        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; public bool Ground; public bool Bank; public Vector2 InkRoot, InkPoint; }
+        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; public bool Ground; public bool Bank; public Vector2 InkRoot, InkPoint; public string Tex; }
+        // Tex: the PNG in Resources/VFX this row draws, when it is not the row's own Name - one row may reuse another's
+        // drawing with its own tint and ink (GasPuff draws SmokeBank in gas green; the row must still be named after
+        // its Book, FlipbookOrdinalTests).
         // Bands: a fire book's own cel cuts (soot|fringe|body|core, then edge softness), read off ITS ink histogram by
         // Tools/firebooks.py; left at zero the shader's default is used, which was measured on FireBall. Ink: where the
         // drawing sits inside its cell as bottom-up fractions, so a card standing on something can be sized and sunk to
@@ -216,6 +221,7 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "RocketHead", Cols = 4, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.98f },
             new Sheet { Name = "SparkFan", Cols = 4, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Ink = new Vector2(0.05f, 0.95f), Fill = 0.90f },
             new Sheet { Name = "WreckSmoke", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Cycle = true, Erode = true, Deep = true, Mood = 0.3f, Lit = 0.5f, RampIn = 0.1f, Tint = new Color(0.21f, 0.2f, 0.19f), Low = 0.11f, High = 1.20f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.43f },   // MineSmoke
+            new Sheet { Name = "GasPuff", Tex = "SmokeBank", Cols = 8, Rows = 4, Frames = 22, Snap = true, Fps = 12f, Erode = true, Deep = true, Bank = true, Mood = 0.45f, Lit = 0.75f, Tint = new Color(0.74f, 0.80f, 0.34f), Low = 0.17f, High = 0.60f, Ink = new Vector2(0.03f, 0.87f), Fill = 0.94f },   // the close puff: SmokeBank's mound (its drawing fills the cell, Ink 0.03-0.87) in the GasBank row's green
         };
 
         /// <summary>IN-5 (VFX pass): how much wider a burst's far-reading parts are drawn at a zoom: 1 up to FarGrowFrom,
@@ -644,7 +650,7 @@ namespace TW.Presentation.Tactical
             for (int k = 0; k < Sheets.Length; k++)
             {
                 var s = Sheets[k];
-                var tex = Resources.Load<Texture2D>("VFX/" + s.Name);
+                var tex = Resources.Load<Texture2D>("VFX/" + (string.IsNullOrEmpty(s.Tex) ? s.Name : s.Tex));
                 if (tex == null) continue;
                 found++;
                 var m = new Material(shader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave, mainTexture = tex };

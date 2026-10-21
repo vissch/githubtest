@@ -256,13 +256,17 @@ namespace TW.Tests
             Assert.AreEqual(50.2f, CombatFx.LeapStart(3, 50f, 10f, 0f).Until, 1e-4f, "never shorter than 0.2 s");
         }
         [Test]
-        public void TheGasBankLiesOnTheGround_NotOverAMansHead()
+        public void TheCloseGasPuffStands_AndTheMergedOutSheetStillLiesFlat()
         {
-            // r1's critique: gas-t1 read as a standing wall (height_frac 0.32). The sheet's drawing fills the bottom
-            // third of the card, so a 7 m card's gas topped out at 2.33 m. Squashed it is 1.28 m, under a man's head.
-            float top = 7f * CombatFx.GasBankSquash / 3f;
-            Assert.Less(top, 1.8f, "the gas a 7 m card draws stays under a 1.8 m man's head");
-            Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+            // The owner, 2026-10-21: at the close camera gas is "a puff with a rim and a height", like cards-smoke.jpg,
+            // not the flat puddle. So the close card draws GasPuff (the smoke bank's drawing, ink 0.03-0.87) at its
+            // full width in height, and the old under-1.8 m rule holds only for the merged-out blanket.
+            float puff = 7f * CombatFx.GasPuffStand * 0.87f;
+            Assert.Greater(puff, 1.8f, "the close puff stands over a man's head: it is a volume, not stripes on the ground");
+            Assert.Less(puff, 7f, "and is still a puff, not a column");
+            float sheet = 7f * CombatFx.GasBankSquash / 3f;
+            Assert.Less(sheet, 1.8f, "from the overview out the gas is still a sheet under a 1.8 m man's head");
+            Assert.Greater(sheet, 0.6f, "and is still thick enough to read: not a painted line on the floor");
         }
     }
 }

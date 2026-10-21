@@ -140,6 +140,7 @@ namespace TW.Presentation.Tactical
             books.Tint(FlipbookFx.Book.GroundRing, t.Dust);
             books.Tint(FlipbookFx.Book.DustPuff, t.Dust);
             books.Tint(FlipbookFx.Book.GasBank, FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid) ? GasBankNight : GasBankDay);   // CombatFx.Banks.cs
+            books.Tint(FlipbookFx.Book.GasPuff, FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid) ? GasBankNight : GasBankDay);   // the close puff is gas, so it takes the gas tint and never t.Dust (it would go grey)
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight, smokeNightWarm, smokeNightFire);   // AOSA C59/C61: after the biome's smoke tint
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightPlume(smokeNight, smokeNightWarm, smokeNightFire);   // fx.recipes: the plume as the night smoke (the book is drawn with the recipes only)
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightEarth(columnEarth);   // AOSA C57: after the biome's column tint
