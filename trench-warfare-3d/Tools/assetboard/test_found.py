@@ -86,6 +86,36 @@ def main():
     case('every role a look is given, and every role it may hand out, is one found.py calls known and one the role table has',
          not unknown and not off, 'not in ROLES: %s; not in Tools/pipeline/roles.json: %s' % (unknown, off))
 
+    # [found-give-look-units-a-role-prompt-or-stop-handin-20261017-0]
+    # A kind=look unit is handed hard-critic. That role is in ROLES, and a missing roles/<role>.md must not be
+    # silent: prompt.py raises, or roles/tw-critic.md stands in for it. lane stays optional (no role file on purpose).
+    look_role = found.ROLE_OF_LOOK['look']
+    relay_roles = HERE.parent / 'relay' / 'roles'
+    sys.path.insert(0, str(HERE.parent / 'relay'))
+    import prompt as relay_prompt  # noqa: E402
+    import config as relay_config  # noqa: E402
+
+    def prompt_for(role_name, stand_in_text=None):
+        bare = Path(tempfile.mkdtemp(prefix='tw-roles-'))
+        for name in ('_common.md', '_phase_plan.md'):
+            (bare / name).write_text((relay_roles / name).read_text(encoding='utf-8'), encoding='utf-8', newline='\n')
+        if stand_in_text is not None:
+            (bare / 'tw-critic.md').write_text(stand_in_text, encoding='utf-8', newline='\n')
+        try:
+            return relay_prompt.system_text(role_name, 'plan', relay_config.style(), 100000, roles_dir=bare), None
+        except SystemExit as e:
+            return None, str(e)
+
+    missing_text, missing_err = prompt_for(look_role)
+    lane_text, lane_err = prompt_for('lane')
+    stand_text, stand_err = prompt_for(look_role, 'STAND-IN tw-critic role text for a look with no hard-critic.md\n')
+    raised = missing_err is not None and 'missing' in missing_err
+    stand_in_file = (relay_roles / 'tw-critic.md').is_file()
+    stand_in_used = stand_err is None and stand_text is not None and 'STAND-IN tw-critic role text' in stand_text
+    case('a look unit\'s role is one found.py lists, and a role with no roles/<role>.md is refused or roles/tw-critic.md stands in; lane with no role file still builds',
+         look_role in found.ROLES and (raised or stand_in_file) and stand_in_used and lane_err is None and lane_text is not None,
+         (look_role, raised, stand_in_file, stand_in_used, missing_err, stand_err, lane_err))
+
     # ---- what a look hands in ----
     have = {A + 'Presentation/Flag/FlagView.cs', A + 'Sim/Core/Match.cs', T + 'sweep.py', T + 'land.py', 'docs/reference/tasks.md'}
     ex = have.__contains__

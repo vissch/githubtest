@@ -2,7 +2,8 @@
 """Builds what a leg is told, from files: nothing about a role or a phase is written in code.
 
   system.md  appended to the system prompt: the style rules (style.json), roles/_common.md, roles/_phase_<phase>.md,
-             and roles/<role>.md when the role has one
+             and roles/<role>.md when the role has one. hard-critic is the exception: no roles/hard-critic.md and no
+             roles/tw-critic.md stand-in is an error, so a look leg cannot run with no role text.
   card.md    handed over at session start: the unit, where to work, and the plan for an execute leg
 Stdlib only. ASCII only.
 """
@@ -24,6 +25,14 @@ def system_text(role, phase, st, max_bytes, roles_dir=None):
             parts.append(p.read_text(encoding="utf-8").strip() + "\n")
         elif name.startswith("_"):
             raise SystemExit("relay: roles/%s is missing" % name)
+        elif role == "hard-critic":
+            # Look units are handed this role. A missing file used to be skipped, so the leg ran with no role text
+            # and nothing reported it. Other roles stay optional: lane, the simulators, retro and painter have none.
+            stand_in = roles_dir / "tw-critic.md"
+            if stand_in.exists():
+                parts.append(stand_in.read_text(encoding="utf-8").strip() + "\n")
+            else:
+                raise SystemExit("relay: roles/%s is missing" % name)
     text = "\n".join(parts)
     if len(text.encode("utf-8")) > max_bytes:
         raise SystemExit("relay: the %s/%s prompt is %d bytes, the limit is %d: shorten the role files"
