@@ -536,7 +536,11 @@ def main():
 
 # Bar values, set from the spread of run1/run2/run3 at three different frames (see README.md "The bars").
 BAR_VALUES = {
-    # Empty until three captures at three different frames exist to set it from (README.md, "The bars").
+    'green_low_share': 0.30,        # owner-decided; the three runs read 1.0000 (every green pixel under HEAD_M 1.8)
+    'green_height_frac': 0.15,      # owner-decided; the runs read 0.0116 / 0.0116 / 0.0115
+    'green_area_frac': 0.005,       # runs 0.0055 / 0.0056 / 0.0055, spread 0.0001: the round number under 0.0054
+    'o240_green_area_frac': 0.008,  # runs 0.0108 / 0.0106 / 0.0111, spread 0.0005: 0.010 would clear by 0.0006 only
+    'pose_error_max': 0.50,         # GasBankStills.PoseBar
 }
 
 
