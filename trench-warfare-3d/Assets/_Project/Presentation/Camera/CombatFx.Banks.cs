@@ -26,13 +26,28 @@ namespace TW.Presentation.Tactical
         // the opacity only multiplies alpha. r2-3 held these at 0.95-1.0 to "clear the erode threshold" - that was
         // the wrong knob, and the result was a blanket of opaque, equal pads (the owner: "a carpet of flat green
         // pads"). Lowered r2-3-g1: the fringe lets mud, wire and men through, the core still covers.
-        public const float GasBankThin = 0.30f, GasBankFull = 0.80f;
+        // Steeper, not stronger (r2-3-g1 step 8): the per-cell card is now only a RIM wisp outside the mass blocks,
+        // and it is what paved the frame, so the thin end drops 0.30 -> 0.12 and all but vanishes; the mass card
+        // carries the read, so the full end rises 0.80 -> 0.85. 0.85 still clears
+        // BurstRecipeTests.TheGasBankIsTranslucent_NotAnOpaquePad's "even the core is not opaque" (<= 0.85).
+        public const float GasBankThin = 0.12f, GasBankFull = 0.85f;
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.75 tops out at 1.75 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.75f;
         public static readonly Color GasBankNight = new Color(0.78f, 0.86f, 0.22f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
         public static float GasBankAlpha(float thick) => Mathf.Lerp(GasBankThin, GasBankFull, Mathf.Clamp01(thick));
+
+        /// <summary>Does a 4 x 4 cell block of standing gas earn ONE mass card? A crowd that is also thick does; a
+        /// lucky thick cell on its own, or a wide thin haze, is the cloud's feathered rim and gets no mass.</summary>
+        public static bool GasMassBlock(int count, float thick) => count >= 4 && thick >= 0.35f;
+
+        /// <summary>How wide that one mass card is drawn: the more cells crowd the block the broader the mass, up to
+        /// a 28 m cap so one block never covers the frame. 11 m / 28 m, not the plan's 9 m / 22 m: the first
+        /// reshoot read t1_changed_frac 0.053 against the owner's 0.08, which is the plan's own named risk (one
+        /// mass covers less frame than a carpet did) and its own remedy - the bank is meant to be big, just not
+        /// tiled.</summary>
+        public static float GasMassWidth(int count, int step) => Mathf.Min(28f, 11f + 1.2f * count) * step;
 
         const float SmokeBankFirst = 12f, SmokeBankLast = 20.5f; // the mound grown (the firebooks cut stops at 21)
 
@@ -91,9 +106,10 @@ namespace TW.Presentation.Tactical
             else books.Add(FlipbookFx.Book.SmokeBank, at, 5f, 21f / 12f, kind, alpha: 0.7f);
         }
 
-        /// <summary>A 2 x 2 block of standing gas cells, folded into one wider body card (r2-3 step 7: the per-cell
-        /// cards alone left gaps the probe's texture_var_drop read as the bare ground showing through). Drawn only
-        /// where the block is both crowded and thick, so it is one mass in the middle and not a blanket.</summary>
+        /// <summary>A 4 x 4 block of standing gas cells, folded into ONE mass card (r2-3 step 7: the per-cell cards
+        /// alone left gaps the probe's texture_var_drop read as the bare ground showing through). Only a block that
+        /// is both crowded and thick (GasMassBlock) gets one; elsewhere the cells draw a rim wisp each, so the cloud
+        /// is one mass with a feathered edge and not a blanket.</summary>
         struct GasBlock { public int Count; public float X, Z, Ground, Thick; public uint Hash; }
         readonly Dictionary<long, GasBlock> gasBlocks = new Dictionary<long, GasBlock>(256);
 
@@ -102,39 +118,47 @@ namespace TW.Presentation.Tactical
             int step = CurrentBankStep();
             Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 14f, 2.4f, 73856093, 19349663);
             gasCards.Clear();
-            float blockSize = 2f * MapData.FieldCellSize * step;
+            // 16 m blocks, not 8 m: one mass card stands for a 4 x 4 cell crowd, so the cloud's interior is ONE
+            // mass and not a card per cell (the owner: "a carpet of flat green pads").
+            float blockSize = 4f * MapData.FieldCellSize * step;
             gasBlocks.Clear();
+            // pass 1: the blocks only. No cards here - which cells get one depends on their block's verdict.
             foreach (var b in gasBank.Cells)
             {
-                float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
-                float slow = now * 0.22f + h3 * 6.2832f;
-                float h1 = (b.Hash & 1023) / 1023f;
-                // not a tiling: the width spread is wide, a thin cell is a smear and a thick one the full pool, and
-                // each card sits at its own height in the 0.25 m band above the ground
-                float width = (6f + 3f * b.Thick) * (0.7f + 0.6f * h2) * step;
-                var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.10f + 0.25f * h1, b.Z), width, width * GasBankSquash * (0.6f + 0.4f * b.Thick), BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
-
-                long key = ((long)Mathf.FloorToInt(b.X / blockSize) << 32) ^ (uint)Mathf.FloorToInt(b.Z / blockSize);
+                long key = BlockKey(b.X, b.Z, blockSize);
                 gasBlocks.TryGetValue(key, out var blk);
                 blk.Count++; blk.X += b.X; blk.Z += b.Z; blk.Ground += b.Ground; blk.Thick = Mathf.Max(blk.Thick, b.Thick); blk.Hash ^= b.Hash;
                 gasBlocks[key] = blk;
             }
+            // pass 2: a rim wisp per cell, and ONLY where the cell's block earned no mass card - inside the mass the
+            // per-cell cards were pure paving. Narrow and faint: a feathered edge, not a pad.
+            foreach (var b in gasBank.Cells)
+            {
+                if (gasBlocks.TryGetValue(BlockKey(b.X, b.Z, blockSize), out var own) && GasMassBlock(own.Count, own.Thick)) continue;
+                float h1 = (b.Hash & 1023) / 1023f, h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
+                float slow = now * 0.22f + h3 * 6.2832f;
+                float width = (4f + 2f * b.Thick) * (0.7f + 0.6f * h2) * step;
+                var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
+                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.10f + 0.25f * h1, b.Z), width, width * GasBankSquash * (0.6f + 0.4f * b.Thick), BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick) * 0.7f));
+            }
+            // pass 3: one card for each mass block, at the mean of its cells, as wide as the crowd makes it.
             foreach (var kv in gasBlocks)
             {
                 var blk = kv.Value;
-                // only the cloud's middle gets a body card: a block that is small or thin is the feathered edge, and a
-                // card there is what made the blanket (r2-3 drew one per block, everywhere)
-                if (blk.Count < 3 || blk.Thick < 0.55f) continue;
+                if (!GasMassBlock(blk.Count, blk.Thick)) continue;
                 float cx = blk.X / blk.Count, cz = blk.Z / blk.Count, ground = blk.Ground / blk.Count;
                 float h3 = ((blk.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
-                float width = 11f * step;
+                float width = GasMassWidth(blk.Count, step);
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((blk.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(cx, ground - 0.10f, cz), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(blk.Thick) * 0.8f));
+                gasCards.Add(FlipbookFx.Pack(new Vector3(cx, ground - 0.10f, cz), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(blk.Thick)));
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }
+
+        /// <summary>Which block a world x/z falls in, as one key.</summary>
+        static long BlockKey(float x, float z, float blockSize)
+            => ((long)Mathf.FloorToInt(x / blockSize) << 32) ^ (uint)Mathf.FloorToInt(z / blockSize);
 
         void DrawSmokeBank(GasSmokeSystem gas, float now, Bounds bounds)
         {

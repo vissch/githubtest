@@ -278,5 +278,17 @@ namespace TW.Tests
             Assert.LessOrEqual(CombatFx.GasBankAlpha(1f), 0.85f, "even the core is not opaque");
             Assert.Less(CombatFx.GasBankAlpha(0f), CombatFx.GasBankAlpha(1f), "and the core still reads thicker than the fringe");
         }
+        [Test]
+        public void TheGasBankIsOneMass_NotAPadPerCell()
+        {
+            // r2-3-g1: the interior was paved because every standing cell got a card. Now a crowded, thick 4 x 4
+            // block folds into ONE mass card and its cells draw nothing; only the rim cells still get a wisp.
+            Assert.IsTrue(CombatFx.GasMassBlock(4, 0.5f), "a crowded, thick block is the cloud's mass");
+            Assert.IsFalse(CombatFx.GasMassBlock(3, 0.9f), "a lucky thick cell on its own is rim, not mass");
+            Assert.IsFalse(CombatFx.GasMassBlock(9, 0.2f), "a wide thin haze is rim too");
+            // the mass widens with the crowd, up to a cap, so one block never covers the frame
+            Assert.AreEqual(15.8f, CombatFx.GasMassWidth(4, 1), 1e-4f, "11 + 1.2 * 4 m across the smallest mass");
+            Assert.AreEqual(28.0f, CombatFx.GasMassWidth(20, 1), 1e-4f, "and 28 m is the cap");
+        }
     }
 }
