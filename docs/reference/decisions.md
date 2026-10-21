@@ -397,6 +397,22 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   ref; (3) land directly from this checkout without pushing first (if `land.py` allows it). Default taken: none
   acted on; the rebase stays local on this checkout pending the owner's push.
 
+- **The gas bank's old bars (`bank_low_share` 0.30, `bank_height_frac` 0.15) cannot be reached by flattening the cards
+  (2026-10-21, lane `lane/show/ability-fx-captures-r2-2-g2-g1-g2-g1`):** the plan's three drawing edits landed
+  (`81bde83b8c`: `GasBankSquash` 0.36 -> 0.18, base jitter 0.5 -> 0.2 m, the gas standing floor 0.8 -> 2.0) and run1
+  of the new build was captured and calibrated at t1 tick 557: `bank_low_share` 0.3528, `bank_height_frac` 0.1207,
+  `o240_area_frac` 0.0096, `paint_frac` 0.0182, `bank_paint_share` 0.0668. The plan's own stop rule is low share
+  under 0.40 at tick 557, and the later ticks (597, 637) only rise, so 0.30 / 0.15 are out of reach this way; worse,
+  the bank is now fainter than the zebra the lane set out to kill (`bank_paint_share` 0.0668 against the zebra's
+  0.0782 and the bar 0.12), and `o240_area_frac` and `paint_frac` fell under the old build's bars. Flattening
+  further (squash 0.14, floor 3.0) only makes the paint thinner. Options: (a) a denser gas sheet, so the same
+  flat cards paint more — out of this lane, it is a new sheet (tw-vfx-sheets) with concepts first; (b) measure each
+  pixel's own ground distance in the probe, which would read the true height but break comparability with g1/g2's
+  numbers; (c) accept the bank as fainter and set `paint_frac`, `o240_area_frac` and `bank_paint_share` from the new
+  runs, keeping 0.30 / 0.15 as the height bars only if the later ticks ever clear them. Default taken: nothing
+  further changed, no bar weakened, no probe maths touched; the three drawing edits stay committed and the lane is
+  blocked on this choice.
+
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
 summarised in the docs named; the files themselves are not readable from another machine or lane.
