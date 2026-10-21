@@ -51,6 +51,10 @@ namespace TW.Tests
 
         static readonly List<string> rows = new List<string>();
         static float worstPose;
+        /// <summary>Extra frames added to both the cloud wait and the block padding, so a repeat run of the same
+        /// build photographs a DIFFERENT frame. All three g1 runs landed on one sim tick, which made their spread
+        /// JPEG noise instead of capture noise. SessionState "tw.gasbank.extra", or TW_GAS_EXTRA_FRAMES.</summary>
+        static int extra;
 
         [UnityTest, Explicit("Two gas stills and their plates in the night corridor; run by name, with a graphics device.")]
         public IEnumerator GasBankPoolsOnTheGroundAtBothBands()
@@ -72,11 +76,17 @@ namespace TW.Tests
             // every stills harness here is actually run (the pipeline's run_tests selects no [Explicit] test at all)
             bool plate = SessionState.GetBool("tw.gasbank.plate", false)
                          || System.Environment.GetEnvironmentVariable("TW_GAS_PLATE") == "1";
+            extra = SessionState.GetInt("tw.gasbank.extra", 0);
+            if (extra == 0 && int.TryParse(System.Environment.GetEnvironmentVariable("TW_GAS_EXTRA_FRAMES"),
+                                           System.Globalization.NumberStyles.Integer,
+                                           System.Globalization.CultureInfo.InvariantCulture, out int fromEnv))
+                extra = fromEnv;
             string dir = SessionState.GetString("tw.gasbank.dir", "");
             if (string.IsNullOrEmpty(dir)) dir = System.Environment.GetEnvironmentVariable("TW_STILLS_DIR");
             if (string.IsNullOrEmpty(dir)) dir = Path.Combine(Path.GetTempPath(), "tw-gasbank");
             Directory.CreateDirectory(dir);
-            TestContext.Out.WriteLine((plate ? "PLATE pass" : "GAS pass") + " into " + dir);
+            TestContext.Out.WriteLine((plate ? "PLATE pass" : "GAS pass") + " into " + dir
+                                      + " (+" + extra + " extra frames)");
 
             CombatFx.ShowOverlays = false;            // the yellow ability-area disc is gas-coloured: it would be counted as gas
             CameraShake.Strength = 0f; CameraShake.Reset();
@@ -162,7 +172,7 @@ namespace TW.Tests
                 for (int f = 0; f < 4; f++) { yield return null; spent++; }
             }
 
-            for (int f = 0; f < WaitFrames; f++) { yield return null; spent++; }
+            for (int f = 0; f < WaitFrames + extra; f++) { yield return null; spent++; }
 
             string path = Path.Combine(dir, stem + ".png");
             float best = float.MaxValue;
@@ -221,7 +231,7 @@ namespace TW.Tests
             sb.Append("] }");
             rows.Add(sb.ToString());
 
-            for (int f = spent; f < BlockFrames; f++) yield return null;
+            for (int f = spent; f < BlockFrames + extra; f++) yield return null;
         }
 
         /// <summary>The scene's CombatFx, or null: every reading below is read off it by reflection, because the
