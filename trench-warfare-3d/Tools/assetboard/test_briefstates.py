@@ -294,18 +294,43 @@ class Taking(unittest.TestCase):
         self.assertEqual([n.get('state') for n in notes.read_all(self.box)], ['done'],
                          '[N10.3] his note about the closed brief is left open')
 
-    def test_a_unit_in_the_done_folder_counts_too(self):
-        # [N10.3] a unit the runner has finished is queued work all the same
+    def test_a_done_record_only_is_no_queued_answer(self):
+        # [rebase-take-a-done-record-must-not-close-a-brie-20261019] a done record of that id is an earlier
+        # unit's: the relay never runs it again, so the brief must not close as queued on it
         self.queue(dict(id='unit-cover'), folder='done')
         got, why = self.take(board=self.board)
-        self.assertEqual(why, '', '[N10.3] a unit in the relay\'s done folder was refused: %s' % why)
-        # [N10.3b] a done record of that id may be an earlier unit's, so the brief and his note must say it was there
+        self.assertIsNone(got, '[rebase-take-a-done-record-must-not-close-a-brie-20261019] the brief closed '
+                          'as queued on a done record: %s' % why)
+        self.assertIn('unit-cover', why, '[rebase-take-a-done-record-must-not-close-a-brie-20261019] the '
+                      'refusal does not name the unit: %s' % why)
+        self.assertIn('done', why, '[rebase-take-a-done-record-must-not-close-a-brie-20261019] the refusal '
+                      'does not say a done record is what stands: %s' % why)
+        self.assertEqual(self.state().get('state'), 'open', '[rebase-take-a-done-record-must-not-close-a-brie-'
+                         '20261019] the brief is closed although nothing stands on the queue')
+        self.assertNotEqual(notes.read_all(self.box)[0].get('state'), 'done', '[rebase-take-a-done-record-must-'
+                            'not-close-a-brie-20261019] his note is answered although nothing was queued')
+        # the way out still works: an outcome in words closes it with no 'queued' key
+        got2, why2 = self.take(board=self.board, outcome='the relay has a done record of that id; a fresh '
+                               'unit-cover-2 was queued')
+        self.assertEqual(why2, '', '[rebase-take-a-done-record-must-not-close-a-brie-20261019] the --outcome '
+                         'way out was refused: %s' % why2)
         a = self.state().get('answer') or {}
-        self.assertTrue((a.get('done_already') or '').strip(),
-                        '[N10.3b] the answer does not say the relay had a done record of that id already: %s' % a)
-        text = notes.read_all(self.box)[0]['answers'][-1]['text']
-        self.assertIn('done record', text,
-                      '[N10.3b] what his note is answered with does not say the done record was there already: %s' % text)
+        self.assertNotIn('queued', a, '[rebase-take-a-done-record-must-not-close-a-brie-20261019] the brief '
+                         'closed with a queued key although nothing stands on the queue: %s' % a)
+        self.assertEqual(a.get('outcome'), 'the relay has a done record of that id; a fresh unit-cover-2 was '
+                         'queued', '[rebase-take-a-done-record-must-not-close-a-brie-20261019] the outcome '
+                         'words were not kept: %s' % a)
+
+    def test_a_queued_unit_still_closes_when_a_done_record_shares_its_id(self):
+        # queue wins over done: a unit that stands on the queue is this yes, even if an older done record remains
+        self.queue(dict(id='unit-cover'), folder='done')
+        self.queue(self.unit)
+        got, why = self.take(board=self.board)
+        self.assertEqual(why, '', '[rebase-take-a-done-record-must-not-close-a-brie-20261019] a unit on the '
+                         'queue was refused because a done record shares its id: %s' % why)
+        a = self.state().get('answer') or {}
+        self.assertEqual(a.get('queued'), 'unit-cover')
+        self.assertNotIn('done_already', a)
 
     def test_a_unit_written_and_not_pushed_is_no_queued_answer(self):
         # [N10.3b] the relay picks units off the board's origin/main: a local, uncommitted file is nothing to it
