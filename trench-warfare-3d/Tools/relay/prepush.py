@@ -16,6 +16,7 @@ from pipeline import proc_start   # noqa: E402
 
 MARKER = "relay-leg.json"
 ZERO = "0" * 40
+TRUNK = ("refs/heads/main", "refs/heads/claude/trench-warfare-2d-3d-plan-idt7lf")
 
 
 def git(args):

@@ -1713,6 +1713,20 @@ class Runs(Repo):
             self.assertIn("own lane", prepush.refusal(rec, "HEAD %s %s %s" % (new, ref, old)), ref)
         self.assertIn("does not delete", prepush.refusal(rec, "(delete) %s refs/heads/lane/show/x %s" % (z, old)))
 
+    def test_a_leg_may_force_push_its_own_lane_and_not_the_trunk_or_another_lane(self):
+        import prepush
+        lane = "lane/show/review-tools"
+        rec, local, remote = {"lane": lane}, "a" * 40, "b" * 40
+        own = "refs/heads/%s %s refs/heads/%s %s" % (lane, local, lane, remote)
+        trunk = "refs/heads/%s %s refs/heads/claude/trench-warfare-2d-3d-plan-idt7lf %s" % (lane, local, remote)
+        main = "refs/heads/%s %s refs/heads/main %s" % (lane, local, remote)
+        other = "refs/heads/%s %s refs/heads/lane/show/other %s" % (lane, local, remote)
+        self.assertIsNone(prepush.refusal(rec, own))
+        self.assertIn("trunk", prepush.refusal(rec, trunk))
+        self.assertIn("trunk", prepush.refusal(rec, main))
+        self.assertIn("own lane", prepush.refusal(rec, other))
+        self.assertIn("delete", prepush.refusal(rec, "refs/heads/%s %s refs/heads/%s %s" % (lane, prepush.ZERO, lane, remote)))
+
     def test_a_leg_may_not_push_from_any_other_checkout(self):
         gitio.install_prepush(self.work)
         env = dict(os.environ, TW_RELAY="1")
