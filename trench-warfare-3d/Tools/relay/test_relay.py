@@ -413,6 +413,23 @@ class Guards(Base):
             self.assertFalse(self.denied("Bash", command=cmd),
                               "[found-the-pre-tool-guard-checks-write-paths-only-f-20261018-0] %s" % cmd)
 
+    def test_a_read_only_command_is_not_refused_as_a_write(self):
+        # [pre-tool-guard-no-false-refusals-20261019]
+        d = self.leg()
+        desk = json.loads((d / "leg.json").read_text(encoding="utf-8"))["desk"]
+        board = str(self.board / "relay" / "queue" / "x.json").replace("\\", "/")
+        role = str(HERE / "roles" / "review-fix.md").replace("\\", "/")
+        for cmd in (
+            "python -c \"import json,sys; d=json.load(open(r'%s')); sys.stdout.write(d['id'])\"" % board,
+            "cp %s %s/" % (role, desk),
+            "python -c \"import json; print(json.load(open('work/x.json')), open(r'%s').read())\"" % board,
+        ):
+            self.assertFalse(self.denied("Bash", command=cmd), "[pre-tool-guard-no-false-refusals-20261019] %s" % cmd)
+        for cmd in ("cp %s/note.md %s" % (desk, role),
+                    "python -c \"open(r'%s','w').write('{}')\"" % board,
+                    "mv %s ." % board):
+            self.assertTrue(self.denied("Bash", command=cmd), "[pre-tool-guard-no-false-refusals-20261019] %s" % cmd)
+
     def test_the_hook_as_a_process_refuses_when_its_rules_are_broken(self):
         d = self.leg()
         broken = self.tmp / "relaycopy"
