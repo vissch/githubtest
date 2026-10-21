@@ -16,28 +16,36 @@ anyway, so this is the flattest look at the bank the game ever gives. Stems `gas
 18 stills a pass, not 12. Both stills sit inside the existing 520-frame block pad (a block spends about 250), and
 there is no second gas call and no second drain.
 
-## The side measure
+## The side measure, corrected (2026-10-21)
 
-`side_relief_ratio`, new in `probe.py`. Mask and blob are T1's exactly (`LUMA_BAR` against the plate, then
-`largest_blob`). Per blob column with at least `MIN_COLUMN_PX` pixels, the top pixel and the bottom pixel are
-turned into heights in metres:
+**The first side bar was an artifact.** `side_relief_ratio` divided the bank's top relief by the relief of the
+side blob's BOTTOM edge, and both were read at one fixed plane - the seed's own, 77.4 m out. The bottom pixels of
+the blob are not the bank's foot at 77 m: at pitch 8 with a 25 deg vertical FOV the frame's bottom ray leaves
+about 20.5 deg below the horizon and meets the ground some 29 m from the camera. Read at 77 m instead, it lands
+10.87 - 77.4*tan(20.5 deg) - 2.77 = -20.8 m. That is why the first baseline's `side_base_m` was **-15.27 /
+-7.93 / -13.69 m** for a bank that lies ON the ground, why its "ground relief" was 3.5-11.3 m, and why
+`SIDE_BAR` came out at 1.8128. Geometry, not terrain.
 
-- **the bank's relief** = `p90 - p10` of the per-column TOP height;
-- **the ground's relief** = `p90 - p10` of the per-column BASE height. The blob's bottom edge is where the bank
-  meets the ground, so it traces the ground's own profile under the bank.
-- **the bar** = `side_bank_relief_m / side_ground_relief_m`, higher is better. At or under 1 the bank's blocks are
-  flatter than the ground they sit on: the owner's fail.
+What the measure does now:
 
-At 8 degrees the distance of a pixel is *not* taken from the pixel - a near-horizontal ray moves about 0.9 m of
-ground distance per pixel row. The distance comes from the SEED (the manifest row's `x`/`z` against the sidecar's
-camera) and every column is measured in that one vertical plane: a near-horizontal ray moves only about 0.01 m of
-height per metre of distance error, so a fixed plane is well conditioned where the per-pixel one is not. Reported
-beside it: `side_bank_relief_m`, `side_ground_relief_m`, `side_top_m`, `side_base_m`, `side_blob_px`, `side_cols`,
-`pose_error_m`.
+- **the denominator is not a pixel reading at all.** `GasBankStills` samples the render ground at the centre of
+  every gas cell at or over the 0.8 floor the bank's own `Refresh` uses, and writes `ground_relief_m` (p90 - p10,
+  `relief`'s own formula) and `ground_cells` into the still's manifest row. The gassed cells ARE the bank's
+  footprint, so nothing about it is guessed.
+- **the blob is trimmed to the bank.** A pixel whose own per-pixel `ground_distance` lands more than
+  `SIDE_PLANE_WINDOW_M` (10 m) from the seed plane is dropped - which is what the frame's bottom rows are. Well
+  under the horizon the per-pixel route is sound, and that is exactly where the trim is applied. 10 m, not the
+  plan's 25 m: a pixel 25 m short of the plane reads about 2.6 m under the ground, and the baseline's median base
+  came back at -4.5 m against the 1.5 m sanity bar. The trim leaves 32k-65k px and 850-1280 columns of bank.
+- **the numerator is the TOP edge only**, each column turned into a height in the seed's own vertical plane (at
+  8 degrees a metre of distance error is about 0.01 m of height).
+- **`side_base_m` is a sanity row, and `main` fails on it:** the bank's foot lies on the ground, so its median
+  must sit within 1.5 m of 0. It now reads -1.37 / -1.41 / -1.18 m.
 
-`--selftest` checks the fixed-plane route against the same hand calculation g1 used (the pitch-45 camera's centre
-pixel is 0.000 m high at its own 10 m plane, one degree up is 0.34311 m) and `relief([0..10]) = 8.0` (sorted index
-9 minus sorted index 1 of 11 values).
+`--selftest` gained the side still's own hand calculation: s2's sidecar (cam_y 10.87328, pitch 8, ground_y 2.7679)
+at its 77.37 m plane, centre pixel, is 10.87328 - 77.37*tan(8 deg) - 2.7679 = **-2.770 m** - the fixed plane aims
+under the ground at this pitch, which is why only p90 - p10 is ever read off it, never an absolute height - and the
+vectorised distance grid the trim uses is checked against the scalar `ground_distance` at three pixels.
 
 ## The drop ceiling
 
@@ -48,30 +56,34 @@ reading cannot be won by painting the frame green.
 
 ## Both bars, from this round's own baseline
 
-The control is `f427286f0d` (g1's tip) plus the side still and the probe - no look change: `baseline/` and
-`baseline.json`. The family's formulas, and never widened afterwards:
+The control is the current build plus the side still and the probe - no look change: `baseline/` and
+`baseline.json`, re-shot on 2026-10-21 because the manifest rows gained `ground_relief_m` and the old stills
+cannot be re-measured without it. The family's formulas, and never widened afterwards:
 
     SIDE_BAR     = baseline_max + max(0.25, spread)      higher is better
-    DROP_CEILING = baseline_min - max(0.05, spread)      lower is better (a ceiling)
+    DROP_CEILING = baseline_min - max(0.05, spread)       lower is better (a ceiling)
 
-| Seed | `side_relief_ratio` | `side_bank_relief_m` | `side_ground_relief_m` | `texture_var_drop` |
-|---|---|---|---|---|
-| s0 | 0.6163 | 4.248 | 6.893 | 0.7210 |
-| s1 | 1.0690 | 3.767 | 3.524 | 0.7237 |
-| s2 | 0.3252 | 3.679 | 11.312 | 0.6921 |
+| Seed | `side_relief_ratio` | `side_bank_relief_m` | `ground_relief_m` (cells) | `side_base_m` | `texture_var_drop` |
+|---|---|---|---|---|---|
+| s0 | 0.0214 | 0.042 | 1.961 (772) | -1.374 | 0.7210 |
+| s1 | 0.0277 | 0.048 | 1.750 (678) | -1.413 | 0.7237 |
+| s2 | 0.3321 | 0.896 | 2.698 (550) | -1.181 | 0.6922 |
 
-`side_relief_ratio`: spread = 1.0690 - 0.3252 = 0.7438, margin = max(0.25, 0.7438) = 0.7438,
-**`SIDE_BAR` = 1.0690 + 0.7438 = `1.8128`**.
+`side_relief_ratio`: spread = 0.3321 - 0.0214 = 0.3107, margin = max(0.25, 0.3107) = 0.3107,
+**`SIDE_BAR` = 0.3321 + 0.3107 = `0.6428`** (the old 1.8128 is gone with the artifact).
 
 `texture_var_drop`: spread = 0.7237 - 0.6921 = 0.0316, margin = max(0.05, 0.0316) = 0.05,
-**`DROP_CEILING` = 0.6921 - 0.05 = `0.6421`**.
+**`DROP_CEILING` = 0.6921 - 0.05 = `0.6421`** - unchanged, and the re-shoot reproduced it to four decimals
+(0.7210 / 0.7237 / 0.6922), which is the frame-for-frame match of the two passes measured.
 
-Two of the three baseline seeds already read a bank flatter than the ground under it (0.62 and 0.33), and the
-third is 1.07 - which is the owner's complaint measured: the bank's top edge rises and falls less than the dirt it
-lies on. Every baseline ground relief is 3.5-11.3 m, well over the 0.3 m the plan's risk list set as the point
-where the ratio stops being trustworthy, so the metres-instead-of-ratio fallback is NOT used.
+Every seed's ground relief is 1.75-2.70 m, over the 0.5 m under which the ratio stops being trustworthy, so the
+bar is set rather than left unset (the round's own guard). The corrected numbers say the owner's complaint far
+more plainly than the artifact did: the bank's top edge rises and falls 0.04-0.90 m where the ground under it
+rises and falls 1.75-2.70 m - 2 to 33 per cent as much. The bar now asks for 1.26-1.73 m of top-edge relief,
+which is of the order of the 1.75 m of gas a card draws, where the artifact's bar asked for 13-20 m.
 
-The baseline run is the control and exits 1: it misses both bars it sets, and meets all four of g1's.
+The baseline run is the control and exits 1: it misses both bars it sets, meets all four of g1's, and its
+`side_base_m` passes the sanity check.
 
 ## What is here
 
@@ -94,5 +106,6 @@ python docs/evidence/ability-fx-captures-r2-3-g1-g2/probe.py --pack <dir>
 
 | Step | Change | `side_relief_ratio` worst | `texture_var_drop` worst | Note |
 |---|---|---|---|---|
-| baseline | `f427286f0d`, side still only | 0.3252 (s2) | 0.7237 (s1) | the flat fill the owner described; bars set from here |
+| baseline (artifact) | first side still, bottom-edge denominator | 0.3252 (s2) | 0.7237 (s1) | `side_base_m` -15.3 m: the measure, not the look |
+| part 1, 2026-10-21 | the measure corrected, the look untouched | 0.0214 (s0) | 0.7237 (s1) | `SIDE_BAR` re-set to 0.6428, `side_base_m` within 1.5 m |
 | | | | | the next leg fills these rows in |

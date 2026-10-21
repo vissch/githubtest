@@ -6,9 +6,13 @@ the flat green fill, and gas_t1_height_m 8.3-9.9 has no side view a player can r
 from the side at zoom 30 and fail a bank whose blocks are flatter than the ground." Two answers, both new here:
   - every seed gains a THIRD still, `gas-side-sN` (and its plate): the same cloud, the same zoom, shot at pitch 8
     (TacticalCamera.PitchMin, the lowest a player can tilt). `side_relief_ratio` is the bank's own top-edge
-    relief divided by the relief of its bottom edge, which is where the bank meets the ground and so traces the
-    ground's own profile under it. At or under 1 the bank's blocks are flatter than the ground they sit on - the
-    owner's fail. Higher is better.
+    relief divided by the relief of the GROUND under it. At or under 1 the bank's blocks are flatter than the
+    ground they sit on - the owner's fail. Higher is better.
+    Corrected 2026-10-21: the ground's relief was first taken from the side blob's bottom edge, which is
+    near-camera foreground read at the seed's plane (it put the bank's foot 8-15 m under the ground). It now comes
+    from the still's manifest row - `ground_relief_m`, the render ground sampled at the centre of every gassed
+    cell - and the blob is trimmed to a SIDE_PLANE_WINDOW_M band around the seed plane, with `side_base_m` kept as
+    a sanity row that must sit within SIDE_BASE_SANITY_M of 0.
   - `texture_var_drop` keeps its 0.40 floor (regression) and gains a CEILING, `DROP_CEILING`. A drop is
     1 - var_gas/var_plate, so a ceiling is a floor on how much of the ground texture is still read through the
     bank: the same number the owner says rewards the flat green fill, barred the other way round, so the bar
@@ -73,7 +77,9 @@ HOW
                 side_bank_relief_m   p90 - p10 of the per-column top height, in metres                  (row)
                 side_ground_relief_m p90 - p10 of the per-column base height, in metres                 (row)
                 side_top_m           median per-column top height, in metres                            (row)
-                side_base_m          median per-column base height, in metres                           (row)
+                side_base_m          median per-column base height, in metres (a sanity check)         (row)
+                side_ground_cells    gassed cells the ground relief was sampled at                      (row)
+                side_plane_m         the seed's vertical plane, metres from the camera                   (row)
                 side_blob_px         pixels in the side blob                                            (row)
                 side_cols            columns of the side blob with at least MIN_COLUMN_PX pixels        (row)
 
@@ -131,21 +137,37 @@ BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 
 GAP_BAR = 0.3559
 
 SIDE_RELIEF_PCTL = (0.10, 0.90)   # `relief` is p90 - p10 by sorted index: the ends are JPEG noise, not relief
+SIDE_PLANE_WINDOW_M = 10.0        # a side pixel whose OWN ray lands this far off the seed plane is not the bank.
+# The plan's window was 25 m and it was too wide to measure IN one plane: a pixel landing 25 m short of the plane,
+# read at the plane, sits about 25 * tan(6 deg) = 2.6 m under the ground, and the baseline's median base came back
+# at -4.5 m against the 1.5 m sanity bar below. 10 m is the window in which the fixed plane's own height error
+# stays inside that bar (10 * tan(6 deg) = 1.05 m; the measured bases are -1.37 / -1.41 / -1.18 m), and it still
+# leaves 32k-65k px and 850-1280 columns of bank to measure. Narrowed, never widened to make a run green.
+SIDE_BASE_SANITY_M = 1.5          # the bank's foot sits ON the ground: a median base further than this is a bug
 
-# The side bar and the drop ceiling, both set from THIS round's own baseline (`baseline.json`, three captures of
-# f427286f0d plus the side still, no look change), the family's way and never widened afterwards:
+# The side bar and the drop ceiling, both set from THIS round's own baseline (`baseline/baseline.json`, three
+# captures with no look change), the family's way and never widened afterwards:
 #   SIDE_BAR     = baseline_max + max(0.25, spread)     higher is better
 #   DROP_CEILING = baseline_min - max(0.05, spread)     lower is better (a ceiling)
-# Unset until that baseline run exists: `main` prints MISSED and returns 1 while either is None, as GAP_BAR did.
-# The baseline (f427286f0d plus the side still, `baseline/` and `baseline.json`):
-#   side_relief_ratio  0.6163 / 1.0690 / 0.3252   spread 1.0690 - 0.3252 = 0.7438, margin max(0.25, 0.7438)
-#                      SIDE_BAR = 1.0690 + 0.7438 = 1.8128, a full spread-width above the whole spread
-#   texture_var_drop   0.7210 / 0.7237 / 0.6921   spread 0.7237 - 0.6921 = 0.0316, margin max(0.05, 0.0316)
+# `main` prints MISSED and returns 1 while either is None, as GAP_BAR did.
+#   texture_var_drop   0.7210 / 0.7237 / 0.6921   spread 0.0316, margin max(0.05, 0.0316)
 #                      DROP_CEILING = 0.6921 - 0.05 = 0.6421, a margin below the whole spread
-# Two of the three baseline seeds already read a bank FLATTER than the ground under it (ratio under 1), which is
-# the owner's fail, and the third is 1.07. Every baseline ground relief is over 0.3 m (3.5-11.3 m), so the ratio
-# is well conditioned and the metres fallback in the plan's risks is not needed.
-SIDE_BAR = 1.8128
+#
+# SIDE_BAR, 2026-10-21: the FIRST side baseline (1.8128, from ratios 0.6163 / 1.0690 / 0.3252) was an artifact and
+# is gone. Its denominator was the side blob's BOTTOM edge read at the seed's own plane, but the blob's bottom
+# pixels are near-camera foreground: at pitch 8 with FOV_V 25 the frame's bottom ray meets the ground about 29 m
+# out while being measured at 77 m, which is why `side_base_m` came back at -15.3 / -7.9 / -13.7 m for a bank whose
+# foot sits ON the ground, and why the "ground relief" read 3.5-11.3 m of pure geometry. The denominator now comes
+# from the still's own manifest row (`ground_relief_m`: the render ground sampled at the centre of every gassed
+# cell), and the numerator is the trimmed blob's TOP edge alone. The bar is re-set below from the re-shot baseline.
+# The re-shot baseline (2026-10-21, no look change, `baseline/baseline.json`):
+#   side_relief_ratio  0.0214 / 0.0277 / 0.3321   spread 0.3321 - 0.0214 = 0.3107, margin max(0.25, 0.3107)
+#                      SIDE_BAR = 0.3321 + 0.3107 = 0.6428, a full spread-width above the whole spread
+#   ground_relief_m    1.961 / 1.750 / 2.698 m, every seed well over the 0.5 m under which the ratio stops being
+#                      trustworthy, so the bar is set rather than left unset.
+# The corrected numbers say the owner's complaint far more plainly than the artifact did: the bank's top edge rises
+# and falls 0.04-0.99 m where the ground under it rises and falls 1.75-2.70 m - 2 to 33 per cent as much.
+SIDE_BAR = 0.6428
 DROP_CEILING = 0.6421
 
 
@@ -270,10 +292,30 @@ def selftest():
     assert abs(r11 - 8.0) < 1e-9, 'relief([0..10]) came back %.4f, hand calculation says 8.0' % r11
     assert relief([3.0]) == 0.0, 'relief of a single column is not 0'
 
+    # g1-g2 step 3: the side still's own numbers, worked by hand outside the code. s2's side sidecar has
+    # cam_y 10.87328 and pitch 8, its manifest row ground_y 2.7679, and the seed's plane is 77.37 m out. The
+    # centre pixel (ndc 0, 0) leaves 8 deg below the horizon, so at 77.37 m it has dropped
+    # 77.37 * tan(8 deg) = 10.8761 m: height = 10.87328 - 10.8761 - 2.7679 = -2.7707 m. The fixed plane aims
+    # under the ground at this pitch, which is why only p90 - p10 (a difference, where the bias cancels) is read
+    # off it and never an absolute height.
+    hand = 10.87328 - 77.37 * math.tan(math.radians(8.0)) - 2.7679
+    assert abs(hand - -2.770) < 0.005, 'the hand calculation itself is %.4f, not -2.770' % hand
+    h_side = height_at((0.0, 10.87328, 0.0), 8.0, 0.0, 2.7679, 0.0, 0.0, 77.37)
+    assert abs(h_side - hand) < 0.005, 'the side plane centre came back %.4f m, hand calculation says %.4f' % (h_side, hand)
+    # and the per-pixel grid the trim uses, against the scalar `ground_distance` at three pixels of a 72x128 frame
+    cam_s, pitch_s, yaw_s = (0.0, 10.87328, 0.0), 8.0, 0.0
+    grid = ground_distance_grid(cam_s, pitch_s, yaw_s, 2.7679, 72, 128)
+    for py, px in ((0, 0), (36, 64), (71, 127)):
+        nx, ny = 2.0 * (px + 0.5) / 128 - 1.0, 1.0 - 2.0 * (py + 0.5) / 72
+        want = ground_distance(cam_s, pitch_s, yaw_s, 2.7679, nx, ny)
+        got_px = grid[py, px]
+        assert (want is None and not np.isfinite(got_px)) or abs(got_px - want) < 1e-6,             'the distance grid at (%d, %d) is %r, the scalar says %r' % (py, px, got_px, want)
+
     print('selftest ok: centre pixel 10.000 m out, one degree up %.5f m high (hand: 0.34311);' % h)
     print('             stripes -> flat grey is a texture drop of %.3f (hand: 1.000);' % drop)
     print('             red/green %.1f deg, red/magenta %.1f deg (hand: 120, 60)' % (rg, rm))
     print('             side plane: centre %.3f m (hand: 0.000), relief([0..10]) %.1f (hand: 8.0);' % (h_centre, r11))
+    print('             side plane at 77.37 m, pitch 8: %.3f m (hand: -2.770), grid matches the scalar;' % h_side)
     print('             20x20 square with a 4x4 hole, R=3: gap_frac %.4f (hand: 0.0400); no hole: %.4f (hand: 0.0)'
           % (gap_sq, gap_solid))
     return 0
@@ -468,32 +510,68 @@ def relief(values):
     return float(hi - lo)
 
 
-def measure_side(d, seed):
-    """One seed's side view (pitch 8): is the bank's own top edge rougher than the ground it sits on?
+def ground_distance_grid(cam, pitch, yaw, ground_y, h, w):
+    """`ground_distance` for every pixel of an h x w frame at once (NaN where the ray never crosses the ground).
 
-    Mask and blob are T1's exactly. The distance of a column is NOT taken from its pixel: at 8 degrees above the
-    horizon a pixel row is about 0.9 m of ground distance, so a per-pixel `ground_distance` is ill-conditioned.
-    It is taken from the seed the bank was called on (the manifest row's x/z against the sidecar's camera), and
-    every column of the blob is measured in that one vertical plane: a near-horizontal ray moves only about
-    0.01 m of height per metre of distance error, so a fixed plane is well conditioned where the pixel is not.
-    The blob's BOTTOM edge is where the bank meets the ground, so it traces the ground's own profile under the
-    bank; its TOP edge is the bank's own. The ratio of the two reliefs is the owner's bar.
+    The same maths as `ground_distance`, vectorised: the trim below needs it for every pixel of the blob, and the
+    selftest checks this grid against the scalar function at hand-picked pixels.
+    """
+    tan_v = math.tan(math.radians(FOV_V_DEG * 0.5))
+    tan_h = tan_v * ASPECT
+    nx = (2.0 * (np.arange(w) + 0.5) / w - 1.0)[None, :] * tan_h
+    ny = (1.0 - 2.0 * (np.arange(h) + 0.5) / h)[:, None] * tan_v
+    x = np.broadcast_to(nx, (h, w)).astype(np.float64)
+    y = np.broadcast_to(ny, (h, w)).astype(np.float64)
+    z = np.ones((h, w), dtype=np.float64)
+    p, wy = math.radians(pitch), math.radians(yaw)
+    y, z = y * math.cos(p) - z * math.sin(p), y * math.sin(p) + z * math.cos(p)
+    x, z = x * math.cos(wy) + z * math.sin(wy), -x * math.sin(wy) + z * math.cos(wy)
+    n = np.sqrt(x * x + y * y + z * z)
+    dx, dy, dz = x / n, y / n, z / n
+    t = np.where(dy < -1e-6, (ground_y - cam[1]) / dy, np.nan)
+    t = np.where(t > 0, t, np.nan)
+    return t * np.hypot(dx, dz)
+
+
+def measure_side(d, seed):
+    """One seed's side view (pitch 8): is the bank's own top edge rougher than the ground it lies on?
+
+    The mask is T1's exactly (`LUMA_BAR` against the plate). Then the blob is TRIMMED to the bank: a pixel whose
+    own ray lands more than `SIDE_PLANE_WINDOW_M` from the seed's vertical plane is not this bank, and that is
+    what the frame's bottom rows are - at pitch 8 the bottom ray meets the ground about 29 m out while the seed
+    plane is 77 m, so the untrimmed blob's bottom edge was near-camera foreground measured at three times its own
+    distance (g1-g2 step 1: it read the bank's foot 8-15 m BELOW the ground). Well under the horizon the per-pixel
+    distance is sound, which is exactly where this trim is applied.
+
+    The numerator is the trimmed blob's TOP edge, each column turned into a height in the seed's own vertical
+    plane (at 8 degrees a metre of distance error is about 0.01 m of height, so the fixed plane is well
+    conditioned there while a per-pixel distance is not). The denominator is NOT a pixel reading at all: it is
+    `ground_relief_m` from the still's manifest row, the render ground sampled at the centre of every gassed cell,
+    which is the ground under the bank by construction. `side_base_m` stays as a sanity row: the bank's foot lies
+    on the ground, so its median must be near 0.
     """
     stem = 'gas-side-s%d' % seed
     img, side = load(d, stem)
     plate, _ = load(d, stem + '-plate')
     lum_g, lum_p = luma(img), luma(plate)
     mask = np.abs(lum_g - lum_p) >= LUMA_BAR
-    blob = largest_blob(mask)
 
     row = row_of(d, stem)
     tops, bases = [], []
-    if row is not None and blob.any():
+    blob = np.zeros(mask.shape, dtype=bool)
+    ground_relief = float(row.get('ground_relief_m', 0.0)) if row is not None else 0.0
+    ground_cells = int(row.get('ground_cells', 0)) if row is not None else 0
+    dist = 0.0
+    if row is not None and mask.any():
         ground = float(row.get('ground_y', 0.0))
         cam = (side['cam_x'], side['cam_y'], side['cam_z'])
         pitch, yaw = side['cam_pitch'], side['cam_yaw']
         dist = math.hypot(cam[0] - float(row.get('x', 0.0)), cam[2] - float(row.get('z', 0.0)))
-        h, w = blob.shape
+        h, w = mask.shape
+        per_px = ground_distance_grid(cam, pitch, yaw, ground, h, w)
+        near_plane = np.abs(per_px - dist) <= SIDE_PLANE_WINDOW_M
+        near_plane &= np.isfinite(per_px)
+        blob = largest_blob(mask & near_plane)
         ys, xs = np.nonzero(blob)
         for px in np.unique(xs):
             rows_ = ys[xs == px]
@@ -507,11 +585,12 @@ def measure_side(d, seed):
                     out.append(y)
 
     bank_relief = relief(tops)
-    ground_relief = relief(bases)
     ratio = float(bank_relief / ground_relief) if ground_relief > 1e-9 else 0.0
     return ({'side_relief_ratio': round(ratio, 4)},
             {'side_bank_relief_m': round(bank_relief, 3),
              'side_ground_relief_m': round(ground_relief, 3),
+             'side_ground_cells': ground_cells,
+             'side_plane_m': round(dist, 2),
              'side_top_m': round(float(np.median(tops)), 3) if tops else 0.0,
              'side_base_m': round(float(np.median(bases)), 3) if bases else 0.0,
              'side_blob_px': int(blob.sum()),
@@ -725,6 +804,14 @@ def main():
         ok = ok and met
         print('side_relief_ratio  want >= %-7s worst %-9s %s  (at or under 1 the blocks are flatter than the ground)'
               % (SIDE_BAR, round(min(got), 4) if got else 'none', 'OK' if met else 'MISSED'))
+
+    # the sanity row, not a look bar: the bank's foot lies ON the ground, so a median base far from 0 means the
+    # measure is reading something else (g1-g2 step 1: the untrimmed blob read -15.3 / -7.9 / -13.7 m).
+    worst_base = max(abs(v) for v in rows['side_base_m'])
+    met = worst_base <= SIDE_BASE_SANITY_M
+    ok = ok and met
+    print('side_base_m        want <= %-7s worst %-9s %s  (a sanity check on the measure, not a look bar)'
+          % (SIDE_BASE_SANITY_M, round(worst_base, 3), 'OK' if met else 'MISSED'))
 
     got = bars['t1_gap_frac']
     if GAP_BAR is None:

@@ -19,7 +19,7 @@
   "luma_p50": 0.29568,
   "luma_p95": 0.42572,
   "blown_frac": 0.00033,
-  "black_frac": 0.02114,
+  "black_frac": 0.02113,
   "men_in_frame": 1,
   "contrast_median": 0.00419,
   "contrast_p10": 0.00419,

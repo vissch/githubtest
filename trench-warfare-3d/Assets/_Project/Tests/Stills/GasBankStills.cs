@@ -198,8 +198,8 @@ namespace TW.Tests
             int taken = 0;
             // the field as it stands BEFORE this block's first call: anything here is a leftover from the previous
             // seed, not this seed's gas, and it goes into the manifest row rather than being silently counted
-            int cellsBefore; float maxBefore;
-            FieldRead(out cellsBefore, out maxBefore);
+            int cellsBefore; float maxBefore; float reliefBefore; int groundCellsBefore;
+            FieldRead(map, out cellsBefore, out maxBefore, out reliefBefore, out groundCellsBefore);
             foreach (var p in points)
             {
                 if (!plate)
@@ -252,8 +252,8 @@ namespace TW.Tests
                 // an ordinary play frame, not from a capture frame, and the rig turns the TacticalCamera off for the whole
                 // set - so whether the cards exist in the captured frame was still unknown, and it is the first fork.
                 // FieldRead says why the field itself is read through reflection.
-                int cells; float fieldMax;
-                FieldRead(out cells, out fieldMax);
+                int cells; float fieldMax; float groundRelief; int groundCells;
+                FieldRead(map, out cells, out fieldMax, out groundRelief, out groundCells);
                 yield return null;                               // one frame on, so gasCards holds the list of a drawn frame
                 int cards = Cards(); float recipes = Recipes(); bool ready = Books();
 
@@ -263,6 +263,12 @@ namespace TW.Tests
                   .Append(shotBand).Append("\", \"plate\": ").Append(plate ? "true" : "false")
                   .Append(", \"x\": ").Append(x.ToString("0.###")).Append(", \"z\": ").Append(z.ToString("0.###"))
                   .Append(", \"ground_y\": ").Append(ground.ToString("0.####"))
+                  // r2-3-g1-g2 step 2: the ground's OWN relief under the bank, the denominator of the side bar.
+                  // The gassed cells are the bank's footprint, so nothing about it is guessed; the side still's
+                  // old denominator (the blob's bottom edge) read near-camera foreground as if it stood on the
+                  // seed plane and came back 8-15 m below the ground.
+                  .Append(", \"ground_relief_m\": ").Append(groundRelief.ToString("0.####"))
+                  .Append(", \"ground_cells\": ").Append(groundCells)
                   .Append(", \"sim_tick\": ").Append(tick).Append(", \"frame\": ").Append(Time.frameCount)
                   .Append(", \"pose_error_m\": ").Append(best.ToString("0.####"))
                   .Append(", \"calls_taken\": ").Append(taken)
@@ -297,22 +303,41 @@ namespace TW.Tests
         /// assembly does not reference, and an asmdef reference list is a seam (CLAUDE.md) - not worth a seam commit
         /// for one diagnostic. Its Gas array is an ordinary NativeArray&lt;float&gt;, so only the system's own type
         /// is hidden.</summary>
-        static void FieldRead(out int cells, out float fieldMax)
+        /// <remarks>r2-3-g1-g2 step 2: it also samples the render ground at the centre of every cell it counts and
+        /// gives back that set's p90 - p10, which IS "the ground under the bank" - the gassed cells are the bank's
+        /// own footprint - and so the honest denominator of the side still's relief ratio.</remarks>
+        static void FieldRead(MapData map, out int cells, out float fieldMax, out float groundRelief, out int groundCells)
         {
-            cells = 0; fieldMax = 0f;
+            cells = 0; fieldMax = 0f; groundRelief = 0f; groundCells = 0;
             object local = Host.Local;
             if (local == null) return;
             object gasField = local.GetType().GetProperty("Gas")?.GetValue(local)
                            ?? local.GetType().GetField("Gas")?.GetValue(local);
-            if (gasField != null
-                && gasField.GetType().GetField("Gas")?.GetValue(gasField) is Unity.Collections.NativeArray<float> field
-                && field.IsCreated)
-                for (int i = 0; i < field.Length; i++)
-                {
-                    float c = field[i];
-                    if (c >= 0.8f) cells++;
-                    if (c > fieldMax) fieldMax = c;
-                }
+            if (gasField == null) return;
+            if (!(gasField.GetType().GetField("Gas")?.GetValue(gasField) is Unity.Collections.NativeArray<float> field)
+                || !field.IsCreated)
+                return;
+            int width = gasField.GetType().GetField("Width")?.GetValue(gasField) is int w ? w : 0;
+            float cs = MapData.FieldCellSize;
+            var grounds = new List<float>(1024);
+            for (int i = 0; i < field.Length; i++)
+            {
+                float c = field[i];
+                if (c > fieldMax) fieldMax = c;
+                if (c < 0.8f) continue;
+                cells++;
+                // cell index to world, the same arithmetic DrawGasBank's Refresh uses at step 1 (without its
+                // per-card jitter): the centre of the cell.
+                if (width <= 0 || map == null) continue;
+                float gx = (i % width + 0.5f) * cs, gz = (i / width + 0.5f) * cs;
+                grounds.Add(RenderGround.Sample(map, gx, gz));
+            }
+            groundCells = grounds.Count;
+            if (groundCells < 2) return;
+            grounds.Sort();
+            // p90 - p10 by sorted index, probe.py's `relief` exactly
+            int lo = (int)System.Math.Round(0.10 * (groundCells - 1)), hi = (int)System.Math.Round(0.90 * (groundCells - 1));
+            groundRelief = grounds[hi] - grounds[lo];
         }
 
         /// <summary>How many gas cards CombatFx packed in the last frame it drew (-1: no CombatFx or no such field).</summary>

@@ -315,6 +315,21 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   0.24-0.32 to 0.37-0.50 against its 0.3559 bar, so (b) or (c) still needs a tuning round. Pictures and numbers:
   `docs/evidence/ability-fx-captures-r2-3-g1-g2/` (its `baseline/` is the control; the attempt's own 18 stills
   stayed in the leg folder, since the bank they show is not landed).
+  **Update, 2026-10-21 (the same lane, part 1):** the bar above was an ARTIFACT and the question is re-asked with
+  sound numbers. `side_relief_ratio`'s denominator was the side blob's bottom edge read at the seed's own vertical
+  plane, but those pixels are near-camera foreground (at pitch 8 the frame's bottom ray meets the ground about
+  29 m out while the plane is 77 m), so the "ground relief" was 3.5-11.3 m of pure geometry and the bank's foot was
+  measured 8-15 m BELOW the ground it lies on. The measure now takes the ground's relief from the still's own
+  manifest row (`ground_relief_m`: the render ground sampled at the centre of every gassed cell, so the footprint
+  is not guessed), trims the side blob to a 10 m band around the seed plane, and reads the bank's TOP edge only;
+  `side_base_m` is a sanity row that must sit within 1.5 m of 0, and does (-1.37 / -1.41 / -1.18 m). Re-shot
+  baseline, no look change: the ground under the bank moves 1.96 / 1.75 / 2.70 m and the bank's own top edge moves
+  0.04 / 0.05 / 0.90 m, a ratio of 0.0214 / 0.0277 / 0.3321, so **`SIDE_BAR` is now 0.6428** (the family's formula,
+  baseline_max + max(0.25, spread)) instead of 1.8128. The owner's complaint is confirmed harder than before - the
+  bank's top is 2-33 per cent as rough as the ground it lies on - but the arithmetic of the gap changes: the bar now
+  asks for 1.26-1.73 m of top-edge relief, which is of the order of the 1.75 m of gas a card draws, not seven to
+  eleven times it. Option (a) remains the default and nothing is landed on this row; whether the look change can
+  reach the new bar under the man rule is the next step of the same lane.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
