@@ -55,7 +55,9 @@ The ready-made tier script is `AgentScripts/aosa_tiers.cs` (EditorPrefs `aosa.di
 - Repeatable stills: a seeded Random, `stepabs`, and on the bench `shot_tick=N shot_hud=0`.
 
 ## Evidence on the board
-JPG, at most 400 KB, at `evidence/<item>/<stage>/<band>.jpg` on `tw3d-board`. Keep the PNG and its JSON sidecar
+JPG, at most 400 KB, at `evidence/<item>/<stage>/<band>.jpg` on `tw3d-board`. `pipeline.py complete` refuses a PASS
+unless each band is that path, the folder has a frames.txt line starting `<band>.jpg:`, and the still has
+`<band>.json` or `no sidecar` on its line. Keep the PNG and its JSON sidecar
 under `trench-warfare-3d/Captures/` (git-ignored), never as untracked files a gate would record. Copy the sidecar
 beside the evidence JPG on the board as `<band>.json`: the critic's validity rules (`pose_error_m`, `blown_frac`) read
 it, and a relay critic is handed only the top-level files of that folder. Add `frames.txt` there, one line per
