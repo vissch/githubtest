@@ -1,0 +1,187 @@
+atrifle-look-r3-g1-g1-g1 — three kneels a player can tell apart
+===============================================================
+
+Why there is a round g1-g1-g1
+-----------------------------
+The owner threw out atrifle-look-r3-g1-g1 in his own words: "The three KneelIdle stills are one
+pose. Phases 0.15, 0.48 and 0.80 are in the log, and the crops of sniper-1, sniper-2 and sniper-3
+are the same kneel. spread_sniper 0.16 is that frozen man plus 40 noise pixels in sniper-2's box, so
+the 0.6 bar sits outside a spread the player cannot see. Shoot three kneels a player can tell apart,
+and put the silhouette bar outside the worse self-spread of three captures of the current build."
+
+He was right, and that set's own probe.json says so in two numbers: `sniper_clips ["KneelIdle",
+"KneelIdle","KneelIdle"]` and `spread_sniper 0.1605`. KneelIdle is a 1.7 s loop with almost no
+travel in the silhouette, so three phases of it are three nearly identical men. A phase gap on one
+looping clip is not a pose.
+
+What changed in the capture
+---------------------------
+1. **Three clips, not three phases.** The Sniper is driven to a DIFFERENT kneel per round, each one
+   `Stance.Crouch` in `AnimationController.Clips.Table` and each reached through the build's own
+   `TrenchRoutine`, with no world write except Suppression:
+       round 1  KneelIdle         his base kneel at the post (1.7 s loop)
+       round 2  StoopIdle         the squat, the routine's `pick` beat (6.7 s loop)
+       round 3  KneelLookAround   the kneeling fidget: same legs, different arms (5.3 s once-clip)
+   `Shield` (Suppression 40 -> TrenchRoutine case 6) was shot first and measured 0.72 and 0.75
+   against the other two — a different pose, but so far from them that the whole self-spread went
+   over the 0.6 bar. It was swapped for the fidget, which sits between. `KneelAimedIdle` (baked as
+   one held frame) and `KneelTurn90L/R` (they turn him) were never candidates.
+2. **The Sniper moved one trench post, from (45, 26) to (43, 26).** At (45, 26) a brazier burns at
+   his knee. The capture itself said so on every sniper still of the first shoot — `warnings
+   ["men barely separate from the ground: unreadable"]`, contrast 0.07-0.10 against CaptureRig's own
+   0.12 bar — and the "man" the mask found there was 2.0-2.4 m2 against the prone man's 0.7: it was
+   mostly fire. Six posts were tried in the live editor; (43, 26) reads contrast 0.96 with no
+   warning, keeps him kneeling at the same post kind, and settles at yaw 0.00. His box moved from
+   x 814-919 to x 867-972 and is further from the AT man's, not nearer.
+3. **Every still waits for his heading as well as his clip.** A man caught mid-turn reads as another
+   pose; rounds 2 and 3 of the first shoot came out 2.1 and 2.4 rad off their own pair still, which
+   the probe's heading gate throws out. The wait condition now also asks that the PRESENTER's pose
+   yaw (what `SimProbe` prints and the probe reads, not the world's `Yaw`) is within 0.03 rad of his
+   post's. Measured offsets in this set: 0.01 rad in all three rounds, against the gate's 0.05.
+4. **The AT rifleman's phases are 0.15 / 0.36 / 0.62, not 0.15 / 0.45 / 0.78.** At 0.45 and at 0.78
+   his mask came out BITWISE identical to round 1's: ProneIdle is a pinned loop and the parapet
+   hides what little of it moves. The probe throws a set out for that, and rightly. 0.13 / 0.34 /
+   0.60 are three different masks, 0.21 apart at the closest against the 0.2 gate.
+5. **Small repairs to the driver.** `poses.json` is dumped after every still instead of after the
+   last round (one lost plate used to throw away a 37-minute session); a still is re-taken once if
+   its PNG never appears and once more if the capture calls it unreadable (the sim is frozen, so
+   only the fires' flicker moves between takes); the two man-less plates clear the field and re-take
+   when a reinforcement walks into frame; and `shoot.py round R C` shoots one round with a named
+   kneel, so a round whose spread misses costs five minutes and not a whole set.
+
+The staging
+-----------
+One camera for all fifteen stills: focus (47.5, 25), zoom 30 (T1, the owner's number), yaw 180 with
+`CaptureRig.Rig.YawPin = 0`, pitch 22, 1600x900. Rain 0. Seed 12648430, battlefield seed 1917,
+ground ShelledForest, bombardment 0/min.
+
+    who          archetype   staged at        what he does
+    AT rifleman  27          (50.0, 25.0)     prone on the surface, behind the parapet
+    Sniper        3          (43.0, 26.0)     a trench post, kneeling
+    parked       -           (20,50)/(24,50)  ALIVE and on the map, out of frame. Off the map the
+                                              sim clears the Alive flag, frees the slot, and a
+                                              reinforcement takes it over mid-round.
+
+Each round: clear the field, park both, shoot `empty`; stage both, settle out the JumpDown that a
+staging write plays, shoot `pair`; park the Sniper, drift the AT man to his phase, shoot `at`; park
+the AT man, stage the Sniper back, settle, drive him to this round's kneel, shoot `sniper`; park him
+and shoot `floor`. Nothing is written to the world during a drift — a staging write is what pinned
+the phases two rounds ago. `empty` and `floor` are the two man-less plates of the same frame; what
+differs between them is weather, and the probe subtracts it before it labels a blob.
+
+**The three rounds were shot in three runs of the driver, not one.** Each run spawns its own pair,
+so the slot numbers differ per round (AT 0, 1, 11; Sniper 1, 10, 8) and each round carries its own
+`empty`/`floor` plates. Everything a reading compares — camera, position, archetype, the man's own
+box — is identical across them, and the probe reads the slot off the stills, never off a typed
+number. What this does cost is stated under the limits.
+
+The driver's own lines, verbatim
+--------------------------------
+    --- round 1 (KneelIdle) ---
+      empty-1:
+      settle: hit
+      pair-1: at ProneIdle Prone 0.4  sniper KneelIdle Crouch 0.02
+      at: phase target 0.15 -> hit, ProneIdle 0.13
+      at-1: at ProneIdle Prone 0.13
+      sniper settle: hit
+      sniper: round 1 (KneelIdle) -> hit, KneelIdle Crouch 0.31
+      sniper-1: sniper KneelIdle Crouch 0.31
+      floor-1:
+    --- round 2 (StoopIdle) ---
+      empty-2:
+      settle: hit
+      pair-2: at ProneIdle Prone 0.53  sniper KneelIdle Crouch 0.98
+      at: phase target 0.36 -> hit, ProneIdle 0.34
+      at-2: at ProneIdle Prone 0.34
+      sniper settle: hit
+      sniper: round 2 (StoopIdle) -> hit, StoopIdle Crouch 0.46
+      sniper-2: sniper StoopIdle Crouch 0.46
+      floor-2:
+    --- round 3 (KneelLookAround) ---
+      empty-3:
+      settle: hit
+      pair-3: at ProneIdle Prone 0.82  sniper KneelIdle Crouch 0.56
+      at: phase target 0.62 -> hit, ProneIdle 0.6
+      at-3: at ProneIdle Prone 0.6
+      sniper settle: hit
+      sniper: round 3 (KneelLookAround) -> hit, KneelLookAround Crouch 0.16
+      sniper-3: sniper KneelLookAround Crouch 0.16
+      floor-3:
+
+The fifteen stills, as the capture reported them
+------------------------------------------------
+    still       men_in_frame   what is in it
+    empty-1/2/3       0        the ground alone, both men parked out of frame
+    pair-1/2/3        2        both men, one frame
+    at-1/2/3          1        the AT rifleman alone
+    sniper-1/2/3      1        the Sniper alone
+    floor-1/2/3       0        the ground again, seconds of world time later
+
+No still carries a capture warning. `px_per_m` 25.023 with 0.05 % disagreement between the rounds,
+so the three rounds are the same frame of the same size.
+
+What each man was doing at the shutter
+--------------------------------------
+    still       clip              stance   phase   heading offset from his pair still
+    at-1        ProneIdle         Prone    0.13    0.00 rad
+    at-2        ProneIdle         Prone    0.34    0.00 rad
+    at-3        ProneIdle         Prone    0.60    0.00 rad
+    sniper-1    KneelIdle         Crouch   0.31    0.01 rad
+    sniper-2    StoopIdle         Crouch   0.46    0.01 rad
+    sniper-3    KneelLookAround   Crouch   0.16    0.01 rad
+
+Three clips, three distinct ones, every one `Crouch`, every phase inside the probe's 0.10-0.80 band,
+so none of them is a once-clip caught on its held last frame. The AT man's smallest phase gap is
+0.21 against the 0.2 gate.
+
+The readings
+------------
+    mask, px             at 446 / 428 / 443        sniper 766 / 712 / 1107
+    mask, m2 of frame    at 0.712 / 0.684 / 0.708  sniper 1.223 / 1.137 / 1.768
+    weather in his box   0 px in every one of the six boxes
+    second blob          at 15 px   sniper 86 / 95 / 25 px   (the gate is 1.5x, met everywhere)
+
+    the Sniper's three kneels against each other (1 - IoU, centroids aligned):
+        KneelIdle   vs StoopIdle         0.3650   (330 px of moved man, 0 px of weather)
+        KneelIdle   vs KneelLookAround   0.4469   (539 px)
+        StoopIdle   vs KneelLookAround   0.5211   (641 px)
+      all three over MIN_POSE_SPREAD 0.25 and under PASS_DIFF 0.6: three poses, not three phases,
+      and not the rain.
+
+    the reading, AT against Sniper, per round:  0.6473  0.6698  0.6626
+    spread_readings  0.0431     spread_at  0.2200     spread_sniper  0.5211
+    silhouette_diff (the worst round)  0.6473        bar_headroom  0.0789
+
+    PASS_DIFF 0.6, unchanged since 13d1158177. The claim is made on the WORST round, and the worst
+    round still reads 0.647 against a self-spread of 0.521 — the bar sits outside the worse
+    self-spread of three captures of the current build, which is what the owner asked for.
+
+The honest limits
+-----------------
+* The parapet halves the prone man: at yaw 180 he lies behind the bags while the kneeling Sniper
+  stands clear of them, so the reading is "a prone man half behind bags" against "a kneeling man in
+  the open". That is what the game shows from here, and it is part of why the number is large.
+* The two men face different ways and one camera yaw cannot be side-on to both: `heading_diff_rad`
+  is 2.26 in all three rounds. It is reported and NOT gated — one frame was the owner's call. What
+  IS gated is each man against himself across the stills of a round, and that is 0.00-0.01 rad.
+* At zoom 30 the 1.65 m anti-tank rifle is a few dark pixels. No number here isolates it.
+* One seed, one ground, one time of day, one camera. Nothing here says the men read apart from
+  another angle or in rain.
+* Two figures, not two models: `VATRenderer.FigureOfArchetype` draws the AT rifleman as Soldier and
+  the Sniper as Sniper. This measures the poses those two figures are in, not a new model.
+* The three rounds come from three runs of the driver, so each round's weather plates and slot
+  numbers are its own. The camera, the staging and the boxes are identical across them.
+* The brazier at (45, 26) is still there. Moving one post away from it is how this set was made
+  readable; it is not a claim that the capture is fire-proof.
+
+The negative control
+--------------------
+    python docs/evidence/atrifle-look-r3-g1-g1-g1/probe.py docs/evidence/atrifle-look-r3-g1-g1
+    -> exit 2, naming the set the owner threw out:
+       "the sniper's three clips are ['KneelIdle','KneelIdle','KneelIdle'] - 1 distinct, want 3"
+       "sniper-1 vs sniper-2: the two kneels differ by 0.0521, under 0.25"
+       "sniper-1 vs sniper-2: 68 px of moved man against 40 px of weather in the worse box, under 10x"
+    The gates of this round bite exactly where the owner's complaint pointed.
+
+    python docs/evidence/atrifle-look-r3-g1-g1-g1/probe.py
+    -> exit 0, problems [], "the prone AT rifleman reads as his own man".
