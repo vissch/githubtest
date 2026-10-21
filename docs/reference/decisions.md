@@ -484,6 +484,19 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   Answered in general 2026-10-18 (row above): a leg may now force-push its own lane, so (2) needs no build;
   whether this lane was pushed is still open.
 
+- **`fix-job-ordering-tests` is done but keeps re-queueing (2026-10-21):** the job ordering tests are green and
+  tagged on `lane/show/review-tools` (`[O15]` in `8b29ba4265`, `[fix-job-ordering-tests]` in `7696e4ff9d`), 17 of 17
+  cases pass. The unit re-offers itself every run because `sources/lane.py:verify()` requires
+  `origin/lane/show/review-tools == HEAD` (`gitio.py:pushed()`), and that push cannot happen from a leg: the
+  2026-10-18 answer above (`allow-forced-push-own-lane`) that lets a leg force-push its own lane is built on this
+  very lane, but the relay runs the **runner** checkout's (`githubtest-relay-run`) own, older copies of
+  `prepush.py`, `cmdrules.py` and `roles/_common.md`, which still refuse every force push. The fix exists; it is
+  not deployed where the relay reads it. Options: (a) land `lane/show/review-tools` — it carries both the `[O15]`
+  fix and the force-push fix, recommended; (b) update the `githubtest-relay-run` checkout to a commit carrying the
+  force-push fix; (c) the owner runs `git push --force-with-lease origin lane/show/review-tools` from
+  `githubtest-relay-work`; (d) delete origin's stale `lane/show/review-tools`, after which a plain push creates it.
+  Default taken: none; the lane stays local and this unit keeps re-queueing until the owner acts.
+
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
 summarised in the docs named; the files themselves are not readable from another machine or lane.
