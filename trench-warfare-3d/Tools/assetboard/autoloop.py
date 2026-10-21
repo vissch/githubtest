@@ -670,14 +670,17 @@ def take_answers(w):
                     # The id is a finished unit, so the same yes is refused every round
                     # (autoloop.log 2026-10-20 16:18). Queue it as <id>-2, or <id>-3
                     # when -2 is queued or done, and close the brief on that id.
+                    # Try -2 first even when it is held: a -2 queued last round (its brief not
+                    # closed yet) is accepted again as the same unit, so the work is not queued twice.
                     base = str(unit.get('id') or '')
-                    held = w.ids()
-                    alt = f'{base}-2' if f'{base}-2' not in held else f'{base}-3'
-                    if base and alt not in held:
+                    for alt in ((f'{base}-2', f'{base}-3') if base else ()):
                         retry = dict(unit, id=alt)
                         ok, said = w.add(retry)
                         if ok:
                             unit = retry
+                            break
+                        if 'is done already' not in str(said):
+                            break
                 if not ok:
                     out.append(f'answers: {a["id"]}: the relay refused {unit.get("id")}: {said}')
                     continue
@@ -914,6 +917,10 @@ def feed(w):
                     out.append(f'feed: relay {n}: {uid} taken off its queue: {v["lane"]} is held where the loop cannot free it; '
                                f'it waits parked on the main board until the lane is free')
             save(w.home / 'lane_waits.json', waiting)
+        # before the empty branch parks units on the main board for a relay that would not start
+        if not pace_covers_unit(w.day_text()):
+            out.append(f'feed: relay {n} is not started: the day\'s free pace is below one unit\'s usual cost')
+            continue
         if not mine:
             free = {}
             for uid, u in q.items():
@@ -957,9 +964,6 @@ def feed(w):
             if blocked:                         # it would fail at once with 0 legs: not started
                 out.append(f'feed: relay {n} is not started: {", ".join(blocked)} cannot be switched to now')
                 continue
-        if not pace_covers_unit(w.day_text()):
-            out.append(f'feed: relay {n} is not started: the day\'s free pace is below one unit\'s usual cost')
-            continue
         if not w.acting:
             out.append(f'feed: relay {n} is not running and has work: it would be started')
             continue

@@ -307,7 +307,16 @@ def main():
     w.ans = [yes_done('2026-10-20-pre-tool-guard-tried-again', uid)]
     lines = autoloop.take_answers(w)
     case('when <id>-2 is already done the retry is <id>-3 and the brief is closed naming it',
-         [a['id'] for a in w.added] == [uid, uid + '-3'] and w.taken == [(w.ans[0]['id'], uid + '-3', '')],
+         [a['id'] for a in w.added] == [uid, uid + '-2', uid + '-3'] and w.taken == [(w.ans[0]['id'], uid + '-3', '')],
+         (lines, [a['id'] for a in w.added], w.taken))
+    w = world(tmp, 'ad3')
+    put(w.main, 'done', uid)
+    put(w.main, 'queue', uid + '-2', lane='lane/show/pre-tool-guard')
+    refuse_done(w)
+    w.ans = [yes_done('2026-10-20-pre-tool-guard-take-threw', uid)]
+    lines = autoloop.take_answers(w)
+    case('when <id>-2 is queued but not done (last round the brief did not close) the retry reuses -2, not -3: the work is not queued twice',
+         [a['id'] for a in w.added] == [uid, uid + '-2'] and w.taken == [(w.ans[0]['id'], uid + '-2', '')],
          (lines, [a['id'] for a in w.added], w.taken))
 
     # heroes-off-bench: done on the main board since 2026-10-13, still open on relay 6's board
