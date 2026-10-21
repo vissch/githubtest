@@ -15,6 +15,10 @@
   "t1_changed_frac": 0.08,
   "texture_var_drop": 0.4
  },
+ "pack_bars": {
+  "side_face_spread": 3.55,
+  "side_outside_frac": 0.4
+ },
  "rows": {
   "gas_side_height_m": [
    1.648,
@@ -117,6 +121,11 @@
    226173,
    294677
   ],
+  "side_outside_frac": [
+   0.208,
+   0.3041,
+   0.3812
+  ],
   "side_tick_skew": [
    0,
    0,
@@ -158,6 +167,8 @@
   37663,
   114148
  ],
+ "side_face_spread": 3.0308,
+ "side_outside_frac": 0.3812,
  "t1_changed_frac": [
   0.2261,
   0.2249,
