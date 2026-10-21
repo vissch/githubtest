@@ -146,7 +146,10 @@ namespace TW.Presentation.Tactical
         void DrawCanopies(Bounds bounds)
         {
             if (canopies.Count == 0 || !DropFx || !DropCanopies || canopyMat == null) return;
-            float simNow = SimNow, w = 6f * DropGrow();
+            // half of FarGrow, not all of it: at zoom 240 thirteen domes grown x2.5 merged into one round white
+            // blob the size of a village (the first g3 capture). Half the growth keeps the bank reading as one white
+            // streak that still follows the biplane's line.
+            float simNow = SimNow, w = 6f * (1f + (DropGrow() - 1f) * 0.5f);
             var rp = new RenderParams(canopyMat) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off };
             batch.Clear();
             for (int i = canopies.Count - 1; i >= 0; i--)
