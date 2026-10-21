@@ -138,8 +138,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   of the same pose and the same sim tick, the ability-area marker and the tracers hidden; `TW_STILLS_DIR`,
   `TW_ABILITYFX_SUBJECT`, `TW_ABILITYFX_PLATE`, `TW_ABILITYFX_REPS` (N captures over, each named for its subject, band and rep);
   the drop's plate stages the same drop with `CombatFx.DropFx` off, so its men are in both frames and only the drop's
-  own drawing is measured; the pixels are measured by `docs/evidence/ability-fx-captures-r3-2-2/probe.py`, whose floor is
-  a ground footprint and is guarded by `AbilityFxReadAtEveryBand`).
+  own drawing is measured, and the beams are off in both; the pixels are measured by
+  `docs/evidence/ability-fx-captures-r3-2-2-g2/probe.py` (12 rows: the drop is three captures a band), whose floor is
+  a ground footprint for smoke, barrage and splash and a fixed bar a band for the drop, and is guarded by
+  `AbilityFxReadAtEveryBand`).
 - **Tests:** VfxStills (Explicit: run by name with a graphics device; it only checks that stills were written),
   EffectFilmStills (Explicit, a graphics device, about ten minutes a look: it only checks that stills were written),
   AbilityFxStills (Explicit, a graphics device, 24 s a subject: it checks that its two stills were written and, for
