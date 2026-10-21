@@ -279,6 +279,36 @@ def main():
     autoloop.take_answers(w)
     case('when the leg names an id a board has done or queued already, his unit is queued under a free one (-2), not closed on the old unit',
          [a['id'] for a in w.added] == ['ridge-slope-from-parapet-2'] and w.taken[0][1] == 'ridge-slope-from-parapet-2', (w.added, w.taken))
+    def yes_done(bid, uid):
+        return dict(id=bid, title='Try the guard again', option='A', text='Queue it again', said='', go='queue', why='',
+                    when='2026-10-20 16:18', note='n-done', lane='lane/show/pre-tool-guard',
+                    unit=dict(id=uid, lane='lane/show/pre-tool-guard', role='lane', goal='g', done_when=['python', '-c', '1']))
+    def refuse_done(w):
+        def add(unit):
+            w.added.append(dict(unit))
+            if (w.main / 'relay' / 'done' / f'{unit["id"]}.json').exists():
+                return False, f'relay: {unit["id"]} is done already: delete the done record to queue it again, or pick another id'
+            put(w.main, 'queue', unit['id'], **{k: v for k, v in unit.items() if k != 'id'})
+            return True, 'queued. Board: pushed.'
+        w.add = add
+    uid = 'pre-tool-guard-no-false-refusals-20261019'
+    w = world(tmp, 'ad1')
+    put(w.main, 'done', uid)
+    refuse_done(w)
+    w.ans = [yes_done('2026-10-20-pre-tool-guard-no-false-refusals-20261019-tried', uid)]
+    lines = autoloop.take_answers(w)
+    case('a yes the relay refuses as done already is queued under <id>-2 and the brief is closed naming it',
+         [a['id'] for a in w.added] == [uid, uid + '-2'] and w.taken == [(w.ans[0]['id'], uid + '-2', '')]
+         and any('brief is closed' in l and (uid + '-2') in l for l in lines), (lines, [a['id'] for a in w.added], w.taken))
+    w = world(tmp, 'ad2')
+    put(w.main, 'done', uid)
+    put(w.main, 'done', uid + '-2')
+    refuse_done(w)
+    w.ans = [yes_done('2026-10-20-pre-tool-guard-tried-again', uid)]
+    lines = autoloop.take_answers(w)
+    case('when <id>-2 is already done the retry is <id>-3 and the brief is closed naming it',
+         [a['id'] for a in w.added] == [uid, uid + '-3'] and w.taken == [(w.ans[0]['id'], uid + '-3', '')],
+         (lines, [a['id'] for a in w.added], w.taken))
 
     # heroes-off-bench: done on the main board since 2026-10-13, still open on relay 6's board
     w = world(tmp, 'h1')

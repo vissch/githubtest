@@ -631,6 +631,18 @@ def take_answers(w):
                     out.append(f'answers: {a["id"]}: would queue {unit.get("id")} and close the brief')
                     continue
                 ok, said = w.add(unit)
+                if not ok and 'is done already' in str(said):
+                    # The id is a finished unit, so the same yes is refused every round
+                    # (autoloop.log 2026-10-20 16:18). Queue it as <id>-2, or <id>-3
+                    # when -2 is queued or done, and close the brief on that id.
+                    base = str(unit.get('id') or '')
+                    held = w.ids()
+                    alt = f'{base}-2' if f'{base}-2' not in held else f'{base}-3'
+                    if base and alt not in held:
+                        retry = dict(unit, id=alt)
+                        ok, said = w.add(retry)
+                        if ok:
+                            unit = retry
                 if not ok:
                     out.append(f'answers: {a["id"]}: the relay refused {unit.get("id")}: {said}')
                     continue
