@@ -32,9 +32,13 @@ WHY. The harsh critic scored r2-2 at 22/100. Three faults, and this probe answer
   3. "the committed probe exits 1 on a clean checkout (gas-o240.json missing)" — the stills were committed without
      their sidecars. This probe reads NOTHING from outside its own folder and exits 1 the moment a still, a
      sidecar or a manifest row is absent, which is exactly what a clean `git archive` extract checks.
-  4. "at O240 it cannot be told from grass" — `o240_hue_dist_deg` is the circular distance between the
-     saturation-weighted mean hue of the pixels the bank changed and the mean hue of THE SAME PIXELS in the plate.
-     The same pixels are the grass the bank covers, so the plate is the right control for "is it still grass".
+  4. "at O240 it cannot be told from grass" — `o240_hue_dist_deg` is the circular distance between the hue of the
+     pixels the bank changed and the hue of THE SAME PIXELS in the plate. The same pixels are the grass the bank
+     covers, so the plate is the right control for "is it still grass". r2-3-g2-g2 reads that hue over the blob's
+     CORE (`HUE_CORE_PCTL`, the top quartile of plate difference) with a saturation-weighted MEDIAN: the card is
+     alpha-blended, so its fringe is mostly ground showing through and each seed holds a different fringe-to-core
+     ratio, which moved a whole-blob mean 42 deg between seeds. Over the core, with a median, the three agree to
+     14.3 deg (README.md, "The hue").
 
 The camera maths (`ray`, `ground_distance`, `height_at`, `selftest`) and the mask cleanup (`largest_blob`) are
 r2-2's and unchanged: they were sound, and the selftest is a hand calculation worked outside the code it checks.
@@ -56,7 +60,10 @@ HOW
   the readings, each a list of one value per seed
                 t1_changed_frac      share of the T1 frame whose luma moved from the plate by >= LUMA_BAR  (bar)
                 texture_var_drop     1 - var_gas / var_plate over the 8x8 blocks centred inside the bank  (bar)
-                o240_hue_dist_deg    degrees between the bank's mean hue and the grass it covers          (bar)
+                o240_hue_dist_deg    degrees between the bank's CORE hue and the grass it covers         (bar)
+                o240_bank_hue_deg    the bank's core hue, and o240_grass_hue_deg the same pixels' plate    (row)
+                o240_blob_hue_deg    the old whole-blob mean hue, kept so the two can be compared          (row)
+                o240_core_px         how many of the blob's pixels the core restriction kept               (row)
                 side_face_px         side-band pixels standing above their column's footprint bias         (bar)
                 side_face_frac       that face as a share of the side blob (free of how big the cloud is)  (row)
                 side_face_col_px     the median column's face, in pixels (free of the bank's width)        (row)
@@ -93,6 +100,9 @@ BLOB_DILATE = 1             # largest_blob's bridge width; 2 chained the bank in
 BLOCK = 8                   # the texture window: one luma variance per 8x8 block
 MIN_COLUMN_PX = 8           # fewer masked pixels in a column is stray haze or JPEG noise
 HEIGHT_PCTL = 0.45          # a column's top, as a percentile of its masked pixels (r2-2's finding)
+HUE_CORE_PCTL = 75          # the hue is read over the blob's CORE: the pixels in the top quartile of plate
+                            # difference, where the card's own colour dominates instead of ground showing through
+                            # the alpha-blended fringe (r2-3-g2-g2, step 7)
 
 # The owner's bars, raised to clear the baseline spread of the UNCHANGED build (see README.md, "The bars"):
 # chosen = max(owner's bar, baseline_max + margin), margins 0.03 / 0.10 / 5 deg. A bar is never lowered below
@@ -114,7 +124,14 @@ SIDE_FOOT_DEPTH_M = 10.0
 # governs and the bar is rounded DOWN from the arithmetic so rounding never moves it inside the spread. Never
 # lowered below the owner's bar (`o240_hue_dist_deg` only; `gas_side_height_m` has none), never widened to make a
 # run green. Set from the capture of commit 2ba27d4 (the build the owner accepted); see README.md, "The bars".
-BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 69.8, 'side_face_px': 41000}
+BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 103.5, 'side_face_px': 41000}
+# r2-3-g2-g2, the hue bar: the old 69.8 sat 5 deg under a scatter of 74.8-123.0 deg, so a seed could drift 45 deg
+# and still pass. The reading is fixed first (the core, and a weighted median: HUE_CORE_PCTL), which brings the
+# three seeds' bank hue to 85.7-100.0 deg - a 14.3 deg spread - and their distance from the grass to
+# 120.80 / 134.53 / 138.04 deg. The bar is then
+#   bar = min(seeds) - max(10.0, max(seeds) - min(seeds)) = 120.80 - 17.24 = 103.56 -> 103.5 (rounded DOWN)
+# a margin at least one full spread wide, outside the spread of three captures of this build, and far above the
+# owner's 25.0. Never lowered below the owner's bar, never widened to make a run green.
 # r2-3-g2-g2: `gas_side_height_m` is no longer barred, it is reported. The owner: it sat inside 2.798-2.888 m
 # while `side_blob_px` ran 83100, 210655 and 303462 - a number that barely moves while the thing it measures
 # triples is blind, because it is one median column's silhouette top minus a 10 m footprint bias, and both of
@@ -256,12 +273,46 @@ def selftest():
     assert abs(total_face - 35) <= 1, 'the face came back %d pixels, hand calculation says 35' % total_face
     assert col_face == total_face, 'one column, so the median column is the total'
 
+    # The core hue, worked from the HSV formula by hand (step 10). A 64x64 plate of grass (0.20, 0.25, 0.50),
+    # a 32x32 blob on it whose central 16x16 is CombatFx.GasBankNight (0.78, 0.86, 0.22) and whose 768-pixel
+    # ring is the 50/50 blend with the grass (0.49, 0.555, 0.36) - the alpha fringe.
+    #   grass: max b 0.50, min 0.20, c 0.30 -> h = 60*((0.20-0.25)/0.30 + 4) = 230.0 deg
+    #   core:  max g 0.86, min 0.22, c 0.64 -> h = 60*((0.22-0.78)/0.64 + 2) =  67.5 deg
+    #   blend: max g 0.555, min 0.36, c 0.195 -> h = 60*((0.36-0.49)/0.195 + 2) = 80.0 deg
+    # so the core reads 67.5 and sits 230.0 - 67.5 = 162.5 deg from the grass it covers. The core is a quarter
+    # of the blob, which is exactly what HUE_CORE_PCTL = 75 keeps.
+    def rgb8(c):
+        return np.array([int(round(v * 255.0)) for v in c], dtype=np.uint8)
+    grass, bank, blend = rgb8((0.20, 0.25, 0.50)), rgb8((0.78, 0.86, 0.22)), rgb8((0.49, 0.555, 0.36))
+    plate = np.tile(grass, (64, 64, 1))
+    img = plate.copy()
+    img[16:48, 16:48] = blend
+    img[24:40, 24:40] = bank
+    blob = np.zeros((64, 64), dtype=bool)
+    blob[16:48, 16:48] = True
+    hue_diff = np.sqrt(((img.astype(np.float64) - plate.astype(np.float64)) ** 2).sum(axis=2))
+    core = core_of(blob, hue_diff)
+    assert int(core.sum()) == 256, 'the core came back %d pixels, the painted core is 256' % int(core.sum())
+    core_hue = hue_of(img, core)
+    core_dist = hue_distance(img, plate, core)
+    blob_hue = mean_hue(img, blob)
+    assert abs(core_hue - 67.5) < 1.0, 'the core hue read %.2f deg, the HSV formula says 67.5' % core_hue
+    assert abs(core_dist - 162.5) < 1.0, 'the core distance read %.2f deg, by hand 162.5' % core_dist
+    assert abs(blob_hue - 67.5) > 5.0, ('the whole blob read %.2f deg, the same as its core: then the core '
+                                        'restriction does no work' % blob_hue)
+    assert 67.5 < blob_hue < 81.0, ('the whole blob read %.2f deg, wanted it pulled toward the '
+                                    "blend's 80.0" % blob_hue)
+
     print('selftest ok: centre pixel 10.000 m out, one degree up %.5f m high (hand: 0.34311);' % h)
     print('             stripes -> flat grey is a texture drop of %.3f (hand: 1.000);' % drop)
     print('             red/green %.1f deg, red/magenta %.1f deg (hand: 120, 60);' % (rg, rm))
     print('             10 m of footprint at the 10 m plane: %.3f m (hand: 3.333);' % bias)
     print('             one synthetic column of rows 0-100 has a face of %d pixels (hand: 35, rows 0-34)'
           % total_face)
+    print('             a 256-pixel core of GasBankNight on grass reads %.2f deg, %.2f deg from the grass'
+          % (core_hue, core_dist))
+    print('             (hand: 67.5 and 162.5); the whole blob, fringe and all, reads %.2f deg (blend: 80.0)'
+          % blob_hue)
     return 0
 
 
@@ -303,13 +354,53 @@ def mean_hue(rgb, mask):
     return math.degrees(math.atan2(y, x)) % 360.0
 
 
+def median_hue(rgb, mask):
+    """Saturation-weighted circular MEDIAN hue, in degrees, of the masked pixels (None if nothing is masked).
+
+    Outlier-proof where `mean_hue` is not: a handful of fringe or JPEG-ringing pixels pulls a mean, never a
+    median. Circular, so the hues are first folded to signed offsets around their own mean and the weighted
+    median of those offsets is added back (r2-3-g2-g2, step 8's last rung).
+    """
+    ref = mean_hue(rgb, mask)
+    if ref is None:
+        return None
+    h, s = hue_sat(rgb)
+    w, ang = s[mask], h[mask]
+    off = ((ang - ref + 180.0) % 360.0) - 180.0
+    order = np.argsort(off)
+    off, w = off[order], w[order]
+    cum = np.cumsum(w)
+    if cum[-1] <= 1e-9:
+        return None
+    med = float(off[int(np.searchsorted(cum, 0.5 * cum[-1]))])
+    return (ref + med) % 360.0
+
+
+def hue_of(rgb, mask):
+    """The one hue reading the probe quotes: `median_hue` (step 8's rung, see HUE_CORE_PCTL)."""
+    return median_hue(rgb, mask)
+
+
 def hue_distance(rgb_a, rgb_b, mask):
     """Circular distance in degrees (0-180) between the two images' mean hue over the SAME masked pixels."""
-    ha, hb = mean_hue(rgb_a, mask), mean_hue(rgb_b, mask)
+    ha, hb = hue_of(rgb_a, mask), hue_of(rgb_b, mask)
     if ha is None or hb is None:
         return 0.0
     d = abs(ha - hb) % 360.0
     return min(d, 360.0 - d)
+
+
+def core_of(mask, diff):
+    """The blob's core: the masked pixels in the top (100 - HUE_CORE_PCTL) percent of plate difference.
+
+    The gas card is alpha-blended, so a fringe pixel is mostly ground showing through and its hue is a mix whose
+    ratio changes with the seed. The core is where the card's own colour dominates, so the hue read there is the
+    paint, not the blend (r2-3-g2-g2, step 7).
+    """
+    if not mask.any():
+        return mask
+    cut = np.percentile(diff[mask], HUE_CORE_PCTL)
+    return mask & (diff >= cut)
 
 
 def block_variance(lum, mask):
@@ -551,11 +642,15 @@ def measure_o240(d, seed):
     plate, _ = load(d, stem + '-plate')
     diff = np.sqrt(((img.astype(np.float64) - plate.astype(np.float64)) ** 2).sum(axis=2))
     mask = largest_blob(diff >= DIFF_BAR)
-    return ({'o240_hue_dist_deg': round(hue_distance(img, plate, mask), 2)},
+    core = core_of(mask, diff)
+    blob_hue = mean_hue(img, mask)
+    return ({'o240_hue_dist_deg': round(hue_distance(img, plate, core), 2)},
             {'o240_changed_frac': round(float((diff >= DIFF_BAR).mean()), 4),
              'o240_blob_px': int(mask.sum()),
-             'o240_bank_hue_deg': None if mean_hue(img, mask) is None else round(mean_hue(img, mask), 1),
-             'o240_grass_hue_deg': None if mean_hue(plate, mask) is None else round(mean_hue(plate, mask), 1),
+             'o240_core_px': int(core.sum()),
+             'o240_bank_hue_deg': None if hue_of(img, core) is None else round(hue_of(img, core), 1),
+             'o240_grass_hue_deg': None if hue_of(plate, core) is None else round(hue_of(plate, core), 1),
+             'o240_blob_hue_deg': None if blob_hue is None else round(blob_hue, 1),
              'pose_error_m': round(float(side.get('pose_error_m', 99.0)), 4)})
 
 

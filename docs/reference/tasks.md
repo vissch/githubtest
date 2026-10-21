@@ -143,6 +143,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `side_face_px` - the side-band pixels standing above their own column's `footprint_bias_m`, the bank's upright
   face - because `gas_side_height_m` held 2.80-2.89 m while the side blob ran 83k to 303k pixels; it is still
   reported there, but it is not the bar.
+  The O240 hue is read over the blob's CORE from r2-3-g2-g2 too (`HUE_CORE_PCTL`, the top quartile of plate
+  difference) with a saturation-weighted MEDIAN hue: the card is alpha-blended, so its fringe is mostly ground
+  showing through and a whole-blob mean moved 42 deg between seeds; the core median holds them to 14 deg.
   The pipeline's `run_tests` selects
   no [Explicit] test, so run it as its own batch launch: `Unity.exe -batchmode -projectPath <checkout>/trench-warfare-3d
   -runTests -testPlatform EditMode -testFilter GasBankStills -testResults <xml> -logFile <log>`).
