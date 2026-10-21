@@ -149,6 +149,12 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   From r2-3-g2-g2-g2 the O240 hue is read ALPHA-FREE, from the shot-minus-plate difference vector
   (`docs/evidence/ability-fx-captures-r2-3-g2-g2-g2/probe.py`'s `unmix_hue`), and barred as `o240_hue_off_deg`:
   the circular distance from `GasBankNight`'s own painted hue, 67.5 deg.
+  From r2-3-g2-g2-g2-g1 `side_face_px` is NOT a bar either, only a row: a carpet of per-cell pads cleared its
+  41000 three times over and spread 12x across three seeds of one build, because it grows with how much gas there
+  is. The bars that read "pads" instead are `t1_ripple` and `side_ripple`
+  (`docs/evidence/ability-fx-captures-r2-3-g2-g2-g2-g1/probe.py`'s `ripple`): the per-pixel plate difference
+  inside the blob, averaged over 4x4-pixel tiles, minus a 9x9-tile box mean, as `std / mean` - UPPER bounds, so
+  fewer pads passes.
   The pipeline's `run_tests` selects
   no [Explicit] test, so run it as its own batch launch: `Unity.exe -batchmode -projectPath <checkout>/trench-warfare-3d
   -runTests -testPlatform EditMode -testFilter GasBankStills -testResults <xml> -logFile <log>`).

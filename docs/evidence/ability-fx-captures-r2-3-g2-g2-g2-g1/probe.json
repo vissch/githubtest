@@ -1,12 +1,13 @@
 {
  "bars": {
   "o240_hue_dist_deg": 103.5,
-  "side_face_px": 41000,
   "t1_changed_frac": 0.08,
   "texture_var_drop": 0.4
  },
  "max_bars": {
-  "o240_hue_off_deg": 18.5
+  "o240_hue_off_deg": 18.5,
+  "side_ripple": 0.206,
+  "t1_ripple": 0.26
  },
  "o240_hue_dist_deg": [
   124.82,
@@ -115,6 +116,11 @@
    0.277,
    0.5499
   ],
+  "side_face_px": [
+   53053,
+   6978,
+   86519
+  ],
   "side_top_m": [
    2.637,
    2.216,
@@ -146,15 +152,20 @@
    0.1137
   ]
  },
- "side_face_px": [
-  53053,
-  6978,
-  86519
+ "side_ripple": [
+  0.2582,
+  0.3232,
+  0.3003
  ],
  "t1_changed_frac": [
   0.0603,
   0.0593,
   0.0658
+ ],
+ "t1_ripple": [
+  0.3254,
+  0.38,
+  0.3768
  ],
  "texture_var_drop": [
   0.6642,

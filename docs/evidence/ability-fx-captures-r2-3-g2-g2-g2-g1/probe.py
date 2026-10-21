@@ -115,6 +115,9 @@ LUMA_BAR = 0.06             # the owner's "mean luma change >= 0.06": T1's chang
 DIFF_BAR = 12               # O240's changed test, r2-2's RGB distance (the far bank moves little luma)
 BLOB_DILATE = 1             # largest_blob's bridge width; 2 chained the bank into terrain-edge noise (r2-2)
 BLOCK = 8                   # the texture window: one luma variance per 8x8 block
+RIPPLE_TILE = 4             # `ripple`'s coarse tile: 4x4 pixels, the scale a per-cell pad's rim steps at
+RIPPLE_WIN = 9              # `ripple`'s smoothing window, in tiles: what it subtracts is the cloud's slow dome
+RIPPLE_COVER = 0.5          # a tile under half inside the blob is rim, not bank, and is not measured
 MIN_COLUMN_PX = 8           # fewer masked pixels in a column is stray haze or JPEG noise
 HEIGHT_PCTL = 0.45          # a column's top, as a percentile of its masked pixels (r2-2's finding)
 HUE_CORE_PCTL = 75          # the hue is read over the blob's CORE: the pixels in the top quartile of plate
@@ -146,7 +149,7 @@ SIDE_FOOT_DEPTH_M = 10.0
 # governs and the bar is rounded DOWN from the arithmetic so rounding never moves it inside the spread. Never
 # lowered below the owner's bar (`o240_hue_dist_deg` only; `gas_side_height_m` has none), never widened to make a
 # run green. Set from the capture of commit 2ba27d4 (the build the owner accepted); see README.md, "The bars".
-BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 103.5, 'side_face_px': 41000}
+BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 103.5}
 # r2-3-g2-g2, the hue bar: the old 69.8 sat 5 deg under a scatter of 74.8-123.0 deg, so a seed could drift 45 deg
 # and still pass. The reading is fixed first (the core, and a weighted median: HUE_CORE_PCTL), which brings the
 # three seeds' bank hue to 85.7-100.0 deg - a 14.3 deg spread - and their distance from the grass to
@@ -175,7 +178,21 @@ BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 
 #       = ceil(13.43 + max(5.0, 0.93)) = ceil(18.43) -> 18.5
 # rounding UP so rounding never moves the bar inside the spread (an upper bound must round AWAY from the
 # passing side, which for a <= bar is up, the mirror of BARS' round-down).
-MAX_BARS = {'o240_hue_off_deg': 18.5}
+#
+# r2-3-g2-g2-g2-g1: `side_face_px` is NOT a bar any more, it is a row beside `side_face_frac`. A bar a carpet
+# clears three times over is not a bar: the build the owner threw out as "a carpet of flat green pads" read
+# 135367 / 52156 / 186565 against 41000 - cleared, and spread 12x across three seeds of ONE build, so it told
+# nobody anything. It is `gas_side_height_m`'s fault one round later: the number grows with how much gas there
+# is, not with whether the gas is one bank, and the owner never asked for more gas.
+# Its replacements are `t1_ripple` and `side_ripple` (`ripple`), UPPER bounds in MAX_BARS: how hard the bank's
+# own alpha steps at the 4 m-cell scale, as a share of its mean. Fewer pads is the passing side. Both are set
+# BELOW the minimum of three seeds of the current build (`baseline.json`): bar = min(seeds) * 0.8, rounded DOWN
+# to 3 decimals so rounding can only make the bar stricter and never pull it inside the spread. See README.md.
+# The baseline (`baseline.json`, the current build reshot on this commit, three seeds): `t1_ripple`
+# 0.3254 / 0.3800 / 0.3768, `side_ripple` 0.2583 / 0.3232 / 0.3003. So
+#   t1_ripple   bar = 0.3254 * 0.8 = 0.26032 -> 0.260 (rounded DOWN)
+#   side_ripple bar = 0.2583 * 0.8 = 0.20664 -> 0.206 (rounded DOWN)
+MAX_BARS = {'o240_hue_off_deg': 18.5, 't1_ripple': 0.260, 'side_ripple': 0.206}
 
 
 def stems():
@@ -369,6 +386,32 @@ def selftest():
           'mean_hue on the same image reads %.2f deg, pulled toward the raw blended colour' % (unmix_result,
                                                                                                  old_result))
 
+    # `ripple`, worked from its definition and not from a run of it (step 3 of the plan).
+    #   (a) a 64x64 delta of 0.40 everywhere under a full blob: every 4x4 tile reads A = 0.40, so the 9x9 tile
+    #       box mean is 0.40 too, A - smooth = 0 at every tile, std = 0 and the ripple is exactly 0.000. A flat
+    #       field has no ripple at any scale.
+    #   (b) the same field with every other 4x4 tile raised to 0.60 - a checkerboard at exactly the pad scale.
+    #       mean(A) = 0.50. The 9x9 window holds 81 tiles: 41 of the centre tile's own parity and 40 of the
+    #       other, so smooth = (41 v + 40 v') / 81 and A - smooth = 40 (v - v') / 81 = +-8/81 = +-0.098765 at
+    #       EVERY tile (the 16x16 tile grid is periodic and the box mean wraps, so there are no edge tiles).
+    #       std = 8/81, and the ripple is (8/81) / 0.50 = 16/81 = 0.197531 -> 0.198.
+    #       (The plan's 0.200 assumed smooth = 0.50 exactly; an odd window over a 2-periodic field cannot give
+    #       that - 41 tiles against 40 - and 16/81 is the same arithmetic carried through. Not a fault of the
+    #       measure: a real pad field is not a perfect checkerboard, and the reading is a ratio either way.)
+    flat_delta = np.full((64, 64), 0.40)
+    full_blob = np.ones((64, 64), dtype=bool)
+    flat_ripple = ripple(flat_delta, full_blob)
+    assert abs(flat_ripple - 0.000) < 5e-4, 'a flat delta field read ripple %.6f, by hand 0.000' % flat_ripple
+    pads_delta = flat_delta.copy()
+    ti = np.arange(64) // RIPPLE_TILE
+    checker = ((ti[:, None] + ti[None, :]) % 2) == 0
+    pads_delta[checker] = 0.60
+    pads_ripple = ripple(pads_delta, full_blob)
+    assert abs(pads_ripple - 0.198) < 5e-4, ('a 4x4 pad checkerboard read ripple %.6f, by hand 16/81 = 0.198'
+                                             % pads_ripple)
+    print('             a flat delta reads ripple %.3f and a 4x4 pad checkerboard %.3f (hand: 0.000, 0.198)'
+          % (flat_ripple, pads_ripple))
+
     print('selftest ok: centre pixel 10.000 m out, one degree up %.5f m high (hand: 0.34311);' % h)
     print('             stripes -> flat grey is a texture drop of %.3f (hand: 1.000);' % drop)
     print('             red/green %.1f deg, red/magenta %.1f deg (hand: 120, 60);' % (rg, rm))
@@ -506,6 +549,57 @@ def core_of(mask, diff):
     return mask & (diff >= cut)
 
 
+def _box_mean_wrap(a, weight, win):
+    """Box mean of `a` over a win x win window of tiles, weighted by `weight`, wrapped at the edges.
+
+    Weighted, so a tile outside the blob (weight 0) never drags the mean of a tile inside it down and invents a
+    step at the blob's rim. Wrapped, so the frame edge invents no step either (and so the selftest's periodic
+    checkerboard is exact at every tile, not just the interior ones).
+    """
+    pad = win // 2
+    aw = np.pad(a * weight, pad, mode='wrap')
+    ww = np.pad(weight, pad, mode='wrap')
+
+    def box(x):
+        c = np.cumsum(np.cumsum(x, axis=0), axis=1)
+        c = np.pad(c, ((1, 0), (1, 0)), mode='constant')
+        return c[win:, win:] - c[:-win, win:] - c[win:, :-win] + c[:-win, :-win]
+
+    num, den = box(aw), box(ww)
+    out = np.zeros_like(a)
+    np.divide(num, den, out=out, where=den > 1e-12)
+    return out
+
+
+def ripple(delta, blob, tile=RIPPLE_TILE, win=RIPPLE_WIN, cover=RIPPLE_COVER):
+    """How much the bank's own alpha steps at the 4 m-cell scale: pads read high, one mass reads low.
+
+    Inside the blob, the per-pixel |luma_gas - luma_plate| the T1 and side measures already build is a proxy for
+    the bank's own per-pixel alpha, free of the ground's texture. Average it over `tile` x `tile` pixel tiles
+    into a coarse field `A` (and the blob's coverage into `W`, keeping only tiles that are at least `cover`
+    blob), subtract a `win` x `win` tile box mean of `A` - the cloud's own slow dome, which is not a fault - and
+    return `std(A - smooth) / mean(A)` over the kept tiles.
+
+    One mass is smooth at the pad scale and reads low. A pad's rim is a step at exactly that scale and reads
+    high. The ratio is free of how big or how bright the cloud is, which is what `side_face_px` was not: a
+    carpet cleared that bar three times over and still spread 12x across three seeds of one build.
+    """
+    h, w = delta.shape
+    th, tw = h // tile, w // tile
+    d = (delta * blob)[:th * tile, :tw * tile].reshape(th, tile, tw, tile).swapaxes(1, 2)
+    b = blob[:th * tile, :tw * tile].reshape(th, tile, tw, tile).swapaxes(1, 2)
+    a = d.reshape(th, tw, tile * tile).mean(axis=2)
+    cov = b.reshape(th, tw, tile * tile).mean(axis=2)
+    keep = cov >= cover
+    if keep.sum() < 2:
+        return 0.0
+    smooth = _box_mean_wrap(a, keep.astype(np.float64), win)
+    mean = float(a[keep].mean())
+    if mean <= 1e-9:
+        return 0.0
+    return float(np.std(a[keep] - smooth[keep]) / mean)
+
+
 def block_variance(lum, mask):
     """Mean per-BLOCKxBLOCK luma variance over the blocks whose centre pixel is masked (0.0 if there are none)."""
     h, w = lum.shape
@@ -627,7 +721,8 @@ def measure_t1(d, seed):
 
     ground = ground_of(d, stem)
     return ({'t1_changed_frac': round(changed_frac, 4),
-             'texture_var_drop': round(drop, 4)},
+             'texture_var_drop': round(drop, 4),
+             't1_ripple': round(ripple(delta, blob), 4)},
             {'t1_luma_delta': round(luma_delta, 4),
              't1_blob_px': int(blob.sum()),
              't1_block_var_plate': round(var_p, 6),
@@ -802,8 +897,11 @@ def measure_side(d, seed):
     total_face, col_face, n_cols = face_px(blob, side, ground)
     blob_n = int(blob.sum())
 
-    return ({'side_face_px': total_face},
-            {'gas_side_height_m': round(max(0.0, side_top_m - bias_m), 3),
+    return ({'side_ripple': round(ripple(delta, blob), 4)},
+            # `side_face_px` is a ROW now, not a bar: see MAX_BARS. It grows with how much gas there is, which
+            # is not what the owner asked for, and a carpet cleared its 41000 three times over.
+            {'side_face_px': total_face,
+             'gas_side_height_m': round(max(0.0, side_top_m - bias_m), 3),
              'side_top_m': round(side_top_m, 3),
              'side_bias_m': round(bias_m, 3),
              'side_face_frac': round(total_face / blob_n, 4) if blob_n else 0.0,
@@ -887,15 +985,16 @@ def main():
         json.dump(result, f, indent=1, sort_keys=True)
 
     ok = True
-    print('seed  t1_changed_frac  texture_var_drop  o240_hue_dist_deg  o240_hue_off_deg  side_face_px  '
-          'side_face_frac  side_face_col_px  side_blob_px  side_height_m  pose_err_m')
+    print('seed  t1_changed_frac  texture_var_drop  o240_hue_dist_deg  o240_hue_off_deg  t1_ripple  '
+          'side_ripple  side_face_px  side_face_frac  side_blob_px  side_height_m  pose_err_m')
     for seed in range(SEEDS):
-        print('  s%d  %15.4f  %16.4f  %17.2f  %16.2f  %12d  %14.4f  %16d  %12d  %13.3f  %10.4f'
+        print('  s%d  %15.4f  %16.4f  %17.2f  %16.2f  %9.4f  %11.4f  %12d  %14.4f  %12d  %13.3f  %10.4f'
               % (seed, bars['t1_changed_frac'][seed], bars['texture_var_drop'][seed],
-                 bars['o240_hue_dist_deg'][seed], bars['o240_hue_off_deg'][seed], bars['side_face_px'][seed],
-                 rows['side_face_frac'][seed], rows['side_face_col_px'][seed], rows['side_blob_px'][seed],
+                 bars['o240_hue_dist_deg'][seed], bars['o240_hue_off_deg'][seed], bars['t1_ripple'][seed],
+                 bars['side_ripple'][seed], rows['side_face_px'][seed],
+                 rows['side_face_frac'][seed], rows['side_blob_px'][seed],
                  rows['gas_side_height_m'][seed], max(rows['pose_error_m'][seed * 3:seed * 3 + 3])))
-    for k in ('t1_changed_frac', 'texture_var_drop', 'o240_hue_dist_deg', 'side_face_px'):
+    for k in ('t1_changed_frac', 'texture_var_drop', 'o240_hue_dist_deg'):
         got = bars[k]
         met = len(got) >= SEEDS and min(got) >= BARS[k]
         ok = ok and met
