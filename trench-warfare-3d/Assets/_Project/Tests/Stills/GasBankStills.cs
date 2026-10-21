@@ -38,13 +38,33 @@ namespace TW.Tests
         /// from tick 60 to tick 300 after the call. The sim runs 20 ticks a second against 30 captured frames, so a
         /// tick is 1.5 frames: 200 frames are 133 ticks, which is 73 ticks into the bank's life - spread out of its
         /// first puff and still thick. (470 frames, the first try, was 313 ticks: the bank had gone.)</summary>
-        const int WaitFrames = 200;
+        const int DefaultWaitFrames = 200;
+        /// <summary>The narrowest and widest wait that still lands inside the cloud's life (ticks 60-300, so
+        /// 90-450 frames); 120..300 keeps a margin at both ends.</summary>
+        const int MinWaitFrames = 120;
+        const int MaxWaitFrames = 300;
         /// <summary>Every block is padded to this many frames, so both passes stay in step frame for frame.</summary>
         const int BlockFrames = 520;
         /// <summary>A still from the wrong pose is worthless (the critic's verdict on r1).</summary>
         const float PoseBar = 0.5f;
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
+
+        /// <summary>How many frames to wait out the cloud before the shot: SessionState "tw.gasbank.waitframes",
+        /// else TW_GAS_WAIT_FRAMES, else <see cref="DefaultWaitFrames"/>, clamped to 120..300. Three runs at three
+        /// values are three different FRAMES of the same build, which is what the probe's frame guard asks for.
+        /// Both passes of a run read the same value, so the plate keeps hitting the shot's frame.</summary>
+        static int ResolveWaitFrames()
+        {
+            int n = SessionState.GetInt("tw.gasbank.waitframes", 0);
+            if (n <= 0)
+            {
+                string env = System.Environment.GetEnvironmentVariable("TW_GAS_WAIT_FRAMES");
+                if (!string.IsNullOrEmpty(env)) int.TryParse(env, out n);
+            }
+            if (n <= 0) n = DefaultWaitFrames;
+            return Mathf.Clamp(n, MinWaitFrames, MaxWaitFrames);
+        }
 
         /// <summary>The character a json number ends on, held as a code because validate.py counts a file's braces.</summary>
         const char CloseBrace = (char)125;
@@ -76,7 +96,9 @@ namespace TW.Tests
             if (string.IsNullOrEmpty(dir)) dir = System.Environment.GetEnvironmentVariable("TW_STILLS_DIR");
             if (string.IsNullOrEmpty(dir)) dir = Path.Combine(Path.GetTempPath(), "tw-gasbank");
             Directory.CreateDirectory(dir);
-            TestContext.Out.WriteLine((plate ? "PLATE pass" : "GAS pass") + " into " + dir);
+            int waitFrames = ResolveWaitFrames();
+            TestContext.Out.WriteLine((plate ? "PLATE pass" : "GAS pass") + " into " + dir
+                                      + ", wait_frames " + waitFrames);
 
             CombatFx.ShowOverlays = false;            // the yellow ability-area disc is gas-coloured: it would be counted as gas
             CameraShake.Strength = 0f; CameraShake.Reset();
@@ -110,10 +132,10 @@ namespace TW.Tests
             // O240 FIRST: its frame holds the whole map, so it must not hold the T1 block's leavings
             var far = new List<Vector2>();
             for (int k = -2; k <= 2; k++) far.Add(new Vector2(x, Mathf.Clamp(z + k * 40f, 20f, size.y - 20f)));
-            yield return Block(dir, "gas-o240" + (plate ? "-plate" : ""), "o240", tc, x, z, 240f, 25f, far, plate, map);
+            yield return Block(dir, "gas-o240" + (plate ? "-plate" : ""), "o240", tc, x, z, 240f, 25f, far, plate, map, waitFrames);
 
             yield return Block(dir, "gas-t1" + (plate ? "-plate" : ""), "t1", tc, x, z, 30f, 25f,
-                               new List<Vector2> { new Vector2(x, z) }, plate, map);
+                               new List<Vector2> { new Vector2(x, z) }, plate, map, waitFrames);
 
             Time.captureDeltaTime = 0f;
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
@@ -129,7 +151,8 @@ namespace TW.Tests
         /// <summary>One band: frame it, gas it (unless this is the plate pass), wait out the cloud's life in FRAMES,
         /// photograph it, then pad to a fixed block so the two passes stay in step.</summary>
         static IEnumerator Block(string dir, string stem, string band, TacticalCamera tc, float x, float z,
-                                 float zoom, float pitch, List<Vector2> points, bool plate, MapData map)
+                                 float zoom, float pitch, List<Vector2> points, bool plate, MapData map,
+                                 int waitFrames)
         {
             int spent = 0;
             tc.BaseYaw = -90f; tc.Zoom = zoom; tc.Focus = new Vector2(x, z);
@@ -162,7 +185,7 @@ namespace TW.Tests
                 for (int f = 0; f < 4; f++) { yield return null; spent++; }
             }
 
-            for (int f = 0; f < WaitFrames; f++) { yield return null; spent++; }
+            for (int f = 0; f < waitFrames; f++) { yield return null; spent++; }
 
             string path = Path.Combine(dir, stem + ".png");
             float best = float.MaxValue;
@@ -211,6 +234,7 @@ namespace TW.Tests
               .Append(", \"sim_tick\": ").Append(tick).Append(", \"frame\": ").Append(Time.frameCount)
               .Append(", \"pose_error_m\": ").Append(best.ToString("0.####"))
               .Append(", \"calls_taken\": ").Append(taken)
+              .Append(", \"wait_frames\": ").Append(waitFrames)
               .Append(", \"gas_cells\": ").Append(cells).Append(", \"gas_field_max\": ").Append(fieldMax.ToString("0.##"))
               .Append(", \"gas_cards\": ").Append(cards)
               .Append(", \"recipes\": ").Append(recipes.ToString("0.##"))
