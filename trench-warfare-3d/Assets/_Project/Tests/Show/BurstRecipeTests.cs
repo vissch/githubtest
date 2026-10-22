@@ -290,8 +290,14 @@ namespace TW.Tests
             Assert.Less(sheet, 1.8f, "from the overview out the gas is still a sheet under a 1.8 m man's head");
             Assert.Greater(sheet, 0.6f, "and is still thick enough to read: not a painted line on the floor");
 
-            Assert.GreaterOrEqual(CombatFx.GasPuffBlock, 2,
-                "the close puff stands for a block of cells, not one: per cell they wash into a sheet, measured 774 cards in -g1's sidecars");
+            // -g1-g1-g1: block 2+ was dropped. 12 m gaps are not one puff but ~106 separate ones - its own probe
+            // measured blob_px 12528 of green_px 155940, so the biggest green patch held 8% of the green ("a field
+            // of flat green bushes"). The cards must TOUCH, and the puff's shape must come from their heights.
+            Assert.LessOrEqual(CombatFx.GasPuffBlock * TW.Sim.Terrain.MapData.FieldCellSize, 5f,
+                "the close cards touch: their spacing is at most the narrowest card (5 m), or every card is its own blob");
+            float skirt = 7f * CombatFx.GasPuffStand * CombatFx.GasPuffRim;
+            Assert.Less(skirt, 1.8f, "the cloud's thin skirt lies under a man's head: the union has a rim, not a wall's edge");
+            Assert.Greater(7f * CombatFx.GasPuffStand, 1.8f, "and its core stands over him: two ends to the profile, not one height");
             const int step = 1; // DrawGasBank's own local `step` at the close camera: CurrentBankStep() == 1
             float widthMultiplier = step == 1 ? 1f : step;
             Assert.AreEqual(1f, widthMultiplier,
