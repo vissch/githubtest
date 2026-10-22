@@ -158,6 +158,19 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `side_outside_frac` (the share of the pixels outside the patch box that moved from the plate, <= 0.40 - it
   reads 0.38, so the box gate's assumption is measured, not confirmed) and `side_face_spread`
   (`max/min` of `side_face_px` over the seeds, <= 3.55).
+  From r2-3-g2-g2-g1-g1-g2 the side band is ONE SITE: all three seeds and both passes shoot the same patch
+  (the first open patch the side lens accepts, `side_x` / `side_z` on the row), because the manifests showed the
+  cloud identical on the three seeds (`gas_cells` 66, `gas_field_max` 35.82) while `side_face_px` spread 3.03x -
+  the spread was the framing (three ground heights, pickets and a bunker in front), not the gas. The block also
+  empties the `Flamethrower` pool every frame and counts the fires it found in `fires_near` on the side row, so a
+  wreck's fire is out of the picture too (`TankRenderer`'s drawer switch cannot do it: `CombatFx.Update` draws
+  that fire). `wait_frames` (`TW_GAS_WAIT_FRAMES`, default 200, refused outside 1..`BlockFrames`) moves the
+  cloud's phase, which is how one build is captured three times. The current measure is
+  `docs/evidence/ability-fx-captures-r2-3-g2-g2-g1-g1-g2/probe.py` (three runs: the folder, `run2/`, `run3/`):
+  it adds `side_fire_px` (plate-differenced fire-hue pixels, <= 393, read 43-293 against the previous capture's
+  4864) and its bars come from all nine side shots - `side_face_spread` <= 1.83, `side_outside_frac` <= 0.31,
+  `side_face_px` >= 48000. Its spread bar is a repeat-noise bar now that the site is fixed; the three-patch
+  evidence is T1's and O240's.
   The O240 hue is read over the blob's CORE from r2-3-g2-g2 too (`HUE_CORE_PCTL`, the top quartile of plate
   difference) with a saturation-weighted MEDIAN hue: the card is alpha-blended, so its fringe is mostly ground
   showing through and a whole-blob mean moved 42 deg between seeds; the core median holds them to 14 deg.
