@@ -278,10 +278,37 @@ namespace TW.Tests
         public void TheGasBankLiesOnTheGround_NotOverAMansHead()
         {
             // r1's critique: gas-t1 read as a standing wall (height_frac 0.32). The sheet's drawing fills the bottom
-            // third of the card, so the widest card's gas must still top out below a man's head.
-            float top = CombatFx.GasBankWidth(1f, 1f, 1) * CombatFx.GasBankSquash / 3f;
-            Assert.Less(top, 1.8f, "the gas the widest card draws stays under a 1.8 m man's head");
-            Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+            // third of the card, so the gas a card draws must still top out below a man's head. Every card now paints
+            // the same band in metres, whatever its width, so check all four (thick, hash) corners.
+            foreach (float thick in new[] { 0f, 1f })
+            foreach (float hash in new[] { 0f, 1f })
+            {
+                float width = CombatFx.GasBankWidth(thick, hash, 1);
+                float band = width * CombatFx.GasBankSquashFor(width) / 3f;
+                Assert.AreEqual(CombatFx.GasBankBandM, band, 1e-3f,
+                    $"a card at thick {thick} hash {hash} paints the same band of gas as every other");
+                // the card sinks 0.08 m into the ground (DrawGasBank), so that much of the band is below it
+                Assert.Less(CombatFx.GasBankBandM - 0.08f, 1.8f, "the gas a card draws stays under a 1.8 m man's head");
+                Assert.Greater(band, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+            }
+        }
+        [Test]
+        public void TheGasBankBandsMeetInDepthAtTheT1Pose()
+        {
+            // r2's critique again: at zoom 30 the stills were four or five yellow-green bands with bare mud between
+            // them. The bands are the field's rows: cells sit on a 4 m grid (MapData.FieldCellSize, a literal here as
+            // in the neighbouring test), so at the T1 pose (pitch 25, GasBankStills) a row of ground steps
+            // 4 * sin 25 on screen while a card's painted band only rises band * cos 25. Below 1 the gap is mud.
+            const float pitch = 25f * Mathf.Deg2Rad, rowPitch = 4f;
+            float rise = rowPitch * Mathf.Sin(pitch);
+            foreach (float thick in new[] { 0f, 1f })
+            foreach (float hash in new[] { 0f, 1f })
+            {
+                float width = CombatFx.GasBankWidth(thick, hash, 1);
+                float band = width * CombatFx.GasBankSquashFor(width) / 3f;
+                Assert.GreaterOrEqual(band * Mathf.Cos(pitch), 0.90f * rise,
+                    $"a card at thick {thick} hash {hash} must cover 90 % of the row behind it, so no mud shows between rows");
+            }
         }
         [Test]
         public void TheGasBankCardsOverlapIntoOneMass()
