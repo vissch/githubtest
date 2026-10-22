@@ -469,23 +469,13 @@ class RunDetachedTest(unittest.TestCase):
         with self.assertRaises(SystemExit, msg="[O3] stop on an unknown name is not a clean refusal"):
             R.main(["stop", "nosuch"])
 
-    def test_start_refuses_while_a_recorded_child_still_lives(self):
-        # [O4] "wrapper gone, child still running" reads CRASHED; a second start overwrote the record, so the old
-        # child had no timeout and could not be stopped by name. cmd_start never kills, so our own pid is safe here.
-        me = os.getpid()
-        rj = self.write("crash", dict(state="RUNNING", wrapper_pid=1, wrapper_start="x", child_pid=me,
-                                      child_start=P.proc_start(me), heartbeat=R.now(), log_size=1,
-                                      timeout_s=60, cwd=os.getcwd(), cmd=["python", "-c", "pass"]))
-        self.assertEqual(R.state(P.read_json(rj))[0], "CRASHED", "[O4] the record is not the CRASHED case")
-        with self.assertRaises(SystemExit, msg="[O4] start overwrote a record whose child still runs"):
-            R.main(["start", "crash", "--timeout", "60", "--", "python", "-c", "pass"])
-        self.assertEqual(P.read_json(rj).get("child_pid"), me, "[O4] the running child was forgotten")
-
     def test_start_raises_when_wrapper_never_records_a_child(self):
         # [O5] a wrapper that never writes child_pid (e.g. the spawned exe does not exist) fell through the poll
         # loop straight to "started" and exit 0, hiding the failure.
-        with self.assertRaises(SystemExit, msg="[O5] start did not raise when the wrapper never started"):
-            R.main(["start", "nospawn", "--timeout", "5", "--", "tw-no-such-executable-xyz"])
+        # [O4] is upstream's test_start_refuses_while_the_recorded_child_still_runs above (stricter: it checks the message).
+        with self.assertRaises(SystemExit, msg="[O5] start did not raise when the wrapper never started") as caught:
+            R.main(["start", "nospawn", "--timeout", "5", "--min-headroom-gb", "0", "--", "tw-no-such-executable-xyz"])
+        self.assertNotIn("headroom", str(caught.exception), "[O5] refused for headroom, not for the missing child")
 
     def test_wrap_survives_a_failed_status_write(self):
         # [O6] one failed mid-tick write_json (e.g. a Windows sharing violation) used to raise out of cmd_wrap and
