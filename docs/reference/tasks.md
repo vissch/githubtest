@@ -265,7 +265,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `Sim/Match/OffMapAbilities.cs` (HE disc / line / box, creeping barrage, chlorine point / creeping, smoke screen,
   strafe run, the beam, the paratroopers `ParaDrop` (Brass only); `ScheduledPayload`, `PayloadKind`), `Sim/Core/AbilityArgs.cs` (heading, pattern, length in
   `SimCommand.B`), `Sim/Match/AmbientBombardment.cs`, `Sim/Combat/GasSmokeField.cs` (the gas field and the smoke
-  field), `Sim/Combat/SmokeLos.cs` (metres of thick cloud on a line; read by `TargetAcquisition` and `DirectFire`),
+  field), `Sim/Combat/GasBankCount.cs` (how many live cells belong to one chlorine bank: only those within 25 m of its centre), `Sim/Combat/SmokeLos.cs` (metres of thick cloud on a line; read by `TargetAcquisition` and `DirectFire`),
   `Sim/Combat/Burning.cs` (`BurningSystem`: men and ground alight, reads `Blast.Resolved` for `BlastShape.Incendiary`),
   `Sim/Combat/BeamSystem.cs` (`BeamSystem`: the sweeping beam, started by the Beam ability; men, hulls, fire, the
   scorch of `BlastShape.Beam`), `Sim/Combat/Mines.cs` (`MineSystem`: mines and tripwires, `BlastShape.Mine`; a crater
@@ -273,7 +273,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   lays them, on a `CommandType.UnitAbility` carrying `UnitAbilityId.LayMine` / `LayTripwire` from
   `Sim/Units/SpecialAbilities.cs`; his charges are `InfantrySpec.MineCharges`), `Sim/Match/Deformation.cs`.
 - **Tests:** SupportAbilityTests, DirectionalBlastTests, BurningSystemTests, AbilityArgsTests, StrafeRunTests,
-  BarragePatternTests, SmokeScreenTests, BeamTests, MineTests, SapperTests, AirDropTests.
+  BarragePatternTests, SmokeScreenTests, BeamTests, MineTests, SapperTests, AirDropTests, GasBankCountTests.
 - **Laying a mine** is a sapper's errand (2026-09-28): `CommandType.UnitAbility`, `a` = his slot, `b` = the ability id in
   the low byte and `AbilityArgs` above it, `pos` = the point. `MineSystem.Place` stays the system call underneath
   (tests and tools may still call it). DeterminismReplayTests deploys a sapper and orders him by command, so the
