@@ -1,0 +1,22 @@
+{
+  "subject": "review:Z011",
+  "looked_at": [
+    ".claude/agents/tw-reviewer.md and .claude/skills/tw-review/SKILL.md (the role, the P0-P3 ladder, report only what was read at the cited lines)",
+    "the whole unit read at origin/claude/trench-warfare-2d-3d-plan-idt7lf via git show, NOT the working tree: this lane (HEAD cef398e994) is ten docs-only commits behind integration and does not hold the four fixes that landed since the last pass",
+    "git diff 6959ad812b..origin/claude/trench-warfare-2d-3d-plan-idt7lf -- Net/ Presentation/Core/EventPump.cs : 48 insertions in CommandSeat.cs, HashExchange.cs, ILockstepTransport.cs, LockstepDriver.cs, EventPump.cs, plus git log over the same range for the four commit messages",
+    "trench-warfare-3d/Assets/_Project/Net/LockstepDriver.cs (116 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Net/ILockstepTransport.cs (35 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Net/CommandSeat.cs (61 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Net/LoopbackTransport.cs (77 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Net/HashExchange.cs (22), Net/Snapshot.cs (13), Net/UtpTransport.cs (24), Net/ICommandSink.cs (12), whole; N2/N3 stubs by the 2026-09-20 decision, so only the written contract was judged",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/EventPump.cs (94 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/HudBridge.cs (46 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/AbilityAim.cs (132 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/BattleHud.cs (591 lines, whole, in two parts)",
+    "to settle the four leads: Sim/Core/SimWorld.cs lines 55-90 and 255-292 (HashesTick, Step's Tick++ then `LastHash = Hash()` with `else LastHash = 0UL;` at line 292), Presentation/Core/SimHost.cs lines 170-240 (Events.Dispatch() is the last statement of Update, so a propagating throw skips no per-frame work), Presentation/Core/LockstepSession.cs lines 30-115, Sim/Core/SimConfig.cs (InputDelayTicks = 3)",
+    "git grep at that rev for LastSteppedTick, NothingStepped, MaxFutureTicks, BufferedTicks, HashExchange, StallTicks, .Dispatch(), InputDelayTicks: the only readers of the four changed surfaces are the new tests (LockstepSteppedTickTests, LockstepFrameValidationTests, LockstepHashLabelTests, EventPumpDispatchTests); no production caller compares or adds to LastSteppedTick, so the uint.MaxValue sentinel reaches nothing",
+    "docs/found/look-review-z011-20261017.json (its four tasks are all fixed on integration), look-code-presentation-camera-20261016.json, look-code-presentation-core-20261017.json, look-code-sim-core-20261018.json",
+    "docs/03-determinism-rules.md, the seam section of CLAUDE.md, the 2026-09-20 and 2026-09-23 rows of docs/reference/decisions.md, and docs/reference/tasks.md for each symbol below"
+  ],
+  "tasks": []
+}
