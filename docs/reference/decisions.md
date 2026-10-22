@@ -448,6 +448,26 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   Answered in general 2026-10-18 (row above): a leg may now force-push its own lane, so (2) needs no build;
   whether this lane was pushed is still open.
 
+- **The 60-frame gap guard and the T1 green bars cannot both clear (2026-10-22, `ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g1-g1-g2`):**
+  the unit's own ask - every pair of the three captures at least 60 frames (`FRAME_GAP_MIN`) apart at BOTH
+  `gas-t1` and `gas-o240` - and the carried T1 bars (`green_low_share` >= 0.30 owner-decided; `green_area_frac`
+  and `green_rise_m`, re-read each unit) cannot both hold for this build. `gas-t1`'s green reading sits in two
+  bands as `TW_GAS_WAIT_FRAMES` moves: a "high" band (waits 120-230, `green_low_share` 0.336-0.347) and a "low"
+  band (waits 250-300, 0.292-0.304), with no stable middle; each band is itself under 60 frames wide, so any
+  three waits with every pair >=60 frames apart must draw from both bands. Measured (this build, `TW_STILLS_DIR`
+  swept at waits 120/130/140/190/200/215/230/240/250/260/270/300, `o240_cloud_ceiling` and `o240_rise_floor` both
+  clear on several triples, e.g. 130/190/250): `green_low_share` 0.3363 / 0.3462 / 0.2923, spread 0.0539, margin
+  (over the 0.30 floor) only -0.0077 to 0.0037 - the gap between bands (~0.04-0.05) is an order of magnitude past
+  the margin a fixed 0.30 floor leaves. Tried: six different triples (130/200/270, 140/200/260, 130/230/300,
+  120/180/240 - which also failed the gap check itself at 56 frames, 130/190/250, 130/190/240); all fail the same
+  way. Options: (a) lower `FRAME_GAP_MIN` for `gas-t1` alone (the owner's complaint named only the overview
+  stills' pose, frames 341/356/371 - all `gas-o240`); (b) the owner relaxes `green_low_share`'s 0.30 floor, or
+  its spread-vs-margin rule, for a build whose T1 look is known to vary with wait; (c) re-shoot after a
+  production change that smooths `gas-t1`'s look across waits, so the two bands merge. Default taken: none built;
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g1-g1-g2/probe.py` (the gap guard, `o240_mask`,
+  `move_report`) and its captures at the closest-passing triple (130/190/250, which clears every O240 bar and
+  fails only the three T1 ones above) are left in the lane, uncommitted, for the next leg or the owner's pick.
+
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
 summarised in the docs named; the files themselves are not readable from another machine or lane.
