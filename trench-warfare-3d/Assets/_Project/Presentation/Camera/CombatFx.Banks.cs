@@ -23,21 +23,38 @@ namespace TW.Presentation.Tactical
         public const float GasBankThin = 0.6f, GasBankFull = 1f;
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.55 tops out at 1.28 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.55f;
+        /// <summary>Cells one close card stands for (the owner, 2026-10-21: "774 wide, low cards 4 m apart wash into
+        /// a pale sheet" - -g1's own sidecars read gas_cards 774 at the close camera). One puff per 3 x 3 block of
+        /// cells is ~86 cards 12 m apart: gaps between them are what makes a puff read as a puff, not a sheet.
+        /// Only the close drawing (step == 1) uses this; the merged-out overview (step 2, GasBankSquash) is
+        /// untouched, so O240 does not move.</summary>
+        public const int GasPuffBlock = 3;
         /// <summary>How tall a close gas card is drawn against its width (the owner, 2026-10-21: a puff with a rim and a
-        /// height, like cards-smoke.jpg). The GasPuff drawing fills its cell (ink 0.03-0.87), so a 5-7 m card's gas
-        /// stands about 0.9-1.4 m: a puff with a height, but still under head height.
-        /// Measured, not guessed: at 1f the close shot was a WALL - three captures read green_height_frac
-        /// 0.514/0.532/0.515 against the owner's ceiling of 0.15 and green covered 71% of the frame
-        /// (docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1/README.md). The owner's bar is a bar, so the look
-        /// moves: 0.2 is a fifth of the stand, which puts the median gas about 1.3 m up - a puff that clears the
-        /// height floor and stays under the ceiling.</summary>
-        public const float GasPuffStand = 0.32f;
+        /// height, like cards-smoke.jpg). -g1's 0.32 was fitted to 774 cards 4 m apart (GasBankCards' close sheet)
+        /// and does not carry over to GasPuffBlock's ~86 cards 12 m apart: measured here, not guessed
+        /// (docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g1/README.md), at the block's own frame window
+        /// (GasPuffFirst..GasPuffLast below):
+        ///   1.0 -> green_height_frac 0.0786, green_low_share 0.3299: clears both bars with almost no room (the
+        ///         old sheet build's own 0.0768 ceiling-adjacent reading)
+        ///   1.5 -> 0.2063 / 0.1437: over the 0.15 ceiling
+        ///   2.0 -> 0.1730 / 0.2171: still over the ceiling, under the 0.30 low floor
+        ///   1.2, full SmokeBank window -> 0.1057 / 0.1941: height is in range but low_share breaks the floor
+        ///   1.2, GasPuffFirst..GasPuffLast -> 0.095 / 0.346: kept, room at both ends of every bar
+        /// (height_frac does not move monotonically with stand: largest_blob picks one connected puff out of a
+        /// sparse, gapped field, so which puff it keeps - and that puff's own screen-space height - can jump
+        /// between nearby stands; re-measure after any further change here, do not interpolate).</summary>
+        public const float GasPuffStand = 1.2f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
         public static float GasBankAlpha(float thick) => Mathf.Lerp(GasBankThin, GasBankFull, Mathf.Clamp01(thick));
 
         const float SmokeBankFirst = 12f, SmokeBankLast = 20.5f; // the mound grown (the firebooks cut stops at 21)
+        /// <summary>The close gas puff's own frame window, inside SmokeBankFirst..SmokeBankLast: the mound's early,
+        /// wider frames, not its tall late ones. Measured (this unit): the full SmokeBank window at GasPuffStand
+        /// 1.2 read green_low_share 0.19 against the owner's 0.30 floor, so the puff's cross-section at the frames
+        /// it boils between is squatter here, not just shorter.</summary>
+        const float GasPuffFirst = 12f, GasPuffLast = 16f;
 
         /// <summary>A card's worth of field: its hash, how thick, and where it stands.</summary>
         struct BankCell { public uint Hash; public float Thick, X, Z, Ground; }
@@ -97,17 +114,19 @@ namespace TW.Presentation.Tactical
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 14f, 2.4f, 73856093, 19349663);
+            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step == 1 ? GasPuffBlock : step, 0.8f, 14f, 2.4f, 73856093, 19349663);
             gasCards.Clear();
             foreach (var b in gasBank.Cells)
             {
                 float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
-                float width = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2) * step;
+                // the block widens the GAP between cards (GasPuffBlock below), not the card itself: a close puff
+                // stays 5-7 m wide at any block size, so gaps between puffs are what makes a puff read.
+                float width = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2) * (step == 1 ? 1f : step);
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                 // close (step 1): the standing puff, its drawing reaching the cell's floor, so the card sits at the
                 // smoke bank's anchor and not GasBankSquash's sunk one. From the overview out: today's squashed blanket.
-                if (step == 1) gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width * GasPuffStand, BankFrame(SmokeBankFirst, SmokeBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                if (step == 1) gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width * GasPuffStand, BankFrame(GasPuffFirst, GasPuffLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
                 else gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
             }
             books.DrawPacked(step == 1 ? FlipbookFx.Book.GasPuff : FlipbookFx.Book.GasBank, gasCards, bounds);

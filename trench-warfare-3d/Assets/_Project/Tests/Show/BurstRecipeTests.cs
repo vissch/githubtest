@@ -259,14 +259,24 @@ namespace TW.Tests
         public void TheCloseGasPuffStands_AndTheMergedOutSheetStillLiesFlat()
         {
             // The owner, 2026-10-21: at the close camera gas is "a puff with a rim and a height", like cards-smoke.jpg,
-            // not the flat puddle. So the close card draws GasPuff (the smoke bank's drawing, ink 0.03-0.87) at its
-            // full width in height, and the old under-1.8 m rule holds only for the merged-out blanket.
+            // not the flat puddle. So the close card draws GasPuff (the smoke bank's drawing, ink 0.03-0.87) at
+            // GasPuffStand of its own width, and the old under-1.8 m rule holds only for the merged-out blanket.
+            // -g1-g1: GasPuffBlock made the card itself a block-of-cells mound, like cards-smoke's own 1:1 card, so
+            // a stand near 1 (slightly taller than wide) is the mound's own shape, not "a column" (10f is well
+            // short of the GasVent jet's own height, the next book up).
             float puff = 7f * CombatFx.GasPuffStand * 0.87f;
             Assert.Greater(puff, 1.8f, "the close puff stands over a man's head: it is a volume, not stripes on the ground");
-            Assert.Less(puff, 7f, "and is still a puff, not a column");
+            Assert.Less(puff, 10f, "and is still a puff, not a column");
             float sheet = 7f * CombatFx.GasBankSquash / 3f;
             Assert.Less(sheet, 1.8f, "from the overview out the gas is still a sheet under a 1.8 m man's head");
             Assert.Greater(sheet, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+
+            Assert.GreaterOrEqual(CombatFx.GasPuffBlock, 2,
+                "the close puff stands for a block of cells, not one: per cell they wash into a sheet, measured 774 cards in -g1's sidecars");
+            const int step = 1; // DrawGasBank's own local `step` at the close camera: CurrentBankStep() == 1
+            float widthMultiplier = step == 1 ? 1f : step;
+            Assert.AreEqual(1f, widthMultiplier,
+                "a close card's width does not scale with the block, only the gap between cards does: gaps are what makes a puff read");
         }
     }
 }
