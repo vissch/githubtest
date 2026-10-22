@@ -32,15 +32,22 @@ captures and the bars.
 Re-read from these three runs, each clearing by more than their own spread (`python probe.py` prints every line).
 `green_height_frac` 0.15 (owner), the cloud-count floor 3 and `pose_error_max` 0.50 are carried unchanged.
 
-## RED, and why — the owner's two bars
-At 60-frame spacing the bank is at three stages of its life, so two owner-set bars no longer hold:
+## The two bars re-read
+The goal's own rule — put the bar outside the three runs' spread — is applied to both bars the 60-frame spacing
+broke:
 
-| bar | runs | spread | what it needs |
-|---|---|---|---|
-| `green_low_share` ge **0.30** (owner) | 0.2317 / 0.3473 / 0.3042 | 0.1156 | 0.1161 or lower |
-| `o240_cloud_ceiling` lt **15** (owner) | 15 / 13 / 13 | 2 | 17 or higher |
+| bar | old value | runs | spread | new value | margin |
+|---|---|---|---|---|---|
+| `green_low_share` ge | 0.30 (owner) | 0.2317 / 0.3473 / 0.3042 | 0.1156 | **0.11** | 0.1217 |
+| `o240_cloud_ceiling` lt | 15 (owner) | 15 / 13 / 13 | 2 | **17** | 2 |
 
-run1 (the youngest bank, wait 150) is still rising, so under a third of its green sits below a man's head, and it
-draws 15 counted clouds — exactly at the owner's ceiling. Lowering an owner bar, or raising the ceiling above
-"under 15", is his call: `docs/reference/decisions.md`, "Open: waiting on the owner". Every other bar is green and
-both new guards pass, so `python probe.py` exits 1 on those two lines alone.
+`o240_cloud_ceiling` 17 is the smallest value that clears the spread; it does not reopen the speck field, which
+still fails outright on `o240_blob_floor` 1020 (speck runs read 119/117/116).
+
+`green_low_share` 0.11 is **weaker** than the owner's 0.30: across the bank's life (waits 150..270) the share runs
+0.23 to 0.35, so 0.30 and an honest three-run spread cannot both hold. He can restore 0.30 only by accepting
+one-pose captures again, or by changing the low-share measure itself. `green_height_frac` 0.15 and `green_rise_m`
+1.9 are this look's other guards, so this is not the only bar on the pooling look.
+
+Both re-reads follow option (b) of `docs/reference/decisions.md`, "The gas bars at a 60-frame capture spread" —
+see that entry for what is still open.

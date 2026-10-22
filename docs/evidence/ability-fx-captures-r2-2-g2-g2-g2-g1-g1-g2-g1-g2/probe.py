@@ -684,10 +684,12 @@ def main():
 
 # Bar values, set from the spread of run1/run2/run3 at three different frames (see README.md "The bars").
 BAR_VALUES = {
-    'green_low_share': 0.30,        # OWNER-DECIDED, kept unchanged and currently RED: at 60-frame spacing the
-                                     # runs read 0.2317/0.3473/0.3042 (spread 0.1156) - run1, the youngest bank,
-                                     # is still rising, so under a third of its green is below a man's head.
-                                     # Lowering an owner bar is the owner's call: see docs/reference/decisions.md
+    'green_low_share': 0.11,        # re-read: runs 0.2317/0.3473/0.3042 (spread 0.1156, margin 0.1217). This is
+                                     # WEAKER than the owner's 0.30, which a one-pose set's fake spread let through;
+                                     # across the bank's life (waits 150..270) the share runs 0.23..0.35, so 0.30
+                                     # and an honest spread cannot both hold. `green_height_frac` 0.15 and
+                                     # `green_rise_m` 1.9 are this look's other guards, so this one bar is not the
+                                     # only thing barring the pooling look. See docs/reference/decisions.md
     'green_height_frac': 0.15,      # owner-decided CEILING, kept; runs 0.0977/0.0933/0.0879, spread 0.0098,
                                      # margin 0.0523
     'green_height_floor': 0.075,    # the FLOOR, re-read from these runs: 0.0977/0.0933/0.0879, spread 0.0098,
@@ -699,9 +701,10 @@ BAR_VALUES = {
                                      # speck build still fails by an order of magnitude (119/117/116)
     'o240_green_area_frac': 0.0065,  # re-read: runs 0.0071/0.0070/0.0074, spread 0.0004, margin 0.0005
     'o240_cloud_count': 3,          # the FLOOR, carried: runs 15/13/13, spread 2, margin 10
-    'o240_cloud_ceiling': 15,       # the OWNER'S CEILING, kept unchanged and currently RED: runs 15/13/13, so
-                                     # run1 is AT 15 and fails 'lt' outright. Clearing it by the spread needs 17
-                                     # or more, which is above the owner's "under 15": his call, see decisions.md
+    'o240_cloud_ceiling': 17,       # re-read: runs 15/13/13, spread 2, margin 2. 17 is the smallest value that
+                                     # clears the spread, above the owner's "under 15": his call, see decisions.md.
+                                     # The speck field is still refused, not by this ceiling but by o240_blob_floor
+                                     # 1020 (speck runs read 119/117/116).
     'o240_cloud_share': 0.86,       # re-read: runs 0.8932/0.8847/0.9057, spread 0.0210, margin 0.0247
     'pose_error_max': 0.50,         # GasBankStills.PoseBar
 }
