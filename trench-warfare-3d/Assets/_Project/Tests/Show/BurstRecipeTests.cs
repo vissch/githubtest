@@ -291,8 +291,14 @@ namespace TW.Tests
             // literal here, this test assembly does not reference TW.Sim).
             foreach (float thick in new[] { 0f, 1f })
             foreach (float hash in new[] { 0f, 1f })
+            {
                 Assert.GreaterOrEqual(CombatFx.GasBankWidth(thick, hash, 1), 8f,
                     $"a gas card at thick {thick} hash {hash} must cover two cells, so cards add up into one bank");
+                // r2's critique: the stills were still a sheet of stripes. A card must reach the second cell over
+                // (3 * 4 m = 12 m on that same grid), so two neighbours always cover the gap one card's edge shows.
+                Assert.GreaterOrEqual(CombatFx.GasBankWidth(thick, hash, 1), 12f,
+                    $"a gas card at thick {thick} hash {hash} must span three cells, so no card edge is the silhouette");
+            }
         }
         [Test]
         public void TheGasBankStacksIntoDensity()
