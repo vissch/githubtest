@@ -37,6 +37,9 @@ namespace TW.Tests
         /// <summary>The frame of each book that is drawn: inside GasBankFirst 17 .. GasBankLast 28, where the sheet's
         /// ink is (sheetink.py: mean alpha 0.18 at frames 17-28 of GasBank.png).</summary>
         const float CardFrame = 22f;
+        /// <summary>The GasPuff card's own frame: CardFrame 22 is outside SmokeBankFirst 12 .. SmokeBankLast 20.5,
+        /// the window CombatFx draws the standing puff from, so this card is drawn inside it instead.</summary>
+        const float PuffFrame = 16f;
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
@@ -52,11 +55,12 @@ namespace TW.Tests
             public int LastDraws;
             readonly List<Matrix4x4> one = new List<Matrix4x4>(1);
 
-            /// <summary>The three books the still set walks through: the gas bank under suspicion, a second Deep bank
-            /// book, and an ordinary card. The gas one is squashed as the real bank is.</summary>
+            /// <summary>The four books the still set walks through: the gas bank under suspicion, a second Deep bank
+            /// book, an ordinary card, and the close camera's standing puff. The gas one is squashed as the real bank
+            /// is; the puff one stands as CombatFx draws it at BankStep 1.</summary>
             public static readonly FlipbookFx.Book[] Which_Books =
-                { FlipbookFx.Book.GasBank, FlipbookFx.Book.SmokeBank, FlipbookFx.Book.Puff };
-            public static readonly string[] Which_Names = { "gas", "smoke", "puff" };
+                { FlipbookFx.Book.GasBank, FlipbookFx.Book.SmokeBank, FlipbookFx.Book.Puff, FlipbookFx.Book.GasPuff };
+            public static readonly string[] Which_Names = { "gas", "smoke", "puff", "gaspuff" };
 
             void Update()
             {
@@ -65,10 +69,15 @@ namespace TW.Tests
                 var size = map.SizeMeters;
                 var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f),
                                         new Vector3(size.x + 20f, 60f, size.y + 20f));
-                float height = Which == 0 ? CardWidth * CombatFx.GasBankSquash : CardWidth;
+                bool puff = Which == 3;
+                float height = Which == 0 ? CardWidth * CombatFx.GasBankSquash
+                             : puff ? CardWidth * CombatFx.GasPuffStand
+                             : CardWidth;
                 one.Clear();
-                float y = RenderGround.Sample(map, At.x, At.z) - 0.35f;   // the gas bank's own anchor
-                one.Add(FlipbookFx.Pack(new Vector3(At.x, y, At.z), CardWidth, height, CardFrame, 1f, 1f, 0f,
+                // the gas bank's own anchor, or the standing puff's (CombatFx.Banks, BankStep 1) for the puff card
+                float y = RenderGround.Sample(map, At.x, At.z) - (puff ? 0.2f : 0.35f);
+                one.Add(FlipbookFx.Pack(new Vector3(At.x, y, At.z), CardWidth, height,
+                                        puff ? PuffFrame : CardFrame, 1f, 1f, 0f,
                                         FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, 1f));
                 Books.DrawPacked(Which_Books[Which], one, bounds);
                 LastDraws = FrameBudget.DrawCalls;

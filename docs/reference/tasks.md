@@ -136,9 +136,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   no [Explicit] test, so run it as its own batch launch: `Unity.exe -batchmode -projectPath <checkout>/trench-warfare-3d
   -runTests -testPlatform EditMode -testFilter GasBankStills -testResults <xml> -logFile <log>`).
   GasBankCards (`Tests/Stills/GasBankCards.cs`, Explicit, a graphics device: the isolation still behind GasBankStills
-  - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, four stills at one pose, gas, smoke,
-  puff and a plate - so a blank still accuses one book and not the sim, the field, the cache and the capture path at
-  once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
+  - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, five stills at one pose, gas, smoke,
+  puff, gaspuff (the close camera's standing `Book.GasPuff`, at `CombatFx.GasPuffStand` and frame 16) and a plate -
+  so a blank still accuses one book and not the sim, the field, the cache and the capture path at once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
   `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1/probe.py` measures those stills: it COUNTS THE GREEN the gas
   added over the plate (not a brightness test), in metres, bars the rise, bars the height from BOTH sides (a
   ceiling, so the puff is not a wall, and a floor, so it is not a flat sheet), and refuses two runs that
