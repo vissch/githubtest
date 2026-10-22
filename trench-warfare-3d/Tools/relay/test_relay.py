@@ -334,6 +334,23 @@ class Guards(Base):
                     "git commit -m 'costs $(nothing) here'"):
             self.assertFalse(self.denied("Bash", command=cmd), cmd)
 
+    def test_a_leg_may_push_its_rebased_lane_as_lane_b_through_j(self):
+        # The pre-push hook already accepts a new branch <lane>-b .. -j. push_ok used to refuse the
+        # command that names it, so a leg that had rebased could not push (owner, 2026-10-18).
+        self.leg()
+        for letter in "bcj":
+            cmd = "git push origin HEAD:refs/heads/%s-%s" % (LANE, letter)
+            self.assertFalse(self.denied("Bash", command=cmd), cmd)
+        self.assertFalse(self.denied("Bash", command="git push -u origin HEAD:refs/heads/%s-b" % LANE))
+        for cmd in ("git push origin HEAD:refs/heads/%s-a" % LANE,
+                    "git push origin HEAD:refs/heads/%s-k" % LANE,
+                    "git push origin HEAD:refs/heads/%s-bb" % LANE,
+                    "git push origin HEAD:refs/heads/lane/show/other-b",
+                    "git push --force origin HEAD:refs/heads/%s-b" % LANE,
+                    "git push -f origin HEAD:refs/heads/%s-b" % LANE,
+                    "git push origin %s:%s-b" % (LANE, LANE)):
+            self.assertTrue(self.denied("Bash", command=cmd), cmd)
+
     def test_a_leg_cannot_write_into_git_or_reach_another_legs_folder(self):
         d = self.leg()
         self.leg(nn=2)

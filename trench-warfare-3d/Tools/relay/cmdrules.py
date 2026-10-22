@@ -320,14 +320,22 @@ def is_own(folder, leg):
     return a == b or a.startswith(b + "/")
 
 
+def rebased_spec(lane, spec):
+    """True for HEAD:refs/heads/<lane>-b .. -j: the new branch a rebased lane is pushed as.
+    prepush.rebased_name already lets that ref through; this is the command that names it."""
+    return re.fullmatch(r"HEAD:refs/heads/" + re.escape(lane) + r"-[b-j]", spec) is not None
+
+
 def push_ok(args, cdir, leg):
     """A push goes to the leg's own lane: named, or left to git as the current branch (`git push`, `origin HEAD`).
-    git's pre-push hook holds whatever git makes of it to the lane. Or it is `git -C <board> push`, no refspec."""
+    git's pre-push hook holds whatever git makes of it to the lane. Or it is `git -C <board> push`, no refspec.
+    A rebased lane, which the hook will not force-push, goes out as HEAD:refs/heads/<lane>-b .. -j."""
     if cdir is not None:
         return is_board(cdir, leg) and not args
     rest, lane = [a for a in args if a not in PUSH_FLAGS], leg.get("lane")
-    return bool(lane) and (rest in ([], ["origin"]) or rest[:1] == ["origin"] and len(rest) == 2 and rest[1] in (
-        lane, "HEAD", "HEAD:" + lane, "HEAD:refs/heads/" + lane, "%s:%s" % (lane, lane)))
+    return bool(lane) and (rest in ([], ["origin"]) or rest[:1] == ["origin"] and len(rest) == 2 and (
+        rest[1] in (lane, "HEAD", "HEAD:" + lane, "HEAD:refs/heads/" + lane, "%s:%s" % (lane, lane))
+        or rebased_spec(lane, rest[1])))
 
 
 def never_git(words, leg):
