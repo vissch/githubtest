@@ -41,7 +41,24 @@ namespace TW.Tests
         /// the window CombatFx draws the standing puff from, so this card is drawn inside it instead.</summary>
         const float PuffFrame = 16f;
 
+        /// <summary>The widest settle wait: three card sets at three waits are three different FRAMES of one build,
+        /// which is what the probe's card frame guard asks for.</summary>
+        const int MaxWaitFrames = 120;
+
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
+
+        /// <summary>How many extra frames to settle before the card sweep: SessionState "tw.gasbankcards.waitframes",
+        /// else TW_CARDS_WAIT_FRAMES, else 0, clamped to 0..120 (GasBankStills.ResolveWaitFrames' shape).</summary>
+        static int ResolveWaitFrames()
+        {
+            int n = SessionState.GetInt("tw.gasbankcards.waitframes", 0);
+            if (n <= 0)
+            {
+                string env = System.Environment.GetEnvironmentVariable("TW_CARDS_WAIT_FRAMES");
+                if (!string.IsNullOrEmpty(env)) int.TryParse(env, out n);
+            }
+            return Mathf.Clamp(n, 0, MaxWaitFrames);
+        }
 
         /// <summary>Submits one hand-packed card per book from Update, at the default execution order, so the cards
         /// are in the frame CaptureRig photographs from its own LateUpdate (order 30000).</summary>
@@ -70,9 +87,12 @@ namespace TW.Tests
                 var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f),
                                         new Vector3(size.x + 20f, 60f, size.y + 20f));
                 bool puff = Which == 3;
-                float height = Which == 0 ? CardWidth * CombatFx.GasBankSquash
-                             : puff ? CardWidth * CombatFx.GasPuffStand
-                             : CardWidth;
+                // The gaspuff card stands at the FULL CardWidth, like cards-smoke and cards-puff, and NOT at
+                // CombatFx.GasPuffStand 0.32: that squash is what made this card a flat green puddle. The card is a
+                // look reading of the book's mound and rim at the smoke card's size, not a picture of the field
+                // puff's size - the field keeps GasPuffStand 0.32, the only value clearing the owner's own field
+                // bars (green_height_frac's ceiling and green_low_share's floor both break at 0.35+).
+                float height = Which == 0 ? CardWidth * CombatFx.GasBankSquash : CardWidth;
                 one.Clear();
                 // the gas bank's own anchor, or the standing puff's (CombatFx.Banks, BankStep 1) for the puff card
                 float y = RenderGround.Sample(map, At.x, At.z) - (puff ? 0.2f : 0.35f);
@@ -144,6 +164,9 @@ namespace TW.Tests
 
                 tc.BaseYaw = -90f; tc.Zoom = 30f; tc.Focus = new Vector2(x, z);
                 for (int f = 0; f < 30; f++) yield return null;
+                int waitFrames = ResolveWaitFrames();
+                TestContext.Out.WriteLine("extra settle frames " + waitFrames);
+                for (int f = 0; f < waitFrames; f++) yield return null;
 
                 for (int b = 0; b < Drawer.Which_Books.Length; b++)
                 {
