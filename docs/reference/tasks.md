@@ -139,7 +139,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, four stills at one pose, gas, smoke,
   puff and a plate - so a blank still accuses one book and not the sim, the field, the cache and the capture path at
   once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
-  `docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1/probe.py` measures those stills in metres, barred against the
+  `docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2/probe.py` measures those stills in metres, barred against the
   SPREAD of three repeat captures of the same build on THREE DIFFERENT FRAMES (it refuses captures that share a t1
   `sim_tick` or a byte-identical still: 'three captures, one frame'), with `--calibrate`, `--selftest`, `--pack`,
   `--signature` (prints `GAS_DIR`/`GAS_COS`, the isolation still's own lift direction, and the cone and green share of each
@@ -155,6 +155,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   barred against the raw plate difference and shot its three runs on one frame;
   `docs/evidence/ability-fx-captures-r2-2-g2/probe.py` is the one before that, which a zebra of separate cards
   passed; `docs/evidence/ability-fx-captures-r2/probe.py` is the single-capture one);
+  `docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g2/README.md` is the round after it and sets no
+  bars: it shows with numbers that the probe's deepest row dip is a CARD seam, not the flooded ditch (a plate row
+  profile reads 0.28-1.34 luma of terrain at the dip rows, and a flatness rule that moved the bank off the ditch
+  doubled the dip), so neither a terrain mask nor a moved gas centre is in the shipped build.
   `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
