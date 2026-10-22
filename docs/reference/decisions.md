@@ -736,6 +736,16 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   the sidecars, not the pictures. For the night-look lane (`lane/show/night-look`): a rim or a little more fill on the
   men at the close bands?
 - **A man lying down at range is an easier mark than a man sprinting (2026-10-01, found building men under fire):** past 60 m a sprinting man is hit at 0.39 of a shooter's chance (`CombatTables.RunningTarget` 0.35, and his stance's -0.1 cover) and a man lying in the open at 0.60 (`StanceRules.CoverBonusInOpen` 0.4), so going to ground at range costs a man more than running did; with the rushes the deaths per man-minute in the open did not fall (1.3-1.8 before, 1.5-1.6 after). Options: (a) leave it (default taken: the hit model is unchanged); (b) a lying man harder to hit the further off he is (to about 0.30 by 60 m), which helps an attack further: the rushes alone turned six stalemates of the scripts' match into five and a win.
+- **The gas bank: turn the pale sheet into a puff — which concept? (2026-10-21):** the brief is open and unanswered on
+  the Decide page (`G:/My Drive/TW3D-pipeline/decisions/2026-10-21-gas-bank-turn-the-sheet-into-a-puff/brief.json`,
+  state open, no answer file), with four options as posted: (A) lumps 1.6x taller; (B) fewer, bigger clots; (C) a
+  dark-cored roll; (D) leave the sheet. **(A) as captioned cannot be built**: two landed guards cap it —
+  `BurstRecipeTests.TheGasBankLiesOnTheGround_NotOverAMansHead` holds `GasBankWidth(1,1,1) * GasBankSquash / 3` under
+  1.8 m (a man's head) and `TheGasBankCardsOverlapIntoOneMass` floors every card at 8 m, so the squash cannot rise
+  above about 0.377 at today's widths. Nobody to ask in a relay leg, so the default taken here is the buildable half
+  of (A): **one mass instead of stripes** (wider cards, three-cell overlap, more roll scatter) and **less pale**
+  (more alpha), with the man rule kept. The gas hue is NOT touched (another lane has its own hue brief open with the
+  owner). Nothing is landed on this.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
