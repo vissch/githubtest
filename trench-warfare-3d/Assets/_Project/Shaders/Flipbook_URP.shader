@@ -35,6 +35,7 @@ Shader "TW/Flipbook (URP)"
         _Ember ("A cloud born of fire: warm light on its underside while it is young (0 = none)", Color) = (0, 0, 0, 0)
         _EmberLit ("The ember on the lit billows (1) or in the drawing's darks (0)", Range(0, 1)) = 0
         _Ground ("A book lying on the ground (1): not softened against the ground it lies on", Float) = 0
+        _Feather ("A card's own soft flanks (0 = none)", Range(0, 1)) = 0
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src", Float) = 5
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("Dst", Float) = 10
     }
@@ -61,7 +62,7 @@ Shader "TW/Flipbook (URP)"
             CBUFFER_START(UnityPerMaterial)
                 float4 _Grid, _Levels, _Bands, _Contour;
                 half4 _Tint, _Shade, _Smoke, _Fringe, _Core, _InkColor, _Ember;
-                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Fire, _Rise, _Hot, _Soft, _Hard, _BurstLit, _Ground, _EmberLit;
+                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Fire, _Rise, _Hot, _Soft, _Hard, _BurstLit, _Ground, _EmberLit, _Feather;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings
@@ -137,6 +138,13 @@ Shader "TW/Flipbook (URP)"
                     half body = _Erode > 0.5 ? pow(1.0 - gone, 1.5) : i.tone.x;
                     alpha = lerp(alpha, saturate((shape - 0.5) / shapeStep + 0.5) * body * i.opacity, hard);
                 }
+                // A card of its own has two straight sides, and a carpet of them reads as tiled rectangles. _Feather
+                // fades each card out over this share of its half-width, horizontally only: the card is Anchored, its
+                // bottom edge is the ground line and the sheet's ink sits in the bottom third, so a radial feather
+                // would eat the drawing. At 0 this is 1 everywhere but the outermost pixel sliver, where the sheet's
+                // alpha is already ~0, so no other book moves.
+                half fe = saturate((1.0 - abs(i.local.x - 0.5) * 2.0) / max(_Feather, 1e-4));
+                alpha *= fe * fe * (3.0 - 2.0 * fe);
                 // soft where it meets the ground or a wall (the scene's depth behind it, over 0.8 m), and gone as it comes
                 // through the lens: up close a card wider than the picture was a wall of smoke for seconds
                 float scene = LinearEyeDepth(SampleSceneDepth(i.screen.xy / i.screen.w), _ZBufferParams);

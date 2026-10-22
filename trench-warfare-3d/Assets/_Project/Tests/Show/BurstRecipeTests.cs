@@ -266,14 +266,26 @@ namespace TW.Tests
             Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
         }
         [Test]
-        public void TheGasBankSurvivesTheErodeThreshold()
+        public void TheGasBankThinAndFullDoNotReadTheSame()
         {
-            // With Erode, the shader cuts the drawing at threshold = (1 - cardAlpha) * (0.45 + 0.55 * edge), at most
-            // (1 - cardAlpha) * 1.0 at the card's edge. The sheet's lowest measured mean ink in the frames the bank
-            // draws (frames 17-28) is 0.167 (docs/evidence/ability-fx-captures-r2/README.md, measurement 2): the
-            // threshold must stay under that or the drawing's own ink is cut away and the bank renders as nothing
-            // (r1's "flat olive smears", 22/100).
-            Assert.Less((1f - CombatFx.GasBankThin) * 1.0f, 0.167f, "the erode threshold stays under the sheet's thinnest drawn ink");
+            // These two are the card's OPACITY, not the erode threshold: DrawGasBank pins Pack's fade at 1, so the
+            // shader's threshold = (1 - fade) * (0.45 + 0.55 * edge) is 0 on every gas card and the erode only clamps
+            // the sheet's alpha. At 0.95/1.0 a thin cell and a full one rendered identically and the field read as one
+            // flat pad; the owner asked for a bank, so a thin cell must be visibly fainter.
+            Assert.GreaterOrEqual(CombatFx.GasBankFull - CombatFx.GasBankThin, 0.15f, "a thin gas cell reads visibly fainter than a full one");
+            Assert.AreEqual(CombatFx.GasBankThin, CombatFx.GasBankAlpha(0f), "the thinnest cell draws at GasBankThin");
+        }
+        [Test]
+        public void TheGasBankEdgeIsFeathered_AndNoOtherBookIs()
+        {
+            // _Feather fades a card out over a share of its half-width, so a carpet of cards is not a carpet of
+            // rectangles. It is the gas bank's alone: every other book's drawing carries its own edge.
+            for (int i = 0; i < FlipbookFx.SheetCount; i++)
+            {
+                var b = (FlipbookFx.Book)i;
+                if (b == FlipbookFx.Book.GasBank) Assert.Greater(FlipbookFx.SheetFeather(b), 0f, "the gas bank's cards have soft flanks");
+                else Assert.AreEqual(0f, FlipbookFx.SheetFeather(b), FlipbookFx.SheetName(b) + " keeps the drawing's own edge");
+            }
         }
     }
 }
