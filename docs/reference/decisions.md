@@ -295,6 +295,18 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **The chlorine bank missing from the stills is a capture-path fault: (a).** To the open question "The chlorine bank is not in the picture at all" (four CaptureRig stills in GreyboxCorridor at night hold no bank, while the sim took every call and `CombatFx.gasCards` held up to 133 packed cards) the owner picked option (a): treat it as a capture-path fault and have SHOW find why the GasBank book (the only `Bank`/`Deep` sheet) misses `CaptureRig`'s own `Camera.Render()`. It is the default that changes no look: the bank is not grown, brightened or unsquashed (option (b)), and it is not left alone (option (c)). Pictures and numbers: `docs/evidence/ability-fx-captures-r2/`. Carried by the lane `lane/show/ability-fx-captures-r2-2`. (owner, 2026-10-19) **Closed by `ability-fx-captures-r2-2`:** the bank was never missing — it is drawn, reaches `CaptureRig`'s `Camera.Render()`, and covers 11% of the T1 frame; the fault was `probe.py`'s own hue test, which at night could read only 193 of the 101,253 pixels that actually changed from the plate. No look changed. `docs/evidence/ability-fx-captures-r2/probe.json` is green. |
 
 ## Open: waiting on the owner
+- **The second far gas blob: merge neighbouring gas clouds into one card? (2026-10-22, from
+  `lane/show/ability-fx-captures-r2-2-g2-g2-g2-g2-g1-g1`):** at the overview the gas now draws one standing card
+  per connected cloud, and the far camera's main blob went from 591/620/540 px to 1910/1897/2166 - one body, not a
+  cluster of stripes. But a second, genuinely separate sim cloud still shows up beside it (238, 82 and 136 px over
+  three captures; in run1 a 29x29 px patch 270 px away from the main cloud). It is not the card splitting on its
+  own alpha holes: raising the far alpha floor to 0.9 moved it 0 px. So `o240_second_blob_px` cannot be barred
+  under the goal's 136 px without failing this build's own capture, and the chain's spread rule allows no bar under
+  394 px, which a stripe cluster would pass. Options: (a) leave the second blob measured but unbarred, two cards
+  for two clouds - **the default taken here**, in `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1-g1/`; or
+  (b) merge clouds within some metres of each other into one card at `step > 1`, so the far camera always shows at
+  most one body per gas call, and bar the second blob under 50 px. (b) is a look change and costs a re-capture of
+  the whole chain's O240 bars.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below

@@ -1,0 +1,162 @@
+{
+ "bars": {
+  "green_area_frac": 0.003,
+  "green_height_frac": 0.15,
+  "green_low_share": 0.3,
+  "green_rise_m": 0.3,
+  "o240_green_area_frac": 0.0015,
+  "o240_large_cloud_count": 1,
+  "o240_large_share": 0.55,
+  "o240_top_blob_px": 1500,
+  "pose_error_max": 0.5
+ },
+ "frames": {
+  "run1": {
+   "gas-o240": 293,
+   "gas-o240-plate": 285,
+   "gas-t1": 804,
+   "gas-t1-plate": 796
+  },
+  "run2": {
+   "gas-o240": 308,
+   "gas-o240-plate": 300,
+   "gas-t1": 819,
+   "gas-t1-plate": 811
+  },
+  "run3": {
+   "gas-o240": 323,
+   "gas-o240-plate": 315,
+   "gas-t1": 834,
+   "gas-t1-plate": 826
+  }
+ },
+ "look": {
+  "cards-gas": {
+   "mask_px": 5940,
+   "relief": 0.0849,
+   "rise_m": 0.0
+  },
+  "cards-puff": {
+   "mask_px": 1409,
+   "relief": 0.2175,
+   "rise_m": 0.0
+  },
+  "cards-smoke": {
+   "mask_px": 1401,
+   "relief": 0.2178,
+   "rise_m": 0.0
+  },
+  "gas_smoke_relief_ratio": 0.3898,
+  "gas_smoke_rise_ratio": 0.0
+ },
+ "runs": {
+  "run1": {
+   "blob_px": 3109,
+   "green_area_frac": 0.0034,
+   "green_height_frac": 0.0209,
+   "green_low_share": 0.9138,
+   "green_px": 34204,
+   "green_rise_m": 0.587,
+   "o240_blob_top": [
+    1910,
+    238,
+    72,
+    39,
+    28,
+    26,
+    26,
+    20,
+    15,
+    14
+   ],
+   "o240_green_area_frac": 0.0021,
+   "o240_green_px": 2758,
+   "o240_large_cloud_count": 1,
+   "o240_large_share": 0.6925,
+   "o240_plate_diff_px": 9352,
+   "o240_second_blob_px": 238,
+   "o240_speck_count": 3,
+   "o240_top_blob_px": 1910,
+   "plate_diff_px": 52659,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  },
+  "run2": {
+   "blob_px": 3143,
+   "green_area_frac": 0.0034,
+   "green_height_frac": 0.0209,
+   "green_low_share": 0.9109,
+   "green_px": 35342,
+   "green_rise_m": 0.587,
+   "o240_blob_top": [
+    1897,
+    82,
+    45,
+    19,
+    15,
+    13,
+    10,
+    9,
+    9,
+    8
+   ],
+   "o240_green_area_frac": 0.0021,
+   "o240_green_px": 2379,
+   "o240_large_cloud_count": 1,
+   "o240_large_share": 0.7974,
+   "o240_plate_diff_px": 8416,
+   "o240_second_blob_px": 82,
+   "o240_speck_count": 2,
+   "o240_top_blob_px": 1897,
+   "plate_diff_px": 59535,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  },
+  "run3": {
+   "blob_px": 3115,
+   "green_area_frac": 0.0034,
+   "green_height_frac": 0.0192,
+   "green_low_share": 0.9122,
+   "green_px": 35452,
+   "green_rise_m": 0.539,
+   "o240_blob_top": [
+    2166,
+    136,
+    60,
+    20,
+    18,
+    14,
+    13,
+    12,
+    10,
+    8
+   ],
+   "o240_green_area_frac": 0.0024,
+   "o240_green_px": 2699,
+   "o240_large_cloud_count": 1,
+   "o240_large_share": 0.8025,
+   "o240_plate_diff_px": 8238,
+   "o240_second_blob_px": 136,
+   "o240_speck_count": 3,
+   "o240_top_blob_px": 2166,
+   "plate_diff_px": 55612,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  }
+ }
+}

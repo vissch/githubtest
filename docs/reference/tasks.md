@@ -144,14 +144,18 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   (`CombatFx.Banks.cs`) flood-fills the field 4-connected and each component gets a card its bounding box wide plus
   `GasCloudPad` (4 m) and `GasCloudSquash` (0.8) tall, where a close card keeps `GasBankSquash` (0.55). Guarded by
   `BurstRecipeTests.GasClouds_OneCardACloudFromTheOverview`.
-  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1/probe.py` measures those stills: it COUNTS THE GREEN the
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1-g1/probe.py` measures those stills: it COUNTS THE GREEN the
   gas added over the plate (not a brightness test), in metres, bars the rise, and refuses two runs that
   photographed the same frame, barred against the SPREAD of three captures of one build at three different
   `TW_GAS_WAIT_FRAMES`. The O240 band now gasses ONE point (the same centre T1 gasses), so the far camera's still
   holds one cloud, not a wash of five; it counts O240 clouds at or above `LARGE_MIN_PX` (300 px) with a `'le'`
   bar (several large blobs fail) paired against `o240_top_blob_px` (`'ge'`, so a reading of zero clouds also
-  fails)
-  (`--calibrate`, `--selftest`, `--pack`; `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2/probe.py`,
+  fails; the standing card takes the biggest blob from 591-620 px to 1897-2166, so that bar is 1500). Its
+  `o240_second_blob_px` is printed and barred on nothing: the three captures spread 82 to 238 px, so no bar under
+  394 px is honest, and merging neighbouring clouds is open in `decisions.md` ("the second far gas blob")
+  (`--calibrate`, `--selftest`, `--pack`;
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1/probe.py`,
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2/probe.py` and
