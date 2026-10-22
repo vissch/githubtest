@@ -32,22 +32,29 @@
  },
  "look": {
   "cards-gas": {
-   "mask_px": 5993,
-   "relief": 0.0868,
+   "mask_px": 5932,
+   "relief": 0.0854,
+   "rise_m": 0.0
+  },
+  "cards-gaspuff": {
+   "mask_px": 8889,
+   "relief": 0.1032,
    "rise_m": 0.0
   },
   "cards-puff": {
-   "mask_px": 1434,
-   "relief": 0.2157,
+   "mask_px": 407,
+   "relief": 0.124,
    "rise_m": 0.0
   },
   "cards-smoke": {
-   "mask_px": 1555,
-   "relief": 0.1933,
+   "mask_px": 408,
+   "relief": 0.1224,
    "rise_m": 0.0
   },
-  "gas_smoke_relief_ratio": 0.449,
-  "gas_smoke_rise_ratio": 0.0
+  "gas_smoke_relief_ratio": 0.6977,
+  "gas_smoke_rise_ratio": 0.0,
+  "gaspuff_smoke_relief_ratio": 0.8431,
+  "gaspuff_smoke_rise_ratio": 0.0
  },
  "runs": {
   "run1": {
