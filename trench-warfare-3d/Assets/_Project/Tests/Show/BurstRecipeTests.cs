@@ -275,13 +275,20 @@ namespace TW.Tests
             Assert.AreEqual(50.2f, CombatFx.LeapStart(3, 50f, 10f, 0f).Until, 1e-4f, "never shorter than 0.2 s");
         }
         [Test]
-        public void TheGasBankLiesOnTheGround_NotOverAMansHead()
+        public void TheGasBankStandsHighEnoughToSee_AndUnderARoof()
         {
-            // r1's critique: gas-t1 read as a standing wall (height_frac 0.32). The sheet's drawing fills the bottom
-            // third of the card, so the widest card's gas must still top out below a man's head.
-            float top = CombatFx.GasBankWidth(1f, 1f, 1) * CombatFx.GasBankSquash / 3f;
-            Assert.Less(top, 1.8f, "the gas the widest card draws stays under a 1.8 m man's head");
-            Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+            // The owner's goal replaces r1's "under a man's head" bar: the captures showed a flat sheet on the mud
+            // (height_frac 0.11-0.21), so the gas must stand where a player sees it. The sheet's drawing fills the
+            // bottom third of the card, and the card height no longer scales with the width, so every cell's gas
+            // tops out on the same line: 2.4-3.6 m, clear of a 1.8 m man and still under a roof, not a wall.
+            foreach (float thick in new[] { 0f, 1f })
+            {
+                float top = CombatFx.GasBankHeight(thick) / 3f;
+                Assert.That(top, Is.InRange(2.4f, 3.6f),
+                    $"at thick {thick} the gas tops out at {top:0.00} m: over a 1.8 m man, under a roof");
+            }
+            Assert.LessOrEqual(CombatFx.GasBankHeight(1f) - CombatFx.GasBankHeight(0f), 1.5f,
+                "a thin cell and a full one draw nearly the same top line, so the bank has one height");
         }
         [Test]
         public void TheGasBankCardsOverlapIntoOneMass()
