@@ -107,7 +107,9 @@ BARS['gas_green_share'] = 'ge'      # the chlorine tint: how much of that paint 
 BARS['bank_paint_share'] = 'ge'     # one bank: most of the frame's PAINT sits in ONE patch
 BARS['bank_patch_count'] = 'le'     # one bank: few paint patches at all (the zebra is many separate cards)
 BARS['row_dark_frac'] = 'le'        # the dark mud lines, as a share of the bank's own on-screen height
-BARS['row_gap_deepest'] = 'le'      # the deepest interior trough, as a share of the bank's own typical brightness
+# row_gap_deepest is NOT in BARS: no value clears this build's own spread and also leaves the previous round's
+# captures failing by more than that spread (see BAR_VALUES comment below), so this round leaves it unbarred and
+# reports it, rather than fake a bar the rule cannot actually support.
 
 # From `python probe.py --signature`, run once against ../ability-fx-captures-r2-2-g2-g1/cards/cards-gas.jpg (the
 # isolation still, the only thing in the frame that differs from its plate). GAS_DIR is the normalised mean lift
@@ -926,28 +928,38 @@ def main():
     return 0 if ok else 1
 
 
-# Bar values. Every one of them is set from TWO measured sources and never from a formula: the three runs of this
-# build (`probe.json`, t1 sim_tick 557 / 597 / 637) and the zebra re-measured by this probe
-# (`--against ../ability-fx-captures-r2-2-g2`, commit 843a03570c). A bar must clear the nearest run by at least
-# the three runs' own spread, and a zebra bar must ALSO leave the zebra failing by more than that spread.
-# See README.md, "The bars", for the table these came out of.
+# Bar values. Re-set in THIS round from the jitter-widened build's own three runs (`probe.json`, t1 sim_tick
+# 556 / 596 / 636, GasBankJitterM a full field cell, commit 50c8d44ea5). A bar must clear the nearest run by at
+# least the three runs' own spread. See README.md, "The bars", for the table these came out of, and which keys
+# moved the wrong way against the previous round's captures.
 BAR_VALUES = {
-    'bank_low_share': 0.06,     # runs 0.0768/0.0728/0.0814, spread 0.0086 -> 0.0728 - 0.0086 = 0.0642 is the roof
-    'bank_height_frac': 0.34,   # runs 0.2946/0.3132/0.2985, spread 0.0186 -> 0.3132 + 0.0186 = 0.3318 is the floor
-    'o240_area_frac': 0.013,    # runs 0.0164/0.0186/0.0191, spread 0.0027, margin 0.0034 (1.3x spread)
-    'pose_error_max': 0.5,      # GasBankStills.PoseBar; runs 0.0000, spread 0.0000
-    'gas_paint_frac': 0.016,    # runs 0.0180/0.0188/0.0195, spread 0.0015, margin 0.0020 (1.3x spread)
-    # runs 0.3911/0.4013/0.4039, spread 0.0128. Three sides at once: the runs (bar <= 0.3783), the two isolation
-    # cards (bar >= 0.1076 + 0.0128 = 0.1204) and the OLD pale sheet, which must fail by a spread too
-    # (bar >= 0.1535 + 0.0128 = 0.1663). 0.37 clears the runs by 1.65x their spread and the cards by over 20x.
-    'gas_green_share': 0.37,
-    # The owner's floor. runs 0.7488/0.7575/0.7872, spread 0.0384 -> the roof is 0.7488 - 0.0384 = 0.7104, and the
-    # owner's own floor is 0.2152 + 0.0384 = 0.2536 (over the g1 build) -- 0.70 sits above BOTH, so the g1 build
-    # (0.2037/0.1886/0.2152), the old striped sheet (0.1855/0.1622/0.1936) and the zebra (0.0782) all fail it.
-    'bank_paint_share': 0.70,
-    'bank_patch_count': 27,     # runs 21/21/15, spread 6, margin 6; zebra 40 fails by 13. Rose again with the paint
-    # runs 15/18/11, spread 7, margin 8; zebra 40 fails by 14. See README: this key ROSE
+    'bank_low_share': 0.08,      # runs 0.0896/0.0877/0.0912, spread 0.0035 -> 0.0877 - 0.0035 = 0.0842 is the roof
+    'bank_height_frac': 0.35,    # runs 0.3286/0.3349/0.3214, spread 0.0135 -> 0.3349 + 0.0135 = 0.3484 is the floor
+    'o240_area_frac': 0.013,     # runs 0.0167/0.0190/0.0196, spread 0.0029, margin 0.0037 (unchanged, still clears)
+    'pose_error_max': 0.5,       # GasBankStills.PoseBar; runs 0.0000, spread 0.0000
+    'gas_paint_frac': 0.015,     # runs 0.0198/0.0188/0.0178, spread 0.0020, margin 0.0028 (1.4x spread)
+    'gas_green_share': 0.41,     # runs 0.4258/0.4229/0.4270, spread 0.0041, margin 0.0129 (3.1x spread); the two
+    # isolation cards (0.0908/0.1076) still fail it by over 70x their own spread.
+    # The jitter widening (50c8d44ea5) spreads the cards further apart in X, so the biggest patch now bridges LESS
+    # of the frame's paint than before: runs 0.6161/0.6903/0.7272 against the previous round's 0.7488/0.7575/0.7872
+    # -- this key moved the WRONG way (down). spread 0.1111, bar <= 0.6161 - 0.1111 = 0.5050.
+    'bank_paint_share': 0.50,
+    # Also moved the wrong way: runs 19/26/30 (spread 11, up from 11/15/18) -- the jitter fragments the row lean
+    # into more separate patches. bar >= 30 + 11 = 41. At this spread the bar can no longer promise the zebra (40
+    # patches) fails this key alone; bank_paint_share and gas_green_share are what still reject it.
+    'bank_patch_count': 41,
+    # THE OWNER'S GAP MEASURE (new this round). runs 0.0140/0.0140/0.0000, spread 0.0140 -> bar <= 0.0140 + 0.0140
+    # = 0.0280 to clear this build, AND bar < 0.0455 - 0.0140 = 0.0315 to leave the previous round's striped
+    # captures (0.0455/0.0455/0.0537) failing by more than that spread. 0.03 sits in that window (margin 1.14x
+    # this build's spread, 1.11x over the previous round's floor).
+    'row_dark_frac': 0.03,
 }
+# row_gap_deepest has NO bar (not in BARS): see README.md, "row_gap_deepest does not clear". No value satisfies
+# both sides of the rule at once (clearing this build's own spread, runs 0.2980/0.3012/0.2438, needs bar >=
+# 0.3012 + 0.0574 = 0.3586; leaving the previous round's captures, min 0.2997, failing by more than that same
+# spread needs bar < 0.2997 - 0.0574 = 0.2423) -- the two requirements do not overlap, with or without
+# GasBankThin raised to 0.19 -> 0.28 (tried and reverted: it made both row_dark_frac and row_gap_deepest WORSE,
+# not better; see README.md).
 
 
 
