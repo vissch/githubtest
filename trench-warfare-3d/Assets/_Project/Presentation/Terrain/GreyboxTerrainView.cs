@@ -59,6 +59,12 @@ namespace TW.Presentation.Terrain
         public const float SnowFillSeconds = 150f, ScorchHoldSeconds = 14f, RepaintEvery = 2.2f;
         int scorchSweep; float nextScorchRepaint;
         bool hollowsDirty;
+        /// <summary>The region a pending crater's hollow rescan can change: the biggest hollow radius (5.5 m) plus
+        /// its stamp reach (1.5 m) plus the overlap-suppression rule's 3 m, rounded up. Only a chunk whose rectangle
+        /// overlaps this region can hold stale hollows while hollowsDirty waits for a rescan.</summary>
+        public const float HollowReachMeters = 10f;
+        float pendingX0, pendingZ0, pendingX1, pendingZ1;
+        bool pendingAny;
         /// <summary>Terrain chunks re-read from the height field per frame after craters; the rest wait their turn.
         /// Superseded by ChunkBudgetMs (2026-09-23): kept for callers, no longer the limit.</summary>
         public const int MaxChunkRebuilds = 2;
@@ -110,6 +116,20 @@ namespace TW.Presentation.Terrain
         /// paint queue has drained, so the mips are never left stale after the painting stops.</summary>
         public static bool MipsDue(double sinceMipsMs, double intervalMs, bool drained, bool unmetered) =>
             unmetered || intervalMs <= 0.0 || sinceMipsMs >= intervalMs || drained;
+
+        /// <summary>True if a chunk inside the pending crater region must wait: its hollows are stale until the
+        /// next rescan reads them, so rebuilding it now would bake in the old pools.</summary>
+        public static bool ChunkWaits(bool hollowsDirty, bool inPendingRegion) => hollowsDirty && inPendingRegion;
+
+        /// <summary>Half-open rectangle overlap test, world metres.</summary>
+        public static bool Overlaps(float ax0, float az0, float ax1, float az1, float bx0, float bz0, float bx1, float bz1) =>
+            ax0 < bx1 && bx0 < ax1 && az0 < bz1 && bz0 < az1;
+
+        /// <summary>Running total of chunks finished since this view was built; a barrage must never hold this
+        /// still for long, or the ground is not catching up with the shelling.</summary>
+        public int ChunksRebuilt { get; private set; }
+        /// <summary>Running total of rows re-read from the height field, across all chunks.</summary>
+        public int ChunkRowsFilled { get; private set; }
 
         /// <summary>The chunks one frame's pass visits, in order: the ring once from where the last frame stopped. The pass
         /// is planned before any work is done, because finishing a chunk moves chunkCursor on, and reading the cursor again
@@ -585,13 +605,21 @@ namespace TW.Presentation.Terrain
             using var perf = TW.Sim.PerfMarkers.TerrainUpdate.Auto();
             if (Host == null || Host.Local == null || colorTex == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
-            // the hollow rescan is whole-map work: one heavy job a frame (HeavyWork), and chunks mid-rebuild start over on
-            // the new hollows, so no chunk is ever finished half on the old ones
+            // the hollow rescan is whole-map work: one heavy job a frame (HeavyWork). Only chunks the pending
+            // craters could have changed restart; a chunk outside that region keeps the rows it already read.
             bool rescanned = false;
             if (hollowsDirty && HeavyWork.TryClaim())
             {
                 TW.Sim.PerfMarkers.TerrainHollows.Begin(); Surface.RefreshHollows(); hollowsDirty = false; TW.Sim.PerfMarkers.TerrainHollows.End();
-                foreach (var chunk in chunks) chunk.NextRow = 0;
+                // Only a chunk the pending craters could have changed needs restarting: OnSimEvent already restarted
+                // it per crater, so this is a safety net, not the main path. Every other chunk keeps its rows.
+                if (pendingAny)
+                    foreach (var chunk in chunks)
+                    {
+                        float cx1 = chunk.X0 + chunk.W * GridStep, cz1 = chunk.Z0 + chunk.L * GridStep;
+                        if (Overlaps(chunk.X0, chunk.Z0, cx1, cz1, pendingX0, pendingZ0, pendingX1, pendingZ1)) chunk.NextRow = 0;
+                    }
+                pendingAny = false;
                 rescanned = true;
             }
             // Small tiles bound each work item. Terrain pigment catches up over frames after a barrage.
@@ -627,9 +655,10 @@ namespace TW.Presentation.Terrain
             if (colorDirty || mipsStale) ApplyColor();
             // ChunkBudgetMs a frame, a row at a time, taken round the field from where the last frame stopped: a barrage
             // dirties most of the field in one tick. A chunk is uploaded when its last row is read, so a mesh is never
-            // drawn half old and half new; not while the hollows wait to be rescanned (the rows would read old pools)
+            // drawn half old and half new. A chunk inside the pending crater region waits while its hollows are stale;
+            // a chunk outside that region keeps working.
             TW.Sim.PerfMarkers.TerrainChunks.Begin();
-            if (!hollowsDirty && !rescanned)
+            if (!rescanned)
             {
                 chunkWatch.Restart();
                 int rows = 0;
@@ -639,12 +668,16 @@ namespace TW.Presentation.Terrain
                     int i = chunkPass[n];
                     var c = chunks[i];
                     if (!c.Dirty) continue;
+                    float cx1 = c.X0 + c.W * GridStep, cz1 = c.Z0 + c.L * GridStep;
+                    bool inPending = pendingAny && Overlaps(c.X0, c.Z0, cx1, cz1, pendingX0, pendingZ0, pendingX1, pendingZ1);
+                    if (ChunkWaits(hollowsDirty, inPending)) continue;   // its hollows are stale until the rescan: wait, don't spend budget or the cursor on it
                     chunkCursor = i;   // stay on it until it is done
-                    while (c.NextRow < c.L && (rows == 0 || Unmetered || chunkWatch.Elapsed.TotalMilliseconds < chunkBudgetMs)) { FillRow(c, c.NextRow++); rows++; }
+                    while (c.NextRow < c.L && (rows == 0 || Unmetered || chunkWatch.Elapsed.TotalMilliseconds < chunkBudgetMs)) { FillRow(c, c.NextRow++); rows++; ChunkRowsFilled++; }
                     if (c.NextRow < c.L) break;   // out of time: the rest of this chunk next frame
                     c.Dirty = false; c.NextRow = 0;
                     c.Mesh.vertices = c.Verts; c.Mesh.normals = c.Normals;
                     c.Mesh.RecalculateBounds();
+                    ChunksRebuilt++;
                     if (depthTex != null) { PaintDepth(Mathf.RoundToInt(c.X0 / GridStep), Mathf.RoundToInt(c.Z0 / GridStep), c.W, c.L); depthDirty = true; }
                     chunkCursor = (i + 1) % chunks.Count;
                     if (!Unmetered && chunkWatch.Elapsed.TotalMilliseconds >= chunkBudgetMs) break;
@@ -672,6 +705,11 @@ namespace TW.Presentation.Terrain
             var map = Host.Local.Map;
             if (e.Type == TW.Sim.SimEventType.CraterStamp)
             {
+                float reach = e.Scalar + HollowReachMeters;
+                float rx0 = e.Pos.x - reach, rz0 = e.Pos.z - reach, rx1 = e.Pos.x + reach, rz1 = e.Pos.z + reach;
+                if (pendingAny) { pendingX0 = Mathf.Min(pendingX0, rx0); pendingZ0 = Mathf.Min(pendingZ0, rz0); pendingX1 = Mathf.Max(pendingX1, rx1); pendingZ1 = Mathf.Max(pendingZ1, rz1); }
+                else { pendingX0 = rx0; pendingZ0 = rz0; pendingX1 = rx1; pendingZ1 = rz1; }
+                pendingAny = true;
                 hollowsDirty = true;
                 if (scorchMarks.Count == 64) { scorchMarks.RemoveAt(0); scorchBorn.RemoveAt(0); }
                 scorchMarks.Add(e); scorchBorn.Add(Time.time);
