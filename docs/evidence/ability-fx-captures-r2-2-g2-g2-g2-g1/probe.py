@@ -59,7 +59,7 @@ inside the run values, or within one spread of them, is "the build cannot tell a
 the probe exits 1 rather than print a false green.
 
 THE LOOK REPORT. `cards/` holds the isolation stills (one hand-packed card per book, gas/smoke/puff, plus a
-plate). These are never barred — the gas card is squashed by `CombatFx.GasBankSquash` 0.55 on purpose, so "gas
+plate, and cards-gaspuff: the close camera's standing puff). These are never barred — the gas card is squashed by `CombatFx.GasBankSquash` 0.55 on purpose, so "gas
 rise >= smoke rise" would fail by construction and would be a look change nobody asked for here. Instead this
 prints, per card, its rise in metres and its relief (stdev of masked luma / its mean), and the gas/smoke ratio of
 each.
@@ -92,7 +92,7 @@ DIFF_BAR = 12                 # RGB distance from the plate that counts as chang
 T1_DIFF_BAR = 20               # T1's own, stricter plate-difference bar (diagnostic only now)
 BLOB_DILATE = 1               # largest_blob's bridge width (r2-2: 2 chained the bank into terrain-edge noise)
 STILLS = ['gas-t1', 'gas-t1-plate', 'gas-o240', 'gas-o240-plate']
-CARDS = ['cards-gas', 'cards-smoke', 'cards-puff', 'cards-plate']
+CARDS = ['cards-gas', 'cards-smoke', 'cards-puff', 'cards-gaspuff', 'cards-plate']
 CLOUD_MIN_PX = 50             # a component this small or smaller is noise, not a gas cloud (O240's five calls)
 # bar name -> (the measured key it reads, the comparison). Two bars may read ONE measure: height has both a
 # ceiling and a floor, because the ceiling alone let the flat sheet through (see the docstring).
@@ -266,7 +266,7 @@ def pack(src, into):
     written = []
     for png in sorted(glob.glob(os.path.join(src, '*.png'))):
         stem = os.path.splitext(os.path.basename(png))[0]
-        if stem not in STILLS:
+        if stem not in STILLS and stem not in CARDS:   # the GasBankStills set, or the GasBankCards one into cards/
             continue
         out = os.path.join(out_dir, stem + '.jpg')
         img = Image.open(png).convert('RGB')
@@ -454,19 +454,26 @@ def look_report():
     if not all(os.path.exists(os.path.join(cards_dir, s + '.jpg')) for s in CARDS):
         print('cards/ look report: stills missing, skipped')
         return {}
-    rows = {name: card_rise_m(cards_dir, name) for name in ('cards-gas', 'cards-smoke', 'cards-puff')}
+    names = ('cards-gas', 'cards-smoke', 'cards-puff', 'cards-gaspuff')
+    rows = {name: card_rise_m(cards_dir, name) for name in names}
     smoke_rise = rows['cards-smoke']['rise_m'] or 1e-9
     smoke_relief = rows['cards-smoke']['relief'] or 1e-9
     print('look report (cards/, unbarred): the gas card against the smoke card this pose can already draw')
-    for name in ('cards-gas', 'cards-smoke', 'cards-puff'):
+    for name in names:
         r = rows[name]
-        print('  %-12s rise %.3f m  relief %.4f  mask_px %d' % (name, r['rise_m'], r['relief'], r['mask_px']))
+        print('  %-14s rise %.3f m  relief %.4f  mask_px %d' % (name, r['rise_m'], r['relief'], r['mask_px']))
     gas_smoke_rise_ratio = rows['cards-gas']['rise_m'] / smoke_rise
     gas_smoke_relief_ratio = rows['cards-gas']['relief'] / smoke_relief
-    print('  gas/smoke rise ratio   %.4f' % gas_smoke_rise_ratio)
-    print('  gas/smoke relief ratio %.4f' % gas_smoke_relief_ratio)
+    puff_smoke_rise_ratio = rows['cards-gaspuff']['rise_m'] / smoke_rise
+    puff_smoke_relief_ratio = rows['cards-gaspuff']['relief'] / smoke_relief
+    print('  gas/smoke rise ratio       %.4f' % gas_smoke_rise_ratio)
+    print('  gas/smoke relief ratio     %.4f' % gas_smoke_relief_ratio)
+    print('  gaspuff/smoke rise ratio   %.4f' % puff_smoke_rise_ratio)
+    print('  gaspuff/smoke relief ratio %.4f' % puff_smoke_relief_ratio)
     rows['gas_smoke_rise_ratio'] = round(gas_smoke_rise_ratio, 4)
     rows['gas_smoke_relief_ratio'] = round(gas_smoke_relief_ratio, 4)
+    rows['gaspuff_smoke_rise_ratio'] = round(puff_smoke_rise_ratio, 4)
+    rows['gaspuff_smoke_relief_ratio'] = round(puff_smoke_relief_ratio, 4)
     return rows
 
 

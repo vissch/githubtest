@@ -24,8 +24,11 @@ He is right about the bar. A one-sided ceiling only refuses a puff that is too T
   `gas-o240`, `gas-o240-plate`) with sidecars and manifests, at `TW_GAS_WAIT_FRAMES` 200 / 215 / 230, so T1 frames
   804 / 819 / 834 and O240 frames 341 / 356 / 371 — three frames, not one. `pose_error_m` 0 everywhere,
   `books_ready` true, `gas_cards` 774 (t1) / 119-131 (o240), `calls_taken` 1 (t1) / 5 (o240).
-- `cards/` — carried from `-g2-g2-g2`, so it still shows the OLD gas card, not the puff this build draws. The look
-  report that reads it is UNBARRED; part 2's step 8 reshoots it.
+- `cards/` — reshot in this unit against THIS build, and now five stills, not four: `GasBankCards` grew a fourth
+  hand-packed card, `cards-gaspuff` (`FlipbookFx.Book.GasPuff`, `CardWidth` 12 by 12 * `CombatFx.GasPuffStand`
+  0.32, anchored at ground - 0.2, frame 16 — inside `SmokeBankFirst` 12 .. `SmokeBankLast` 20.5, the window the
+  real close puff is drawn from). The three old cards are untouched, so `cards-gas` is still the flat puddle to
+  compare against. The look report that reads this folder is UNBARRED.
 - `probe.json` — all three runs' numbers, frames, the look report and `BAR_VALUES`.
 
 ## Why height now has two bars
@@ -56,6 +59,32 @@ step is one `GasBankStills` gas pass plus its plate pass:
 
 0.32 of the card's width puts the median gas about 2.4 m up: a puff that stands over a crouching man and not over
 the camera.
+
+## The look report: the puff card against the smoke card
+
+`cards/` is the cheap isolation set: one hand-packed card per book, same pose, same spot, plus a plate with
+nothing drawn. Never barred — it is a look reading, and `cards-gas` is squashed by `GasBankSquash` 0.55 on
+purpose, so any "gas >= smoke" rule would fail by construction.
+
+| card | book | height | relief | mask_px |
+|---|---|---|---|---|
+| `cards-gas` | `GasBank` | 12 * 0.55 | 0.0854 | 5932 |
+| `cards-smoke` | `SmokeBank` | 12 | 0.1224 | 408 |
+| `cards-puff` | `Puff` | 12 | 0.1240 | 407 |
+| `cards-gaspuff` | `GasPuff` | 12 * 0.32 | 0.1032 | 8889 |
+
+What it says: the new puff card's relief 0.1032 is 0.84 of the smoke card's 0.1224 — the mound's own light and
+dark, nearly intact through the green tint, where the flat `cards-gas` keeps only 0.70. That is the rim the
+owner's cards-smoke.jpg has and cards-gas.jpg has not.
+
+Two readings in this table are NOT the thing they look like, and neither is a fault:
+- **rise is 0.000 m for every card, so it is not printed.** These cards stand on ground the probe's own camera
+  maths puts at the plate's height, and the median masked pixel of a 12 m card at this pose lands on the ground
+  line. Rise is the run1-3 measure (`green_rise_m` 2.3-2.4 m); on a single card it only reads 0.
+- **mask_px is a GREEN mask count, not an ink count.** `cards-smoke` and `cards-puff` are grey, so almost none of
+  their pixels clear the mask's greenness bar; `cards-gaspuff` is the same drawing in the GasBank row's green, so
+  nearly all of it counts. 8889 against the flat `cards-gas`'s 5932 is the standing puff covering more of the
+  frame than the puddle, at 0.32 of its own width.
 
 ## The bars
 
@@ -94,3 +123,10 @@ python docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1/probe.py --pack %TEMP%
 
 Runs 2 and 3 are the same at `TW_GAS_WAIT_FRAMES` 215 and 230: three waits are three frames, and the probe refuses
 two runs that photographed one frame.
+
+The `cards/` set is one launch, no wait knob and no plate pass (the test shoots its own plate):
+
+```bash
+TW_STILLS_DIR=%TEMP%/tw-gasbank-cards-g1 python Tools/pipeline/run_detached.py start cards-g1 --timeout 2400 --   "C:/Program Files/Unity/Hub/Editor/6000.0.50f1/Editor/Unity.exe" -batchmode   -projectPath <checkout>/trench-warfare-3d -runTests -testPlatform EditMode   -testFilter GasBankCards -testResults <out>/cards-g1.xml -logFile <out>/cards-g1.log
+python docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1/probe.py --pack %TEMP%/tw-gasbank-cards-g1 --into cards
+```
