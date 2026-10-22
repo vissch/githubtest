@@ -27,9 +27,13 @@ namespace TW.Presentation.Tactical
         /// thin or wide, paints the same 1.72 m of gas - under a 1.8 m man's head, and tall enough that at the T1 pose one
         /// row of cards reaches the next row's and no bare ground shows between them (a share of the width left the thin
         /// cards at 1.09 m, two fifths of the 4 m row pitch bare).</summary>
-        public const float GasBankBandM = 1.72f;
+        public const float GasBankBandM = 1.78f;
         /// <summary>How flat a card of this width is drawn, so its bottom third is <see cref="GasBankBandM"/> tall.</summary>
         public static float GasBankSquashFor(float width) => 3f * GasBankBandM / width;
+        /// <summary>How far off its cell's centre a gas card may stand (m): one full field cell (<see cref="MapData.FieldCellSize"/>),
+        /// so a card's centre can land anywhere inside its own cell and card centres fill the depth uniformly - at the old
+        /// 1.2 m jitter every card sat within 0.6 m of its row line, so the 4 m row lattice still read as bands.</summary>
+        public const float GasBankJitterM = 4f;
 
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
@@ -99,7 +103,7 @@ namespace TW.Presentation.Tactical
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 8f, 1.2f, 73856093, 19349663);
+            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 8f, GasBankJitterM, 73856093, 19349663);
             gasCards.Clear();
             foreach (var b in gasBank.Cells)
             {
