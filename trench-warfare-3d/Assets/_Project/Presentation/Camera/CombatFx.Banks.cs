@@ -61,8 +61,31 @@ namespace TW.Presentation.Tactical
         ///   1.2, GasPuffFirst..GasPuffLast -> 0.095 / 0.346: kept, room at both ends of every bar
         /// (height_frac does not move monotonically with stand: largest_blob picks one connected puff out of a
         /// sparse, gapped field, so which puff it keeps - and that puff's own screen-space height - can jump
-        /// between nearby stands; re-measure after any further change here, do not interpolate).</summary>
-        public const float GasPuffStand = 1.2f;
+        /// between nearby stands; re-measure after any further change here, do not interpolate).
+        /// 2026-10-22: re-fitted from 1.2 to 0.50 in the same row as GasPuffWide 2.0, so the drawn height holds
+        /// (width 2.0x, stand 1.2 -> 0.50: a 7 m block draws 14 m wide and 7 m tall, as before).</summary>
+        public const float GasPuffStand = 0.50f;
+        /// <summary>How much wider than a cell-block's own 5-7 m a close card is drawn (the owner, 2026-10-22:
+        /// "separate flat green tree-cards"). Close cards stand GasPuffBlock 3 x FieldCellSize 4 = 12 m apart, so at
+        /// 1.0 every card is a lone tree; past ~1.8 they overlap into one mass. Height stays width * GasPuffStand,
+        /// so the stand comes down as this goes up and the drawn height holds at today's ~7 m. Measured, not
+        /// guessed, at wait 200 with GasPuffStand re-fitted in the same row (the goal's own bars in brackets:
+        /// green_height_frac 0.08-0.15, green_low_share >= 0.30, green_rise_m >= 2.4):
+        ///   1.0 / 1.2  -> height 0.0950, low 0.3462, rise 2.575, t1_top_share 0.0803: the old build, 39 lone cards
+        ///   1.8 / 0.67 -> 0.1281 / 0.1937 / 3.964, top 0.3739: merged, but low_share breaks the 0.30 floor
+        ///   1.9 / 0.55 -> 0.0872 / 0.2954 / 2.765, top 0.2879: a hair under the floor
+        ///   2.0 / 0.50 -> 0.0836 / 0.3045 / 2.653, top 0.2908: KEPT - the widest merge the low_share floor allows
+        ///   2.1 / 0.47 -> 0.0851 / 0.3018 / 2.697, top 0.2904: the same look, less room at the floor
+        ///   2.2 / 0.50 -> 0.1300 / 0.1961 / 3.686, top 0.4306: one mass, floor broken
+        ///   2.4 / 0.50 -> 0.1320 / 0.1869 / 3.746, top 0.4244   2.4 / 0.42 -> 0.1148 / 0.2114 / 3.254
+        ///   2.4 / 0.35 -> 0.0666 / 0.3413 / 2.151: under the 0.08 height floor and the 2.4 m rise
+        ///   2.8 / 0.38 -> 0.1434 / 0.1784 / 4.056   3.0 / 0.40 -> 0.1776 / 0.1470 / 5.149: over the 0.15 ceiling
+        /// The merge and the low_share floor pull against each other: once the cards merge into one mass it reaches
+        /// back into the field, and the far cards' pixels sit high on screen, so the share under a man's head
+        /// falls. 2.0 is where both hold. t1_cloud_count barely moves at any width (35-48 against the old 39-44),
+        /// so it is a diagnostic and not a bar (component counts do not interpolate: re-measure after any change
+        /// here, never interpolate).</summary>
+        public const float GasPuffWide = 2.0f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -139,9 +162,9 @@ namespace TW.Presentation.Tactical
             {
                 float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
-                // the block widens the GAP between cards (GasPuffBlock below), not the card itself: a close puff
-                // stays 5-7 m wide at any block size, so gaps between puffs are what makes a puff read.
-                float width = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2) * (step == 1 ? 1f : step);
+                // the block widens the GAP between cards (GasPuffBlock below); GasPuffWide widens the close card
+                // itself over that gap, so the cards overlap into one cloud instead of standing as separate trees.
+                float width = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2) * (step == 1 ? GasPuffWide : step);
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                 // close (step 1): the standing puff, its drawing reaching the cell's floor, so the card sits at the
                 // smoke bank's anchor and not GasBankSquash's sunk one. From the overview out: today's squashed blanket.
