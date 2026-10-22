@@ -332,6 +332,29 @@ namespace TW.Tests
             }
         }
         [Test]
+        public void TheGasBankEdgeDrawsFromItsNeighbourhood()
+        {
+            // one bank still read as 28 / 24 / 18 separate patches. The islands are the FRINGE: a card used to read
+            // its own 4 m cell alone, so the outermost ring drew right at the probe's visibility bar, broke into
+            // blotches and each blotch counted as a patch. A card's load is now the mean of nine blocks.
+            // the core keeps its alpha: nine times the same value, over nine, is that value
+            foreach (float c in new[] { 1f, 4f, 8f })
+                Assert.AreEqual(c, CombatFx.GasBankLoad(c, 8f * c), 1e-4f,
+                    $"a cell at {c} inside a solid body of gas keeps its own thickness");
+            // the fringe ring no longer stands: a cell at the old 0.8 stand floor with three neighbours at it and
+            // five empty carries (0.8 + 2.4) / 9 = 0.3556, well under the floor
+            Assert.Less(CombatFx.GasBankLoad(0.8f, 3f * 0.8f), 0.8f,
+                "the half-visible edge ring that read as separate patches falls under the stand floor");
+            // a lone cell is a haze, not a plate: (8 + 0) / 9 = 0.8889, thick 0.8889 / 8 = 0.1111, so its card draws
+            // 0.19 + 0.43 * 0.1111 = 0.2378 - a hair over the thin floor 0.19 and under half the core's 0.62 (0.31).
+            // (A third of the core, 0.2067, is below GasBankThin itself, so no thickness could ever clear it.)
+            float lone = CombatFx.GasBankAlpha(Mathf.Clamp01(CombatFx.GasBankLoad(8f, 0f) / 8f));
+            Assert.Less(lone, CombatFx.GasBankAlpha(0f) + 0.05f,
+                "a cell with no neighbours draws at the thin floor: a haze, not a plate");
+            Assert.Less(lone, CombatFx.GasBankAlpha(1f) / 2f,
+                "and well under the bank's core opacity");
+        }
+        [Test]
         public void TheGasBankStacksIntoDensity()
         {
             // the other half of the fix: cards may only be a haze on their own, and reach the old core when stacked
