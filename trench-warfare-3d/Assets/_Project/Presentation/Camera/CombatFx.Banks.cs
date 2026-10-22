@@ -1,6 +1,7 @@
 // Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-8, look specs L07 and L08) — part of CombatFx. Behind
-// fx.recipes, the gas and smoke fields as the drawn banks: chlorine as GasBank, a low rolling bank standing ON the ground
-// (its drawing fills the bottom third of the card, so a man's legs are in it and his head is not), the smoke screen as
+// fx.recipes, the gas and smoke fields as the drawn banks: chlorine as GasBank, a rolling bank standing ON the ground
+// (its drawing fills the bottom third of the card, so 8.4-9.6 m of card is a gas top of 2.8-3.2 m: over a man's head,
+// under a roof, and near the same line in every cell whatever the cell's width), the smoke screen as
 // SmokeBank mounds. Per 4 m field cell as before, placed and boiled by a hash of the cell (no random draws); from the
 // overview (BankMergeZoom) one card a 2 x 2 block, twice the size, so the field is a blanket with an edge and not
 // four times the cards. The field only changes per sim tick, so which cells stand and where their ground is are found
@@ -23,16 +24,25 @@ namespace TW.Presentation.Tactical
         // (0.14/0.5), because "pale green stripes" is the alpha as much as the overlap.
         // Its colour by day is deeper than the sheet's so it is green ON snow
         public const float GasBankThin = 0.19f, GasBankFull = 0.62f;
-        /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so the widest card (19.3 m) squashed to 0.27 tops out at 1.73 m - gas to the chest, it does not stand over a man.</summary>
+        /// <summary>Only the isolation card still: Tests/Stills/GasBankCards.cs draws cards-gas.jpg at this height ratio.
+        /// The bank itself does not use it - its card height is GasBankHeight, which does not scale with the width.</summary>
         public const float GasBankSquash = 0.27f;
+        // The card height, on its own from the width. It was width * GasBankSquash, so a narrow cell drew gas 1.1 m
+        // high (a flat sheet on the mud) and a wide one three times that - that spread is what the captures measured.
+        // The drawing is the card's bottom third, so 8.4-9.6 m of card is a gas top of 2.8-3.2 m in every cell.
+        public const float GasBankLow = 8.4f, GasBankTall = 9.6f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
         public static float GasBankAlpha(float thick) => Mathf.Lerp(GasBankThin, GasBankFull, Mathf.Clamp01(thick));
 
-        /// <summary>How wide a gas cell's card is drawn (m): 12-19.3 m on the 4 m field grid, so a card spans three cells,
-        /// neighbours overlap three to four deep, and no single card's silhouette is the shape you see. Same card count.</summary>
-        public static float GasBankWidth(float thick, float hash01, int step) => (13.5f + 4f * thick) * (0.9f + 0.2f * hash01) * step;
+        /// <summary>How tall a gas cell's card is drawn (m): 8.4-9.6 m whatever the cell's width, so the gas top
+        /// (the bottom third of it) stands at 2.8-3.2 m - a player sees it over a man, and it is not a wall.</summary>
+        public static float GasBankHeight(float thick) => Mathf.Lerp(GasBankLow, GasBankTall, Mathf.Clamp01(thick));
+
+        /// <summary>How wide a gas cell's card is drawn (m): 14-21.5 m on the 4 m field grid, so a card spans four cells,
+        /// neighbours overlap one cell deeper than before, and no fringe card stands alone. Same card count.</summary>
+        public static float GasBankWidth(float thick, float hash01, int step) => (15.5f + 4f * thick) * (0.9f + 0.2f * hash01) * step;
 
         const float SmokeBankFirst = 12f, SmokeBankLast = 20.5f; // the mound grown (the firebooks cut stops at 21)
 
@@ -94,7 +104,9 @@ namespace TW.Presentation.Tactical
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 14f, 2.4f, 73856093, 19349663);
+            // full 8 (the field peaks near 36): the middle of a cloud reads thick, and the fringes the clouds share paint
+            // too, so the five cores are one mass. The standing floor stays 0.8 - t1 already draws ~750 cards of 1536.
+            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 8f, 2.4f, 73856093, 19349663);
             gasCards.Clear();
             foreach (var b in gasBank.Cells)
             {
@@ -104,7 +116,7 @@ namespace TW.Presentation.Tactical
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                 // a zebra of cards is what one hard silhouette per cell looked like: break the top line, the brightness
                 // (lit core, dull skirt) and the roll (+-12 degrees) by the cell's hash so no two card edges line up
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f + (h1 - 0.5f) * 0.5f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.42f, kind, GasBankAlpha(b.Thick)));
+                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f + (h1 - 0.5f) * 0.5f, b.Z), width, GasBankHeight(b.Thick), BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.42f, kind, GasBankAlpha(b.Thick)));
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }
