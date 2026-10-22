@@ -47,6 +47,19 @@ namespace TW.Presentation.Tactical
         public static float GasBankZOffset(int x, int step, float h2)
             => ((((x / step) & 1) == 0) ? -GasBankJitterM / 4f : GasBankJitterM / 4f) + (h2 - 0.5f) * GasBankJitterM / 2f;
 
+        /// <summary>How dense the stacked pair of gas cards is kept against the single card it replaces: at the old
+        /// GasBankFull (0.62) a pair stacks to 1-(1-0.7*0.62)^2 = 0.68, close to the single card's 0.62, so this closes
+        /// the row gaps without turning the bank into a rug.</summary>
+        public const float GasBankPairAlphaK = 0.7f;
+        /// <summary>Where the i-th card of a cell's pair stands in depth relative to <see cref="GasBankZOffset"/> (m):
+        /// +-1 m at step 1 (a half of the already-halved 2 m stratum), +-2 m at step 2 (an 8 m block). At the T1 pose
+        /// (GasBankStills: zoom 30, pitch 25) the old single-card lattice put a 4 m row pitch (4*sin25 = 1.69 screen-m)
+        /// against a band's own 1.78 m * cos25 = 1.61 m projected rise - the bands barely touched, and the sheet's own
+        /// ink fades toward the band's top edge, so the capture read as stripes with mud between. Splitting each cell
+        /// into two cards 2 m apart in depth puts a band's bright core over its neighbour's faded edge, halving the
+        /// effective row pitch the eye has to bridge.</summary>
+        public static float GasBankPairZ(int i, int step) => (i == 0 ? -1f : 1f) * GasBankJitterM / 4f * step;
+
         /// <summary>How many field blocks a gas card's thickness is read from: its own and the eight around it.</summary>
         public const int GasBankNeighbourhood = 9;
         /// <summary>A gas card's load: the GREATER of its own thickness and the mean of the nine block maxima around
@@ -161,14 +174,22 @@ namespace TW.Presentation.Tactical
             foreach (var b in gasBank.Cells)
             {
                 float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
-                float slow = now * 0.22f + h3 * 6.2832f;
                 float width = GasBankWidth(b.Thick, h2, step);
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                 // a zebra of cards is what one hard silhouette per cell looked like: break the top line, the brightness
                 // (lit core, dull skirt) and the roll (+-12 degrees) by the cell's hash so no two card edges line up
                 // every card sits on the ground at the same height: the old sink and +-0.25 m jitter threw away 0.6 m of
                 // the band and pulled the rows apart; the roll and the frame boil already break the top line
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.08f, b.Z), width, width * GasBankSquashFor(width), BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.42f, kind, GasBankAlpha(b.Thick)));
+                // a cell's one card drew its own row's band and left the next row's gap bare at the T1 pose; a pair
+                // of cards, a half row apart in depth (GasBankPairZ), puts a bright core over the neighbour's faded
+                // edge - the boil phase and the mirror bit are shifted per card so the pair never reads as one card
+                // drawn twice
+                for (int i = 0; i < 2; i++)
+                {
+                    float slow = now * 0.22f + h3 * 6.2832f + i * 3.1416f;
+                    var pairKind = i == 0 ? kind : kind ^ FlipbookFx.Kind.Mirror;
+                    gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.08f, b.Z + GasBankPairZ(i, step)), width, width * GasBankSquashFor(width), BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.42f, pairKind, GasBankAlpha(b.Thick) * GasBankPairAlphaK));
+                }
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }

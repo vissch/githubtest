@@ -292,6 +292,38 @@ namespace TW.Tests
             }
         }
         [Test]
+        public void TheGasBankRowsMeetAtHalfARowPitch()
+        {
+            // r2's critique again, after the first bands fix: the T1 stills still read as stripes - a cell's one
+            // card only just covered its own row, and the sheet's own ink fades toward the band's top edge, so the
+            // next row's gap still read as mud. A cell now carries a PAIR of cards, a half row apart in depth
+            // (GasBankPairZ), so a band's bright core sits over its neighbour's faded edge instead of its own edge.
+            const float pitch = 25f * Mathf.Deg2Rad, rowPitch = 4f;
+            // the pair's depth gap: +-1 m at step 1 (half the row pitch), +-2 m at step 2 (an 8 m block)
+            Assert.AreEqual(2f, CombatFx.GasBankPairZ(1, 1) - CombatFx.GasBankPairZ(0, 1), 1e-3f,
+                "at step 1 the pair must be a half row (2 m) apart in depth");
+            Assert.AreEqual(4f, CombatFx.GasBankPairZ(1, 2) - CombatFx.GasBankPairZ(0, 2), 1e-3f,
+                "at step 2 (an 8 m block) the pair must be a half block (4 m) apart in depth");
+            float halfPitchRise = (rowPitch / 2f) * Mathf.Sin(pitch);
+            foreach (float thick in new[] { 0f, 1f })
+            foreach (float hash in new[] { 0f, 1f })
+            {
+                float width = CombatFx.GasBankWidth(thick, hash, 1);
+                float band = width * CombatFx.GasBankSquashFor(width) / 3f;
+                Assert.GreaterOrEqual(band * Mathf.Cos(pitch), 1.5f * halfPitchRise,
+                    $"a card at thick {thick} hash {hash} must cover the halved row pitch with margin, so the pair's cores overlap the gap between them");
+            }
+            // the pair's stacked opacity: at least the old single card's (so the bank does not thin out) and under
+            // 0.9 (so it does not turn into an opaque rug), for every thickness
+            for (float thick = 0f; thick <= 1f; thick += 0.1f)
+            {
+                float single = CombatFx.GasBankAlpha(thick);
+                float stacked = 1f - Mathf.Pow(1f - CombatFx.GasBankPairAlphaK * single, 2f);
+                Assert.GreaterOrEqual(stacked, single, $"the stacked pair at thick {thick} must be at least as dense as the single card it replaces");
+                Assert.Less(stacked, 0.9f, $"the stacked pair at thick {thick} must not read as an opaque rug");
+            }
+        }
+        [Test]
         public void TheGasBankCardsOverlapIntoOneMass()
         {
             // the zebra: one card per 4 m gas cell, barely overlapping, so every card's own silhouette stayed visible.
