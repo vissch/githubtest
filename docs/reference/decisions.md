@@ -303,6 +303,19 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   SHOW edit in this checkout can reach a green gate until they go. Options: (a) delete them, they are build artifacts,
   the default taken here is **not** to delete another session's files without his word; (b) commit them on a tool
   lane of their own; (c) add them to `.gitignore`. Nobody was reachable, so this leg ended blocked instead.
+- **The close gas puff cannot be told from the old puff card by the green lean (2026-10-22):** with the new look
+  (`Book.GasPuff`, the smoke mound's drawing tinted chlorine, commit d391a911a9) the three fresh captures read
+  `gas_green_share` 0.1403 / 0.1245 / 0.1206 at `GREEN_LEAN` 0.16, spread 0.0197, while the isolation card the floor
+  must reject, `cards-puff`, reads 0.1076. A floor must sit at least one spread above the card and one below the
+  nearest run, which needs 0.0394 of room and has 0.0130. Scanned every lean from 0.04 to 0.44: none is feasible
+  (the runs cross below the puff card before the gap opens), and the ceiling has the same squeeze against
+  `cards-gas` 0.2190 and the zebra 0.2446. The old cards were shot when the close frame drew `Book.GasBank`; the new
+  drawing is the smoke mound's, so it leans like a smoke card by construction. Options: (a) shoot a fresh
+  `cards-gaspuff` isolation card of the new book and make it the window's source — the honest fix, the default
+  taken here, but the plan put it out of scope; (b) make the puff greener (its `Sheets` tint / `GasPuffAlpha`) until
+  it clears the old card's floor, a look change the owner has not seen; (c) replace the green lean with a cone
+  distance to `GAS_DIR`, a new measure. Nobody was reachable, so this leg ended blocked with the captures taken and
+  the bars unset.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
