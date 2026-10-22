@@ -34,7 +34,7 @@ Nothing a player sees. The count bars could not catch it, because 11 specks coun
   0.01359 / 0.01358 / 0.01356: digit for digit what `-g1-g1-g2` published.
 - **The probe**: `o240_blob_max_px` as a measure and the `o240_blob_floor` bar on it. See `probe.py`'s docstring,
   "THE PROBE'S TWO CHANGES".
-- **The test** (`BurstRecipeTests.TheCloseGasPuffStands_AndTheMergedOutSheetStillLiesFlat`): `widestOverviewCard`
+- **The test** (`BurstRecipeTests.TheCloseGasPuffStands_AndTheOverviewCloudStandsOnTheMud (renamed in -g1-g1, was TheCloseGasPuffStands_AndTheMergedOutSheetStillLiesFlat)`): `widestOverviewCard`
   now reads `CombatFx.GasCloudWiden` instead of the literal `2f`, so the "cards stand further apart than the
   widest card" assert keeps meaning, and a new assert requires `GasCloudWiden > BankStep(BankMergeZoom)` - the
   speck build's own multiplier (2) fails it.

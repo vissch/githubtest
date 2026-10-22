@@ -256,7 +256,7 @@ namespace TW.Tests
             Assert.AreEqual(50.2f, CombatFx.LeapStart(3, 50f, 10f, 0f).Until, 1e-4f, "never shorter than 0.2 s");
         }
         [Test]
-        public void TheCloseGasPuffStands_AndTheMergedOutSheetStillLiesFlat()
+        public void TheCloseGasPuffStands_AndTheOverviewCloudStandsOnTheMud()
         {
             // The owner, 2026-10-21: at the close camera gas is "a puff with a rim and a height", like cards-smoke.jpg,
             // not the flat puddle. So the close card draws GasPuff (the smoke bank's drawing, ink 0.03-0.87) at
@@ -267,11 +267,12 @@ namespace TW.Tests
             float puff = 7f * CombatFx.GasPuffStand * 0.87f;
             Assert.Greater(puff, 1.8f, "the close puff stands over a man's head: it is a volume, not stripes on the ground");
             Assert.Less(puff, 10f, "and is still a puff, not a column");
-            // the BASE card at 1:1, which GasCloudWiden does not touch: the overview card's drawn band does grow
-            // with its width, and the overview has no height bar (the owner's height rules are the close camera's)
-            float sheet = 7f * CombatFx.GasBankSquash / 3f;
-            Assert.Less(sheet, 1.8f, "from the overview out the gas is still a sheet under a 1.8 m man's head");
-            Assert.Greater(sheet, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+            // The overview's own stand (the owner, 2026-10-22: at 240 m the gas is "a flat lime puddle on the mud").
+            // The card is drawn GasCloudStand of its BASE width tall (the widen multiplies the width only), from
+            // the same GasPuff mound: a cloud with a top and a base, not a band lying on the ground.
+            float cloud = 7f * CombatFx.GasCloudStand;
+            Assert.Greater(cloud, 5f, "the overview cloud has a top: it stands off the mud, it is not a band on it");
+            Assert.Less(cloud, 30f, "and is still a cloud, not a wall across the map");
 
             Assert.GreaterOrEqual(CombatFx.GasPuffBlock, 2,
                 "the close puff stands for a block of cells, not one: per cell they wash into a sheet, measured 774 cards in -g1's sidecars");
