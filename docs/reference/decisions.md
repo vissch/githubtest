@@ -295,6 +295,16 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **The chlorine bank missing from the stills is a capture-path fault: (a).** To the open question "The chlorine bank is not in the picture at all" (four CaptureRig stills in GreyboxCorridor at night hold no bank, while the sim took every call and `CombatFx.gasCards` held up to 133 packed cards) the owner picked option (a): treat it as a capture-path fault and have SHOW find why the GasBank book (the only `Bank`/`Deep` sheet) misses `CaptureRig`'s own `Camera.Render()`. It is the default that changes no look: the bank is not grown, brightened or unsquashed (option (b)), and it is not left alone (option (c)). Pictures and numbers: `docs/evidence/ability-fx-captures-r2/`. Carried by the lane `lane/show/ability-fx-captures-r2-2`. (owner, 2026-10-19) **Closed by `ability-fx-captures-r2-2`:** the bank was never missing — it is drawn, reaches `CaptureRig`'s `Camera.Render()`, and covers 11% of the T1 frame; the fault was `probe.py`'s own hue test, which at night could read only 193 of the 101,253 pixels that actually changed from the plate. No look changed. `docs/evidence/ability-fx-captures-r2/probe.json` is green. |
 
 ## Open: waiting on the owner
+- **How high may the close gas bank stand? (2026-10-22, lane `lane/show/ability-fx-captures-r2-2-g2-g2-g2-g2-g2`):**
+  the close bank was a sheet of pale green stripes, so its cards are now height-jittered and three cells in eight
+  carry a crown puff. That moved the median rise from 0.359 m to 0.53 m and stopped there: `GasHeadRoom` 1.7 m
+  caps the ink, and raising the bank further only pushes gas over a 1.8 m man's head (`green_low_share` has
+  already fallen from 1.0000 to 0.904-0.919). A median rise of 0.6 m and the head rule cannot both hold at 1.7 m.
+  Options: (a) keep the head rule and leave the rise bar where this build reads it (`green_rise_m` >= 0.44,
+  `green_knee_share` <= 0.43) — **the default taken here**; or (b) raise `GasHeadRoom` so the bank may stand over
+  a man, which reopens the r1 critique the whole phase answered ("gas pools, it does not stand over a man") and
+  changes `TheGasBankLiesOnTheGround_NotOverAMansHead`. Evidence:
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g2/README.md`.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below

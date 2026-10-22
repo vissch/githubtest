@@ -102,7 +102,7 @@ namespace TW.Presentation.Tactical
         }
 
         /// <summary>One gas cell's cards, and how many were added. Close up (step 1) the cell's own hash jitters how flat
-        /// its card is drawn and one cell in four carries a second, near-square crown puff over it, so the bank has a lumpy
+        /// its card is drawn and three cells in eight carry a second, near-square crown puff over them, so the bank has a lumpy
         /// top instead of one straight line of pale stripes; the drawn ink never tops GasHeadRoom. From the overview
         /// (step 2) it is the one flat card it always was.</summary>
         public static int PackGasCell(List<Matrix4x4> into, uint hash, float thick, float x, float z, float ground, float now, int step)
@@ -114,11 +114,11 @@ namespace TW.Presentation.Tactical
             float alpha = GasBankAlpha(thick);
             float height = step > 1
                 ? width * GasBankSquash
-                : Mathf.Min(width * GasBankSquash * (0.85f + 0.5f * h4), (GasHeadRoom + GasBankAnchorDrop) / GasInkTop);
+                : Mathf.Min(width * GasBankSquash * (1.15f + 0.4f * h4), (GasHeadRoom + GasBankAnchorDrop) / GasInkTop);
             into.Add(FlipbookFx.Pack(new Vector3(x, ground - GasBankAnchorDrop, z), width, height, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, alpha));
-            if (step > 1 || ((hash >> 7) & 3) != 0) return 1;
+            if (step > 1 || ((hash >> 7) & 7) >= 3) return 1;
             // the volume over the bank: the old Book.Gas fallback's second, higher, smaller card, at its own phase
-            float lift = 0.10f + 0.35f * h3, cw = width * 0.5f;
+            float lift = 0.15f + 0.45f * h3, cw = width * 0.5f;
             float ch = Mathf.Min(cw, (GasHeadRoom - lift) / GasInkTop);
             into.Add(FlipbookFx.Pack(new Vector3(x, ground + lift, z), cw, ch, BankFrame(GasBankFirst, GasBankLast, slow + 2.1f), 1f, 1f, 0f, kind ^ FlipbookFx.Kind.Mirror, 0.8f * alpha));
             return 2;

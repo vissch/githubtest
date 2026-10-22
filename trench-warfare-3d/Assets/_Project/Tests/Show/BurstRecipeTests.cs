@@ -295,9 +295,11 @@ namespace TW.Tests
             float tallest = float.MinValue, lowest = float.MaxValue;
             foreach (float t in tops) { tallest = Mathf.Max(tallest, t); lowest = Mathf.Min(lowest, t); }
             Assert.GreaterOrEqual(tallest, 1.20f, "the tallest cell stands well over the old 0.93 m line: a puff, not a sheet");
-            Assert.LessOrEqual(tallest, 1.70f, "and no cell tops GasHeadRoom, so the gas is still under a 1.8 m man's head");
+            // the widest cells now meet the (GasHeadRoom + GasBankAnchorDrop) / GasInkTop clamp exactly, so the
+            // ceiling is read with a float's worth of slack, not a tenth of a metre's
+            Assert.LessOrEqual(tallest, 1.7001f, "and no cell tops GasHeadRoom, so the gas is still under a 1.8 m man's head");
             Assert.GreaterOrEqual(tallest - lowest, 0.25f, "the cells' tops spread, so the bank has a lumpy edge (today 0.00)");
-            Assert.That(two / 64f, Is.InRange(0.15f, 0.40f), "about one cell in four carries a crown, so the card budget holds");
+            Assert.That(two / 64f, Is.InRange(0.25f, 0.45f), "about three cells in eight carry a crown, so the card budget holds (the T1 capture draws 1060-ish cards of FlipbookFx.MaxCards 1536)");
 
             // the overview (step 2) is byte-identical to today: one flat card, no jitter, no crown, no clamp
             cards.Clear();
