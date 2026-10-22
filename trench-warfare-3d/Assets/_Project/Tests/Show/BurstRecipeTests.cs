@@ -262,7 +262,7 @@ namespace TW.Tests
             // not the flat puddle. So the close card draws GasPuff (the smoke bank's drawing, ink 0.03-0.87) at its
             // full width in height, and the old under-1.8 m rule holds only for the merged-out blanket.
             float puff = 7f * CombatFx.GasPuffStand * 0.87f;
-            Assert.Greater(puff, 1.8f, "the close puff stands over a man's head: it is a volume, not stripes on the ground");
+            Assert.Greater(puff, 2.5f, "the close puff stands well over a man's head at the owner's raised stand");
             Assert.Less(puff, 7f, "and is still a puff, not a column");
             float sheet = 7f * CombatFx.GasBankSquash / 3f;
             Assert.Less(sheet, 1.8f, "from the overview out the gas is still a sheet under a 1.8 m man's head");

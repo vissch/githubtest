@@ -29,9 +29,20 @@ namespace TW.Presentation.Tactical
         /// Measured, not guessed: at 1f the close shot was a WALL - three captures read green_height_frac
         /// 0.514/0.532/0.515 against the owner's ceiling of 0.15 and green covered 71% of the frame
         /// (docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1/README.md). The owner's bar is a bar, so the look
-        /// moves: 0.2 is a fifth of the stand, which puts the median gas about 1.3 m up - a puff that clears the
-        /// height floor and stays under the ceiling.</summary>
-        public const float GasPuffStand = 0.32f;
+        /// moves: at the field's own sweep (-g1):
+        ///
+        ///   GasPuffStand | anchor | green_height_frac | green_low_share | green_rise_m
+        ///   0.32 (then)  | -0.2f  | 0.0768             | 0.414           | 2.38
+        ///   0.35         | -0.2f  | 0.0824             | 0.354           | 2.47
+        ///   0.5          | -0.2f  | 0.1440             | 0.206           | 4.13
+        ///   1.0          | -0.2f  | 0.514              | 0.071           | 10.16
+        ///
+        /// 0.42 at -0.2f broke the owner's own low-share floor 0.30 (read 0.2885). Sinking the anchor to -0.6f
+        /// (more of the mound's ink sits under head height) recovers it: three fresh captures of this build read
+        /// green_height_frac 0.0887/0.0913/0.0967 (floor now 0.08, see docs/evidence/
+        /// ability-fx-captures-r2-2-g2-g2-g2-g1-g2-g1-g1/README.md) and green_low_share 0.3393/0.3522/0.3379,
+        /// clearing both the owner's ceiling 0.15 and his floor 0.30.</summary>
+        public const float GasPuffStand = 0.42f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -107,7 +118,7 @@ namespace TW.Presentation.Tactical
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                 // close (step 1): the standing puff, its drawing reaching the cell's floor, so the card sits at the
                 // smoke bank's anchor and not GasBankSquash's sunk one. From the overview out: today's squashed blanket.
-                if (step == 1) gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width * GasPuffStand, BankFrame(SmokeBankFirst, SmokeBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                if (step == 1) gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.6f, b.Z), width, width * GasPuffStand, BankFrame(SmokeBankFirst, SmokeBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
                 else gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
             }
             books.DrawPacked(step == 1 ? FlipbookFx.Book.GasPuff : FlipbookFx.Book.GasBank, gasCards, bounds);

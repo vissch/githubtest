@@ -88,10 +88,12 @@ namespace TW.Tests
                                         new Vector3(size.x + 20f, 60f, size.y + 20f));
                 bool puff = Which == 3;
                 // The gaspuff card stands at the FULL CardWidth, like cards-smoke and cards-puff, and NOT at
-                // CombatFx.GasPuffStand 0.32: that squash is what made this card a flat green puddle. The card is a
-                // look reading of the book's mound and rim at the smoke card's size, not a picture of the field
-                // puff's size - the field keeps GasPuffStand 0.32, the only value clearing the owner's own field
-                // bars (green_height_frac's ceiling and green_low_share's floor both break at 0.35+).
+                // CombatFx.GasPuffStand 0.42: that squash is what made this card a flat green puddle before. The card
+                // is a look reading of the book's mound and rim at the smoke card's size, not a picture of the field
+                // puff's size - the field's GasPuffStand is 0.42 with its step == 1 anchor sunk to ground - 0.6f (see
+                // CombatFx.Banks.cs), the value that clears both the owner's low-share floor 0.30 and height ceiling
+                // 0.15, and now the raised height floor 0.08 (docs/evidence/
+                // ability-fx-captures-r2-2-g2-g2-g2-g1-g2-g1-g1/README.md).
                 float height = Which == 0 ? CardWidth * CombatFx.GasBankSquash : CardWidth;
                 one.Clear();
                 // the gas bank's own anchor, or the standing puff's (CombatFx.Banks, BankStep 1) for the puff card
