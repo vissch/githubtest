@@ -1,0 +1,6 @@
+{
+  "stills": [
+    { "still": "gas-o240.png", "subject": "chlorine gas bank", "band": "o240", "plate": false, "x": 56, "z": 142, "ground_y": 1.4684, "sim_tick": 249, "frame": 342, "pose_error_m": 0, "calls_taken": 5, "gas_cells": 395, "gas_field_max": 35.95, "gas_cards": 143, "recipes": 1, "books_ready": true, "draw_calls": 118, "calls": ["called ChlorineGas at 56, 62 (taken)", "called ChlorineGas at 56, 102 (taken)", "called ChlorineGas at 56, 142 (taken)", "called ChlorineGas at 56, 182 (taken)", "called ChlorineGas at 56, 222 (taken)"] },
+    { "still": "gas-t1.png", "subject": "chlorine gas bank", "band": "t1", "plate": false, "x": 56, "z": 142, "ground_y": 1.4684, "sim_tick": 557, "frame": 805, "pose_error_m": 0, "calls_taken": 1, "gas_cells": 775, "gas_field_max": 36.08, "gas_cards": 739, "recipes": 1, "books_ready": true, "draw_calls": 133, "calls": ["called ChlorineGas at 56, 142 (taken)"] }
+  ]
+}
