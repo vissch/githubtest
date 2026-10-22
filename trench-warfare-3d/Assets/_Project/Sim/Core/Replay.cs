@@ -163,7 +163,11 @@ namespace TW.Sim
         // put every man down pays back the silver and the wait of the men it lost and raises DropLandedShort. No
         // field added, moved or dropped; a battle with a full field keeps silver and an ability it used to lose, so
         // hashes and balance move.
-        public const ushort FormatVersion = 54;
+        // v55 (2026-10-22, small arms and a crew's nerve): DirectFire.AddSuppression ignores a UnitFlags.Vehicle slot
+        // exactly as it ignores Airborne, so no gunfire path (hit, near miss, fire-step miss, shield graze, wreck
+        // shadow) suppresses a hull; blast, gas, fire and beams are unchanged. Hashed Suppression values move where
+        // a hull stood in gunfire, so replays recorded before this commit no longer verify.
+        public const ushort FormatVersion = 55;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)

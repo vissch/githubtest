@@ -3,12 +3,13 @@
 // Pinned (AuraSystem.UnpinTo), raises SimWorld.Alarm (2026-10-01) to the man's suppression capped at
 // StanceRules.AlarmCap and otherwise brings it down StanceRules.AlarmDecay a second, then calls AuraSystem.Unpin so an
 // officer keeps the men round him off the floor. A dead slot's suppression and alarm are zeroed.
-// Everything else lives elsewhere: the gain per shot and the Suppressed / Pinned events are DirectFire.cs:320-335
-// (AddSuppression, scaled by AuraSystem.SuppressionMul); the thresholds are StanceRules.ProneSuppression /
+// Everything else lives elsewhere: the gain per shot and the Suppressed / Pinned events are DirectFire.cs:320-330
+// (AddSuppression, scaled by AuraSystem.SuppressionMul, and no gain at all for an Airborne or a UnitFlags.Vehicle
+// slot: small arms do not shake a crew, decisions.md 2026-10-18); the thresholds are StanceRules.ProneSuppression /
 // PinnedSuppression, mirrored here as ProneThreshold / PinnedThreshold; what being Prone or Pinned costs a man is read
 // in Engage.cs:174,199 (pinned stops engaging, prone holds where he stands) and MovementSystem.cs:310-322 (the stance
 // itself). FallbackSearchRadius (auto-Fallback) has no reader today, and the smoke halving is not written yet (A5);
-// NearMissRadius is read by DirectFire.cs:473.
+// NearMissRadius is read by DirectFire.cs:468.
 // — depends on: SimWorld.Suppression, SimWorld.Alarm.
 using Unity.Jobs;
 

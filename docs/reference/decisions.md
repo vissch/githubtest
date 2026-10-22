@@ -334,6 +334,21 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
   only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
+- **Can small arms pin a machine's hull guns? (2026-10-18, bug-catcher look look-code-sim-combat-20261018):** nothing
+  in the suppression path excludes a machine. `AddSuppression` (`DirectFire.cs`) skips only `Airborne`, and splash
+  reaches a hull two ways: the near-miss loop filters on team alone, and the wreck shadow
+  (`DirectFire.Wrecks.cs`, `InShadow`) suppresses every alive enemy behind a wreck, vehicles included, although
+  `BuildShelters` deliberately ignores vehicles when listing who shelters. `TargetAcquisition` then silences any
+  slot at `Suppression >= PinnedThreshold`, hull machine guns and all. One machine gun firing at a wreck adds 9 x 0.6
+  about five times a second against a decay of 8 a second, so a Maw parked behind that wreck goes blind in a few
+  seconds to rifle calibre that cannot scratch it. Read in code, not seen in Play. Options: (a) small arms never
+  suppress a machine — `AddSuppression` ignores `UnitFlags.Vehicle` exactly as it ignores `Airborne` (one line),
+  blast, gas, fire and beams still write `Suppression` directly, **the default taken here** (the two sibling rules
+  above already exclude hulls, and the owner's standing line is "as realistic as possible"); (b) a hull gathers
+  suppression but is never silenced for it (the same guard in `TargetAcquisition` instead); or (c) keep today's
+  behaviour and only document it. (a) and (b) are hashed suppression changes and each cost a replay bump.
+  Update, 2026-10-22: default (a) is built on `lane/show/grok-rebase-decide-whether-small-arms-can-pin-a-mach-20261019`
+  (replay v55; the 2026-10-18 lane's v53 was already taken by the wreck-shadow width). Not landed; waiting on the owner.
 - **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
   found-close-assault-fallback-skips-armour-and-can-20261018-0):** the finding says the `ownHits` path
   skips armour and can count a kill twice in a world with no `TankGunnerySystem`. Read in
