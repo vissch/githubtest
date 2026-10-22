@@ -23,8 +23,14 @@ namespace TW.Presentation.Tactical
         // (0.14/0.5), because "pale green stripes" is the alpha as much as the overlap.
         // Its colour by day is deeper than the sheet's so it is green ON snow
         public const float GasBankThin = 0.19f, GasBankFull = 0.62f;
-        /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so the widest card (19.3 m) squashed to 0.27 tops out at 1.73 m - gas to the chest, it does not stand over a man.</summary>
-        public const float GasBankSquash = 0.27f;
+        /// <summary>How tall a gas card's painted band is (m): the sheet fills the bottom third of the card, so every card,
+        /// thin or wide, paints the same 1.72 m of gas - under a 1.8 m man's head, and tall enough that at the T1 pose one
+        /// row of cards reaches the next row's and no bare ground shows between them (a share of the width left the thin
+        /// cards at 1.09 m, two fifths of the 4 m row pitch bare).</summary>
+        public const float GasBankBandM = 1.72f;
+        /// <summary>How flat a card of this width is drawn, so its bottom third is <see cref="GasBankBandM"/> tall.</summary>
+        public static float GasBankSquashFor(float width) => 3f * GasBankBandM / width;
+
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -94,17 +100,19 @@ namespace TW.Presentation.Tactical
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 14f, 2.4f, 73856093, 19349663);
+            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 8f, 1.2f, 73856093, 19349663);
             gasCards.Clear();
             foreach (var b in gasBank.Cells)
             {
-                float h1 = (b.Hash & 1023) / 1023f, h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
+                float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
                 float width = GasBankWidth(b.Thick, h2, step);
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                 // a zebra of cards is what one hard silhouette per cell looked like: break the top line, the brightness
                 // (lit core, dull skirt) and the roll (+-12 degrees) by the cell's hash so no two card edges line up
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f + (h1 - 0.5f) * 0.5f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.42f, kind, GasBankAlpha(b.Thick)));
+                // every card sits on the ground at the same height: the old sink and +-0.25 m jitter threw away 0.6 m of
+                // the band and pulled the rows apart; the roll and the frame boil already break the top line
+                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.08f, b.Z), width, width * GasBankSquashFor(width), BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.42f, kind, GasBankAlpha(b.Thick)));
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }
