@@ -495,7 +495,12 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   fix and the force-push fix, recommended; (b) update the `githubtest-relay-run` checkout to a commit carrying the
   force-push fix; (c) the owner runs `git push --force-with-lease origin lane/show/review-tools` from
   `githubtest-relay-work`; (d) delete origin's stale `lane/show/review-tools`, after which a plain push creates it.
-  Default taken: none; the lane stays local and this unit keeps re-queueing until the owner acts.
+  Default taken: none; the lane stays local and this unit keeps re-queueing until the owner acts. Third try
+  (2026-10-22): job ordering tests still green (17 of 17, plus the toolcheck beat test), `git push origin
+  lane/show/review-tools` still refused non-fast-forward; verified cause is that the runner checkout
+  `githubtest-relay-run` sits at `f258066cd6`, whose `Tools/relay/prepush.py` still refuses any push whose remote
+  tip is not an ancestor, so option (b) — updating that checkout to a commit carrying the force-push fix — is a
+  one-command fix for the owner or any non-leg session; no lane commit can cure it from inside.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
