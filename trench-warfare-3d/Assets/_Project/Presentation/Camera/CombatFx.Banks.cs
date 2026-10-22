@@ -2,9 +2,11 @@
 // fx.recipes, the gas and smoke fields as the drawn banks: chlorine as GasBank, a low rolling bank standing ON the ground
 // (its drawing fills the bottom third of the card, so a man's legs are in it and his head is not), the smoke screen as
 // SmokeBank mounds. Per 4 m field cell as before, placed and boiled by a hash of the cell (no random draws); from the
-// overview (BankMergeZoom) one card a 2 x 2 block, twice the size, so the field is a blanket with an edge and not
-// four times the cards. The field only changes per sim tick, so which cells stand and where their ground is are found
-// once a tick (and again when the zoom crosses BankMergeZoom); a frame only boils them.
+// overview (BankMergeZoom) the smoke keeps one card a 2 x 2 block, twice the size, but the gas is drawn as ONE standing
+// card per connected cloud (FindGasClouds): a dozen squashed block cards read as a cluster of pale stripes at 240 m, one
+// padded, barely squashed card per cloud reads as a cloud. The field only changes per sim tick, so which cells stand,
+// where their ground is and which cloud they belong to are found once a tick (and again when the zoom crosses
+// BankMergeZoom); a frame only boils them.
 using System.Collections.Generic;
 using UnityEngine;
 using TW.Sim;
@@ -21,8 +23,13 @@ namespace TW.Presentation.Tactical
         // How clearly the bank reads (film 2026-10-07: at 0.3-0.8 it was fainter than the old wisps at night and gone on snow):
         // a thin cell's card and a full one's, and its colour by day, deeper than the sheet's so it is green ON snow
         public const float GasBankThin = 0.6f, GasBankFull = 1f;
-        /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.55 tops out at 1.28 m - gas pools, it does not stand over a man.</summary>
+        /// <summary>How flat a close gas card is drawn (step 1, T1 and in): the sheet fills the bottom third, so a 7 m card
+        /// squashed to 0.55 tops out at 1.28 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.55f;
+        /// <summary>How flat an overview cloud card is drawn (step > 1): at 240 m a 0.55 pancake reads as a stripe, 0.8 stands.</summary>
+        public const float GasCloudSquash = 0.8f;
+        /// <summary>How much wider than its cells' bounding box a cloud's card is drawn, so it covers the edge cells' own spread.</summary>
+        public const float GasCloudPad = 4f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -36,6 +43,14 @@ namespace TW.Presentation.Tactical
         /// <summary>One field's standing cells, found once a sim tick at one merge step.</summary>
         sealed class BankCache { public readonly List<BankCell> Cells = new List<BankCell>(1024); public uint Tick = uint.MaxValue; public int Step; }
         readonly BankCache gasBank = new BankCache(), smokeBank = new BankCache();
+
+        /// <summary>One connected gas cloud: where it stands, how wide its cells reach, and how thick its thickest cell is.</summary>
+        public struct GasCloud { public float X, Z, Span, Thick; }
+
+        // the overview's clouds, found once a sim tick; the buffers grow with the field and are never reallocated per frame
+        readonly List<GasCloud> gasClouds = new List<GasCloud>(64);
+        float[] gasFieldCopy; int[] gasLabels, gasStack;
+        uint gasCloudTick = uint.MaxValue; int gasCloudStep;
 
         /// <summary>Cells a card stands for at this zoom: 1, or 2 (a 2 x 2 block) from the overview.</summary>
         public static int BankStep(float zoom) => zoom >= BankMergeZoom ? 2 : 1;
@@ -72,6 +87,66 @@ namespace TW.Presentation.Tactical
             }
         }
 
+        /// <summary>The connected clouds of a gas field: 4-connected cells at or above floor, one cloud a component.
+        /// Pure (a float[] field, no scene, no NativeArray) so a test can call it. Span is the longer side of the
+        /// component's bounding box in metres, X and Z its centre, Thick its thickest cell against full.</summary>
+        public static void FindGasClouds(float[] field, int width, int length, float floor, float full, float cellSize, List<GasCloud> into)
+        {
+            int[] labels = null, stack = null;
+            FindGasClouds(field, width, length, floor, full, cellSize, into, ref labels, ref stack);
+        }
+
+        /// <summary>FindGasClouds with the caller's buffers, grown only when the field grows: no allocation per frame.</summary>
+        static void FindGasClouds(float[] field, int width, int length, float floor, float full, float cellSize, List<GasCloud> into, ref int[] labels, ref int[] stack)
+        {
+            into.Clear();
+            int n = width * length;
+            if (field == null || n <= 0 || field.Length < n) return;
+            if (labels == null || labels.Length < n) labels = new int[n];
+            if (stack == null || stack.Length < n) stack = new int[n];
+            for (int i = 0; i < n; i++) labels[i] = 0;
+            for (int seed = 0; seed < n; seed++)
+            {
+                if (labels[seed] != 0 || field[seed] < floor) continue;
+                int minX = width, maxX = -1, minZ = length, maxZ = -1, top = 0;
+                float peak = 0f;
+                labels[seed] = 1; stack[top++] = seed;
+                while (top > 0)
+                {
+                    int c = stack[--top], cx = c % width, cz = c / width;
+                    if (cx < minX) minX = cx;
+                    if (cx > maxX) maxX = cx;
+                    if (cz < minZ) minZ = cz;
+                    if (cz > maxZ) maxZ = cz;
+                    if (field[c] > peak) peak = field[c];
+                    if (cx > 0 && labels[c - 1] == 0 && field[c - 1] >= floor) { labels[c - 1] = 1; stack[top++] = c - 1; }
+                    if (cx + 1 < width && labels[c + 1] == 0 && field[c + 1] >= floor) { labels[c + 1] = 1; stack[top++] = c + 1; }
+                    if (cz > 0 && labels[c - width] == 0 && field[c - width] >= floor) { labels[c - width] = 1; stack[top++] = c - width; }
+                    if (cz + 1 < length && labels[c + width] == 0 && field[c + width] >= floor) { labels[c + width] = 1; stack[top++] = c + width; }
+                }
+                into.Add(new GasCloud
+                {
+                    X = (minX + maxX + 1) * 0.5f * cellSize,
+                    Z = (minZ + maxZ + 1) * 0.5f * cellSize,
+                    Span = Mathf.Max(maxX - minX + 1, maxZ - minZ + 1) * cellSize,
+                    Thick = full > 0f ? Mathf.Clamp01(peak / full) : 1f,
+                });
+            }
+        }
+
+        /// <summary>Refill the overview's clouds if the tick or the step has moved: the field is copied out of the sim once
+        /// a tick, then flood-filled.</summary>
+        void RefreshGasClouds(GasSmokeSystem gas, int step, float floor, float full)
+        {
+            uint tick = Host.Local.World.Tick;
+            if (gasCloudTick == tick && gasCloudStep == step) return;
+            gasCloudTick = tick; gasCloudStep = step;
+            int n = gas.Width * gas.Length;
+            if (gasFieldCopy == null || gasFieldCopy.Length < n) gasFieldCopy = new float[n];
+            Unity.Collections.NativeArray<float>.Copy(gas.Gas, gasFieldCopy, n);
+            FindGasClouds(gasFieldCopy, gas.Width, gas.Length, floor, full, MapData.FieldCellSize, gasClouds, ref gasLabels, ref gasStack);
+        }
+
         /// <summary>L07/L08 release: at each source of a gas cloud a GasVent (a low jet spreading) for its 32 frames; at each
         /// source of a smoke screen the SmokeBank's own early frames (the mound growing out of the canister). Close only:
         /// from the overview the bank itself is the read.</summary>
@@ -88,8 +163,25 @@ namespace TW.Presentation.Tactical
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 14f, 2.4f, 73856093, 19349663);
             gasCards.Clear();
+            if (step > 1)
+            {
+                // the overview: one standing card a cloud, so the field reads as a cloud and not as a cluster of stripes
+                RefreshGasClouds(gas, step, 0.8f, 14f);
+                float cs = MapData.FieldCellSize;
+                foreach (var c in gasClouds)
+                {
+                    uint h = (uint)(Mathf.FloorToInt(c.X / cs) * 73856093 ^ Mathf.FloorToInt(c.Z / cs) * 19349663);
+                    float slow = now * 0.22f + ((h >> 20) & 1023) / 1023f * 6.2832f;
+                    float width = c.Span + GasCloudPad;
+                    var ck = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored;
+                    float ground = RenderGround.Sample(Host.Local.Map, c.X, c.Z);
+                    gasCards.Add(FlipbookFx.Pack(new Vector3(c.X, ground - 0.35f, c.Z), width, width * GasCloudSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, ck, GasBankAlpha(c.Thick)));
+                }
+                books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
+                return;
+            }
+            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 14f, 2.4f, 73856093, 19349663);
             foreach (var b in gasBank.Cells)
             {
                 float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;

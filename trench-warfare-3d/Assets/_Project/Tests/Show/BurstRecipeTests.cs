@@ -117,6 +117,46 @@ namespace TW.Tests
             }
         }
         [Test]
+        public void GasClouds_OneCardACloudFromTheOverview()
+        {
+            // 16 x 16 cells of 4 m: cell i covers [4i, 4i + 4), so cells 4..6 span 16..28 m, centre 22 m, span 12 m
+            const int w = 16, l = 16;
+            const float cs = 4f, floor = 0.8f, full = 14f;
+            var clouds = new System.Collections.Generic.List<CombatFx.GasCloud>();
+
+            var one = new float[w * l];
+            Patch(one, w, 4, 4, 3, 1f);
+            CombatFx.FindGasClouds(one, w, l, floor, full, cs, clouds);
+            Assert.AreEqual(1, clouds.Count, "one patch is one cloud, not nine cards");
+            Assert.AreEqual(22f, clouds[0].X, 0.001f, "its centre in metres");
+            Assert.AreEqual(22f, clouds[0].Z, 0.001f, "its centre in metres");
+            Assert.AreEqual(12f, clouds[0].Span, 0.001f, "3 cells of 4 m across");
+            Assert.AreEqual(1f / 14f, clouds[0].Thick, 0.001f, "its thickest cell against full");
+
+            var far = new float[w * l];
+            Patch(far, w, 4, 4, 3, 1f);
+            Patch(far, w, 10, 4, 3, 1f);               // 6 cells on from the first: 3 empty cells between them
+            CombatFx.FindGasClouds(far, w, l, floor, full, cs, clouds);
+            Assert.AreEqual(2, clouds.Count, "two real clouds far apart never merge into one card");
+
+            var corner = new float[w * l];
+            Patch(corner, w, 4, 4, 3, 1f);
+            Patch(corner, w, 7, 7, 3, 1f);             // touches the first only at the corner (6,6) - (7,7)
+            CombatFx.FindGasClouds(corner, w, l, floor, full, cs, clouds);
+            Assert.AreEqual(2, clouds.Count, "4-connected: a corner touch is two clouds");
+
+            Assert.That((12f + CombatFx.GasCloudPad) * CombatFx.GasCloudSquash,
+                Is.GreaterThan((12f + CombatFx.GasCloudPad) * CombatFx.GasBankSquash),
+                "the far cloud stands taller than the close pancake");
+        }
+
+        static void Patch(float[] field, int width, int x0, int z0, int size, float v)
+        {
+            for (int z = z0; z < z0 + size; z++)
+            for (int x = x0; x < x0 + size; x++)
+                field[z * width + x] = v;
+        }
+        [Test]
         public void JetpackLanding_RingAndDustNoColumn()
         {
             int landing = TW.Sim.Combat.LeapSystem.LandingSource;

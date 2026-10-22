@@ -139,6 +139,11 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, four stills at one pose, gas, smoke,
   puff and a plate - so a blank still accuses one book and not the sim, the field, the cache and the capture path at
   once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
+  From the overview (`BankStep` > 1) the gas bank is no longer one card a 2 x 2 block of cells - that read as a
+  cluster of pale stripes at 240 m - but ONE standing card per connected gas cloud: `CombatFx.FindGasClouds`
+  (`CombatFx.Banks.cs`) flood-fills the field 4-connected and each component gets a card its bounding box wide plus
+  `GasCloudPad` (4 m) and `GasCloudSquash` (0.8) tall, where a close card keeps `GasBankSquash` (0.55). Guarded by
+  `BurstRecipeTests.GasClouds_OneCardACloudFromTheOverview`.
   `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1/probe.py` measures those stills: it COUNTS THE GREEN the
   gas added over the plate (not a brightness test), in metres, bars the rise, and refuses two runs that
   photographed the same frame, barred against the SPREAD of three captures of one build at three different
