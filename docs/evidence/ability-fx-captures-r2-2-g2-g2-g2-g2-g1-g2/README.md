@@ -76,21 +76,23 @@ three runs' own spread. Every carried bar was re-derived — the art changed, so
 | `o240_large_share` | `ge` | 0.70 | 0.7822, 0.8605, 0.8573 | 0.0783 | 0.0822 | re-derived: the cloud IS the green now, not a patch inside a wash |
 | `o240_top_blob_px` | `ge` | 2800 | 3348, 3436, 3840 | 492 | 548 | re-derived; pairs with the count bar, so zero clouds still fails |
 | `pose_error_max` | `lt` | 0.50 | 0.0000, 0.0000, 0.0000 | 0.0000 | 0.5000 | `GasBankStills.PoseBar` |
+| `gas_smoke_relief_ratio` | `ge` | 0.45 | 0.5505 (one cards pass) | 0 | 0.1005 | the reshot gas card against the smoke card it now copies: 0.1199 over 0.2178, where the old flat puddle read 0.3898 |
 
 ## The look report (unbarred)
 
 | reading | value | note |
 |---|---|---|
 | `green_rim_ratio` (T1, in game) | 0.9018, 0.9007, 0.9033 | under 1: the cloud's silhouette is its **dark** rim, the lit mass sits inside it. Reported, never barred |
-| `cards-gas` relief | 0.0849 | `cards/` is **carried from `-g1`** and still shows the OLD gas card: `GasBankCards` hand-packs its own card and was not reshot |
-| `cards-smoke` relief | 0.2178 | |
-| gas/smoke relief ratio | 0.3898 | stale for the same reason, so it is **not barred** — reshooting `cards/` and barring that ratio is part 2 |
+| `cards-gas` relief | 0.1199 | `cards/` is **reshot** (part 2): `GasBankCards` hand-packs the gas card the way the close bank draws it, `CardWidth * GasBankStand` tall with its foot sunk `GasBankSink` (it was 0.0849 flat) |
+| `cards-smoke` relief | 0.2178 | unchanged: the smoke card was not touched |
+| gas/smoke rise ratio | 0.0000 | both cards read 0.000 m of rise at this fixed pose, so the rise ratio stays **unbarred**; only the relief ratio is barred |
 
 The in-game `green_relief` (0.1168) is the live reading of the new art and is the one under a bar.
 
-## Status: done (part 1)
+## Status: done (parts 1 and 2)
 
 `python probe.py` exits 0, `OK`. `python probe.py --selftest` exits 0 (camera hand calculation, 0.34311 m).
 `TW.Tests.BurstRecipeTests` 19/19 green with the renamed gas test. These are regression bars from this build's own
 spread, as in every predecessor of this chain: they prove the close gas now stands as a cloud with a rise and a
-dark rim, not that `cards/` has caught up with it.
+dark rim. Part 2 reshot `cards/` against the new drawing and barred `gas_smoke_relief_ratio` at 0.45 (reading
+0.5505).

@@ -48,8 +48,10 @@ inside the run values, or within one spread of them, is "the build cannot tell a
 the probe exits 1 rather than print a false green.
 
 THE LOOK REPORT. `cards/` holds the isolation stills (one hand-packed card per book, gas/smoke/puff, plus a
-plate), carried from -g1 and still showing the OLD gas card, so the gas/smoke ratios are printed and barred on
-nothing. Reshooting them is the next leg's work.
+plate), RESHOT with the gas card drawn the way the close bank now draws it (`CardWidth * GasBankStand`, its foot
+sunk `GasBankSink`). `gas_smoke_relief_ratio` - the gas card's relief over the smoke card's - is barred from that
+one cards pass, whose spread is 0 (one capture per book, from one deterministic pose). The rise ratio stays
+unbarred: a card at this pose has no rise of its own (both books read 0.000 m).
 
 USAGE
     python probe.py                 bar run1/run2/run3 against each other, print the cards/ look report
@@ -83,6 +85,9 @@ CARDS = ['cards-gas', 'cards-smoke', 'cards-puff', 'cards-plate']
 CLOUD_MIN_PX = 50             # a component this small or smaller is noise, not a gas cloud
 LARGE_MIN_PX = 300            # a cloud a player can pick out at the far camera (~17x17 patch, double the 150 px
                               # speck ceiling, well under the two big clouds at 2310+)
+# The cards/ look report's one barred reading (it has no run1/run2/run3: one pass, spread 0).
+CARD_BARS = {'gas_smoke_relief_ratio': 'ge'}
+
 BARS = {'green_low_share': 'ge', 'green_height_frac': 'ge', 'green_area_frac': 'ge', 'green_rise_m': 'ge',
         'green_relief': 'ge',
         'o240_green_area_frac': 'ge', 'o240_large_cloud_count': 'le', 'o240_large_share': 'ge',
@@ -594,6 +599,13 @@ def main():
         return 1
 
     ok = True
+    for bar_name, cmp_ in CARD_BARS.items():
+        if bar_name not in look:
+            print('%-18s no cards/ stills: cannot check' % bar_name)
+            ok = False
+            continue
+        ok = spread_check(bar_name, [look[bar_name]], cmp_, BAR_VALUES[bar_name]) and ok
+
     for bar_name, cmp_ in BARS.items():
         values = [results[r][bar_name] for r in results]
         # bars are set once three different-frame runs exist: see this folder's README.md
@@ -633,6 +645,9 @@ BAR_VALUES = {
                                        # 0.0822 - the cloud is the green, not a wash around it
     'o240_top_blob_px': 2800,         # re-derived: runs 3348/3436/3840 px, spread 492, floor 3348, margin 548
     'pose_error_max': 0.50,         # GasBankStills.PoseBar
+    'gas_smoke_relief_ratio': 0.45,   # cards/, reshot with the standing gas card: 0.5505 (gas relief 0.1199 over
+                                       # smoke's 0.2178), where the old flat puddle read 0.3898. One pass, spread 0,
+                                       # so the round number under it by 0.1005
 }
 
 

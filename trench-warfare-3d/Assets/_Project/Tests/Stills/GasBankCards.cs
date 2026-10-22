@@ -32,7 +32,8 @@ namespace TW.Tests
     {
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
 
-        /// <summary>Every card is this wide; the gas one is squashed by CombatFx.GasBankSquash, as the bank is.</summary>
+        /// <summary>Every card is this wide; the gas one stands CombatFx.GasBankStand of that tall, as the CLOSE bank is
+        /// drawn (2026-10-22: the gas row draws SmokeBank's cloud, so the card is the bank's card, not a flat puddle).</summary>
         const float CardWidth = 12f;
         /// <summary>The frame of each book that is drawn: inside GasBankFirst 17 .. GasBankLast 28, where the sheet's
         /// ink is (sheetink.py: mean alpha 0.18 at frames 17-28 of GasBank.png).</summary>
@@ -53,7 +54,7 @@ namespace TW.Tests
             readonly List<Matrix4x4> one = new List<Matrix4x4>(1);
 
             /// <summary>The three books the still set walks through: the gas bank under suspicion, a second Deep bank
-            /// book, and an ordinary card. The gas one is squashed as the real bank is.</summary>
+            /// book, and an ordinary card. The gas one stands as the real close bank does.</summary>
             public static readonly FlipbookFx.Book[] Which_Books =
                 { FlipbookFx.Book.GasBank, FlipbookFx.Book.SmokeBank, FlipbookFx.Book.Puff };
             public static readonly string[] Which_Names = { "gas", "smoke", "puff" };
@@ -65,9 +66,11 @@ namespace TW.Tests
                 var size = map.SizeMeters;
                 var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f),
                                         new Vector3(size.x + 20f, 60f, size.y + 20f));
-                float height = Which == 0 ? CardWidth * CombatFx.GasBankSquash : CardWidth;
+                float height = Which == 0 ? CardWidth * CombatFx.GasBankStand : CardWidth;
                 one.Clear();
-                float y = RenderGround.Sample(map, At.x, At.z) - 0.35f;   // the gas bank's own anchor
+                // the close gas bank's own anchor: its foot sunk GasBankSink under the ground, the other books 0.35
+                float sink = Which == 0 ? CombatFx.GasBankSink : 0.35f;
+                float y = RenderGround.Sample(map, At.x, At.z) - sink;
                 one.Add(FlipbookFx.Pack(new Vector3(At.x, y, At.z), CardWidth, height, CardFrame, 1f, 1f, 0f,
                                         FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, 1f));
                 Books.DrawPacked(Which_Books[Which], one, bounds);

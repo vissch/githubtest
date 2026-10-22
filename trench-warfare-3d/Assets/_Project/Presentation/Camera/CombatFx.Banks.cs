@@ -30,7 +30,7 @@ namespace TW.Presentation.Tactical
         /// 0.30 its rise fell back under the old stripe sheet. The overview keeps the flat GasBankSquash blanket.</summary>
         public const float GasBankStand = 0.42f;
         /// <summary>How far the close card's bottom edge sits under the ground, so the cloud's foot is in the mud and its mass stays low.</summary>
-        const float GasBankSink = 0.20f;
+        public const float GasBankSink = 0.20f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>

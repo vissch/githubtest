@@ -149,7 +149,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   ordinal and its green and points at `SmokeBank.png`) standing `CombatFx.GasBankStand` of its width tall, while the
   overview keeps the flat `GasBankSquash` bank; so `green_height_frac` is a FLOOR there, not the old ceiling a pale
   stripe sheet could pass, and `green_relief` bars how far from flat the cloud reads
-  (`--calibrate`, `--selftest`, `--pack`; `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1/probe.py`,
+  (`--calibrate`, `--selftest`, `--pack`). `GasBankCards` hand-packs its gas card the same way, so `cards/`'s
+  `gas_smoke_relief_ratio` (the gas card's relief over the smoke card's) is barred too;
+  (`docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2/probe.py`,
