@@ -1,0 +1,46 @@
+{
+  "subject": "review:Z008",
+  "looked_at": [
+    ".claude/agents/tw-reviewer.md and .claude/skills/tw-review/SKILL.md",
+    "git diff 6959ad812b438a3bc3671c44f8333508a43e72aa..origin/claude/trench-warfare-2d-3d-plan-idt7lf -- the 12 Z008 paths (431 lines; cmp.py deleted, abtest.py unchanged)",
+    "trench-warfare-3d/Tools/abtest.py (whole, 323 lines, at integration)",
+    "trench-warfare-3d/Tools/animforge.py (write_fbx, _curves, Clip.load, Clip.save, solve_arm, at integration)",
+    "trench-warfare-3d/Tools/aosa/aosa.py (the diff: write_atomic, current_cycle, load_budget, verdict, not_a_sample, report_ok, bench_string, cmd_refimg, cmd_ledger, cmd_prune, budget_today; test_aosa.py A6 A7 A11 A12)",
+    "trench-warfare-3d/Tools/aosa/cmp.py (the deleted 31 lines; nothing under Tools still names it)",
+    "trench-warfare-3d/Tools/aosa/occ.py (asmdefs, compile_one rsp replace, changed, main, at integration)",
+    "trench-warfare-3d/Tools/assetboard/briefs.py (queued_on and take, at integration) and src_git.tried",
+    "trench-warfare-3d/Tools/assetboard/build.py (board_dir, at integration)",
+    "trench-warfare-3d/Tools/assetboard/critiques.py (save, at integration) and notes.write_whole",
+    "trench-warfare-3d/Tools/assetboard/feedback.py (check, broken, at integration)",
+    "trench-warfare-3d/Tools/assetboard/film_blender.py (write_results, at integration)",
+    "trench-warfare-3d/Tools/assetboard/films.py (attach worker loop 240-270, at integration)",
+    "trench-warfare-3d/Tools/assetboard/gamefilm.py (imports, ffmpeg_ready, main, at integration)",
+    "docs/found/look-review-z010-20261021.json (not repeated)",
+    "docs/reference/tasks.md and decisions.md (grep only: these two are not already queued)"
+  ],
+  "tasks": [
+    {
+      "title": "keep films a killed Blender worker already wrote",
+      "why": "films.py:250-257 (integration): on TimeoutExpired the loop kills that worker and continue, so it never reads resultsN.json. film_blender.py writes that file after every job (write_results, os.replace). Jobs that finished before the hang are in the file, then films.py:264 reports each as 'Blender wrote no result'. The board drops finished films and renders them again. P2.",
+      "files": [
+        "trench-warfare-3d/Tools/assetboard/films.py",
+        "trench-warfare-3d/Tools/assetboard/film_blender.py"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a test builds a results json with one ok job, makes proc.wait raise TimeoutExpired, and asserts attach still takes that job; red on today's continue",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "replace budget.json instead of truncating it",
+      "why": "aosa.py:1194 and :1215 (integration) write budget.json with Path.write_text, which truncates first. load_budget at :237-247 (A11) refuses a file that is not a JSON object and will not rebuild it. write_atomic at :100-120 exists in the same file and the ledger uses it (:1279). A kill during the submit-time charge (A12) leaves budget.json half-written, and every later aosa command dies until someone repairs the file by hand. P2.",
+      "files": ["trench-warfare-3d/Tools/aosa/aosa.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a test in Tools/aosa/test_aosa.py fails a stand-in mid-write of budget.json and asserts the previous file is unchanged and load_budget still reads it; red while refimg uses write_text",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
