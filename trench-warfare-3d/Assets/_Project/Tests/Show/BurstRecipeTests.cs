@@ -266,12 +266,14 @@ namespace TW.Tests
             Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
         }
         [Test]
-        public void TheGasBankReadsAsAPuff_NotAFlatSheet()
+        public void TheGasBankReadsAsAStandingCloud_NotAFlatSheet()
         {
-            // g2-g2-g2-g2-g2's critique: at the close camera the bank was a sheet of pale green stripes
-            // (green_height_frac 0.0116, green_low_share 1.0), because every cell drew the same card at the same
-            // height. The numbers below are hand-worked, not read back out of PackGasCell: a 7 m card squashed to
-            // 0.55 draws its ink in the bottom third, so it topped out at 7 * 0.55 / 3 - 0.35 = 0.93 m, in every cell.
+            // g2-g2-g2-g2-g2-g1's critique: at the close camera the bank was still a sheet of pale green stripes,
+            // because Book.GasBank's drawing inks only the bottom 35% of its cell, however tall the card. The close
+            // bank is drawn with the smoke bank's cloud (Book.GasCloud, Ink.y 0.87) instead. The numbers below are
+            // hand-worked, not read back out of PackGasCell: a thick cell's card is 6.3 to 7.7 m wide, squashed by
+            // GasCloudSquash 0.25 * (0.8 to 1.2) it stands 1.26 to 2.31 m, inked to 0.87 of that and anchored 0.35 m
+            // down, so its ink tops out at 0.75 to 1.66 m (the clamp holds the tallest, with its rim, at 1.70).
             var cards = new List<Matrix4x4>(256);
             var tops = new List<float>(64);
             int two = 0;
@@ -282,26 +284,29 @@ namespace TW.Tests
                 cards.Clear();
                 int n = CombatFx.PackGasCell(cards, h, 1f, x * 4f, z * 4f, 0f, 0f, 1);
                 Assert.AreEqual(cards.Count, n, "PackGasCell returns how many cards it added");
-                Assert.That(n, Is.InRange(1, 2), "a cell is one card, or two with its crown puff");
-                if (n == 2) two++;
+                Assert.That(n, Is.InRange(1, 2), "a cell is one card, or two with its rim");
+                if (n == 2)
+                {
+                    two++;
+                    Assert.Greater(cards[1].m00, cards[0].m00, "the second card is WIDER than the body: a rim around its silhouette, not the old crown over it");
+                    Assert.Greater(cards[1].m10, 1f, "and brighter than the body (the shader's per-card brightness), so the edge reads");
+                }
                 float cell = float.MinValue;
                 foreach (var m in cards)
                 {
                     Assert.AreEqual(1f, m.m20, "every gas card is anchored: its foot, not its middle, is at the y packed");
-                    cell = Mathf.Max(cell, m.m13 + m.m11 * CombatFx.GasInkTop);   // where the ink tops out
+                    cell = Mathf.Max(cell, m.m13 + m.m11 * CombatFx.GasCloudInkTop);   // where the cloud's ink tops out
                 }
                 tops.Add(cell);
             }
             float tallest = float.MinValue, lowest = float.MaxValue;
             foreach (float t in tops) { tallest = Mathf.Max(tallest, t); lowest = Mathf.Min(lowest, t); }
-            Assert.GreaterOrEqual(tallest, 1.20f, "the tallest cell stands well over the old 0.93 m line: a puff, not a sheet");
-            // the widest cells now meet the (GasHeadRoom + GasBankAnchorDrop) / GasInkTop clamp exactly, so the
-            // ceiling is read with a float's worth of slack, not a tenth of a metre's
+            Assert.GreaterOrEqual(tallest, 1.40f, "the tallest cell stands well over the sheet build's 0.93 m line: a cloud, not a sheet");
             Assert.LessOrEqual(tallest, 1.7001f, "and no cell tops GasHeadRoom, so the gas is still under a 1.8 m man's head");
-            Assert.GreaterOrEqual(tallest - lowest, 0.25f, "the cells' tops spread, so the bank has a lumpy edge (today 0.00)");
-            Assert.That(two / 64f, Is.InRange(0.25f, 0.45f), "about three cells in eight carry a crown, so the card budget holds (the T1 capture draws 1060-ish cards of FlipbookFx.MaxCards 1536)");
+            Assert.GreaterOrEqual(tallest - lowest, 0.40f, "the cells' tops spread, so the bank has relief and not one line");
+            Assert.That(two / 64f, Is.InRange(0.25f, 0.45f), "about three cells in eight carry a rim, so the card budget holds (the T1 capture draws 1060-ish cards of FlipbookFx.MaxCards 1536)");
 
-            // the overview (step 2) is byte-identical to today: one flat card, no jitter, no crown, no clamp
+            // the overview (step 2) is byte-identical to today: one flat GasBank card, no jitter, no rim, no clamp
             cards.Clear();
             uint flat = 511u << 10;                                  // h2 = 0.4995: the 7 m card, doubled for a 2 x 2 block
             Assert.AreEqual(1, CombatFx.PackGasCell(cards, flat, 1f, 0f, 0f, 0f, 0f, 2), "one card a block from the overview");

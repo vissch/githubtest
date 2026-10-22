@@ -70,6 +70,7 @@ namespace TW.Presentation.Tactical
             RocketHead,   // a Salvo rocket in flight: a hot head at the right, its flame tail back to the root
             SparkFan,     // a tripwire: thin sparks thrown up in a low fan from a point on the ground
             MineSmoke,    // a mine's column: the wreck's smoke drawn near black (it read as a shell's grey)
+            GasCloud,     // the field's gas up close: the smoke bank's standing cloud, green (GasBank's own drawing inks only the bottom 35% of its cell, so it read as a sheet of stripes)
             Count
         }
 
@@ -216,6 +217,7 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "RocketHead", Cols = 4, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.98f },
             new Sheet { Name = "SparkFan", Cols = 4, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Ink = new Vector2(0.05f, 0.95f), Fill = 0.90f },
             new Sheet { Name = "WreckSmoke", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Cycle = true, Erode = true, Deep = true, Mood = 0.3f, Lit = 0.5f, RampIn = 0.1f, Tint = new Color(0.21f, 0.2f, 0.19f), Low = 0.11f, High = 1.20f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.43f },   // MineSmoke
+            new Sheet { Name = "SmokeBank", Cols = 8, Rows = 4, Frames = 22, Snap = true, Fps = 12f, Erode = true, Deep = true, Mood = 0.45f, Lit = 0.75f, Tint = new Color(0.74f, 0.80f, 0.34f), Low = 0.17f, High = 0.31f, Ink = new Vector2(0.03f, 0.87f), Fill = 0.94f },   // GasCloud: the smoke bank's drawing, which fills its cell, with GasBank's Lit and green Tint so it is gas and not grey
         };
 
         /// <summary>IN-5 (VFX pass): how much wider a burst's far-reading parts are drawn at a zoom: 1 up to FarGrowFrom,

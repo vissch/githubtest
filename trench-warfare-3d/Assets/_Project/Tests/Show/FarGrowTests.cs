@@ -60,7 +60,7 @@ namespace TW.Tests
             Assert.Less(w, 3f, "leaner"); Assert.Less(alpha, 0.8f, "lighter"); Assert.Less(life, 5f, "clears sooner");
             Assert.GreaterOrEqual(life, 5f * 0.6f, "never popping out in under 60 % of its time");
             Assert.IsTrue(FlipbookFx.IsSmoke(FlipbookFx.Book.Smoke) && FlipbookFx.IsSmoke(FlipbookFx.Book.ShellPlume) && FlipbookFx.IsSmoke(FlipbookFx.Book.WreckSmoke) && FlipbookFx.IsSmoke(FlipbookFx.Book.Burst));
-            Assert.IsFalse(FlipbookFx.IsSmoke(FlipbookFx.Book.GasBank) || FlipbookFx.IsSmoke(FlipbookFx.Book.SmokeBank) || FlipbookFx.IsSmoke(FlipbookFx.Book.DustPuff), "the field's gas and screen, and grit, are not a fire's smoke");
+            Assert.IsFalse(FlipbookFx.IsSmoke(FlipbookFx.Book.GasBank) || FlipbookFx.IsSmoke(FlipbookFx.Book.GasCloud) || FlipbookFx.IsSmoke(FlipbookFx.Book.SmokeBank) || FlipbookFx.IsSmoke(FlipbookFx.Book.DustPuff), "the field's gas and screen, and grit, are not a fire's smoke");
         }
     }
 }
