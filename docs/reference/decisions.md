@@ -295,6 +295,19 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **The chlorine bank missing from the stills is a capture-path fault: (a).** To the open question "The chlorine bank is not in the picture at all" (four CaptureRig stills in GreyboxCorridor at night hold no bank, while the sim took every call and `CombatFx.gasCards` held up to 133 packed cards) the owner picked option (a): treat it as a capture-path fault and have SHOW find why the GasBank book (the only `Bank`/`Deep` sheet) misses `CaptureRig`'s own `Camera.Render()`. It is the default that changes no look: the bank is not grown, brightened or unsquashed (option (b)), and it is not left alone (option (c)). Pictures and numbers: `docs/evidence/ability-fx-captures-r2/`. Carried by the lane `lane/show/ability-fx-captures-r2-2`. (owner, 2026-10-19) **Closed by `ability-fx-captures-r2-2`:** the bank was never missing — it is drawn, reaches `CaptureRig`'s `Camera.Render()`, and covers 11% of the T1 frame; the fault was `probe.py`'s own hue test, which at night could read only 193 of the 101,253 pixels that actually changed from the plate. No look changed. `docs/evidence/ability-fx-captures-r2/probe.json` is green. |
 
 ## Open: waiting on the owner
+- **The gas bars at a 60-frame capture spread: lower them, or shoot closer together? (2026-10-22, unit
+  ability-fx-captures-...-g1-g1-g2-g1-g2):** the three overview stills he rejected as "one pose" were 15 frames
+  apart. Reshot 60 frames apart (`TW_GAS_WAIT_FRAMES` 150/210/270, the widest the 120..300 clamp allows), the bank
+  is at three stages of its life and two of his own bars break:
+  `green_low_share` ge **0.30** reads 0.2317 / 0.3473 / 0.3042 (spread 0.1156), and the cloud ceiling lt **15**
+  reads 15 / 13 / 13, so run1 sits exactly on it. Options: (a) keep both bars as he set them, so
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g1-g2/probe.py` stays RED on those two lines — the
+  default taken here, nothing is loosened behind his back; (b) widen them to this spread: `green_low_share` 0.1161
+  and the ceiling 17, both then clearing by the runs' own spread; (c) keep the bars and shoot the three captures
+  closer together (about 25-30 frames), which brings back the "one pose" complaint the new 45-frame gap guard was
+  added to refuse. Everything else in that unit is green: the frame-gap and bank-moved guards pass, the rejected
+  one-pose set fails both (15 frames against 45; overlap 0.7404 against the 0.7021 bar), and nine bars were
+  re-read from the new captures.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
