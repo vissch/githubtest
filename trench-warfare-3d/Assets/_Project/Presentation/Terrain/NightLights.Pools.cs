@@ -21,6 +21,11 @@
 //                   the pool ended on a hard scalloped line; 0.4 and below bring that edge back)
 //   look.poolsThroughHaze  the share of a pool's light the Toon shader adds after the fog (1): with the haze lifted
 //                   the distance's lamps went out in it (warm pixels 2.8 to 1.6 %, 2026-09-30); 0 fogs them as before
+//   look.poolFigure  a man keeps his own silhouette in a lamp's pool (1, default; 0 restores today's look for an
+//                   A/B). At 1 his shaded side keeps more of the moon's blue, the pool's light on him cannot stack
+//                   past one lamp's, and the warm rim fades where the floor under him is already blazing, so he no
+//                   longer reads as a yellow smear on yellow mud (owner, 2026-10-17: lamp_z12.png, man and ground
+//                   one degree of hue apart and both at value ~0.95-0.99)
 // Fires reach SceneHooks.FirePool; a big fire counts as nearer than a lamp at the same distance, by its reach squared
 // against a lantern's, so the pools a camera keeps are the ones that light the most mud it sees.
 using System.Collections.Generic;
@@ -40,6 +45,10 @@ namespace TW.Presentation.Terrain
         /// <summary>look.poolsThroughHaze: the share of a pool's light the Toon shader adds after the fog (1), so the
         /// lifted haze does not put out the lamps in the distance; 0 fogs the pools with the ground as before.</summary>
         public const float DefaultThroughHaze = 1f;
+        /// <summary>look.poolFigure: a man in a lamp's pool keeps his own silhouette instead of taking the pool's hue and
+        /// value (owner, 2026-10-17). 1 by default; 0 restores today's look for an A/B.</summary>
+        public const float DefaultPoolFigure = 1f;
+        static readonly int PoolFigureId = Shader.PropertyToID("_TWPoolFigure");
         /// <summary>What a pool does to its flame's colour: deeper toward orange. The lantern's own colour on the mud read
         /// as pale sand (Play, 2026-09-29); the owner's edits light the mud orange.</summary>
         public static readonly Vector3 PoolWarmth = new Vector3(1f, 0.74f, 0.5f);
@@ -124,6 +133,7 @@ namespace TW.Presentation.Terrain
                 Shader.SetGlobalFloat(PropRimId, Mathf.Clamp(Knobs.Get("look.propRim", DefaultPropRim), 0f, 2f));
                 Shader.SetGlobalFloat(PoolSoftId, Mathf.Clamp01(Knobs.Get("look.poolSoft", DefaultPoolSoft)));
                 Shader.SetGlobalFloat(PoolShoulderId, Mathf.Clamp(Knobs.Get("look.poolShoulder", DefaultPoolShoulder), 0f, 4f));
+                Shader.SetGlobalFloat(PoolFigureId, Mathf.Clamp01(Knobs.Get("look.poolFigure", DefaultPoolFigure)));
             }
             if (poolStrength <= 0f || !SceneMood.Night)
             {
@@ -238,7 +248,7 @@ namespace TW.Presentation.Terrain
         {
             if (poolHooked) { RenderPipelineManager.beginCameraRendering -= ForCamera; poolHooked = false; }
             SceneHooks.FirePool = null;
-            Shader.SetGlobalFloat(ThroughHazeId, 0f); Shader.SetGlobalFloat(PoolSoftId, 0f); Shader.SetGlobalFloat(PropRimId, 0f); Shader.SetGlobalFloat(UnblueId, 0f); Shader.SetGlobalFloat(PoolShoulderId, 0f);
+            Shader.SetGlobalFloat(ThroughHazeId, 0f); Shader.SetGlobalFloat(PoolSoftId, 0f); Shader.SetGlobalFloat(PropRimId, 0f); Shader.SetGlobalFloat(UnblueId, 0f); Shader.SetGlobalFloat(PoolShoulderId, 0f); Shader.SetGlobalFloat(PoolFigureId, 0f);
             firePools.Clear();
             Shader.SetGlobalFloat(PoolCountId, 0f);
         }
