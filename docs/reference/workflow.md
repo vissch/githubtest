@@ -678,6 +678,8 @@ on 2026-10-07 the relay's queue was 86, 89 and 96 units in three files.
 | A machine's traps and how-to (paths, ssh, what is installed) | that machine's agent memory | any session there |
 | **A number that changes by the hour**: the queue, the integration tip, the replay version, what is running | nowhere in prose. Name the command that prints it (`git log`, the relay's day screen, `python Tools/health.py --lanes`) | nobody |
 
+`python Tools/test_close_assault_fallback.py` checks one moved-up row: the 2026-10-22 answer that the close-assault fallback stays deleted (the attack is gone, and every such hit goes through the armour model), and that `DirectFire` still throws when no `TankGunnerySystem` is registered.
+
 **A handoff** is a file named HANDOFF_AGENT_(topic).md in the Drive's TW3D-pipeline folder: that folder reaches
 both stations, and a live message between sessions is held and expires. It holds what the next session cannot get
 from the repo: what the owner asked in his words, what is half done and where, what was tried. It does not hold
