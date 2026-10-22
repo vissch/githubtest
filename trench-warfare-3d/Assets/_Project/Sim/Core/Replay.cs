@@ -225,6 +225,10 @@ namespace TW.Sim
         // wreck and pin found-fixes). The comments above keep the numbers each had on its own lane.
         // v68 (2026-11-20, the owner): the 20 % range cut stacks on the machines' reaches (main guns 88-124 m, the
         // Salvo's stand-off 124 m). Same inputs, a different battle: a v67 replay does not replay. Layout and chain unchanged.
+        // v55 (2026-10-22, [found-buildshelters-excludes-vehicles-from-teams-i-20261015-0]): fire at a wreck keeps down
+        // only the men on foot its Teams set counts. InShadow skipped neither Vehicle nor Airborne, so a machine in
+        // the shadow was pinned though BuildShelters never counted it. No field added, moved or dropped; suppression
+        // of those machines moves, so hashes move.
         public const ushort FormatVersion = 68;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
