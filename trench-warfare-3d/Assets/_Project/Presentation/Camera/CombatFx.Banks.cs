@@ -24,6 +24,17 @@ namespace TW.Presentation.Tactical
         public const float GasBankThin = 0.14f, GasBankFull = 0.5f;
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so the widest card (14.3 m) squashed to 0.36 tops out at 1.72 m - gas to the chest, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.36f;
+
+        /// <summary>How flat a close gas card (Book.GasPuff) is drawn. That drawing fills its cell (ink 0.03-0.87), so
+        /// the widest close card (7.7 m) tops out at 7.7 * 0.26 * 0.87 = 1.74 m: a puff still under a 1.8 m man's head.</summary>
+        public const float GasPuffStand = 0.26f;
+
+        /// <summary>How wide a close gas card is drawn (m): 4.5-7.7 m on the 4 m field grid, so cards overlap about one
+        /// deep - separate puffs, not the overview's continuous striped sheet (that stays in GasBankWidth).</summary>
+        public static float GasPuffWidth(float thick, float hash01) => (5f + 2f * thick) * (0.9f + 0.2f * hash01);
+
+        /// <summary>The opacity of a close gas card: fewer overlaps than the blanket, so more paint per card.</summary>
+        public static float GasPuffAlpha(float thick) => Mathf.Lerp(0.30f, 0.70f, Mathf.Clamp01(thick));
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -98,13 +109,21 @@ namespace TW.Presentation.Tactical
             {
                 float h1 = (b.Hash & 1023) / 1023f, h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
-                float width = GasBankWidth(b.Thick, h2, step);
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
+                if (step == 1)
+                {
+                    // close up: one low puff per cell, the smoke mound's drawing in chlorine green, standing on the
+                    // ground. Narrow enough that cards read as separate puffs instead of a sheet of pale stripes.
+                    float pw = GasPuffWidth(b.Thick, h2);
+                    gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), pw, pw * GasPuffStand, BankFrame(SmokeBankFirst, SmokeBankLast, slow), 1f, 1f, 0f, kind, GasPuffAlpha(b.Thick)));
+                    continue;
+                }
+                float width = GasBankWidth(b.Thick, h2, step);
                 // a zebra of cards is what one hard silhouette per cell looked like: break the top line, the brightness
                 // (lit core, dull skirt) and the roll (+-7 degrees) by the cell's hash so no two card edges line up
                 gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f + (h1 - 0.5f) * 0.5f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.25f, kind, GasBankAlpha(b.Thick)));
             }
-            books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
+            books.DrawPacked(step == 1 ? FlipbookFx.Book.GasPuff : FlipbookFx.Book.GasBank, gasCards, bounds);   // one book a frame either way: draw calls do not rise
         }
 
         void DrawSmokeBank(GasSmokeSystem gas, float now, Bounds bounds)

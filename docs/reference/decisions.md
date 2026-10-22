@@ -342,7 +342,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 
 ## Open: waiting on the owner
 - **Three untracked `Tools/otr/test_*` folders block every edit gate in `githubtest-relay-work` (2026-10-22):**
-  `Tools/otr/test_classify/`, `Tools/otr/test_objects/` and `Tools/otr/test_render/` are untracked C# build output
+  the test_classify, test_objects and test_render folders there are untracked C# build output
   (bin/obj) left in the checkout by an earlier session. Because they sit under `Tools/`, the gate reads the tree as a
   tool change and runs `Tools/toolcheck.py`, which stalls with no log growth past the relay's 900 s limit at the step
   after `Tools/relay/test_outcomes.py` (reproduced twice: gate-1 and gate-2 of relay run 20261022-004852-20276). No

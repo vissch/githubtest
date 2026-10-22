@@ -275,8 +275,20 @@ namespace TW.Tests
             Assert.AreEqual(50.2f, CombatFx.LeapStart(3, 50f, 10f, 0f).Until, 1e-4f, "never shorter than 0.2 s");
         }
         [Test]
+        public void TheCloseGasIsOneLowPuff_NotTheStripeSheet()
+        {
+            // the owner, r2.2: the close camera drew a sheet of pale green stripes. Up close the gas is one low puff
+            // per cell (Book.GasPuff, the smoke mound's drawing), whose ink fills 0.03-0.87 of its cell.
+            float top = CombatFx.GasPuffWidth(1f, 1f) * CombatFx.GasPuffStand * 0.87f;
+            Assert.Less(top, 1.8f, "the close puff stays under a 1.8 m man's head, as the blanket does");
+            Assert.Greater(top, 1.0f, "and stands taller than the 0.84 m sheet it replaces, so it reads as a puff");
+            Assert.Less(CombatFx.GasPuffWidth(1f, 1f), 8f,
+                "narrower than the 8 m TheGasBankCardsOverlapIntoOneMass demands of the blanket: puffs, not one mass");
+        }
+        [Test]
         public void TheGasBankLiesOnTheGround_NotOverAMansHead()
         {
+            // guards the merged-out blanket (step 2 and out); the close card is TheCloseGasIsOneLowPuff's.
             // r1's critique: gas-t1 read as a standing wall (height_frac 0.32). The sheet's drawing fills the bottom
             // third of the card, so the widest card's gas must still top out below a man's head.
             float top = CombatFx.GasBankWidth(1f, 1f, 1) * CombatFx.GasBankSquash / 3f;
@@ -286,6 +298,7 @@ namespace TW.Tests
         [Test]
         public void TheGasBankCardsOverlapIntoOneMass()
         {
+            // guards the merged-out blanket (step 2 and out), not the close puff.
             // the zebra: one card per 4 m gas cell, barely overlapping, so every card's own silhouette stayed visible.
             // A card must reach the next cell's centre, so the narrowest spans twice MapData.FieldCellSize (4 m - a
             // literal here, this test assembly does not reference TW.Sim).
@@ -297,6 +310,7 @@ namespace TW.Tests
         [Test]
         public void TheGasBankStacksIntoDensity()
         {
+            // guards the merged-out blanket (step 2 and out), not the close puff.
             // the other half of the fix: cards may only be a haze on their own, and reach the old core when stacked
             Assert.LessOrEqual(CombatFx.GasBankAlpha(0f), 0.2f, "a thin cell's card is a haze, not a tile");
             float stacked = 1f - Mathf.Pow(1f - CombatFx.GasBankAlpha(1f), 3f);
