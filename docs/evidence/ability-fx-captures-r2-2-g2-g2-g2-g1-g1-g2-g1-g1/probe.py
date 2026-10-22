@@ -33,7 +33,7 @@ THE PROBE'S CHANGES from -g1-g1-g2-g1's, which is otherwise carried unchanged (c
      side is commit 093b0be1b4's own committed runs measured the same way.
 
 THE RISE BAR. `green_rise_m` is `measure_t1`'s median height of the green mask above the ground, barred `'ge'`.
-This build's three captures read 2.575/2.529/2.568, spread 0.046 — well up from -g1's puddle-ish reading, because
+This build's three captures read 2.575/2.563/2.566, spread 0.012 — well up from -g1's puddle-ish reading, because
 the close puff's own cards stand taller even though fewer of them are drawn.
 
 THE HEIGHT FLOOR. One measure, two bars (`-g1`'s own fix, carried): `green_height_frac` (the owner's ceiling 0.15,
@@ -638,32 +638,40 @@ def main():
 
 # Bar values, set from the spread of run1/run2/run3 at three different frames (see README.md "The bars").
 BAR_VALUES = {
-    'green_low_share': 0.30,        # owner-decided, kept; runs 0.3462/0.3458/0.3462, spread 0.0004, margin 0.0458
-    'green_height_frac': 0.15,      # owner-decided CEILING, kept; runs 0.0950/0.0933/0.0947, spread 0.0017,
+    'green_low_share': 0.30,        # owner-decided, kept; runs 0.3462/0.3445/0.3450, spread 0.0017, margin 0.0445
+    'green_height_frac': 0.15,      # owner-decided CEILING, kept; runs 0.0950/0.0946/0.0947, spread 0.0004,
                                      # margin 0.0550
-    'green_height_floor': 0.08,     # the FLOOR, carried and re-read from these runs: 0.0950/0.0933/0.0947,
-                                     # spread 0.0017, margin 0.0133, still OVER -g1's own sheet range
+    'green_height_floor': 0.08,     # the FLOOR, carried and re-read from these runs: 0.0950/0.0946/0.0947,
+                                     # spread 0.0004, margin 0.0146, still OVER -g1's own sheet range
                                      # 0.0741-0.0768, which fails it outright
-    'green_rise_m': 2.4,            # carried, re-read: runs 2.575/2.529/2.568, spread 0.046, margin 0.129
-    'green_area_frac': 0.0135,      # carried, re-read: 0.01359/0.01358/0.01356 (blob 12528/12511/12501 px),
-                                     # spread 0.00003, margin 0.00006. The close branch is untouched in this
-                                     # unit, so T1 reads exactly what -g1-g1-g2 published
-    'o240_blob_floor': 1000,        # NEW, the point of this unit: the biggest overview blob of the whole frame.
-                                     # Runs 1039/1035/1060, spread 25, margin 35. The speck build this unit
-                                     # started from read 119/117/116 (-g1-g1-g2/probe.json, commit e39c8f88e1),
-                                     # so it fails this floor by an order of magnitude - a field of specks a
-                                     # player cannot see is no longer a pass
-    'o240_green_area_frac': 0.0060,  # RE-SET UP with the widen: runs 0.0072/0.0072/0.0071, spread 0.0001,
-                                     # margin 0.0011. The 0.0001 it replaces was the speck field's own coverage
-    'o240_cloud_count': 3,          # the FLOOR: clouds exist at all. Runs 13/13/11, spread 2, margin 8 - a
+    'green_rise_m': 2.4,            # carried, re-read: runs 2.575/2.563/2.566, spread 0.012, margin 0.163
+    'green_area_frac': 0.0135,      # carried, re-read: 0.01359/0.01359/0.01358 (blob 12528/12521/12518 px),
+                                     # spread 0.00001, margin 0.00008. The close branch is untouched in this
+                                     # unit: run1 (wait 200) repeats -g2-g1's T1 digits exactly, and runs 2-3
+                                     # sit at other waits, so they move only in the fourth digit
+    'o240_blob_floor': 1000,        # the owner's own number, carried; re-read: runs 2689/2704/2696, spread 15,
+                                     # margin 1689. The standing cloud is 2.6x the puddle build's 1039/1035/1060,
+                                     # and the speck build before it read 119/117/116 (-g1-g1-g2/probe.json,
+                                     # commit e39c8f88e1), which fails the floor by an order of magnitude
+    'o240_green_area_frac': 0.0060,  # carried from the widen, re-read: runs 0.0182/0.0184/0.0183, spread
+                                     # 0.0002, margin 0.0122 - the standing cloud covers 2.5x what the puddle did
+    'o240_cloud_count': 3,          # the FLOOR: clouds exist at all. Runs 12/11/10, spread 2, margin 7 - a
                                      # blanket from the other side (one or two clouds) fails it
     'o240_cloud_ceiling': 15,       # the CEILING, 'lt': the count stays UNDER 15, the owner's rule, and the old
-                                     # 21/15/20 blanket build fails it outright. Runs 13/13/11, max 13,
-                                     # spread 2, margin 2
-    'o240_cloud_share': 0.85,       # RE-SET UP with the widen: runs 0.8923/0.9196/0.8911, spread 0.0285, margin
-                                     # 0.0411. Nearly all the overview green now sits inside a counted cloud -
-                                     # the 50-150 px fringe specks are gone, which is exactly the complaint.
+                                     # 21/15/20 blanket build fails it outright. Runs 12/11/10, max 12,
+                                     # spread 2, margin 3
+    'o240_cloud_share': 0.85,       # carried from the widen, re-read: runs 0.9532/0.9582/0.9691, spread 0.0159,
+                                     # margin 0.1032. Nearly all the overview green sits inside a counted cloud.
                                      # The speck build's 0.4777/0.4413/0.3676 fails it
+    'o240_rise_floor': 7.0,         # NEW, the point of this unit: the overview cloud has a TOP. Runs
+                                     # 8.176/7.768/7.752, spread 0.424, margin 0.752 (over the spread). The
+                                     # puddle build this unit started from reads 3.398/2.985/3.054 the same way
+                                     # (commit 093b0be1b4's own three runs, measured in a scratch copy), so it
+                                     # fails this floor by more than 4 m
+    'o240_base_ceiling': 1.0,       # NEW, 'le': the cloud's base sits ON the mud and does not float. Runs
+                                     # 0.000/0.000/0.000, spread 0.000, margin 1.0. This is a guard, not a
+                                     # discriminator: the puddle build also reads 0.000, because the thing that
+                                     # was wrong with it was the missing top, not a floating base
     'pose_error_max': 0.50,         # GasBankStills.PoseBar
 }
 
