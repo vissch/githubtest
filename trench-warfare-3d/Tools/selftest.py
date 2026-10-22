@@ -1271,6 +1271,20 @@ def editor_lock_cases(tmp: pathlib.Path):
     tool_b('release', 'session-b')
 
 
+def git_bash():
+    """Git's own bash. A bare 'bash' on Windows can be WSL's launcher (WindowsApps\\bash.exe) when it comes first on
+    PATH: it cannot open a C:\\ path, so every tw case failed with exit 127 there, and the case that expects a
+    non-zero exit passed for that wrong reason."""
+    import shutil
+    git = shutil.which('git')
+    if git:
+        g = pathlib.Path(git).resolve()
+        for cand in (g.parent / 'bash.exe', g.parent.parent / 'bin' / 'bash.exe', g.parent.parent / 'usr' / 'bin' / 'bash.exe'):
+            if cand.exists():
+                return str(cand)
+    return 'bash'
+
+
 def tw_cases(tmp: pathlib.Path, tw_path: pathlib.Path):
     # [H13] a fake `unity` on PATH ahead of the real one, so `tw build` never touches a real editor.
     def make_fake(compilation_failed, console_message):
@@ -1294,20 +1308,20 @@ esac
         script.write_text(body)
         posix = str(fakebin / 'unity').replace('\\', '/')
         # NTFS carries no real exec bit; bash itself has to be asked to set the one it checks.
-        subprocess.run(['bash', '-c', 'chmod +x "%s"' % posix], cwd=tmp)
+        subprocess.run([git_bash(), '-c', 'chmod +x "%s"' % posix], cwd=tmp)
         return fakebin
 
     def run_tw_build(fakebin):
         # a real unity.exe at %LOCALAPPDATA%/unity/bin would otherwise be put ahead of the fake one on PATH.
         env = dict(os.environ, PATH=str(fakebin) + os.pathsep + os.environ.get('PATH', ''),
                    LOCALAPPDATA=str(tmp / 'no-such-localappdata'))
-        p = subprocess.run(['bash', str(tw_path), 'build'], cwd=tmp, capture_output=True, env=env)
+        p = subprocess.run([git_bash(), str(tw_path), 'build'], cwd=tmp, capture_output=True, env=env)
         return p.returncode, (p.stdout + p.stderr).decode('utf-8', 'replace')
 
     def run_tw(fakebin, *args):
         env = dict(os.environ, PATH=str(fakebin) + os.pathsep + os.environ.get('PATH', ''),
                    LOCALAPPDATA=str(tmp / 'no-such-localappdata'))
-        p = subprocess.run(['bash', str(tw_path), *args], cwd=tmp, capture_output=True, env=env)
+        p = subprocess.run([git_bash(), str(tw_path), *args], cwd=tmp, capture_output=True, env=env)
         return p.returncode, (p.stdout + p.stderr).decode('utf-8', 'replace')
 
     fail_bin = make_fake(compilation_failed=True, console_message=True)
