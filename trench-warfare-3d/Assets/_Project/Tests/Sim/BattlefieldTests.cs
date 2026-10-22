@@ -116,17 +116,19 @@ namespace TW.Tests
 
         /// <summary>
         /// THE RIDGE SEAM'S GUARD. `BattlefieldParams.Rise` is a dial, and `0` must stay bit-identical to the
-        /// field as it was before the dial existed. These three hashes were measured on this lane at commit
-        /// dedfcd09, BEFORE the first edit of the ridge work; everything the ridge adds is gated on
-        /// `p.Rise != 0f`.
+        /// field the integration branch generates. These three hashes were measured on
+        /// origin/claude/trench-warfare-2d-3d-plan-idt7lf at 5abdcaafea (the base this lane was rebased onto)
+        /// and again on this branch: Forest, Winter and Landing all matched. The older pins, taken at
+        /// dedfcd09 (Forest 330536166753067018, Landing 5359672224418286410), are the field from before later
+        /// map changes; Winter did not move. Everything the ridge adds stays gated on `p.Rise != 0f`.
         ///
-        /// A hash here that moves means the edit LEAKED into the level field - a branch that is not gated, or a
-        /// change reaching a non-crest trench. FIX THE EDIT, NEVER RE-PIN THE NUMBER.
+        /// A hash that moves away from the numbers below means the edit LEAKED into the level field. Fix the
+        /// edit. Do not point the pin at a hash this branch does not share with its base.
         /// </summary>
         [Test]
         public void Rise_Zero_LeavesTheThreePresets_Unchanged()
         {
-            const ulong Forest = 330536166753067018UL, Winter = 15193885026306347569UL, Landing = 5359672224418286410UL;
+            const ulong Forest = 2581722852187902125UL, Winter = 15193885026306347569UL, Landing = 11945177628685979217UL;
             using var forest = BattlefieldGenerator.Create(BattlefieldParams.ShelledForest(1917), Allocator.Persistent);
             using var winter = BattlefieldGenerator.Create(BattlefieldParams.WinterLine(1917), Allocator.Persistent);
             using var landing = BattlefieldGenerator.Create(BattlefieldParams.Landing(1917), Allocator.Persistent);
