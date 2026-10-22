@@ -151,7 +151,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, four stills at one pose, gas, smoke,
   puff and a plate - so a blank still accuses one book and not the sim, the field, the cache and the capture path at
   once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
-  `docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2/probe.py` measures those stills in metres, barred against the
+  `docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2-g2/probe.py` measures those stills in metres, barred against the
   SPREAD of three repeat captures of the same build on THREE DIFFERENT FRAMES (it refuses captures that share a t1
   `sim_tick` or a byte-identical still: 'three captures, one frame'), with `--calibrate`, `--selftest`, `--pack`,
   `--signature` (prints `GAS_DIR`/`GAS_COS`, the isolation still's own lift direction, and the cone and green share of each
@@ -160,7 +160,12 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   as the amount floor, `gas_green_share` (the share of that paint whose own lift leans green over red, the key that
   tells gas from a plain translucent card) with a card-rejection check that refuses to exit 0 unless `cards-smoke`
   and `cards-puff` fail that bar, plus the zebra test on patch coherence, `bank_paint_share` and `bank_patch_count`
-  (`docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2/probe.py` is its predecessor, which added the direction cone
+  and, on this build, `bank_height_frac` barred on BOTH sides (`bank_height_frac_lo` is the floor a flat sheet on
+  the mud fails, the `le` side the roof a standing wall fails)
+  (`docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/probe.py` is its predecessor, which raised the
+  `bank_paint_share` floor past the old sheet with a half-spread waiver, and
+  `docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2/probe.py` the one before it;
+  `docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2/probe.py` added the direction cone
   but passed any translucent night card; `docs/evidence/ability-fx-captures-r2-2-g2-g1-g2/probe.py` is the one
   before that, which barred the same zebra test
   on `paint_frac` but by hue; `docs/evidence/ability-fx-captures-r2-2-g2-g1/probe.py` is the one before that, which
