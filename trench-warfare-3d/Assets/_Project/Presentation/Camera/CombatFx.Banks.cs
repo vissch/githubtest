@@ -31,7 +31,7 @@ namespace TW.Presentation.Tactical
         /// <summary>How flat a card of this width is drawn, so its bottom third is <see cref="GasBankBandM"/> tall.</summary>
         public static float GasBankSquashFor(float width) => 3f * GasBankBandM / width;
         /// <summary>The full DEPTH span a gas card's centre may fill (m): one full field cell (<see cref="MapData.FieldCellSize"/>),
-        /// filled in two strata by <see cref="GasBankZOffset"/> rather than at random - at the old 1.2 m jitter every card
+        /// filled in three strata by <see cref="GasBankZOffset"/> rather than at random - at the old 1.2 m jitter every card
         /// sat within 0.6 m of its row line, so the 4 m row lattice still read as bands, and a random full-cell jitter
         /// covered the depth only on average, so the worst screen row still read a quarter under the bank's median.</summary>
         public const float GasBankJitterM = 4f;
@@ -40,23 +40,28 @@ namespace TW.Presentation.Tactical
         /// the painted bank into separate patches.</summary>
         public const float GasBankJitterXM = 1.2f;
 
-        /// <summary>Where in its cell a card stands in depth (m off the cell centre): even card columns in the near half,
-        /// odd columns in the far half, each filling its own 2 m stratum. The union still fills the whole 4 m cell
-        /// uniformly, but never by chance: a neighbouring column always has a card core over the other's soft band edge.
-        /// A card is four to five columns wide, so every screen x sees both parities.</summary>
+        /// <summary>Where in its cell a card stands in depth (m off the cell centre): card columns come in three classes
+        /// by x % 3, each filling its own third of the 4 m cell (near [-2,-0.667], middle [-0.667,0.667], far
+        /// [0.667,2] m) with 1.333 m of jitter inside it. The union still fills the whole cell uniformly, but never by
+        /// chance. Halves left a card (four cells wide) sitting over one neighbour's soft band edge; thirds put it over
+        /// two, so every screen row has a card core over a band edge, and the deepest row dip shallows.</summary>
         public static float GasBankZOffset(int x, int step, float h2)
-            => ((((x / step) & 1) == 0) ? -GasBankJitterM / 4f : GasBankJitterM / 4f) + (h2 - 0.5f) * GasBankJitterM / 2f;
+        {
+            float band = GasBankJitterM / 3f;
+            return (((x / step) % 3) - 1) * band + (h2 - 0.5f) * band;
+        }
 
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
         public static float GasBankAlpha(float thick) => Mathf.Lerp(GasBankThin, GasBankFull, Mathf.Clamp01(thick));
 
-        /// <summary>How wide a gas cell's card is drawn (m): 16.2-24.2 m on the 4 m field grid, so a card spans four to
-        /// five cells, neighbours overlap four to five deep, and no single card's silhouette is the shape you see. More
-        /// cards reach every screen row, so the worst row sits less far under the median and the sub-threshold holes
-        /// between card skirts (which read as separate patches) close. Same card count.</summary>
-        public static float GasBankWidth(float thick, float hash01, int step) => (18f + 4f * thick) * (0.9f + 0.2f * hash01) * step;
+        /// <summary>How wide a gas cell's card is drawn (m): 13.05-16.65 m on the 4 m field grid, so a thick card still
+        /// spans four cells, neighbours overlap three to four deep, and no single card's silhouette is the shape you see.
+        /// Pulled back from base 18 (16.2-19.8 m) because the drawn bank then filled the frame: the measured bank_width_m
+        /// tracks this base at about 1.5 m per base metre (base 13.5 read 25.9-27.8 m, base 18 read 31.6-36.0 m), so
+        /// base 14.5 lands near 28 m and the worst run stays under the owner's 32 m.</summary>
+        public static float GasBankWidth(float thick, float hash01, int step) => (14.5f + 4f * thick) * (0.9f + 0.2f * hash01) * step;
 
         const float SmokeBankFirst = 12f, SmokeBankLast = 20.5f; // the mound grown (the firebooks cut stops at 21)
 
@@ -81,7 +86,7 @@ namespace TW.Presentation.Tactical
 
         /// <summary>Refill a field's cells if the tick or the step has moved. floor: the least a cell must hold to stand;
         /// full: what counts as thick; jitterX / jitterZ: how far off its centre a card may stand sideways and in depth;
-        /// stratifyZ: place the depth offset in two interleaved strata (<see cref="GasBankZOffset"/>) instead of at
+        /// stratifyZ: place the depth offset in three interleaved strata (<see cref="GasBankZOffset"/>) instead of at
         /// random; salt: the cell hash's primes.</summary>
         void Refresh(BankCache cache, Unity.Collections.NativeArray<float> field, int width, int length, int step, float floor, float full, float jitterX, float jitterZ, bool stratifyZ, int p1, int p2)
         {

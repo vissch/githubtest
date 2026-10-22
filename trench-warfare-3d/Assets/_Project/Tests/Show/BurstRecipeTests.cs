@@ -306,10 +306,13 @@ namespace TW.Tests
                 // (3 * 4 m = 12 m on that same grid), so two neighbours always cover the gap one card's edge shows.
                 Assert.GreaterOrEqual(CombatFx.GasBankWidth(thick, hash, 1), 12f,
                     $"a gas card at thick {thick} hash {hash} must span three cells, so no card edge is the silhouette");
-                // the patch count read 19-30 islands: the holes between card skirts are what splits the bank. A card
-                // must span four cells of the 4 m grid (16 m); the narrowest is 18 * 0.9 = 16.2 m.
-                Assert.GreaterOrEqual(CombatFx.GasBankWidth(thick, hash, 1), 16f,
-                    $"a gas card at thick {thick} hash {hash} must span four cells, so the skirts of neighbours meet");
+                // the patch count read 19-30 islands: the holes between card skirts are what splits the bank. The
+                // bank's CORE must still span four cells of the 4 m grid (16 m), so the skirts of neighbours meet;
+                // only a thick cell's card is held to that. The thin cards at the bank's edge are narrower on
+                // purpose: the owner's bank must stay under 32 m wide on screen, and width is what sets that.
+                if (thick == 1f)
+                    Assert.GreaterOrEqual(CombatFx.GasBankWidth(thick, hash, 1), 16f,
+                        $"a thick gas card at hash {hash} must span four cells, so the skirts of neighbours meet");
             }
         }
         [Test]
@@ -348,27 +351,35 @@ namespace TW.Tests
         {
             // a random full-cell jitter fills the depth on average but by chance: a screen row can still fall where
             // only the soft band edges land, and that worst row read a quarter under the bank's median. So the cell
-            // (4 m) is split into two strata: even card columns stand +-1 m around -1 m (the near half), odd columns
-            // around +1 m (the far half), each with +-1 m of jitter. A card is four to five columns wide, so every
-            // screen x has both halves covered by a card core.
-            const int cells = 32;
-            int near = 0, far = 0;
+            // (4 m, MapData.FieldCellSize, a literal here) is split into THREE strata by x % 3: the near third,
+            // the middle and the far third, each with its own 1.333 m of jitter. Halves left a card (four cells wide)
+            // sitting over one neighbour's band edge; thirds put it over two, so the deepest row dip shallows.
+            // 33 columns so the three classes hold 11 each exactly.
+            const int cells = 33, classes = 3;
+            const float cell = 4f, band = cell / classes;
+            int[] counts = new int[classes];
             for (int z = 0; z < cells; z++)
             {
-                int nearThisZ = 0, farThisZ = 0;
+                int[] thisZ = new int[classes];
                 for (int x = 0; x < cells; x++)
                 {
                     uint h = (uint)(x * 73856093 ^ z * 19349663);
                     float h2 = ((h >> 10) & 1023) / 1023f;
                     float off = CombatFx.GasBankZOffset(x, 1, h2);
-                    if ((x & 1) == 0) { Assert.That(off, Is.InRange(-2f, 0f), $"even column {x} stands in the near half of its cell"); nearThisZ++; }
-                    else { Assert.That(off, Is.InRange(0f, 2f), $"odd column {x} stands in the far half of its cell"); farThisZ++; }
+                    int k = x % classes;
+                    float mid = (k - 1) * band;
+                    Assert.That(off, Is.InRange(mid - band / 2f - 1e-3f, mid + band / 2f + 1e-3f),
+                        $"column {x} (class {k}) stands inside its own third of the cell");
+                    thisZ[k]++;
                 }
-                Assert.Greater(nearThisZ, 0, $"row {z} has cards in the near half of the cell");
-                Assert.Greater(farThisZ, 0, $"row {z} has cards in the far half of the cell");
-                near += nearThisZ; far += farThisZ;
+                for (int k = 0; k < classes; k++)
+                {
+                    Assert.Greater(thisZ[k], 0, $"row {z} has cards in third {k} of the cell");
+                    counts[k] += thisZ[k];
+                }
             }
-            Assert.AreEqual(near, far, "the two strata carry the same number of columns, so the cell fills uniformly");
+            Assert.AreEqual(counts[0], counts[1], "the three strata carry the same number of columns");
+            Assert.AreEqual(counts[1], counts[2], "the three strata carry the same number of columns");
         }
     }
 }
