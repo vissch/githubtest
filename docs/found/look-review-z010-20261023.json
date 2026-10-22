@@ -1,0 +1,65 @@
+{
+ "subject": "review:Z010",
+ "looked_at": [
+  "git diff 5abdcaafeaa6..origin/claude/trench-warfare-2d-3d-plan-idt7lf -- the 12 Z010 paths (637 added / 173 removed over 9 files; briefs.py, build.py, critiques.py, abtest.py, land.ps1 unchanged in it), at integration",
+  "trench-warfare-3d/Tools/aosa/aosa.py (1663 lines, whole, at integration): write_atomic 103-114, current_cycle 208-211, load_budget 237-250, editor_state 300-315, verdict 582-677, bench_string 712-734, not_a_sample 755-766, report_ok 769-784, all_reports 956-967, cmd_learn 993-997, cmd_refimg 1151-1219, cmd_age 1111-1131, cmd_ledger 1256-1285, cmd_prune 1398-1430, main 1576-1659",
+  "trench-warfare-3d/Tools/aosa/test_aosa.py (790 lines, whole, at integration): git_bash 13-22, report fixture 48-70, setUp/run_cli/ab 73-109, the A5/A6/A7/A9/A11/A12/A14/A16/A17/H11 cases",
+  "trench-warfare-3d/Tools/aosa/occ.py (210 lines, whole, at integration): compile_one's rsp .tmp + os.replace 125-143, changed() 159-183, main's --changed split 186-206",
+  "trench-warfare-3d/Tools/aosa/test_occ.py (78 lines, new, at integration)",
+  "trench-warfare-3d/Tools/abtest.py (323 lines, whole, at integration): run_tests 59-71, Swap 74-91, fails_on_old 154-169, gym_run 172-182",
+  "trench-warfare-3d/Tools/aosa/land.ps1 (109 lines, whole, at integration)",
+  "trench-warfare-3d/Tools/aosa/bench.sh and player_bench.sh (whole, at integration, the new TW_BENCH_OUT/AOSA_DOCS versions)",
+  "trench-warfare-3d/Tools/animforge.py (the whole A-fix diff: write_fbx footer padding 102-110, _curves defaults 153-184, Clip.load 189-222)",
+  "trench-warfare-3d/Tools/assetboard/build.py (board_dir 44-50, out_dir 53-58, at integration) and found.py:56-57, ops.py:202, src_images.py:23-28 (the leftover callers)",
+  "trench-warfare-3d/Tools/assetboard/briefs.py take() 509-535 (skim: unchanged since the 2026-10-21 review)",
+  "trench-warfare-3d/Tools/editor_lock.py main() wait branch (exit 1 after a timeout), at integration",
+  "docs/reference/aosa/runs/.gitignore (manual/ is ignored, so [A16]'s test holds), at integration",
+  "SETTLED, carried from docs/found/look-review-z010-20261021.json: player_bench.sh now ends in an explicit exit 1 with the AOSA_DOCS path named (test_a16_player_bench_fails_without_a_report really goes red on the old line) - that finding is FIXED and not repeated here",
+  "SETTLED: build.board_dir is NOT gone - build.py:44-50 still swallows every reason in 'except (SystemExit, Exception): return None' and found.py:57 still guesses GH/'tw3d-board'. It is the 2026-10-21 finding at the same lines, still open, so it is not repeated here",
+  "SETTLED: briefs.py take() 513-515 still returns left_over()'s pair before it reads --queued/--outcome. The 2026-10-21 finding stands unfixed; no new or worse failure found on that path, so it is not repeated here",
+  "docs/found/look-review-z010-20261021.json, .claude/agents/tw-reviewer.md, .claude/skills/tw-review/SKILL.md, docs/reference/review.md",
+  "git grep of tasks.md and decisions.md at integration for write_atomic / budget.json / abtest / editor_lock wait (nothing queued, decided or rejected)"
+ ],
+ "tasks": [
+  {
+   "title": "aosa status must survive an unreadable budget.json",
+   "why": "aosa.py:245-247 ([A11], new) turns a corrupt budget.json into die(), which raises SystemExit. cmd_status calls load_budget inside 'try: ... except Exception' (418-422) and main wraps status in 'except Exception' (1654-1658), and SystemExit is not an Exception: so one truncated budget.json makes `aosa.py status` exit 1 and stop printing at the budget line - the backlog counts and the mode P/E/B line the loop reads every cycle never appear, against the documented 'status always exits 0'. test_a11_unreadable_budget_is_not_reset only exercises the `budget` command, so nothing catches it. P2.",
+   "files": ["trench-warfare-3d/Tools/aosa/aosa.py", "trench-warfare-3d/Tools/aosa/test_aosa.py"],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a test in Tools/aosa/test_aosa.py writes a truncated budget.json, runs `status`, and asserts exit 0 with both 'budget : unreadable' and a 'mode   :' line in the output; red on today's code",
+   "risk": [false, false, false, false, false],
+   "change": [false, true, false, false, false]
+  },
+  {
+   "title": "write budget.json and BACKLOG.md atomically, as LEDGER.md is",
+   "why": "[A14] gave LEDGER.md write_atomic (aosa.py:103-114, 1283), but the loop's other records are still plain write_text: budget.json at 242, 1194 and 1215 (the money record: the daily cap and every entry) and BACKLOG.md at 1127, where cmd_age rewrites the whole card table in place. A process killed or a disk full mid-write leaves a half file; for budget.json that is now fatal by design ([A11] refuses to read it), so the loop stops until a human repairs it, and every past charge is lost. The helper is already in the file. P2.",
+   "files": ["trench-warfare-3d/Tools/aosa/aosa.py", "trench-warfare-3d/Tools/aosa/test_aosa.py"],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a test patches aosa.os.replace to raise, calls `age` and the budget writer, and asserts the old budget.json and BACKLOG.md are byte-identical afterwards with no .tmp left behind (the shape of test_a14_a_failed_ledger_write_keeps_the_old_file); red on today's code",
+   "risk": [false, false, false, false, false],
+   "change": [false, true, false, false, false]
+  },
+  {
+   "title": "abtest: stop when editor_lock wait timed out",
+   "why": "abtest.py:61 and :177 run `editor_lock.py wait --timeout 3600` with check=False and never read the return code, and editor_lock's wait branch returns 1 when the lock is still held. So after an hour of silent waiting abtest starts a batch editor on a project another editor already has open: Unity refuses the project, no results XML is written, run_tests returns None, and the user is told 'no verdict (compile error? see the log)' - the one reason it was not. fails-on-old then exits with that same wrong reason, after swapping production files over the tree and burning two hours. P2.",
+   "files": ["trench-warfare-3d/Tools/abtest.py"],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a python test runs abtest with a stand-in editor_lock.py that exits 1 and asserts abtest exits non-zero naming the held lock, and never launches the editor stand-in; red on today's code",
+   "risk": [false, false, false, false, false],
+   "change": [false, true, false, false, false]
+  },
+  {
+   "title": "land.ps1 must read prune --apply's new exit code",
+   "why": "aosa/land.ps1:106 pipes `aosa.py prune --apply` into the log and never checks $LASTEXITCODE, but [A17] (aosa.py:1419-1430) just gave prune exit 1 for every item it could not delete. A snapshot held open by a running player therefore stays on disk, the line scrolls past in the log, and land.ps1 still prints 'OK: gate green' and exits 0 - against its own header, 'Exit 0 = everything asked for passed'. The retention rule exists because cycle 8 found 4.5 GB of unread copies, so the one signal that it did not run has no reader. P3.",
+   "files": ["trench-warfare-3d/Tools/aosa/land.ps1"],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a Tools/selftest.py case runs land.ps1 -EditOnly with its stand-ins and a prune that exits 1, and asserts land.ps1 exits non-zero and the log says the retention rule did not finish; red on today's land.ps1",
+   "risk": [false, true, false, false, false],
+   "change": [false, true, false, false, false]
+  }
+ ]
+}
