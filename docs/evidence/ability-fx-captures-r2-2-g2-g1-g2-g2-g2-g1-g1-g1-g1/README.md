@@ -1,7 +1,9 @@
 # ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g1: close the row gap with a column stagger
 
-**Part 1 of 2 (this commit).** The code fix, its two guard tests, and a sharpened `probe.py`. No captures yet:
-`run1`/`run2`/`run3` are part 2, and `python probe.py` therefore still exits 1 with `three runs needed`.
+**Part 1** (commit `657901752b`): the code fix, its two guard tests, and a sharpened `probe.py`. **Part 2**
+(this commit): the three captures of that build. They show the stagger did not close the row gap on screen
+(see below), so no bar is set and `python probe.py` still exits 1 — now with `row_dark_frac ... FAILED`
+rather than `three runs needed`.
 
 ## The owner's complaint
 
@@ -62,12 +64,33 @@ All three are well over the 0.04 the plan asked for, so the striped build now re
 it is possible. Nothing else in the probe moved; `CARDS_DIR` still points at
 `../ability-fx-captures-r2-2-g2-g1/cards/` and the cards are not reshot.
 
-## Part 2 (not this commit)
+## Part 2: the captures say the stagger did not close the gap
 
-Three fresh captures of this build, every `BAR_VALUES` entry re-set from them (`row_dark_frac`'s bar must clear
-them by their own spread AND stay under 0.1049 minus that spread, so the striped captures above fail it), and the
-bar table. `bank_paint_share` / `bank_patch_count` are expected to move back towards 0.75 / 15-21 now that the
-jitter is 1 m; report which way they went.
+Three fresh captures of the committed stagger build (`657901752b`, t1 `sim_tick` 557/597/637):
+
+```
+run1   row_dark_frac 0.1644   row_gap_deepest 0.2671
+run2   row_dark_frac 0.1644   row_gap_deepest 0.2594
+run3   row_dark_frac 0.1517   row_gap_deepest 0.2636
+```
+
+This is HIGHER than the striped build it was meant to beat (0.1399 / 0.1049 / 0.1223, `../ability-fx-captures-r2-2
+-g2-g1-g2-g2-g2-g1-g1-g1`). The arithmetic in "Why no band height can close it" above shows the worst merged
+column-pair spacing shrinks to 2.99 m, inside a card's 3.646 m reach — but `row_dark_frac` reads the on-screen
+row profile, not column-pair spacing, and on screen the stagger reads as MORE dark row than before, not less.
+No `le` bar exists that clears this build's own spread (0.0127) and also sits under the striped build's floor
+minus its spread (0.1049 - 0.0350 = 0.0699): the window the plan asked for is empty, in the wrong direction (this
+build is worse, not merely "near"). Per the plan's own risk note, the bar is not raised to fit; `row_dark_frac`
+stays at 0.03 and this round's `probe.py` is left at `three runs needed` / unset — see `note.md` in this round's
+leg folder.
+
+Every other key clears easily on the new runs: `gas_paint_frac` 0.0215/0.0208/0.0195, `bank_paint_share`
+0.6711/0.6811/0.7174, `bank_patch_count` 26/24/19, `gas_green_share` 0.4270/0.4187/0.4222, `bank_low_share`
+0.0994/0.1009/0.1055, `bank_height_frac` 0.2459/0.2288/0.2249, `o240_area_frac` 0.0169/0.0192/0.0196,
+`pose_error_max` 0.0000 all three. Only `row_dark_frac` (and the unbarred `row_gap_deepest`) fail to clear.
+
+`run1`/`run2`/`run3` in this folder are these three captures, packed and committed so the next round does not
+reshoot.
 
 ## This lane does not land
 
