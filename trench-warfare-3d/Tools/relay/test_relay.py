@@ -415,6 +415,26 @@ class Guards(Base):
             self.assertFalse(self.denied("Bash", command=cmd),
                               "[found-the-pre-tool-guard-checks-write-paths-only-f-20261018-0] %s" % cmd)
 
+    def test_a_read_only_leg_may_fetch_ask_for_help_and_write_in_its_own_desk(self):
+        """The owner's check (1) of 2026-10-10: read-only commands and writes inside the leg's own desk go through,
+        a write into the checkout does not."""
+        d = self.leg("plan")
+        desk = str(legdir.desk(d)).replace("\\", "/")
+        work = str(self.tmp / "work").replace("\\", "/")
+        for cmd in ("git fetch origin", "git fetch", "git fetch -q origin", "git log -1", "grep -n x f", "ls",
+                    "cat f", "python x.py --help", "python Tools/build.py --help", "gate.ps1 -h", "git lfs help",
+                    "echo x > %s/note.md" % desk, "mkdir %s/sub" % desk, "touch %s/a.txt" % desk,
+                    "git log --oneline -20 > %s/log.txt" % desk, "cp %s/a.txt %s/b.txt" % (desk, desk),
+                    "tee %s/out.txt" % desk):
+            self.assertFalse(self.denied("Bash", command=cmd), cmd)
+        for cmd in ("echo x > %s/a.txt" % work, "git fetch origin x:main", "git fetch origin HEAD:refs/heads/main2",
+                    "rm -rf %s" % desk, "mkdir %s/sub" % work, "cp %s/a.txt %s/a.txt" % (desk, work),
+                    "touch %s/a.txt %s/b.txt" % (desk, work), "tee %s/a.txt" % work, "mkdir sub", "touch f",
+                    "git log > %s/log.txt" % work, "python x.py --help > %s/h.txt" % work,
+                    "git -C %s fetch origin" % (work + "-other"),         # another checkout, not this leg's
+                    "git -c core.hooksPath=x fetch origin"):
+            self.assertTrue(self.denied("Bash", command=cmd), cmd)
+
     def test_the_hook_as_a_process_refuses_when_its_rules_are_broken(self):
         d = self.leg()
         broken = self.tmp / "relaycopy"
@@ -2657,6 +2677,29 @@ class CloseOut(Repo):
         self.assertIn("leg finish", str(no.exception))
         self.assertFalse((legdir.desk(self.d) / "jobs" / "gate-2").exists())
 
+    def test_done_refuses_a_report_that_does_not_start_with_result(self):
+        """The owner, 2026-10-10: a leg's report must say RESULT: done|blocked|failed on its first line."""
+        self.leg_cmd("gate", "start")
+        self.leg_cmd("gate", "wait", "--max", "60")
+        self.assertEqual(self.leg_cmd("finish", "-m", "nothing to add")[0], 0)   # nothing is left to commit
+        code, out = self.leg_cmd("done", "--report", "All finished.")
+        self.assertEqual((code, out.strip()), (1, "NOT DONE: your report must start with RESULT: done|blocked|failed"))
+        code, out = self.leg_cmd("done", "--report", "Leg complete.\nRESULT: done. a.txt is in.")
+        self.assertEqual(code, 1, out)                              # the words above it do not make it a report
+        code, out = self.leg_cmd("done", "--report", "**RESULT: blocked**, the gate is red")
+        self.assertNotIn("NOT DONE: your report", out)               # markdown stars are fine
+        code, out = self.leg_cmd("done", "--report", "RESULT: done. nothing is left")
+        self.assertEqual((code, out.strip()[:5]), (0, "done:"), out)
+        f = self.tmp / "report.txt"
+        f.write_text("RESULT: done. from a file\n", encoding="utf-8")
+        self.assertEqual(self.leg_cmd("done", "--report", str(f))[0], 0)
+        self.assertEqual(self.leg_cmd("done")[0], 0)                 # with no report, as before
+
+    def test_the_card_names_the_report_flag_of_leg_done(self):
+        import prompt
+        card = prompt.card_text(legdir.read(self.d), "the goal")
+        self.assertIn('leg done --report "<your report>"', card)
+
     def test_outside_a_leg_the_leg_commands_refuse(self):
         os.environ.pop("TW_RUNS")
         with self.assertRaises(SystemExit):
@@ -2717,6 +2760,95 @@ class CloseOut(Repo):
         self.unity(1, 1, 0)
         with self.assertRaises(SystemExit):
             self.leg_cmd("play", "TW.Tests.X")
+
+
+class Dispatch(Repo):
+    """What the runner asks before it pays for a leg (the owner's checks of 2026-10-10)."""
+    def live_record(self, run, unit, station="laptop", beat=None):
+        p = self.board / "relay" / station / "live" / (run + ".json")
+        p.parent.mkdir(parents=True, exist_ok=True)
+        rec = {"run": run, "station": station, "now_on": {"unit": unit, "role": "lane", "lane": "lane/show/x"},
+               "beat": beat or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+        p.write_text(json.dumps(rec), encoding="utf-8")
+
+    def test_done_when_is_measured_on_origins_lane_not_on_the_checkout(self):
+        self.queue("u1")
+        self.g(["switch", "-q", "-c", "lane/show/x"])
+        (self.work / "a.txt").write_text("one\n", encoding="utf-8")
+        self.g(["add", "-A"]); self.g(["commit", "-q", "-m", "a"])
+        self.g(["push", "-q", "origin", "lane/show/x"])
+        done = gitio.head(self.work)
+        self.g(["reset", "-q", "--hard", "HEAD~1"])                  # the checkout is behind what is pushed
+        self.script(self.GOOD)
+        out, stop = self.go()
+        self.assertIn("unit u1: already done, no leg needed", out)
+        self.assertEqual((stop["legs"], gitio.head(self.work)), (0, done))
+        self.assertTrue((self.board / "relay" / "done" / "u1.json").exists())
+
+    def test_a_unit_another_run_has_a_leg_open_on_is_skipped(self):
+        self.queue("u1"); self.queue("u2")
+        self.live_record("20261015-010101-999", "u1")
+        self.script(self.GOOD)
+        out, stop = self.go(max_legs=1)
+        self.assertIn("skipping u1: run 20261015-010101-999 has a leg open on it", out)
+        self.assertIn("leg 01  plan    u2", out)
+
+    def test_a_stale_live_record_does_not_hold_a_unit(self):
+        self.queue("u1")
+        old = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=5 * self.lim["leg_minutes"])
+        self.live_record("20261015-010101-999", "u1", beat=old.strftime("%Y-%m-%dT%H:%M:%SZ"))
+        self.script(self.GOOD)
+        out, stop = self.go(max_legs=1)
+        self.assertNotIn("skipping u1", out)
+        self.assertIn("leg 01  plan    u1", out)
+
+
+class IdsFile(Repo):
+    """The leg card names the file that holds the unit's bracketed ids (the owner's check 4, 2026-10-10)."""
+    def dec(self, text):
+        p = self.work / "docs" / "reference" / "decisions.md"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text, encoding="utf-8")
+        self.g(["add", "-A"]); self.g(["commit", "-q", "-m", "decisions"])
+        self.g(["push", "-q", "origin", gitio.INTEGRATION])
+        return p
+
+    def test_the_line_names_decisions_md_when_it_holds_the_id(self):
+        import idsfile
+        dec = self.dec("row: [N5.3] do the thing\n")
+        self.assertEqual(idsfile.card_line("Fix [N5.3] in the sim.", self.work),
+                         "- The ids this unit names (N5.3) stand in %s" % dec)
+
+    def test_a_removed_row_is_found_by_its_last_commit(self):
+        import idsfile
+        self.dec("row: [N5.3] do the thing\n")
+        before = self.g(["rev-parse", "--short", "HEAD"]).stdout.decode().strip()
+        (self.work / "docs" / "reference" / "decisions.md").write_text("row gone\n", encoding="utf-8")
+        self.g(["add", "-A"]); self.g(["commit", "-q", "-m", "row resolved"])
+        line = idsfile.card_line("Fix [N5.3] in the sim.", self.work)
+        self.assertIn("not at HEAD: read it with git show %s:docs/reference/decisions.md" % before, line)
+
+    def test_a_named_report_file_wins_over_decisions_md(self):
+        import idsfile
+        self.dec("row: [N5.3] do the thing\n")
+        report = self.work / "report.md"
+        report.write_text("[N5.3] is done.\n", encoding="utf-8")
+        line = idsfile.card_line("See `report.md` for [N5.3].", self.work)
+        self.assertEqual(line, "- The ids this unit names (N5.3) stand in %s" % report)
+
+    def test_no_bracketed_id_returns_none(self):
+        import idsfile
+        self.dec("row: [N5.3] do the thing\n")
+        self.assertIsNone(idsfile.card_line("Fix the sim, no id here.", self.work))
+
+    def test_the_card_names_the_file_end_to_end(self):
+        self.dec("row: [N5.3] do the thing\n")
+        self.queue("u1", raw=json.dumps({"id": "u1", "lane": "lane/show/x", "role": "lane",
+                                         "goal": "Fix [N5.3] in the sim.", "done_when": ["git", "cat-file", "-e", "HEAD:a.txt"]}))
+        self.script(self.GOOD)
+        out, stop = self.go(max_legs=1)
+        card = (legdir.leg_path(stop["run"], 1) / "card.md").read_text(encoding="utf-8")
+        self.assertIn("stand in %s" % (self.work / "docs" / "reference" / "decisions.md"), card)
 
 
 class PipelineSource(Repo):

@@ -22,7 +22,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                                                # noqa: E402
-import agents, boardio, config, gitio, launch, ledger, legdir, papers, sources   # noqa: E402
+import agents, boardio, config, gitio, idsfile, launch, ledger, legdir, papers, sources   # noqa: E402
 
 NO_WINDOW = ("\n- This run cannot open a window (it was not started from the owner's desktop). Only work that "
              "needs a visible window is blocked: end BLOCKED and say so. Unity itself works in batch mode; a "
@@ -84,7 +84,8 @@ class Run:
         self.home = legdir.home()
         self.run = "%s-%d" % (time.strftime("%Y%m%d-%H%M%S"), os.getpid())
         self.deadline = time.time() + self.lim["run_hours"] * 3600
-        self.ctx = {"board": self.board, "work": self.work, "station": self.station, "skip": set(), "since": 0}
+        self.ctx = {"board": self.board, "work": self.work, "station": self.station, "skip": set(), "since": 0,
+                    "run": self.run}
         self.legs, self.idle, self.claimed, self.ready = 0, 0, None, False
         self.heads, self.lanes, self.stop_file = {}, set(), stop_path(self.home)
         self.units, self.no_window = {}, launch.no_window()     # unit id -> PASS | FAIL | BLOCKED
@@ -486,6 +487,9 @@ class Run:
         src.claim(unit)
         self.claimed = src
         remote_before, body = gitio.remote_head(self.work, unit["lane"]), src.body(unit)
+        line = idsfile.card_line(body, self.work, self.board)
+        if line:
+            body += "\n" + line
         d, leg = self.leg(unit, "plan", body)
         plan_file = legdir.desk(d) / self.ph["plan"]["output"]
         plan = plan_file.read_text(encoding="utf-8") if plan_file.exists() else ""

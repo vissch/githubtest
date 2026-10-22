@@ -63,11 +63,27 @@ def leg(board, n, source, role, usd, kind=None):
     P.write_json(board / "relay" / "desktop" / "legs" / ("%s-%02d.json" % (RUN, n)), rec)
 
 
+ENV = ("TW_BOARD", "TW_STATION", "TW_RELAY_HOME", "TW_BOARD_ALSO")
+
+
 def main():
+    """Keeps this machine's live relay home and boards out of the test, and puts the environment back after."""
+    saved = {k: os.environ.get(k) for k in ENV}
+    try:
+        return run()
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
+def run():
     board = Path(tempfile.mkdtemp(prefix="tw-shares-test-"))
     for d in ("items", "results", "feedback", "claims", "relay/queue", "relay/done", "relay/desktop/legs"):
         (board / d).mkdir(parents=True)
-    os.environ.update(TW_BOARD=str(board), TW_STATION="desktop")
+    os.environ.update(TW_BOARD=str(board), TW_STATION="desktop", TW_RELAY_HOME=str(board / "relay-home"))
     os.environ.pop("TW_BOARD_ALSO", None)
     three = [("concept", ROLE), ("build", ROLE), ("motion", ROLE)]
     item(board, "aaa-new", three)                       # nothing of it worked yet

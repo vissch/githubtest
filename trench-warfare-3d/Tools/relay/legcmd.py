@@ -11,8 +11,9 @@
   relay.py leg finish [-m MSG]    commit and push only when the gate is green for exactly this tree, HEAD's tree
                                   included; otherwise it pushes nothing and saves any uncommitted work as a patch
                                   beside the leg
-  relay.py leg done               exit 0 when nothing is left: no uncommitted file, the lane pushed. In a plan leg:
-                                  exit 0 when plan.md passes the check the runner will run on it
+  relay.py leg done [--report T]  exit 0 when nothing is left: no uncommitted file, the lane pushed. In a plan leg:
+                                  exit 0 when plan.md passes the check the runner will run on it. A report's first
+                                  line must be RESULT: done, blocked or failed
 
 gate.ps1 -EditOnly records no tree, so the relay keeps its own record: gate.json in the leg's desk folder holds the
 tree the gate started on. The leg is found through TW_RUNS, which the runner sets to <desk>/jobs.
@@ -31,7 +32,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 from pipeline import now, read_json, write_json   # noqa: E402
 import run_detached                               # noqa: E402
-import config, gitio, papers                      # noqa: E402
+import config, gitio, launch, papers              # noqa: E402
 
 GATE, PLAY = "gate.json", "play.json"
 EXIT = {"GREEN": 0, "RED": 1, "RUNNING": 2, "STALE": 3, "NONE": 4}
@@ -303,7 +304,28 @@ def finish(desk, guard, leg, message):
     return 0
 
 
-def done(desk, leg):
+def report_problem(report):
+    """Why a report handed to `leg done` is not one: its first non-empty line must be RESULT: done, blocked or
+    failed (the owner, 2026-10-10). None when it is fine, or when no report was given."""
+    if report is None:
+        return None
+    text = report
+    try:                                         # TEXT or FILE: a long report is no path, and asking can throw
+        if Path(report).exists():
+            text = Path(report).read_text(encoding="utf-8")
+    except (OSError, ValueError):
+        pass
+    first = next((l for l in text.splitlines() if l.strip()), "")
+    if launch.said(first) is None:
+        return "your report must start with RESULT: done|blocked|failed"
+    return None
+
+
+def done(desk, leg, report=None):
+    bad = report_problem(report)                 # asked before anything else: a report in the wrong shape is
+    if bad:                                      # read as a failed leg, however well the work went
+        print("NOT DONE: " + bad)
+        return 1
     wt, lane = leg["worktree"], leg["lane"]
     if leg.get("mode") == "read_only":           # a leg that only reads leaves one file: check it as the runner will
         f, lim = desk / (leg.get("output") or "plan.md"), config.limits()
@@ -351,7 +373,7 @@ def main(a):
         return play(desk, leg, a.filter, a.max)
     if a.what == "finish":
         return finish(desk, guard, leg, a.message)
-    return done(desk, leg)
+    return done(desk, leg, a.report)
 
 
 def add_args(p):
@@ -364,4 +386,6 @@ def add_args(p):
     pl.add_argument("--max", type=int, default=540)
     f = sub.add_parser("finish")
     f.add_argument("-m", "--message", default="")
-    sub.add_parser("done")
+    dn = sub.add_parser("done")
+    dn.add_argument("--report", default=None, help="your final report, as text or the path of a file holding it: "
+                                                    "its first line must be RESULT: done|blocked|failed")

@@ -48,7 +48,7 @@ def card_text(leg, body, plan=None):
                   "- A PlayMode test, started and waited for: python \"%s\" leg play <its class or full name> (prints "
                   "total, passed, failed; the same command again while it says RUNNING)" % tool,
                   "- Close out: python \"%s\" leg finish -m \"<message>\" (commits and pushes when the gate is green "
-                  "for exactly these files), then: leg done" % tool]
+                  "for exactly these files), then: leg done --report \"<your report>\"" % tool]
     lines += ["", body.strip(), ""]
     if plan:
         lines += ["# The plan to follow", plan.strip(), ""]
