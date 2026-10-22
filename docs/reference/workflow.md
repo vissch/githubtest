@@ -357,6 +357,8 @@ baseline. Over ten minutes or so, start it under `Tools/pipeline/run_detached.py
   on 2026-09-28 a change to `InfantrySpec` and `TankSpec` made `MineTests.AMineUnderALongHullsBowIsTakenOnTheHullNotAsANearMiss`
   fail in Unity (the mine job no longer saw the hull over it) while otr passed; with the cache deleted it passed, twice.
   Suspect it when Unity and otr disagree after a struct in `Sim/` changed shape.
+- **Continent mesh arrays:** `python Tools/test_continent_land.py` checks `ContinentMesh.Land` fills exact-size
+  arrays, with no editor. The allocation count is `StrategicMapMeshTests.The_Land_Mesh_Costs_The_Same_Allocations_At_Any_Size`.
 
 ## 6. See the game
 

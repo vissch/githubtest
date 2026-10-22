@@ -6,6 +6,7 @@ using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation;
 using TW.Presentation.Meta;
+using TW.Perf;
 using TW.UI;
 
 namespace TW.Tests
@@ -143,6 +144,93 @@ namespace TW.Tests
                 }
             Assert.GreaterOrEqual(far, 0, "some land lies well away from the front");
             Assert.AreEqual(charted[far], known[far], 1e-4f, "far from it, untouched");
+        }
+
+        // [found-strategic-map-builds-continent-mesh-and-fog-20261017-2] a List with no capacity doubles as the grid
+        // grows, so the full continent threw away about 1.6 MB of intermediate arrays. Exact-size arrays cost the
+        // same number of allocations at a quarter grid and at the full one.
+        [Test]
+        public void The_Land_Mesh_Costs_The_Same_Allocations_At_Any_Size()
+        {
+            if (!AllocProbe.Available) Assert.Ignore("no profiler to count allocations with");
+            var full = ContinentMesh.Heights(ContinentMesh.Seed);
+            const int qw = 48, ql = 32;
+            var quarter = ContinentMesh.Heights(ContinentMesh.Seed, qw, ql);
+            // A warm-up call at each size, so the count below is the steady cost and not first-call compilation.
+            Object.DestroyImmediate(ContinentMesh.Land(full));
+            Object.DestroyImmediate(ContinentMesh.Land(quarter, qw, ql));
+            Mesh a = null, b = null;
+            try
+            {
+                int small = AllocProbe.Count(() => b = ContinentMesh.Land(quarter, qw, ql));
+                int big = AllocProbe.Count(() => a = ContinentMesh.Land(full));
+                TestContext.WriteLine("Land allocations: quarter grid " + small + ", full grid " + big);
+                Assert.That(big, Is.LessThanOrEqualTo(small + 2), "[found-strategic-map-builds-continent-mesh-and-fog-20261017-2] the cost grows with the grid: " + big + " against " + small);
+                Assert.That(big, Is.LessThanOrEqualTo(24), "[found-strategic-map-builds-continent-mesh-and-fog-20261017-2] the full grid allocates " + big + " times");
+            }
+            finally { if (a != null) Object.DestroyImmediate(a); if (b != null) Object.DestroyImmediate(b); }
+        }
+
+        // The List version of Land, copied as it stood, is the proof that exact-size arrays did not move a vertex.
+        [Test]
+        public void The_Land_Mesh_Is_The_Mesh_It_Was()
+        {
+            const int qw = 48, ql = 32;
+            var h = ContinentMesh.Heights(ContinentMesh.Seed, qw, ql);
+            var mesh = ContinentMesh.Land(h, qw, ql);
+            var reference = ReferenceLand(h, qw, ql);
+            try
+            {
+                Assert.That(mesh.vertices, Is.EqualTo(reference.vertices));
+                Assert.That(mesh.normals, Is.EqualTo(reference.normals));
+                Assert.That(mesh.uv, Is.EqualTo(reference.uv));
+                var s = new List<Vector3>(); var sRef = new List<Vector3>();
+                mesh.GetUVs(3, s); reference.GetUVs(3, sRef);
+                Assert.That(s, Is.EqualTo(sRef));
+                for (int band = 0; band < 3; band++)
+                    Assert.That(mesh.GetTriangles(band), Is.EqualTo(reference.GetTriangles(band)), "band " + band);
+            }
+            finally { Object.DestroyImmediate(mesh); Object.DestroyImmediate(reference); }
+        }
+
+        /// <summary>The List version of ContinentMesh.Land as it stood before the exact-size arrays, kept here so a
+        /// change of shape fails even when the allocation count still looks cheap.</summary>
+        static Mesh ReferenceLand(float[] h, int w, int l)
+        {
+            var v = new List<Vector3>(); var n = new List<Vector3>(); var s = new List<Vector3>(); var uv = new List<Vector2>();
+            var tris = new[] { new List<int>(), new List<int>(), new List<int>() };
+            for (int z = 0; z < l; z++)
+                for (int x = 0; x < w; x++)
+                {
+                    float h00 = h[ContinentMesh.Index(w, x, z)], h10 = h[ContinentMesh.Index(w, x + 1, z)];
+                    float h01 = h[ContinentMesh.Index(w, x, z + 1)], h11 = h[ContinentMesh.Index(w, x + 1, z + 1)];
+                    const float c = ContinentMesh.Cell, r = ContinentMesh.Relief;
+                    var p00 = new Vector3(x * c, h00 * r, z * c); var p10 = new Vector3((x + 1) * c, h10 * r, z * c);
+                    var p01 = new Vector3(x * c, h01 * r, (z + 1) * c); var p11 = new Vector3((x + 1) * c, h11 * r, (z + 1) * c);
+                    ReferenceTri(v, n, s, uv, tris, p00, p01, p11, (h00 + h01 + h11) / 3f);
+                    ReferenceTri(v, n, s, uv, tris, p00, p11, p10, (h00 + h11 + h10) / 3f);
+                }
+            var mesh = new Mesh { name = "ReferenceContinent", hideFlags = HideFlags.HideAndDontSave };
+            if (v.Count > 65535) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            mesh.SetVertices(v); mesh.SetNormals(n); mesh.SetUVs(0, uv); mesh.SetUVs(3, s);
+            mesh.subMeshCount = 3;
+            for (int b = 0; b < 3; b++) mesh.SetTriangles(tris[b], b);
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        static void ReferenceTri(List<Vector3> v, List<Vector3> n, List<Vector3> s, List<Vector2> uv, List<int>[] tris, Vector3 a, Vector3 b, Vector3 c, float rawMean)
+        {
+            if (a.y < 0f && b.y < 0f && c.y < 0f) return;
+            var normal = Vector3.Cross(b - a, c - a).normalized;
+            if (normal.y < 0f) normal = -normal;
+            int i = v.Count;
+            v.Add(a); v.Add(b); v.Add(c);
+            n.Add(normal); n.Add(normal); n.Add(normal);
+            s.Add(Vector3.up); s.Add(Vector3.up); s.Add(Vector3.up);
+            uv.Add(new Vector2(a.x, a.z) * 0.05f); uv.Add(new Vector2(b.x, b.z) * 0.05f); uv.Add(new Vector2(c.x, c.z) * 0.05f);
+            var t = tris[ContinentMesh.Band(rawMean)];
+            t.Add(i); t.Add(i + 1); t.Add(i + 2);
         }
 
         // [found-fog-rebakes-full-45k-texel-grid-on-every-pin-20261017-0] selecting a pin flips Current<->Available,

@@ -19,6 +19,7 @@
     "TW.Presentation.Camera",
     "TW.Presentation.Terrain",
     "TW.Presentation.Meta",
+    "TW.Perf",
     "TW.UI",
     "TW.Data",
     "Unity.InputSystem"

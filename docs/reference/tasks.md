@@ -984,7 +984,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   taken and released by both views), `MetaMeshes.cs`, `MetaBoot.cs` (installs the view factories at start-up)).
 - **Tests:** CampaignGraphTests, CampaignProfileTests, FactionBuildingsTests, HomeFrontDioramaTests,
   MetaCameraTests, StrategicMapMeshTests.
-  StrategicMapMeshTests, MetaPickTests.
+  StrategicMapMeshTests, MetaPickTests. `ContinentMesh.Land` fills exact-size arrays
+  (`StrategicMapMeshTests.The_Land_Mesh_Costs_The_Same_Allocations_At_Any_Size`); `python Tools/test_continent_land.py`
+  checks that shape with no editor.
 - **Trap:** `CampaignSession` must not register with `SceneStatics` (the router resets those on every scene load,
   which is exactly when the session has to survive); `MatchLaunch.QuitToMenu` clears it. Unit tiers, armour
   plate and the ability mask are stored in the profile but reach the sim only once the upgrade seam lands

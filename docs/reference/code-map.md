@@ -66,7 +66,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Tests.Show` | `Tests/Show/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Data, Perf, Editor |
 | `TW.Tests.Sim` | `Tests/Sim/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Data |
 | `TW.Tests.Stills` | `Tests/Stills/` | `TW.Tests` | Sim.Core, Sim.Match, Sim.Terrain, Sim.Nav, Sim.Units, Net, Data, UI, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Units, Editor |
-| `TW.Tests.UI` | `Tests/UI/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Meta, UI, Data |
+| `TW.Tests.UI` | `Tests/UI/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Meta, Perf, UI, Data |
 | `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera |
 
 29 assemblies. Assembly names and namespaces differ on purpose: `using` takes the namespace.
