@@ -977,7 +977,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Core/CampaignSession.cs` (the mission in flight across the scene load),
   `Presentation/Core/MetaViews.cs` (the seam to the 3D views: `IHomeFrontView`, `IStrategicMapView`,
   `MetaServices`), `Presentation/Meta/` (its own assembly, `TW.Presentation.Meta`: `HomeFrontDiorama.cs` and
-  `HomeFrontStages.cs` (sliced houses shown to a stage by chunk mask), `StrategicMapView.cs` and
+  `HomeFrontStages.cs` (sliced houses shown to a stage by chunk mask; buildings that share a set and a model are one instanced draw, `HomeFrontDiorama.BatchCount`), `StrategicMapView.cs` and
   `ContinentMesh.cs` (the generated continent, pins, the front line, the fog sheet), `MapFog.cs` (the fog mask:
   clear round every reachable node, dense elsewhere), `MetaCamera.cs` (orbit / map), `MetaPick.cs` (the
   pick-collider names and the per-frame pointer block both views share), `MetaKeyLight.cs` (the saved key light,

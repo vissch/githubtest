@@ -189,7 +189,8 @@ change cannot reach. `python Tools/gate_scope.py --all` lists them.
 A new test goes in the folder of the highest assembly it needs. `Tests/EditMode/` is the landing folder: a lane cut
 before the split (2026-10-02) finds its new tests there after rebasing, they still compile, and `validate.py` prints
 the `git mv` line that puts each in its module. A class is still run by name (`--filter TW.Tests.<Class>`): the
-namespace did not change.
+namespace did not change. `python Tools/test_homefront_batches.py` checks, with no editor, that Home Front
+batches buildings that share a set and a model into one draw (Iron 4, Brass 6).
 
 **The gate** (before every commit). It needs this checkout's editor closed. PowerShell refuses unsigned scripts on
 this machine, so call it with a bypass:
