@@ -1,6 +1,7 @@
 // Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-7) - CombatFx.RecipeFor, the drawn parts of a burst by what
 // went off. The recipes are on by default (owner, 2026-10-07); fx.recipes 0 must hand every burst the old parts, so the
 // AOSA-tuned column and smoke can be had back untouched.
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation;
@@ -280,15 +281,21 @@ namespace TW.Tests
             // them. The bands are the field's rows: cells sit on a 4 m grid (MapData.FieldCellSize, a literal here as
             // in the neighbouring test), so at the T1 pose (pitch 25, GasBankStills) a row of ground steps
             // 4 * sin 25 on screen while a card's painted band only rises band * cos 25. Below 1 the gap is mud.
-            const float pitch = 25f * Mathf.Deg2Rad, rowPitch = 4f;
-            float rise = rowPitch * Mathf.Sin(pitch);
+            // The 0.90 factor this test used to carry is what let the stripe through: 90 % of a row covered is a mud
+            // line every row, and it ignored the 0.08 m the card sinks into the ground. The pitch a card must now
+            // cover is the STAGGERED one (CombatFx.GasBankStaggerM, half a field cell), because alternate columns
+            // stand half a cell back and their depths interleave: 1.541 m of screen against 0.845 m to cover. No
+            // band height can cover the full 4 m row pitch - the head rule caps a card at 1.631 m of screen against
+            // 4 * sin 25 = 1.690 m - which is why the stagger, not a taller band, is the fix.
+            const float pitch = 25f * Mathf.Deg2Rad, sink = 0.08f;
+            float rise = CombatFx.GasBankStaggerM * Mathf.Sin(pitch);
             foreach (float thick in new[] { 0f, 1f })
             foreach (float hash in new[] { 0f, 1f })
             {
                 float width = CombatFx.GasBankWidth(thick, hash, 1);
                 float band = width * CombatFx.GasBankSquashFor(width) / 3f;
-                Assert.GreaterOrEqual(band * Mathf.Cos(pitch), 0.90f * rise,
-                    $"a card at thick {thick} hash {hash} must cover 90 % of the row behind it, so no mud shows between rows");
+                Assert.GreaterOrEqual((band - sink) * Mathf.Cos(pitch), rise,
+                    $"a card at thick {thick} hash {hash} must cover the whole staggered row behind it, no mud between rows");
             }
         }
         [Test]
@@ -317,27 +324,34 @@ namespace TW.Tests
             Assert.GreaterOrEqual(stacked, 0.8f, "three full cards stacked still reach the bank's core opacity");
         }
         [Test]
-        public void TheGasBankCardsFillTheDepthEvenly()
+        public void TheGasBankCardsLeaveNoGapDeeperThanACardAtTheT1Pose()
         {
-            // the rows are real at a 1.2 m jitter: every card sits within +-0.6 m of its row line, so against a
-            // 4 m row pitch they never leave their own bin. GasBankJitterM (one full field cell) must let a card's
-            // centre land anywhere inside its own cell, so card centres fill the depth uniformly and there is no
-            // 4 m lattice left to read as rows.
-            const int cells = 32, bins = 8;
-            int[] counts = new int[bins];
-            for (int x = 0; x < cells; x++)
-            for (int z = 0; z < cells; z++)
+            // The guarantee the old evenness-of-bins test was a proxy for, stated directly: at the T1 pose (pitch 25,
+            // GasBankStills) a card's painted band reaches (GasBankBandM - the 0.08 m sink) / tan 25 = 3.646 m into
+            // depth, so no two neighbouring cards' depths may sit further apart than that or bare ground shows. Cards
+            // overlap three to four columns deep in X, so the depths that matter are two neighbouring columns MERGED.
+            // This fails at the old 1.2 m jitter AND at last round's 4 m full-cell random jitter with no stagger
+            // (random jitter only randomises the gap: some column pairs still leave 4-8 m), which is what makes it a
+            // guard and not a restatement of the constants.
+            const int cells = 32;
+            const float cs = 4f;   // MapData.FieldCellSize, a literal: this test assembly does not reference TW.Sim
+            float reach = (CombatFx.GasBankBandM - 0.08f) / Mathf.Tan(25f * Mathf.Deg2Rad);
+            for (int x = 0; x + 1 < cells; x++)
             {
-                uint h = (uint)(x * 73856093 ^ z * 19349663);
-                float h2 = ((h >> 10) & 1023) / 1023f;
-                float wz = (z + 0.5f) * 4f + (h2 - 0.5f) * CombatFx.GasBankJitterM;
-                int bin = ((int)Mathf.Floor(Mathf.Repeat(wz, 4f) / 4f * bins)) % bins;
-                if (bin < 0) bin += bins;
-                counts[bin]++;
+                var depths = new List<float>();
+                for (int col = x; col <= x + 1; col++)
+                for (int z = 0; z < cells; z++)
+                {
+                    uint h = (uint)(col * 73856093 ^ z * 19349663);
+                    float h2 = ((h >> 10) & 1023) / 1023f;
+                    depths.Add((z + 0.5f) * cs + (h2 - 0.5f) * CombatFx.GasBankJitterM
+                               + ((col & 1) == 0 ? 0f : CombatFx.GasBankStaggerM));
+                }
+                depths.Sort();
+                for (int i = 1; i < depths.Count; i++)
+                    Assert.LessOrEqual(depths[i] - depths[i - 1], reach,
+                        $"columns {x} and {x + 1} leave a {depths[i] - depths[i - 1]:F2} m gap in depth at {depths[i - 1]:F2} m, deeper than a card's {reach:F2} m reach");
             }
-            int total = cells * cells, uniform = total / bins;
-            foreach (int c in counts)
-                Assert.LessOrEqual(c, uniform * 1.5f, "no bin may hold more than 1.5x the uniform count, or the rows still read as bands");
         }
     }
 }

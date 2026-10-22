@@ -30,10 +30,20 @@ namespace TW.Presentation.Tactical
         public const float GasBankBandM = 1.78f;
         /// <summary>How flat a card of this width is drawn, so its bottom third is <see cref="GasBankBandM"/> tall.</summary>
         public static float GasBankSquashFor(float width) => 3f * GasBankBandM / width;
-        /// <summary>How far off its cell's centre a gas card may stand (m): one full field cell (<see cref="MapData.FieldCellSize"/>),
-        /// so a card's centre can land anywhere inside its own cell and card centres fill the depth uniformly - at the old
-        /// 1.2 m jitter every card sat within 0.6 m of its row line, so the 4 m row lattice still read as bands.</summary>
-        public const float GasBankJitterM = 4f;
+        /// <summary>How far off its cell's centre a gas card may stand (m): a quarter field cell
+        /// (<see cref="MapData.FieldCellSize"/>), so a card's centre only breaks the lattice line it stands on and the
+        /// depth spacing is set by <see cref="GasBankStaggerM"/>, not by luck. A full-cell random jitter (tried) only
+        /// randomises the gap: over a field some neighbouring columns still land 4-8 m apart in depth.</summary>
+        public const float GasBankJitterM = 1f;
+        /// <summary>How far alternate columns of gas cards are pushed back in depth (m): half a field cell, so the
+        /// depths of two neighbouring columns interleave and the row pitch a player sees is halved.
+        /// The arithmetic at the T1 pose (zoom 30, pitch 25; GasBankStills): field rows are 4 m apart, so one row steps
+        /// 4 * sin 25 = 1.690 m down the screen, while a card's visible band (<see cref="GasBankBandM"/> less the 0.08 m
+        /// sink) only covers 1.70 * cos 25 = 1.541 m - 0.149 m of mud at every row, and the head rule (band - sink under
+        /// 1.8 m) caps a card at 1.631 m of screen, so NO band height closes a 4 m row pitch. With this stagger and the
+        /// quarter-cell jitter the worst spacing between two neighbouring columns' merged depths is 3.0 m = 1.268 m of
+        /// screen, inside the card's 1.541 m (margin 1.22x). Same card count: no cards are added.</summary>
+        public const float GasBankStaggerM = 2f;
 
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
@@ -66,8 +76,9 @@ namespace TW.Presentation.Tactical
         }
 
         /// <summary>Refill a field's cells if the tick or the step has moved. floor: the least a cell must hold to stand;
-        /// full: what counts as thick; jitter: how far off its centre a card may stand; salt: the cell hash's primes.</summary>
-        void Refresh(BankCache cache, Unity.Collections.NativeArray<float> field, int width, int length, int step, float floor, float full, float jitter, int p1, int p2)
+        /// full: what counts as thick; jitter: how far off its centre a card may stand; stagger: how far back in depth
+        /// every other column stands (0 for none); salt: the cell hash's primes.</summary>
+        void Refresh(BankCache cache, Unity.Collections.NativeArray<float> field, int width, int length, int step, float floor, float full, float jitter, float stagger, int p1, int p2)
         {
             uint tick = Host.Local.World.Tick;
             if (cache.Tick == tick && cache.Step == step) return;
@@ -83,7 +94,9 @@ namespace TW.Presentation.Tactical
                 if (c < floor) continue;
                 uint h = (uint)(x * p1 ^ z * p2);
                 float h1 = (h & 1023) / 1023f, h2 = ((h >> 10) & 1023) / 1023f;
-                float wx = (x + 0.5f * step) * cs + (h1 - 0.5f) * jitter, wz = (z + 0.5f * step) * cs + (h2 - 0.5f) * jitter;
+                // every other column stands half a (merged) cell further back, so the two columns' depths interleave
+                float wx = (x + 0.5f * step) * cs + (h1 - 0.5f) * jitter;
+                float wz = (z + 0.5f * step) * cs + (h2 - 0.5f) * jitter + (((x / step) & 1) == 0 ? 0f : stagger * step);
                 cache.Cells.Add(new BankCell { Hash = h, Thick = Mathf.Clamp01(c / full), X = wx, Z = wz, Ground = RenderGround.Sample(Host.Local.Map, wx, wz) });
             }
         }
@@ -104,7 +117,7 @@ namespace TW.Presentation.Tactical
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 8f, GasBankJitterM, 73856093, 19349663);
+            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 8f, GasBankJitterM, GasBankStaggerM, 73856093, 19349663);
             gasCards.Clear();
             foreach (var b in gasBank.Cells)
             {
@@ -124,7 +137,7 @@ namespace TW.Presentation.Tactical
         void DrawSmokeBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(smokeBank, gas.Smoke, gas.Width, gas.Length, step, 1.5f, 20f, 2.2f, 83492791, 29349663);
+            Refresh(smokeBank, gas.Smoke, gas.Width, gas.Length, step, 1.5f, 20f, 2.2f, 0f, 83492791, 29349663);
             smokeCards.Clear();
             foreach (var b in smokeBank.Cells)
             {
