@@ -1,9 +1,11 @@
 # ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2-g1: one bank is one cloud, 2026-10-22
 
-**Parts 1 and 2 of 3.** This folder holds the probe and part 2's density sweep. The look still has not moved -
-part 2 measured every density and kept the build's own block 3 (below) - so there are no captures of this build
-packed here and `python probe.py` exits 1 with `three runs needed`. Part 3 shoots `run1/`, `run2/`, `run3/` and
-`cards/` and sets the ceiling from their spread.
+**All three parts, done.** `python probe.py` exits 0 on `run1/`, `run2/`, `run3/` here. The look did not move:
+every knob that merges the bank - width (the parent) and density (part 2) and the last re-fitted candidate
+(part 3) - breaks the owner's `green_low_share` >= 0.30 floor, so `GasPuffBlock` stays 3 and the count is barred
+where the build stands. **The close bank is ~24 clouds a player can see, not one.** The reason is the floor, and
+it is his open row in `docs/reference/decisions.md`, "The close gas: one cloud, or gas that still pools under a
+man's head?".
 
 ## The owner's complaint
 
@@ -107,3 +109,68 @@ that split the mask fill in.
   144, 64 and 64 px against `man_px` 100 -> `t1_cloud_count` 3, `t1_visible_clouds` 1.
 - `python probe.py --measure ../ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2/run1` (and run2, run3) -> the
   table above.
+
+## Part 3: the three captures, and the ceiling
+
+Three fresh captures of this build (`GasPuffBlock` 3, `GasPuffWide` 2.0, `GasPuffStand` 0.50), `TW_GAS_WAIT_FRAMES`
+200 / 215 / 230, two batch passes each into one directory (the second with `TW_GAS_PLATE=1`), packed into `run1/`,
+`run2/`, `run3/`; `cards/` is one `GasBankCards` launch.
+
+### The last candidate, measured and refused
+
+Part 2 left one untried row: block 2 with the card re-fitted DOWN to its shorter 8 m lane, so it just touches its
+neighbour instead of overlapping it. Lowering the width is not the owner's barred direction (only widening past
+2.0 is), so it was shot the same way, one capture at wait 200.
+
+| | `t1_visible_clouds` | `t1_cloud_count` | `green_low_share` [>= 0.30] | `green_height_frac` [0.08-0.15] | `t1_top_share` | `green_px` |
+|---|---|---|---|---|---|---|
+| block 3 / wide 2.0 / stand 0.50, KEPT | 24 | 38 | 0.3045 | 0.0836 | 0.2909 | 240081 |
+| block 2 / wide 1.2 / stand 0.83 | 24 | 48 | **0.1938** | **0.1539** | 0.2949 | 321968 |
+
+It merges nothing - the same 24 visible clouds - and it still breaks the floor AND the height ceiling. Refused.
+With width, density and this re-fit all measured, no knob merges the bank while the 0.30 floor holds.
+
+### The bars on these three captures
+
+| bar | run1 / run2 / run3 | spread | bar | margin |
+|---|---|---|---|---|
+| `t1_cloud_ceiling` (`t1_visible_clouds`) | 24 / 24 / 23 | 1 | `lt` 26 | 2 |
+| `t1_top_share` | 0.2909 / 0.2910 / 0.2901 | 0.0009 | `ge` 0.28 | 0.0101 |
+| `green_low_share` | 0.3045 / 0.3048 / 0.3034 | 0.0014 | `ge` 0.30 | 0.0034 |
+| `green_height_frac` | 0.0836 / 0.0833 / 0.0841 | 0.0008 | `le` 0.15 | 0.0659 |
+| `green_height_floor` | the same | 0.0008 | `ge` 0.08 | 0.0033 |
+| `green_rise_m` | 2.653 / 2.643 / 2.669 | 0.026 | `ge` 2.4 | 0.243 |
+| `green_area_frac` | 0.07577 / 0.07591 / 0.07606 | 0.00029 | `ge` 0.05 | 0.02577 |
+| `green_soft_share` | 0.1639 / 0.1645 / 0.1637 | 0.0008 | `ge` 0.14 | 0.0237 |
+| `o240_cloud_count` | 11 / 9 / 7 | 4 | `ge` 3 | 4 |
+| `o240_cloud_ceiling` | 11 / 9 / 7 | 4 | `lt` 15 | 4 |
+| `o240_cloud_share` | 0.4777 / 0.4384 / 0.3676 | 0.1101 | `ge` 0.25 | 0.1176 |
+| `o240_green_area_frac` | 0.0010 / 0.0008 / 0.0006 | 0.0004 | `ge` 0.0001 | 0.0005 |
+| `pose_error_max` | 0 / 0 / 0 | 0 | `lt` 0.50 | 0.50 |
+
+Every margin is at or over the spread. `t1_cloud_ceiling` is the one new bar, and it is honest about one thing the
+plan hoped for and the captures denied: it does **not** separate this build from the parent's, because the look did
+not move - the parent reads the same 24 / 24 / 23 (part 1's table). It pins the count where three captures put it,
+and it fails the day a change lets the bank fray back out. `t1_cloud_count` (38 / 41 / 38, the flat 50 px bar) is
+still barred on nothing: part 1 showed the specks are not what holds the count.
+
+### Cards and draws
+
+T1, from `run1/manifest.json`: `gas_cards` 106 (of `FlipbookFx.MaxCards` 1536) and `draw_calls` 133. The O240
+overview draws 10 cards and 118 calls. Block 2 would have been ~2.25x the cards; it was refused on the look, not
+the cost, and the kept build sits at 7% of the card budget.
+
+### The bank is ~24 clouds, not one
+
+Plainly: the owner asked for one cloud, and this build draws about 24 that a man standing in the gas would not
+hide. Block 1 draws exactly one - a green wall over 82% of the frame (part 2) - and every merge breaks his
+`green_low_share` >= 0.30 floor. The floor is his, so it was not dropped. The measured line is under the existing
+open row in `docs/reference/decisions.md`; option (b) there is the only path to one cloud.
+
+### Checks run in part 3
+
+- `python probe.py --selftest` -> exit 0, cases (a) to (f).
+- `python probe.py` -> exit 0, the table above, `t1_cloud_ceiling` OK.
+- `python probe.py --measure ../ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2/run1` -> `t1_visible_clouds` 24,
+  `t1_cloud_count` 38 (run2 24 / 41, run3 23 / 38), unchanged by the new bar.
+- `gate.ps1 -EditOnly` -> exit 0.
