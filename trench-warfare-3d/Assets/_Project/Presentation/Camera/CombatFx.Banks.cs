@@ -65,6 +65,24 @@ namespace TW.Presentation.Tactical
         ///         (1039/958/850/681/648...) stand apart evenly: thirteen clouds, not one blanket with a tail
         /// (connected-component counts and blob sizes do not interpolate: re-measure after any change here.)</summary>
         public const float GasCloudWiden = 5f;
+        /// <summary>How tall an OVERVIEW card stands against its BASE width (the owner, 2026-10-22: at the 240 m
+        /// camera the gas is "a flat lime puddle on the mud" - the overview card drew the GasBank book, whose
+        /// drawing is a band in the bottom third of the card, squashed again by GasBankSquash 0.55: wide and
+        /// bandy, a smear with no top). The overview card now draws the same GasPuff mound the close card does,
+        /// at GasCloudStand of its base width (~7 m), anchored on the mud like the close puff. Off the base
+        /// width, not the widened one: off 35 m a stand of 0.55 is already 19 m and would grow with GasCloudWiden.
+        /// Swept by capture, one GasBankStills gas pass each at TW_GAS_WAIT_FRAMES 200 against one no-gas plate
+        /// pass (O240 frame 341), the close drawing untouched at every row (green_rise_m 2.575 throughout):
+        ///   the smear it replaces (the GasBank band, squash 0.55) -> o240_rise_m 3.398/2.985/3.054 over its own
+        ///         three committed runs (commit 093b0be1b4), blob_max 1039, area 0.0072: a band on the mud
+        ///   1.2 (8.4 m of cloud) -> o240_rise_m 3.047, blob_max 1034, 12 clouds, share 0.8875, area 0.0071:
+        ///         no higher than the smear it replaces, so it could not be barred apart from it
+        ///   2.0 (14 m)  -> o240_rise_m 5.325, blob_max 1781, 12 clouds, share 0.9278, area 0.0121
+        ///   3.0 (21 m)  -> o240_rise_m 8.176, blob_max 2689, 12 clouds, share 0.9532, area 0.0182: KEPT, the
+        ///         highest rise of the sweep that still holds the blob floor (2689 px, well over 1000) and the
+        ///         cloud ceiling (12, under the owner's 15), with the base still on the mud (o240_base_m 0.000)
+        /// (connected-component counts and blob sizes do not interpolate: re-measure after any change here.)</summary>
+        public const float GasCloudStand = 3.0f;
         /// <summary>How tall a close gas card is drawn against its width (the owner, 2026-10-21: a puff with a rim and a
         /// height, like cards-smoke.jpg). -g1's 0.32 was fitted to 774 cards 4 m apart (GasBankCards' close sheet)
         /// and does not carry over to GasPuffBlock's ~86 cards 12 m apart: measured here, not guessed
@@ -158,14 +176,17 @@ namespace TW.Presentation.Tactical
                 // the block widens the GAP between cards, not the card itself: a close puff stays 5-7 m wide at
                 // any block size, so gaps between puffs are what makes a puff read. The overview card instead
                 // takes GasCloudWiden, so it fills more of its 48 m block and reads as a cloud, not a speck.
-                float width = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2) * (step == 1 ? 1f : GasCloudWiden);
+                float baseW = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2);
+                float width = baseW * (step == 1 ? 1f : GasCloudWiden);
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                 // close (step 1): the standing puff, its drawing reaching the cell's floor, so the card sits at the
-                // smoke bank's anchor and not GasBankSquash's sunk one. From the overview out: today's squashed blanket.
+                // smoke bank's anchor and not GasBankSquash's sunk one. From the overview out (step 2): the SAME
+                // standing cloud, widened by GasCloudWiden and stood up by GasCloudStand off its BASE width - off
+                // the widened width a stand of 0.55 is already 24 m and would grow with every widen.
                 if (step == 1) gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width * GasPuffStand, BankFrame(GasPuffFirst, GasPuffLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
-                else gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                else gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, baseW * GasCloudStand, BankFrame(GasPuffFirst, GasPuffLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
             }
-            books.DrawPacked(step == 1 ? FlipbookFx.Book.GasPuff : FlipbookFx.Book.GasBank, gasCards, bounds);
+            books.DrawPacked(FlipbookFx.Book.GasPuff, gasCards, bounds);
         }
 
         void DrawSmokeBank(GasSmokeSystem gas, float now, Bounds bounds)
