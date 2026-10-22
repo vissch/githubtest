@@ -277,6 +277,15 @@ namespace TW.Tests
             float widthMultiplier = step == 1 ? 1f : step;
             Assert.AreEqual(1f, widthMultiplier,
                 "a close card's width does not scale with the block, only the gap between cards does: gaps are what makes a puff read");
+
+            // The overview's mirror (the owner, 2026-10-22: the overview is "still the old squash blanket"). An
+            // overview card's width multiplies by the local step 2, so the widest is (6 + 2) * 1.1 * 2 = 17.6 m,
+            // while cards stand GasCloudBlock * FieldCellSize m apart: a gap at the widest card, not a blanket.
+            float widestOverviewCard = (6f + 2f) * 1.1f * 2f;
+            Assert.Greater(CombatFx.GasCloudBlock * TW.Sim.Terrain.MapData.FieldCellSize, widestOverviewCard,
+                "the overview's cards stand further apart than the widest card is wide: clouds with gaps, not one sheet");
+            Assert.Greater(CombatFx.GasCloudBlock, CombatFx.BankStep(CombatFx.BankMergeZoom),
+                "a block wider than the merge step, else the overview draw did not change at all");
         }
     }
 }

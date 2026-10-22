@@ -29,6 +29,25 @@ namespace TW.Presentation.Tactical
         /// Only the close drawing (step == 1) uses this; the merged-out overview (step 2, GasBankSquash) is
         /// untouched, so O240 does not move.</summary>
         public const int GasPuffBlock = 3;
+        /// <summary>Cells one OVERVIEW card stands for (the owner, 2026-10-22: the overview is "still the old squash
+        /// blanket"). The merged-out draw used the zoom step itself (2), so cards stood 8 m apart while each is
+        /// 11-15 m wide: they overlapped into one blanket whose thin fringe cells each left a 50-150 px speck
+        /// (o240_blob_top in -g1-g1/probe.json: one 4275 px blob, then a tail of specks). The card's own width
+        /// still multiplies by the local step, so a bigger block widens only the GAP. Swept by capture, one
+        /// GasBankStills gas + plate pass each at TW_GAS_WAIT_FRAMES 200:
+        ///   2 (the old blanket) -> o240_cloud_count 21/15/20, cloud_share 0.87, green_area_frac 0.0094:
+        ///         one 4275 px blob plus a tail of 50-150 px fringe specks - the owner's complaint
+        ///    3 -> 34 clouds, share 0.7515, top blob 1173 px: cards still touch, so it is a smaller blanket
+        ///    4 -> 29 clouds, share 0.6231, area 0.0028: the blanket is gone, every card stands alone
+        ///    6 -> 19 clouds, share 0.5933, area 0.0021
+        ///    8 -> 17 clouds, share 0.6568, area 0.0020
+        ///   16 -> 13 clouds, share 0.5888, o240_green_px 2055 (count does NOT fall with the block past 12)
+        ///   12 -> 11 clouds, share 0.4777, area 0.0010: KEPT, the fewest clouds of the sweep, so a ceiling
+        ///         of 15 sits outside the old 15-21 spread with room, and still well over a 3-cloud floor.
+        ///         Coverage pays for it (0.0094 -> 0.0010) and the o240 area/share bars are re-set: the owner
+        ///         asked for clouds with gaps, not for coverage.
+        /// (connected-component counts do not interpolate: re-measure after any change here.)</summary>
+        public const int GasCloudBlock = 12;
         /// <summary>How tall a close gas card is drawn against its width (the owner, 2026-10-21: a puff with a rim and a
         /// height, like cards-smoke.jpg). -g1's 0.32 was fitted to 774 cards 4 m apart (GasBankCards' close sheet)
         /// and does not carry over to GasPuffBlock's ~86 cards 12 m apart: measured here, not guessed
@@ -114,7 +133,7 @@ namespace TW.Presentation.Tactical
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step == 1 ? GasPuffBlock : step, 0.8f, 14f, 2.4f, 73856093, 19349663);
+            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step == 1 ? GasPuffBlock : GasCloudBlock, 0.8f, 14f, 2.4f, 73856093, 19349663);
             gasCards.Clear();
             foreach (var b in gasBank.Cells)
             {
