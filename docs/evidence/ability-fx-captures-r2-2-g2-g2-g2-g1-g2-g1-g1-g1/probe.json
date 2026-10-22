@@ -1,0 +1,135 @@
+{
+ "frames": {
+  "run1": {
+   "gas-o240": 341,
+   "gas-o240-plate": 301,
+   "gas-t1": 804,
+   "gas-t1-plate": 796
+  },
+  "run2": {
+   "gas-o240": 356,
+   "gas-o240-plate": 316,
+   "gas-t1": 819,
+   "gas-t1-plate": 811
+  },
+  "run3": {
+   "gas-o240": 371,
+   "gas-o240-plate": 331,
+   "gas-t1": 834,
+   "gas-t1-plate": 826
+  }
+ },
+ "runs": {
+  "run1": {
+   "blob_px": 66595,
+   "green_area_frac": 0.0723,
+   "green_height_frac": 0.0887,
+   "green_low_share": 0.3393,
+   "green_px": 187228,
+   "green_rise_m": 2.643,
+   "o240_blob_top": [
+    4274,
+    1242,
+    1058,
+    620,
+    145,
+    121,
+    120,
+    119,
+    116,
+    89
+   ],
+   "o240_cloud_count": 20,
+   "o240_cloud_share": 0.8681,
+   "o240_green_area_frac": 0.0093,
+   "o240_green_px": 9896,
+   "o240_plate_diff_px": 25302,
+   "plate_diff_px": 178221,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0,
+   "t1_pad_aspect": 0.2139,
+   "t1_pad_count": 10,
+   "t1_pad_relief": 0.1043,
+   "t1_pad_rise_m": 6.278
+  },
+  "run2": {
+   "blob_px": 64378,
+   "green_area_frac": 0.0699,
+   "green_height_frac": 0.0913,
+   "green_low_share": 0.3522,
+   "green_px": 185230,
+   "green_rise_m": 2.718,
+   "o240_blob_top": [
+    4539,
+    2323,
+    375,
+    269,
+    157,
+    145,
+    128,
+    111,
+    102,
+    71
+   ],
+   "o240_cloud_count": 15,
+   "o240_cloud_share": 0.8687,
+   "o240_green_area_frac": 0.0093,
+   "o240_green_px": 9815,
+   "o240_plate_diff_px": 23970,
+   "plate_diff_px": 181560,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0,
+   "t1_pad_aspect": 0.2367,
+   "t1_pad_count": 10,
+   "t1_pad_relief": 0.1025,
+   "t1_pad_rise_m": 6.317
+  },
+  "run3": {
+   "blob_px": 62806,
+   "green_area_frac": 0.0681,
+   "green_height_frac": 0.0967,
+   "green_low_share": 0.3379,
+   "green_px": 183745,
+   "green_rise_m": 2.85,
+   "o240_blob_top": [
+    4858,
+    2319,
+    332,
+    209,
+    166,
+    150,
+    132,
+    109,
+    107,
+    83
+   ],
+   "o240_cloud_count": 19,
+   "o240_cloud_share": 0.8781,
+   "o240_green_area_frac": 0.0098,
+   "o240_green_px": 10267,
+   "o240_plate_diff_px": 24727,
+   "plate_diff_px": 177179,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0,
+   "t1_pad_aspect": 0.2123,
+   "t1_pad_count": 10,
+   "t1_pad_relief": 0.099,
+   "t1_pad_rise_m": 6.321
+  }
+ }
+}
