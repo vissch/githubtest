@@ -9,6 +9,18 @@ sys.dont_write_bytecode = True
 import pathlib
 from pathlib import Path
 
+
+def git_bash():
+    """Git's own bash. A bare "bash" on Windows can be WSL's launcher (WindowsApps), first on PATH on the desktop:
+    it cannot open a C: path, so the shell cases exited 127 there instead of testing the scripts."""
+    git = shutil.which("git")
+    if git:
+        g = Path(git).resolve()
+        for cand in (g.parent / "bash.exe", g.parent.parent / "bin" / "bash.exe", g.parent.parent / "usr" / "bin" / "bash.exe"):
+            if cand.exists():
+                return str(cand)
+    return shutil.which("bash")
+
 NL = chr(10)
 ESC = chr(92)
 HERE = Path(__file__).resolve().parent
@@ -549,7 +561,7 @@ class AosaTest(unittest.TestCase):
 
     # [A9] the shells guard the same split: a label with a space must exit 1 before anything runs
     def test_a9_shells_refuse_space(self):
-        bash = shutil.which("bash")
+        bash = git_bash()
         if not bash:
             self.skipTest("no bash on PATH")
         for name in ("bench.sh", "player_bench.sh"):
@@ -561,7 +573,7 @@ class AosaTest(unittest.TestCase):
 
     # [A16] a player run that writes no report must exit non-zero and name the path it looked at
     def test_a16_player_bench_fails_without_a_report(self):
-        bash = shutil.which("bash")
+        bash = git_bash()
         if not bash:
             self.skipTest("no bash on PATH")
         bdir = self.tmp / "Builds" / "WinBench"
