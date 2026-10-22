@@ -1,4 +1,4 @@
-// Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-8, look specs L07 and L08) — part of CombatFx. Behind
+﻿// Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-8, look specs L07 and L08) — part of CombatFx. Behind
 // fx.recipes, the gas and smoke fields as the drawn banks: chlorine as GasBank, a low rolling bank standing ON the ground
 // (its drawing fills the bottom third of the card, so a man's legs are in it and his head is not), the smoke screen as
 // SmokeBank mounds. Per 4 m field cell as before, placed and boiled by a hash of the cell (no random draws); from the
@@ -23,6 +23,16 @@ namespace TW.Presentation.Tactical
         // (0.14/0.5), because "pale green stripes" is the alpha as much as the overlap.
         // Its colour by day is deeper than the sheet's so it is green ON snow
         public const float GasBankThin = 0.19f, GasBankFull = 0.62f;
+        /// <summary>How much gas a 4 m cell must hold (after <see cref="GasBankLoad"/>) before it stands a card at all,
+        /// and the load that counts as a full card. Two rounds proved the islands are not about WHICH ring is outermost:
+        /// trimming the fringe to its neighbourhood's mean moved the blotches one ring in (28 / 24 / 18 -> 29 / 18 / 21
+        /// patches) and lifting it with max(own, mean) made them worse again (35 / 30 / 24), because either way some ring
+        /// still draws right at the paint threshold and breaks into separate patches. The floor removes that ring instead
+        /// of re-weighting it: at the old 0.8 the thinnest standing card drew 0.19 + 0.43 * 0.1 = 0.233, a hair over
+        /// <see cref="GasBankThin"/>; at 2.4 it draws 0.19 + 0.43 * 0.3 = 0.319, past half the bank's own core opacity
+        /// (0.62 / 2 = 0.31), the same haze/paint line <c>TheGasBankEdgeIsLiftedIntoTheMass</c> uses. So every card that
+        /// stands is paint, and a cell that would only haze does not stand.</summary>
+        public const float GasBankStandFloor = 2.4f, GasBankFullM = 8f;
         /// <summary>How tall a gas card's painted band is (m): the sheet fills the bottom third of the card, so every card,
         /// thin or wide, paints the same 1.72 m of gas - under a 1.8 m man's head, and tall enough that at the T1 pose one
         /// row of cards reaches the next row's and no bare ground shows between them (a share of the width left the thin
@@ -63,7 +73,11 @@ namespace TW.Presentation.Tactical
         /// the paint threshold between its own neighbours. A cell inside a solid body is unchanged (max of equals,
         /// since nine times the same value over nine is that value), so the core reads exactly as it did under the
         /// mean. The bank comes out about one ring wider than the mean build - back to roughly its width before the
-        /// neighbourhood read was added at all.</summary>
+        /// neighbourhood read was added at all.
+        /// That lift did NOT join the sheet either (35 / 30 / 24 patches, worse than both earlier builds): a ring lifted
+        /// to just over the paint threshold is still a ragged line of marginal cards. The formula is kept as it is and
+        /// <see cref="GasBankStandFloor"/> does the work instead - it cuts the lifted load, so no card stands near the
+        /// threshold at all.</summary>
         public static float GasBankLoad(float self, float ringSum) => Mathf.Max(self, (self + ringSum) / GasBankNeighbourhood);
 
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
@@ -156,7 +170,7 @@ namespace TW.Presentation.Tactical
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 8f, GasBankJitterXM, GasBankJitterM, true, true, 73856093, 19349663);
+            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, GasBankStandFloor, GasBankFullM, GasBankJitterXM, GasBankJitterM, true, true, 73856093, 19349663);
             gasCards.Clear();
             foreach (var b in gasBank.Cells)
             {

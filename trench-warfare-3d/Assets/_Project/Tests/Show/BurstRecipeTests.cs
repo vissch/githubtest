@@ -1,4 +1,4 @@
-// Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-7) - CombatFx.RecipeFor, the drawn parts of a burst by what
+﻿// Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-7) - CombatFx.RecipeFor, the drawn parts of a burst by what
 // went off. The recipes are on by default (owner, 2026-10-07); fx.recipes 0 must hand every burst the old parts, so the
 // AOSA-tuned column and smoke can be had back untouched.
 using NUnit.Framework;
@@ -357,6 +357,26 @@ namespace TW.Tests
             // left stale.
             Assert.AreEqual(8f, CombatFx.GasBankLoad(8f, 0f), 1e-4f,
                 "a lone cell keeps its own full thickness under max; it is no longer pulled down to a haze");
+        }
+        [Test]
+        public void TheGasBankStandFloorKeepsEveryCardOverHalfTheCore()
+        {
+            // the lift made the sheet worse, not better (35 / 30 / 24 patches): whichever ring is outermost, it drew
+            // at the paint threshold and broke into islands. The stand floor removes that ring instead - a cell that
+            // could only haze does not stand at all, so every card that IS drawn is paint.
+            Assert.Greater(CombatFx.GasBankStandFloor, 0.8f, "the stand floor rose above the old 0.8");
+
+            // the thinnest card that may stand, by hand: thick = 2.4 / 8 = 0.3, so 0.19 + 0.43 * 0.3 = 0.319
+            float thinnest = CombatFx.GasBankAlpha(CombatFx.GasBankStandFloor / CombatFx.GasBankFullM);
+            Assert.AreEqual(0.319f, thinnest, 1e-3f, "the thinnest standing card draws at 0.319");
+
+            // the same haze/paint line TheGasBankEdgeIsLiftedIntoTheMass uses: half the bank's own core opacity
+            Assert.GreaterOrEqual(thinnest, CombatFx.GasBankAlpha(1f) / 2f,
+                "every standing card draws past half the bank's core opacity, so none of them is threshold paint");
+
+            // the regression this round fixes: at the old floor the thinnest card fell short of that line
+            Assert.Less(CombatFx.GasBankAlpha(0.8f / CombatFx.GasBankFullM), CombatFx.GasBankAlpha(1f) / 2f,
+                "at the old 0.8 floor the thinnest standing card was a hair over the thin floor, below half the core");
         }
         [Test]
         public void TheGasBankStacksIntoDensity()
