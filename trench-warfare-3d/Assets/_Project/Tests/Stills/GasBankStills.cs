@@ -59,6 +59,22 @@
 //    thing is identical in both passes. The row says so: `drawers_off` on the side rows, and `hulls_near`, the
 //    count of alive Vehicle units within 80 m of the patch just before the shot, so the evidence states that
 //    hulls were about and are not in the picture.
+//  - r2-3-g2-g2-g1-g1-g2: THE THREE SIDE SHOTS ARE ONE BANK AT ONE SITE, WITH THE FIRE OUT.
+//      ONE SITE. g1-g1's side_face_px was 68982, 37663 and 114148 - 3.03x - while the sim rows read gas_cells 66,
+//      gas_field_max 35.82 and gas_cards 88/87/88 on all three seeds: the bank was already identical and the
+//      spread was the framing (three ground heights 1.47 / 1.21 / 2.77 m, and whatever stood in front once
+//      ClearView's ladder had run out to width 0 on this map). The side band now shoots seeds[0] on every seed
+//      (`side_x` / `side_z` in every row), so its spread is repeat noise. O240 and T1 keep their own patch.
+//      THE FIRE IS OUT (`noFire` / `FireOut`). What was left of the wreck in gas-side-s1 once the drawers went
+//      off is its FIRE: TankRenderer does not draw it - its `flames` list goes off with the component - the fire
+//      is a Flamethrower pool or pyre drawn from CombatFx.Update. So every frame the side block spends, Drain's
+//      frames included (the still is rendered on one of them, and a pyre relights itself), calls
+//      Flamethrower.Active.Clear(). Unconditional of the plate flag, and the frame counts do not move, so the
+//      two passes stay in step - the same argument as the drawers.
+//      `fires_near`, beside `hulls_near` and with NO Alive filter, because a burning wreck is a dead unit: that
+//      is why hulls_near read 0 with a burning tank in the mask.
+//      `wait_frames` (TW_GAS_WAIT_FRAMES, default 200): three captures of one deterministic build are otherwise
+//      the same picture to the pixel, so the three runs the bar is drawn from shoot three moments of one cloud.
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -87,8 +103,19 @@ namespace TW.Tests
         /// <summary>The cloud warms up for 60 ticks and its source then feeds the field for 240 more, so it is alive
         /// from tick 60 to tick 300 after the call. The sim runs 20 ticks a second against 30 captured frames, so a
         /// tick is 1.5 frames: 200 frames are 133 ticks, which is 73 ticks into the bank's life - spread out of its
-        /// first puff and still thick. (470 frames, the first try, was 313 ticks: the bank had gone.)</summary>
-        const int WaitFrames = 200;
+        /// first puff and still thick. (470 frames, the first try, was 313 ticks: the bank had gone.)
+        /// r2-3-g2-g2-g1-g1-g2: TW_GAS_WAIT_FRAMES overrides it (default 200, refused outside 1..BlockFrames), and
+        /// the number used goes in every manifest row. Three captures of one deterministic build are otherwise the
+        /// same picture to the pixel; 200 / 215 / 230 frames shoot three different moments of the same cloud, so
+        /// the spread across the three is a reading of the repeat noise and not of the random number generator.</summary>
+        static int WaitFrames
+        {
+            get
+            {
+                string v = System.Environment.GetEnvironmentVariable("TW_GAS_WAIT_FRAMES");
+                return !string.IsNullOrEmpty(v) && int.TryParse(v, out int n) && n > 0 && n < BlockFrames ? n : 200;
+            }
+        }
         /// <summary>Every block is padded to this many frames, so both passes stay in step frame for frame.</summary>
         const int BlockFrames = 520;
         /// <summary>A still from the wrong pose is worthless (the critic's verdict on r1).</summary>
@@ -136,8 +163,15 @@ namespace TW.Tests
 
         static readonly List<string> rows = new List<string>();
         static float worstPose;
+        /// <summary>The one patch every side shot is taken at (seeds[0]), in every manifest row, so the evidence
+        /// states the site rather than leaving a probe to infer it from three x/z pairs that agree.</summary>
+        static Vector2 sideSite;
         /// <summary>The drawers the side band switched off, held so they go back on even if a block throws.</summary>
         static readonly List<Behaviour> drawersOff = new List<Behaviour>();
+        /// <summary>True while the side band's drawers are off: every frame the block spends then also empties the
+        /// Flamethrower, because what is left of the wreck in gas-side-s1 once TankRenderer is off is its FIRE, and
+        /// the fire is drawn by CombatFx.Update out of Flamethrower's own pools and pyres, not by TankRenderer.</summary>
+        static bool noFire;
 
         [UnityTest, Explicit("Two gas stills and their plates in the night corridor; run by name, with a graphics device.")]
         public IEnumerator GasBankPoolsOnTheGroundAtBothBands()
@@ -226,6 +260,20 @@ namespace TW.Tests
             for (int i = 0; i < seeds.Count; i++)
                 TestContext.Out.WriteLine("seed " + i + " centre " + seeds[i].x + ", " + seeds[i].y);
 
+            // r2-3-g2-g2-g1-g1-g2: ONE SITE FOR ALL THREE SIDE SHOTS. g1-g1's three side stills read side_face_px
+            // 68982, 37663 and 114148 - a 3.03x spread - while the sim rows read gas_cells 66, gas_field_max 35.82
+            // and gas_cards 88/87/88 on all three seeds: in the WORLD it was already one bank, identical. The
+            // spread was the PICTURE - three patches, three ground heights (1.47 / 1.21 / 2.77 m) and whatever
+            // pickets and bunker ClearView's ladder had to give up on (it ran out to width 0 on this map). So the
+            // side band shoots seeds[0], the patch nearest the field centre, on every seed: same ground, same
+            // occluders, same framing, and side_face_spread becomes a reading of the repeat noise instead of three
+            // different subjects. O240 and T1 keep their own per-seed patch - their claim is about the bank lying
+            // on the ground, which three patches test better than one.
+            var side = seeds[0];
+            sideSite = side;
+            TestContext.Out.WriteLine("side site " + side.x + ", " + side.y + " (ground "
+                                      + RenderGround.Sample(map, side.x, side.y).ToString("0.###") + " m)");
+
             for (int s = 0; s < seeds.Count; s++)
             {
                 float x = seeds[s].x, z = seeds[s].y;
@@ -238,9 +286,9 @@ namespace TW.Tests
                 // so the lens stays at Fov 25) graze the bank instead of looking down on it. aimY is raised above
                 // the default (world y = 0) because at this zoom a raised patch would otherwise put the horizon
                 // out of frame.
-                yield return Block(dir, "gas-side" + tail, "side", tc, x, z, 16f, 8f,
-                                   new List<Vector2> { new Vector2(x, z) }, plate, map,
-                                   RenderGround.Sample(map, x, z) + 2f);
+                yield return Block(dir, "gas-side" + tail, "side", tc, side.x, side.y, 16f, 8f,
+                                   new List<Vector2> { side }, plate, map,
+                                   RenderGround.Sample(map, side.x, side.y) + 2f);
 
                 // o240 second: its frame holds the whole map, so it must not hold the T1 block's leavings. T1 is
                 // still last, which is what keeps t1's line of calls out of the overview.
@@ -274,12 +322,15 @@ namespace TW.Tests
                                  float aimY = float.NaN)
         {
             int spent = 0;
+            // read once, so the row states the number this block actually waited and a mid-run change of the env
+            // var cannot put the two passes' frame counts out of step
+            int waitFrames = WaitFrames;
             // r2-3-g2-g2-g1-g1: the side band draws no hull, no man and no debris, in BOTH passes, so the two
             // passes skip the same drawing on the same frames and the plate still subtracts. The frame the lens
             // is posed on is the first of the block, so it goes here, before anything is framed.
             if (band == "side") DrawersOff();
             tc.BaseYaw = -90f; tc.Zoom = zoom; tc.Focus = new Vector2(x, z);
-            for (int f = 0; f < 10; f++) { yield return null; spent++; }
+            for (int f = 0; f < 10; f++) { yield return null; spent++; FireOut(); }
 
             var answers = new List<string>();
             int taken = 0;
@@ -305,7 +356,7 @@ namespace TW.Tests
                 // above, so the plate pass skipped 8 frames a call and ran 4-5 sim ticks ahead of the gas pass
                 // (side_tick_skew in the old manifests) - and a plate from another tick subtracts nothing static:
                 // a burning wreck that merely moved between the two ticks landed in the side mask.
-                for (int f = 0; f < 8; f++) { yield return null; spent++; }
+                for (int f = 0; f < 8; f++) { yield return null; spent++; FireOut(); }
                 if (!plate)
                 {
                     // the sim sets the cooldown only on a call it ACCEPTED: a refusal (the match already won, no
@@ -317,12 +368,13 @@ namespace TW.Tests
                     answers.Add(said);
                     TestContext.Out.WriteLine(band + " call at " + p.x + ", " + p.y + ": " + said);
                 }
-                for (int f = 0; f < 4; f++) { yield return null; spent++; }
+                for (int f = 0; f < 4; f++) { yield return null; spent++; FireOut(); }
             }
 
-            for (int f = 0; f < WaitFrames; f++) { yield return null; spent++; }
+            for (int f = 0; f < waitFrames; f++) { yield return null; spent++; FireOut(); }
 
             int hullsNear = HullsNear(x, z, 80f);     // hulls that were about, whether or not they were drawn
+            int firesNear = FiresNear(x, z, 80f);     // and the fire, which outlives the hull and is drawn by CombatFx
 
             string path = Path.Combine(dir, stem + ".png");
             float best = float.MaxValue;
@@ -368,6 +420,10 @@ namespace TW.Tests
               .Append(", \"draw_calls\": ").Append(FrameBudget.DrawCalls)
               .Append(", \"drawers_off\": ").Append(band == "side" ? "true" : "false")
               .Append(", \"hulls_near\": ").Append(hullsNear)
+              .Append(", \"fires_near\": ").Append(firesNear)
+              .Append(", \"wait_frames\": ").Append(waitFrames)
+              .Append(", \"side_x\": ").Append(sideSite.x.ToString("0.###"))
+              .Append(", \"side_z\": ").Append(sideSite.y.ToString("0.###"))
               .Append(", \"calls\": [");
             for (int i = 0; i < answers.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(answers[i]).Append('"');
             sb.Append("] }");
@@ -381,6 +437,7 @@ namespace TW.Tests
         /// component stops the drawing and nothing in production changes.</summary>
         static void DrawersOff()
         {
+            noFire = true;
             Behaviour[] found =
             {
                 Object.FindFirstObjectByType<TankRenderer>(),
@@ -394,8 +451,19 @@ namespace TW.Tests
         /// <summary>Put back whatever DrawersOff switched off. Safe to call when nothing is off.</summary>
         static void DrawersOn()
         {
+            noFire = false;
             foreach (var b in drawersOff) if (b != null) b.enabled = true;
             drawersOff.Clear();
+        }
+
+        /// <summary>Empty the fire while the side band's drawers are off. Called on EVERY frame the side block
+        /// spends, including the frames inside Drain, because the still is rendered on a Drain frame and a pyre
+        /// relights itself: clearing it once before the shot is not enough. Clear() empties jets, pools, torches
+        /// and pyres. Unconditional of the plate flag, the same argument as the drawers: not drawing a thing is
+        /// identical in both passes, and the frame counts do not move, so the two passes stay in step.</summary>
+        static void FireOut()
+        {
+            if (noFire) Flamethrower.Active?.Clear();
         }
 
         /// <summary>Alive units carrying UnitFlags.Vehicle within `radius` m of (x, z). It says that hulls were
@@ -410,6 +478,25 @@ namespace TW.Tests
             {
                 uint fl = w.Flags[i];
                 if ((fl & (uint)UnitFlags.Alive) == 0 || (fl & (uint)UnitFlags.Vehicle) == 0) continue;
+                float dx = w.Position[i].x - x, dz = w.Position[i].z - z;
+                if (dx * dx + dz * dz <= r2) n++;
+            }
+            return n;
+        }
+
+        /// <summary>Units carrying UnitFlags.Burning within `radius` m of (x, z), with NO Alive filter: a burning
+        /// wreck is a dead unit, which is exactly why hulls_near read 0 while a burning tank stood in the side
+        /// mask. It says that fire was about when the still was taken, and so makes "and none of it is in the
+        /// picture" a claim rather than an assumption.</summary>
+        static int FiresNear(float x, float z, float radius)
+        {
+            var w = Host?.Local?.World;
+            if (w == null) return -1;
+            int n = 0;
+            float r2 = radius * radius;
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                if ((w.Flags[i] & (uint)UnitFlags.Burning) == 0) continue;
                 float dx = w.Position[i].x - x, dz = w.Position[i].z - z;
                 if (dx * dx + dz * dz <= r2) n++;
             }
@@ -480,9 +567,9 @@ namespace TW.Tests
 
         static IEnumerator Drain(string path)
         {
-            for (int f = 0; f < 900 && CaptureRig.Pending() != "0"; f++) yield return null;
+            for (int f = 0; f < 900 && CaptureRig.Pending() != "0"; f++) { yield return null; FireOut(); }
             Assert.That(CaptureRig.Pending(), Is.EqualTo("0"), "the capture queue stalled");
-            for (int f = 0; f < 300 && !File.Exists(path); f++) yield return null;
+            for (int f = 0; f < 300 && !File.Exists(path); f++) { yield return null; FireOut(); }
             Assert.That(File.Exists(path), Is.True, Path.GetFileName(path) + " was never written");
         }
 
