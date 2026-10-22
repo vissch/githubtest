@@ -29,7 +29,7 @@ Runs from the repo root of the game checkout (desktop only — `C:/Users/PC`, `G
 |---|---|---|
 | This is the desktop | `hostname` = `DESKTOP-NLJRH7R` | stop: the laptop has no ComfyUI |
 | Broker healthy | `curl -s http://127.0.0.1:8188/broker/status` → `"health": "ok"` | `schtasks /Run /TN gpu-broker`; diagnose with `uv run --directory C:/Users/PC/Documents/claude/EMTD-AgentAnimation/tools/gpu-broker python -m gpu_broker doctor` (desktop only). Never start ComfyUI yourself |
-| Commit headroom | the broker trips its thrash guard above 108 % commit with paging; `run_detached.py`'s `--min-headroom-gb` default is 0 (no floor unless you pass one) — pass `--min-headroom-gb 10` to get a floor: `cd trench-warfare-3d && python Tools/pipeline/run_detached.py start <name> --timeout <s> --min-headroom-gb 10 -- <cmd>` | run one H3 job at a time; never alongside a full gate or a Unity bench |
+| Commit headroom | the broker trips its thrash guard above 108 % commit with paging; `run_detached.py`'s `--min-headroom-gb` default is 10 (pass `--min-headroom-gb 0` to start anyway): `cd trench-warfare-3d && python Tools/pipeline/run_detached.py start <name> --timeout <s> --min-headroom-gb 10 -- <cmd>` | run one H3 job at a time; never alongside a full gate or a Unity bench |
 | A lane worktree for the game half | a `lane/show/*` checkout (e.g. `githubtest-desk-show`) | the main clone is on integration: never edit there |
 
 ## 1. Generate (about 150-200 s per job, RTX 5090)

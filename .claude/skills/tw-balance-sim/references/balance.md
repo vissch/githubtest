@@ -196,7 +196,7 @@ The patterns trap: "Add a pattern only to `AbilityStats.Patterns`, or the comman
   4. The house chunk mask, the env atlas grid, `VehicleSize`.
 - "its own commit, alone, first" (:66-67).
 - **SourceId bands** (`P\Sim\Core\SourceId.cs:18-33`): an ability is its own id 0..999 (`AbilityMax`), a unit's weapon is `UnitBase` 1000 + archetype, an emplacement is 1300 + kind, `CookOff` 2000, `Ship` 2001. See also tasks.md:120-123.
-- **Current format:** FormatVersion 52 (`P\Sim\Core\Replay.cs`; re-grep before trusting this number). The hash chain
+- **Current format:** FormatVersion 54 (`P\Sim\Core\Replay.cs`; re-grep before trusting this number). The hash chain
   (`SystemChain`) is pinned in `P\Tests\Sim\SimHashTests.cs` (see C).
 
 ### Relevant decisions (`D\reference\decisions.md`)

@@ -11,8 +11,30 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def git_bash():
+    """Git's own bash. A bare "bash" on Windows can be WSL's launcher (WindowsApps), first on PATH:
+    it cannot open a C: path, so the stand-in never runs and the temp tree stays locked (WinError 32
+    when the folder is deleted). The first git.exe on PATH may ship with no bash beside it, so every
+    git on PATH is tried, the same places selftest and test_aosa look."""
+    gits = []
+    for folder in os.environ.get("PATH", "").split(os.pathsep):
+        for name in ("git.exe", "git"):
+            cand = os.path.join(folder, name)
+            if os.path.isfile(cand):
+                gits.append(cand)
+                break
+    for git in gits:
+        g = Path(git).resolve()
+        for cand in (g.parent / "bash.exe", g.parent.parent / "bin" / "bash.exe",
+                     g.parent.parent / "usr" / "bin" / "bash.exe"):
+            if cand.is_file():
+                return str(cand)
+    return shutil.which("bash") or "bash"
 
 # Prints the shapes flameshots' grep/sed lines read back, so its early checks pass and the run reaches one().
 FAKE_TW = r'''#!/usr/bin/env bash
@@ -43,21 +65,24 @@ def run_script(tmp, fail=()):
     """
     tools = os.path.join(tmp, "Tools")
     os.makedirs(os.path.join(tools, "flame-shots"))
-    os.makedirs(os.path.join(tmp, "bin"))
     shutil.copyfile(os.path.join(HERE, "flameshots"), os.path.join(tools, "flameshots"))
     with open(os.path.join(tools, "tw"), "w", newline="\n") as f:
         f.write(FAKE_TW)
     with open(os.path.join(tools, "flamecheck.py"), "w", newline="\n") as f:
         f.write("import sys\nsys.exit(0)\n")
-    with open(os.path.join(tmp, "bin", "sleep"), "w", newline="\n") as f:  # the script's sleep 8 / sleep 30
-        f.write("#!/usr/bin/env bash\nexit 0\n")
-    for p in (os.path.join(tools, "tw"), os.path.join(tmp, "bin", "sleep")):
-        os.chmod(p, 0o755)
+    bash = git_bash()
+    tw = os.path.join(tools, "tw")
+    # NTFS carries no real exec bit; bash itself has to be asked to set the one it checks.
+    subprocess.run([bash, "-c", 'chmod +x "%s"' % tw.replace("\\", "/")], cwd=tmp)
     log = os.path.join(tmp, "tw.log")
-    env = dict(os.environ, TW_LOG=log, TW_FAIL=" ".join(fail),
-               PATH=os.path.join(tmp, "bin") + os.pathsep + os.environ["PATH"])
-    r = subprocess.run(["bash", os.path.join(tools, "flameshots"), "test"],
-                       cwd=tmp, env=env, capture_output=True, text=True)
+    script = os.path.join(tools, "flameshots").replace("\\", "/")
+    env = dict(os.environ, TW_LOG=log, TW_FAIL=" ".join(fail))
+    # Git bash prepends /usr/bin on every new process, so a stand-in `sleep` on PATH never wins and the
+    # script's sleep 8 / sleep 30 really wait. Source it here, where a function shadows sleep. $1 stays
+    # the prefix the test passes (`test`).
+    r = subprocess.run(
+        [bash, "-c", 'sleep() { :; }; script=$1; set -- test; source "$script"', "bash", script],
+        cwd=tmp, env=env, capture_output=True, text=True)
     with open(log, encoding="utf-8", errors="replace") as f:
         return [ln.strip() for ln in f if ln.strip()], r.returncode
 

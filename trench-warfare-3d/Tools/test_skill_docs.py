@@ -304,18 +304,18 @@ class SkillDocsTest(unittest.TestCase):
         self.assertIn("!Long", det, "[K11s] expected determinism-and-verdicts.md to name -testCategory !Long")
 
     def test_k14s_vfx_sheets_working_dirs_and_no_fake_slash_commands(self):
-        """[K14s] the headroom line must name --min-headroom-gb with run_detached.py's real default of 0, every
+        """[K14s] the headroom line must name --min-headroom-gb with run_detached.py's real default of 10, every
         Tools/ call in tw-vfx-sheets docs must carry its own `cd`, every machine-only path is marked desktop-only,
         no skill doc names a slash command that has no .claude/commands/<name>.md, and no skill doc says
         `--mode editor` (gate.ps1/workflow.md use EditMode/PlayMode)."""
         run_detached_src = (PROJ / "Tools/pipeline/run_detached.py").read_text(encoding="utf-8")
         m = re.search(r'"--min-headroom-gb".*?default=([\d.]+)', run_detached_src)
         self.assertIsNotNone(m, "[K14s] expected run_detached.py to still define --min-headroom-gb")
-        self.assertEqual(float(m.group(1)), 0.0, "[K14s] run_detached.py's --min-headroom-gb default is no longer 0")
+        self.assertEqual(float(m.group(1)), 10.0, "[K14s] run_detached.py's --min-headroom-gb default is no longer 10")
 
         vfx_skill = (REPO / ".claude/skills/tw-vfx-sheets/SKILL.md").read_text(encoding="utf-8")
         self.assertIn("--min-headroom-gb", vfx_skill, "[K14s] expected the headroom line to name --min-headroom-gb")
-        self.assertIn("default is 0", vfx_skill, "[K14s] expected the headroom line to say the default is 0")
+        self.assertIn("default is 10", vfx_skill, "[K14s] expected the headroom line to say the default is 10")
 
         skills_dir = REPO / ".claude/skills"
         for line in vfx_skill.splitlines():

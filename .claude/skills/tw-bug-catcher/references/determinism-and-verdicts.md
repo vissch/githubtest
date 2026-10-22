@@ -6,7 +6,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 
 ### Determinism tests
 - **`SimHashTests`** (`P\Tests\Sim\SimHashTests.cs`): `const string SystemChain` (re-grep for its line), the order-numbered system list from `40 CombatCatalogueSystem` to `1200 SectorControlSystem`.
-  - `TheHashChainIsTheOneItsFormatVersionNames` asserts `ReplayRecorder.FormatVersion == 52` and the chain.
+  - `TheHashChainIsTheOneItsFormatVersionNames` asserts `ReplayRecorder.FormatVersion == 54` and the chain.
   - A system joining or moving fails here: bump FormatVersion and pin the new chain in the same commit (`D\inbox\2026-09-27-all-lanes-landed.md:29-31`).
 - **`DeterminismReplayTests`** (`P\Tests\Sim\DeterminismReplayTests.cs`):
   - `SameSeedAndCommands_ProduceIdenticalHashes` (:75): 300 greybox ticks with a scripted ability script, plus the `Seams()` system calls for mines, tripwire and burning (:44-55).

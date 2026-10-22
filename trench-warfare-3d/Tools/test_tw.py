@@ -4,12 +4,35 @@
 No editor and no Unity. Run: python Tools/test_tw.py
 """
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def git_bash():
+    """Git's own bash. A bare "bash" on Windows can be WSL's launcher (WindowsApps), first on PATH:
+    it cannot open a C: path, so stepabs never runs and the refusal text is missing. The first git.exe
+    on PATH may ship with no bash beside it, so every git on PATH is tried, the same places selftest
+    and test_aosa look."""
+    gits = []
+    for folder in os.environ.get("PATH", "").split(os.pathsep):
+        for name in ("git.exe", "git"):
+            cand = os.path.join(folder, name)
+            if os.path.isfile(cand):
+                gits.append(cand)
+                break
+    for git in gits:
+        g = Path(git).resolve()
+        for cand in (g.parent / "bash.exe", g.parent.parent / "bin" / "bash.exe",
+                     g.parent.parent / "usr" / "bin" / "bash.exe"):
+            if cand.is_file():
+                return str(cand)
+    return shutil.which("bash") or "bash"
 
 # Answers the one eval `tw stepabs` reads back: the clock, already PAST the time the shot wants.
 FAKE_UNITY = r'''#!/usr/bin/env bash
@@ -23,14 +46,17 @@ def run_tw(tmp, *args):
     """Run Tools/tw with a fake `unity` first on PATH and no CLI under LOCALAPPDATA."""
     bindir = os.path.join(tmp, "bin")
     os.makedirs(bindir)
-    with open(os.path.join(bindir, "unity"), "w", newline="\n") as f:
+    unity = os.path.join(bindir, "unity")
+    with open(unity, "w", newline="\n") as f:
         f.write(FAKE_UNITY)
-    os.chmod(os.path.join(bindir, "unity"), 0o755)
+    bash = git_bash()
+    # NTFS carries no real exec bit; bash itself has to be asked to set the one it checks.
+    subprocess.run([bash, "-c", 'chmod +x "%s"' % unity.replace("\\", "/")], cwd=tmp)
     empty = os.path.join(tmp, "localappdata")   # no unity/bin here, so the PATH `unity` is used
     os.makedirs(empty)
     env = dict(os.environ, LOCALAPPDATA=empty,
                PATH=bindir + os.pathsep + os.environ["PATH"])
-    return subprocess.run(["bash", os.path.join(HERE, "tw")] + list(args),
+    return subprocess.run([bash, os.path.join(HERE, "tw")] + list(args),
                           env=env, capture_output=True, text=True)
 
 
