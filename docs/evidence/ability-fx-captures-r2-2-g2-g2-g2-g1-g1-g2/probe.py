@@ -1,24 +1,33 @@
 #!/usr/bin/env python3
 """Count the GREEN the player sees in the chlorine bank, bar the rise, and count O240's clouds, not its wash.
 
-WHY (this unit, -g1-g1). The owner, 2026-10-21/22:
+WHY (this unit, -g1-g1-g2). The owner, 2026-10-22:
 
-    At the close camera the gas is still the pale green stripe sheet (frames 804, 819 and 834). Paint one
-    standing puff with a rim, the shape of cards-smoke, and put the height floor outside that sheet. The 0.05
-    floor sits under 0.0741 to 0.0768. Start from lane/show/ability-fx-captures-r2-2-g2-g2-g2-g1's tip. Bar
-    outside the spread of three captures of the current build.
+    The overview is still the old squash blanket, 21, 15 and 20 blobs, and the count floor of 8 sits under that
+    speck field. Reshoot the overview from this build and put a cloud-count ceiling outside that spread. The
+    close green area is 0.0136 three times, so the 0.01 floor is not three captures. Start from
+    lane/show/ability-fx-captures-r2-2-g2-g2-g2-g1-g1's tip. Bar outside the spread of three captures of the
+    current build.
 
--g1's `Book.GasPuff` and `GasPuffStand` 0.32 drew a mound per 4 m FIELD CELL: its own sidecars read `gas_cards`
-774 at the close camera, 774 low 5-7 m cards 4 m apart washing into one pale sheet with stripes at their top
-edges — the -g1-g1 floor's own bar (0.05) sat under the sheet's own 0.0741-0.0768, so the sheet passed it.
-Production (`CombatFx.Banks.cs`): the close drawing now steps `Refresh` by `GasPuffBlock` 3, so one card stands
-for a 3 x 3 block of cells (~86 cards 12 m apart, not 774 4 m apart) while staying 5-7 m wide itself (the block
-widens the GAP between puffs, not the puff); `GasPuffStand` moved to 1.2 and the close puff now boils between
-`GasPuffFirst`/`GasPuffLast` (12..16), the mound's early, wider frames, instead of the full `SmokeBankFirst`
-..`SmokeBankLast` window (12..20.5) — the full window read `green_low_share` 0.19 against the owner's 0.30 floor
-at this same stand, so the squatter early frames were needed, not just a shorter stand. This probe is otherwise
-`-g1`'s unchanged (camera maths, green mask, `largest_blob`, O240 clouds, `--pack`, `--calibrate`, `--selftest`,
-the two-sided height bar, the spread check); only `BAR_VALUES` is reset from this unit's own three captures.
+Production (`CombatFx.Banks.cs`): the merged-out branch of `DrawGasBank` stepped `Refresh` by the zoom step
+itself (2), so overview cards stood 8 m apart while each is 11-15 m wide - one blanket with a tail of fringe
+specks, which is what -g1-g1's 21/15/20 "clouds" counted. `GasCloudBlock` 12 replaces that step: one card per
+12 x 12 block of cells, the card's own width unchanged, so the block widens only the GAP. Swept by capture (2,
+3, 4, 6, 8, 12, 16), the rows are in `GasCloudBlock`'s doc comment. The close drawing does not change here:
+`GasPuffBlock` 3, `GasPuffStand` 1.2 and the 12..16 window are -g1-g1's, kept.
+
+THE PROBE'S THREE CHANGES from -g1-g1's, which is otherwise carried unchanged (camera maths, green mask,
+`largest_blob`, O240 clouds, `--pack`, `--calibrate`, `--selftest`, the two-sided height bar, the spread check):
+
+  1. `green_area_frac` rounds to FIVE decimals, and every bar line prints at `%.5f`. At four decimals the three
+     runs' 12528 / 12511 / 12501 blob pixels all read 0.0136 and their spread is a fake 0.0000 - the owner's
+     "0.0136 three times, so the 0.01 floor is not three captures". The digits were always there; only the
+     rounding hid them.
+  2. `BARS` gains `o240_cloud_ceiling` ('le' on `o240_cloud_count`), the second side of the count measure, the
+     way `green_height_floor`/`green_height_frac` already share the height measure. The ceiling sits UNDER 15, so
+     -g1-g1's own 21/15/20 speck field fails it outright.
+  3. `BAR_VALUES` is re-derived from this build's three captures. The three O240 bars move together: the gaps are
+     the point, so `o240_green_area_frac` and `o240_cloud_share` are re-set DOWNWARD and no longer "carried".
 
 THE RISE BAR. `green_rise_m` is `measure_t1`'s median height of the green mask above the ground, barred `'ge'`.
 This build's three captures read 2.575/2.529/2.568, spread 0.046 — well up from -g1's puddle-ish reading, because
@@ -32,13 +41,15 @@ THE O240 CLOUDS. `components(mask, w, h, dilate)` is `largest_blob`'s connected-
 returns every component (biggest-first; python's stable `sort` keeps `largest_blob`'s old winner as
 `components(...)[0]`, so T1's numbers are unchanged), instead of keeping only the biggest. `measure_o240` takes
 the green mask's components, keeps those with at least `CLOUD_MIN_PX` (50) member pixels as `clouds`, and reports
-`o240_cloud_count` (how many), `o240_cloud_share` (the green pixels inside those clouds, over all green pixels —
-low when the green is scattered, not clouded) and redefines `o240_green_area_frac` as the clouded pixels' share of
+`o240_cloud_count` (how many, barred on BOTH sides here: a floor so clouds exist at all, and
+`o240_cloud_ceiling` so a speck field cannot pass as clouds - 'lt' 15, see `BAR_VALUES`),
+`o240_cloud_share` (the green pixels inside those clouds, over all green pixels — low when the green is
+scattered, not clouded) and redefines `o240_green_area_frac` as the clouded pixels' share of
 the frame, not every green pixel's. `o240_blob_top`, the ten biggest component sizes, is printed as an unbarred
 diagnostic.
 
 THE NAMES. Every key says green: `green_low_share`, `green_height_frac`, `green_rise_m`, `green_area_frac`,
-`o240_green_area_frac`, `o240_cloud_count`, `o240_cloud_share`. `green_px`, `plate_diff_px`, `blob_px`,
+`o240_green_area_frac`, `o240_cloud_count`, `o240_cloud_ceiling`, `o240_cloud_share`. `green_px`, `plate_diff_px`, `blob_px`,
 `o240_green_px`, `o240_plate_diff_px` and `o240_blob_top` are printed per run as named diagnostics, barred on
 nothing.
 
@@ -98,6 +109,7 @@ BARS = {'green_low_share': ('green_low_share', 'ge'),
         'green_rise_m': ('green_rise_m', 'ge'),
         'o240_green_area_frac': ('o240_green_area_frac', 'ge'),
         'o240_cloud_count': ('o240_cloud_count', 'ge'),
+        'o240_cloud_ceiling': ('o240_cloud_count', 'lt'),
         'o240_cloud_share': ('o240_cloud_share', 'ge'),
         'pose_error_max': ('pose_error_max', 'lt')}
 
@@ -351,7 +363,7 @@ def measure_t1(run_dir):
     diag = {'green_px': green_px, 'plate_diff_px': plate_diff_px, 'blob_px': blob_px}
     if not heights or total == 0:
         out = {'green_low_share': 0.0, 'green_height_frac': 1.0, 'green_rise_m': 0.0,
-               'green_area_frac': round(mask_px / float(w * h), 4)}
+               'green_area_frac': round(mask_px / float(w * h), 5)}
         out.update(diag)
         return out
     med_h = heights[len(heights) // 2]
@@ -362,7 +374,7 @@ def measure_t1(run_dir):
         'green_low_share': round(low / float(total), 4),
         'green_height_frac': round(med_h / frame_h, 4),
         'green_rise_m': round(med_h, 3),
-        'green_area_frac': round(mask_px / float(w * h), 4),
+        'green_area_frac': round(mask_px / float(w * h), 5),
     }
     out.update(diag)
     return out
@@ -520,8 +532,8 @@ def spread_check(name, values, cmp_, bar):
         passes = all(v < bar for v in values)
         margin = bar - max(values)
     ok = passes and margin >= spread
-    print('%-18s values %s  spread %.4f  margin %.4f  bar %s %.4f  -> %s'
-          % (name, ['%.4f' % v for v in values], spread, margin, cmp_, bar, 'OK' if ok else 'FAILED'))
+    print('%-20s values %s  spread %.5f  margin %.5f  bar %s %.5f  -> %s'
+          % (name, ['%.5f' % v for v in values], spread, margin, cmp_, bar, 'OK' if ok else 'FAILED'))
     return ok
 
 
@@ -545,7 +557,7 @@ def main():
     results = {os.path.basename(d): measure_run(d) for d in runs}
     frames = {os.path.basename(d): frames_of(d) for d in runs}
     for name, out in results.items():
-        print('%s: green_low_share %.4f  green_height_frac %.4f  green_rise_m %.3f  green_area_frac %.4f'
+        print('%s: green_low_share %.4f  green_height_frac %.4f  green_rise_m %.3f  green_area_frac %.5f'
               '  o240_green_area_frac %.4f  pose_error_max %.4f'
               % (name, out['green_low_share'], out['green_height_frac'], out['green_rise_m'],
                  out['green_area_frac'], out['o240_green_area_frac'], out['pose_error_max']))
@@ -576,7 +588,7 @@ def main():
         # bars are set once three different-frame runs exist: see this folder's README.md
         bar = BAR_VALUES.get(bar_name)
         if bar is None:
-            print('%-18s no bar set yet (needs the owner-approved build''s three captures)' % bar_name)
+            print('%-20s no bar set yet (needs the owner-approved build''s three captures)' % bar_name)
             ok = False
             continue
         ok = spread_check(bar_name, values, cmp_, bar) and ok
@@ -593,17 +605,29 @@ BAR_VALUES = {
     'green_low_share': 0.30,        # owner-decided, kept; runs 0.3462/0.3458/0.3462, spread 0.0004, margin 0.0458
     'green_height_frac': 0.15,      # owner-decided CEILING, kept; runs 0.0950/0.0933/0.0947, spread 0.0017,
                                      # margin 0.0503
-    'green_height_floor': 0.08,     # the FLOOR, re-set for this build: runs 0.0950/0.0933/0.0947, spread 0.0017,
-                                     # so a round number under the floor 0.0916 and OVER -g1's own sheet range
-                                     # 0.0741-0.0768 (the goal's own bar), which fails it outright
-    'green_rise_m': 2.4,            # runs 2.575/2.529/2.568, spread 0.046: the round number under the floor 2.483
-    'green_area_frac': 0.01,        # runs 0.0136/0.0136/0.0136, spread 0.0000: fewer, taller cards cover less of
-                                     # the frame than -g1's wash on purpose (gaps are what makes a puff read), so
-                                     # this bar is reset lower, not carried from -g1's sheet-era 0.04
-    'o240_green_area_frac': 0.008,  # carried: runs 0.0094/0.0093/0.0098, spread 0.0005, margin 0.0013
-    'o240_cloud_count': 8,          # re-set: runs 21/15/20, spread 6 (wider than -g1's), so the floor moves to 8
-                                     # (margin 7) to clear it; still clouds, not a wash
-    'o240_cloud_share': 0.85,       # carried: runs 0.8729/0.8696/0.8847, spread 0.0151, margin 0.0196
+    'green_height_floor': 0.08,     # the FLOOR, re-derived from these runs and unmoved: 0.0950/0.0933/0.0947,
+                                     # spread 0.0017, margin 0.0133, and still OVER -g1's own sheet range
+                                     # 0.0741-0.0768, which fails it outright
+    'green_rise_m': 2.4,            # re-derived, unmoved: runs 2.575/2.529/2.568, spread 0.046, margin 0.129
+    'green_area_frac': 0.0135,      # the owner's "0.0136 three times": at five decimals the runs are
+                                     # 0.01359/0.01358/0.01356 (blob 12528/12511/12501 px), spread 0.00003, so the
+                                     # floor moves from the slack 0.01 to just outside the real spread (margin
+                                     # 0.00006). T1 did not move at all this unit - only the merged-out branch
+                                     # changed - so these are -g1-g1's close numbers read to one more digit
+    'o240_green_area_frac': 0.0001,  # RE-SET DOWN, not carried: runs 0.0010/0.0008/0.0006, spread 0.0004, margin
+                                     # 0.0005 (0.0002 would be margin == spread, and in binary floats that reads
+                                     # 0.00039999 < 0.0004 and fails). GasCloudBlock 12 trades coverage for gaps (-g1-g1 read 0.0094 as
+                                     # one blanket), and the owner asked for clouds, not coverage
+    'o240_cloud_count': 3,          # the FLOOR: clouds exist at all. Runs 11/9/7, spread 4, so the floor sits at
+                                     # 3 (margin 4) - a blanket from the other side (one or two clouds) fails it
+    'o240_cloud_ceiling': 15,       # the CEILING, 'lt': the count must stay UNDER 15, so -g1-g1's own speck field
+                                     # (21/15/20, its 15 included) fails outright. Runs 11/9/7, max 11, spread 4,
+                                     # margin 4. 'lt' not 'le' because at 'le' the two sides cannot both hold:
+                                     # the spread check needs margin >= 4, i.e. a bar of 15 or more, while the
+                                     # goal needs the old 15 to fail. 'lt' 15 is the only bar that does both
+    'o240_cloud_share': 0.25,       # RE-SET DOWN with the area: runs 0.4777/0.4413/0.3676, spread 0.1101, margin
+                                     # 0.1176. The fringe specks that are not clouds are now most of the green,
+                                     # because each cloud is one card standing alone
     'pose_error_max': 0.50,         # GasBankStills.PoseBar
 }
 
