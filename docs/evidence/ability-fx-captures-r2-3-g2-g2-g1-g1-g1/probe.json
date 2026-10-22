@@ -1,0 +1,202 @@
+{
+ "bars": {
+  "o240_hue_dist_deg": 108.0,
+  "side_crown_m": 1.9,
+  "side_dome_ratio": 0.88,
+  "side_face_px": 30000,
+  "t1_changed_frac": 0.08,
+  "texture_var_drop": 0.4
+ },
+ "ceilings": {
+  "texture_var_drop": 0.7
+ },
+ "o240_hue_dist_deg": [
+  135.57,
+  139.11,
+  133.98
+ ],
+ "owner_bars": {
+  "o240_hue_dist_deg": 25.0,
+  "t1_changed_frac": 0.08,
+  "texture_var_drop": 0.4
+ },
+ "pack_bars": {
+  "side_face_spread": 3.55,
+  "side_outside_frac": 0.4
+ },
+ "rows": {
+  "gas_side_height_m": [
+   2.028,
+   1.716,
+   2.247
+  ],
+  "gas_t1_height_m": [
+   2.895,
+   6.712,
+   4.665
+  ],
+  "o240_bank_hue_deg": [
+   86.0,
+   84.6,
+   87.3
+  ],
+  "o240_blob_hue_deg": [
+   108.3,
+   99.7,
+   110.4
+  ],
+  "o240_blob_px": [
+   25465,
+   24976,
+   20791
+  ],
+  "o240_changed_frac": [
+   0.0284,
+   0.0277,
+   0.0233
+  ],
+  "o240_core_px": [
+   6375,
+   6244,
+   5198
+  ],
+  "o240_grass_hue_deg": [
+   221.5,
+   223.8,
+   221.2
+  ],
+  "pose_error_m": [
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "side_bias_m": [
+   1.804,
+   1.905,
+   1.926
+  ],
+  "side_blob_px": [
+   143091,
+   67196,
+   201973
+  ],
+  "side_box_px": [
+   700291,
+   700291,
+   700291
+  ],
+  "side_cam_height_m": [
+   7.799,
+   7.799,
+   7.799
+  ],
+  "side_cam_pitch": [
+   8.0,
+   8.0,
+   8.0
+  ],
+  "side_crest_cols": [
+   1193,
+   503,
+   1193
+  ],
+  "side_cut_frac": [
+   0.2041,
+   0.2705,
+   0.1978
+  ],
+  "side_face_col_px": [
+   70,
+   67,
+   94
+  ],
+  "side_face_cols": [
+   1193,
+   503,
+   1193
+  ],
+  "side_face_frac": [
+   0.5493,
+   0.5096,
+   0.542
+  ],
+  "side_mask_px": [
+   188731,
+   212026,
+   253504
+  ],
+  "side_outside_frac": [
+   0.1651,
+   0.2539,
+   0.2157
+  ],
+  "side_tick_skew": [
+   0,
+   0,
+   0
+  ],
+  "side_top_m": [
+   3.832,
+   3.62,
+   4.173
+  ],
+  "t1_blob_px": [
+   76206,
+   107957,
+   152341
+  ],
+  "t1_block_var_gas": [
+   0.000845,
+   0.001695,
+   0.001343
+  ],
+  "t1_block_var_plate": [
+   0.001714,
+   0.004804,
+   0.002357
+  ],
+  "t1_footprint_bias_m": [
+   3.589,
+   3.97,
+   3.672
+  ],
+  "t1_luma_delta": [
+   0.0985,
+   0.1162,
+   0.1116
+  ]
+ },
+ "side_crown_m": [
+  2.561,
+  2.496,
+  2.64
+ ],
+ "side_dome_ratio": [
+  1.6646,
+  1.2726,
+  1.4459
+ ],
+ "side_face_px": [
+  78606,
+  34245,
+  109479
+ ],
+ "side_face_spread": 3.1969,
+ "side_outside_frac": 0.2539,
+ "t1_changed_frac": [
+  0.2111,
+  0.2113,
+  0.2398
+ ],
+ "texture_var_drop": [
+  0.5068,
+  0.6472,
+  0.4302
+ ]
+}
