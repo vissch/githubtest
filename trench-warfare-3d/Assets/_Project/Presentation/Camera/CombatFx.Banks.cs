@@ -17,12 +17,20 @@ namespace TW.Presentation.Tactical
     public sealed partial class CombatFx
     {
         public const float BankMergeZoom = 120f;
-        const float GasBankFirst = 17f, GasBankLast = 28f;       // the bank at its full spread (its early frames are a puff)
+        const float GasBankFirst = 12f, GasBankLast = 20.5f;     // the cloud grown (the gas row now draws SmokeBank's 22 frames, so 17..28 runs off the end)
         // How clearly the bank reads (film 2026-10-07: at 0.3-0.8 it was fainter than the old wisps at night and gone on snow):
         // a thin cell's card and a full one's, and its colour by day, deeper than the sheet's so it is green ON snow
         public const float GasBankThin = 0.6f, GasBankFull = 1f;
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.55 tops out at 1.28 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.55f;
+        /// <summary>How tall the close gas card is drawn, as a share of its width: a standing cloud over a man's head, not a flat
+        /// puddle (the owner, 2026-10-22: the close shot was a sheet of pale green stripes). A 7 m card stands 2.94 m, and because
+        /// the gas row now draws SmokeBank's cloud, which fills its cell, that IS the cloud's height and not a third of it.
+        /// Measured by captures, not picked: at 0.9 the field read as a wall (green_low_share 0.11 against the 0.30 floor) and at
+        /// 0.30 its rise fell back under the old stripe sheet. The overview keeps the flat GasBankSquash blanket.</summary>
+        public const float GasBankStand = 0.42f;
+        /// <summary>How far the close card's bottom edge sits under the ground, so the cloud's foot is in the mud and its mass stays low.</summary>
+        const float GasBankSink = 0.20f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -96,7 +104,11 @@ namespace TW.Presentation.Tactical
                 float slow = now * 0.22f + h3 * 6.2832f;
                 float width = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2) * step;
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                // Close the cloud stands; from the overview it stays the flat blanket with an edge (cards are Anchored, so the
+                // position is the card's bottom edge).
+                float height = step == 1 ? width * GasBankStand : width * GasBankSquash;
+                float bottom = b.Ground - (step == 1 ? GasBankSink : 0.35f);
+                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, bottom, b.Z), width, height, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }

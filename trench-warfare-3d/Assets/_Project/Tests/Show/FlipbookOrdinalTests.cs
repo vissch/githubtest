@@ -23,6 +23,7 @@ namespace TW.Tests
             {
                 string name = FlipbookFx.SheetName(b);
                 if (b == Book.MineSmoke) { Assert.AreEqual("WreckSmoke", name, "the mine's smoke is the wreck's drawing, tinted black"); continue; }
+                if (b == Book.GasBank) { Assert.AreEqual("SmokeBank", name, "the chlorine cloud is the smoke mound's drawing, tinted green (the owner, 2026-10-22)"); continue; }
                 Assert.IsTrue(name == b.ToString() || name == "Fire" + b, $"Book.{b} is row {(int)b}, which draws {name}: the Sheets row there is another book's");
             }
         }

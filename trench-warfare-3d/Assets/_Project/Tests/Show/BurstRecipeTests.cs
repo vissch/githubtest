@@ -256,13 +256,18 @@ namespace TW.Tests
             Assert.AreEqual(50.2f, CombatFx.LeapStart(3, 50f, 10f, 0f).Until, 1e-4f, "never shorter than 0.2 s");
         }
         [Test]
-        public void TheGasBankLiesOnTheGround_NotOverAMansHead()
+        public void TheCloseGasStandsAsACloud_TheOverviewBankStillLies()
         {
-            // r1's critique: gas-t1 read as a standing wall (height_frac 0.32). The sheet's drawing fills the bottom
-            // third of the card, so a 7 m card's gas topped out at 2.33 m. Squashed it is 1.28 m, under a man's head.
-            float top = 7f * CombatFx.GasBankSquash / 3f;
-            Assert.Less(top, 1.8f, "the gas a 7 m card draws stays under a 1.8 m man's head");
-            Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+            // The owner, 2026-10-22: close, the gas was a sheet of pale green stripes, a flat puddle with no rise. Close it now
+            // draws the smoke mound's sheet, which fills its cell, so a 7 m card stands width * GasBankStand tall - over a man,
+            // but not a wall. From the overview nothing changed: the bank is a blanket whose gas stays under a man's head.
+            const float HEAD_M = 1.8f;
+            float close = 7f * CombatFx.GasBankStand;
+            Assert.Greater(close, HEAD_M, "close, the cloud stands over a 1.8 m man: it is not a puddle");
+            Assert.Less(close, 7f, "and is a cloud, not a wall as tall as the card is wide");
+            float overview = 7f * CombatFx.GasBankSquash / 3f;   // the gas sheet's drawing fills the bottom third of the card
+            Assert.Less(overview, HEAD_M, "from the overview the gas a 7 m card draws stays under a 1.8 m man's head");
+            Assert.Greater(overview, 0.6f, "and is still thick enough to read: not a painted line on the floor");
         }
     }
 }
