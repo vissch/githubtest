@@ -1,10 +1,10 @@
 {
  "bars": {
-  "green_area_frac": 0.04,
+  "green_area_frac": 0.07,
   "green_height_floor": 0.05,
   "green_height_frac": 0.15,
   "green_low_share": 0.3,
-  "green_rise_m": 2.0,
+  "green_rise_m": 2.5,
   "o240_cloud_ceiling": 6,
   "o240_cloud_count": 3,
   "o240_cloud_share": 0.65,
@@ -34,12 +34,12 @@
  "look": {},
  "runs": {
   "run1": {
-   "blob_px": 47945,
-   "green_area_frac": 0.052,
-   "green_height_frac": 0.0768,
-   "green_low_share": 0.4136,
-   "green_px": 178064,
-   "green_rise_m": 2.38,
+   "blob_px": 73961,
+   "green_area_frac": 0.0803,
+   "green_height_frac": 0.0862,
+   "green_low_share": 0.344,
+   "green_px": 220354,
+   "green_rise_m": 2.582,
    "o240_blob_top": [
     4274,
     1242,
@@ -57,7 +57,7 @@
    "o240_green_area_frac": 0.0078,
    "o240_green_px": 9896,
    "o240_plate_diff_px": 25302,
-   "plate_diff_px": 169096,
+   "plate_diff_px": 200148,
    "pose_error_m": {
     "gas-o240": 0.0,
     "gas-o240-plate": 0.0,
@@ -67,12 +67,12 @@
    "pose_error_max": 0.0
   },
   "run2": {
-   "blob_px": 46800,
-   "green_area_frac": 0.0508,
-   "green_height_frac": 0.0741,
-   "green_low_share": 0.4242,
-   "green_px": 176403,
-   "green_rise_m": 2.304,
+   "blob_px": 73457,
+   "green_area_frac": 0.0797,
+   "green_height_frac": 0.0858,
+   "green_low_share": 0.3461,
+   "green_px": 218731,
+   "green_rise_m": 2.568,
    "o240_blob_top": [
     4537,
     2324,
@@ -90,7 +90,7 @@
    "o240_green_area_frac": 0.0081,
    "o240_green_px": 9805,
    "o240_plate_diff_px": 23973,
-   "plate_diff_px": 172465,
+   "plate_diff_px": 203407,
    "pose_error_m": {
     "gas-o240": 0.0,
     "gas-o240-plate": 0.0,
@@ -100,12 +100,12 @@
    "pose_error_max": 0.0
   },
   "run3": {
-   "blob_px": 47063,
-   "green_area_frac": 0.0511,
-   "green_height_frac": 0.0757,
-   "green_low_share": 0.4235,
-   "green_px": 175441,
-   "green_rise_m": 2.353,
+   "blob_px": 77445,
+   "green_area_frac": 0.084,
+   "green_height_frac": 0.0858,
+   "green_low_share": 0.3237,
+   "green_px": 218115,
+   "green_rise_m": 2.568,
    "o240_blob_top": [
     4858,
     2312,
@@ -123,7 +123,7 @@
    "o240_green_area_frac": 0.0084,
    "o240_green_px": 10260,
    "o240_plate_diff_px": 24726,
-   "plate_diff_px": 168288,
+   "plate_diff_px": 199174,
    "pose_error_m": {
     "gas-o240": 0.0,
     "gas-o240-plate": 0.0,

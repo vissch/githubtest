@@ -267,6 +267,9 @@ namespace TW.Tests
             float sheet = 7f * CombatFx.GasBankSquash / 3f;
             Assert.Less(sheet, 1.8f, "from the overview out the gas is still a sheet under a 1.8 m man's head");
             Assert.Greater(sheet, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+            // The owner, 2026-10-22: the close puff stands off the mud, not sunk in it like a pad.
+            Assert.Greater(CombatFx.GasPuffLift, 0f, "the close puff's bottom edge is off the mud");
+            Assert.Less(CombatFx.GasPuffLift, 0.6f, "and does not float at a man's waist");
         }
     }
 }

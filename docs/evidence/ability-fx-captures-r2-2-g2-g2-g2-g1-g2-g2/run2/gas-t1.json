@@ -15,14 +15,14 @@
   "want_y": 33.01822,
   "want_z": 96.48563,
   "pose_error_m": 0,
-  "luma_mean": 0.20404,
-  "luma_p50": 0.19347,
-  "luma_p95": 0.32516,
+  "luma_mean": 0.20593,
+  "luma_p50": 0.19734,
+  "luma_p95": 0.32473,
   "blown_frac": 0.00008,
   "black_frac": 0.00001,
   "men_in_frame": 6,
-  "contrast_median": 0.18057,
-  "contrast_p10": 0.02356,
+  "contrast_median": 0.04488,
+  "contrast_p10": 0.02254,
   "rain": 0,
   "wind": 7.94132,
   "drawn_infantry": 6,
@@ -31,5 +31,5 @@
   "vertices": 11004,
   "shadows": 1,
   "fallen": 3,
-  "warnings": []
+  "warnings": ["men barely separate from the ground: unreadable"]
 }

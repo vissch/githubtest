@@ -600,14 +600,16 @@ def main():
 
 # Bar values, set from the spread of run1/run2/run3 at three different frames (see README.md "The bars").
 BAR_VALUES = {
-    'green_low_share': 0.30,        # owner-decided; runs 0.4136/0.4242/0.4235, spread 0.0106, margin 0.1136
-    'green_height_frac': 0.15,      # owner-decided CEILING, kept; runs 0.0768/0.0741/0.0757, spread 0.0027,
-                                     # margin 0.0732
-    'green_height_floor': 0.05,     # the new FLOOR on the same measure: runs 0.0768/0.0741/0.0757, spread 0.0027,
-                                     # so a round number under the floor 0.0714 and over 0.02 - the -g2-g2-g2 flat
-                                     # sheet's own 0.0116 fails it outright
-    'green_rise_m': 2.0,            # runs 2.380/2.304/2.353, spread 0.076: the round number under 2.228
-    'green_area_frac': 0.04,        # runs 0.0520/0.0508/0.0511, spread 0.0012: the round number under 0.0496
+    'green_low_share': 0.30,        # owner-decided, kept; fresh GasPuffLift 0.025 runs 0.3440/0.3461/0.3237,
+                                     # spread 0.0224, margin 0.0237 (the lift that cleared it: 0.05 and above
+                                     # landed the floor dead on, see -g2-g2-g2-g1-g2-g2's README)
+    'green_height_frac': 0.15,      # owner-decided CEILING, kept; fresh runs 0.0862/0.0858/0.0858, spread 0.0004,
+                                     # margin 0.0638
+    'green_height_floor': 0.05,     # the FLOOR on the same measure, kept; fresh runs 0.0862/0.0858/0.0858,
+                                     # spread 0.0004, margin 0.0358 - the -g2-g2-g2 flat sheet's own 0.0116 still
+                                     # fails it outright
+    'green_rise_m': 2.5,            # fresh runs 2.582/2.568/2.568, spread 0.014: the round number under 2.554
+    'green_area_frac': 0.07,        # fresh runs 0.0803/0.0797/0.0840, spread 0.0043: the round number under 0.0754
     'o240_green_area_frac': 0.006,  # with CLOUD_MIN_PX 200: runs 0.0078/0.0081/0.0084, spread 0.0006, margin 0.0018
     'o240_cloud_count': 3,          # with CLOUD_MIN_PX 200: runs 4/4/4, spread 0, margin 1
     'o240_cloud_ceiling': 6,        # same runs 4/4/4, spread 0, margin 2

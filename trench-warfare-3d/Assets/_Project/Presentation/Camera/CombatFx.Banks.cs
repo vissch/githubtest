@@ -32,6 +32,10 @@ namespace TW.Presentation.Tactical
         /// moves: 0.2 is a fifth of the stand, which puts the median gas about 1.3 m up - a puff that clears the
         /// height floor and stays under the ceiling.</summary>
         public const float GasPuffStand = 0.32f;
+        /// <summary>How far off the mud the close gas card's anchor sits (the owner, 2026-10-22: the close puff
+        /// stands off the mud, not sunk in it like a pad). Added to <c>b.Ground</c> only for the close
+        /// (<c>step == 1</c>) card; the merged-out blanket keeps its sunk anchor.</summary>
+        public const float GasPuffLift = 0.025f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -107,7 +111,7 @@ namespace TW.Presentation.Tactical
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                 // close (step 1): the standing puff, its drawing reaching the cell's floor, so the card sits at the
                 // smoke bank's anchor and not GasBankSquash's sunk one. From the overview out: today's squashed blanket.
-                if (step == 1) gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width * GasPuffStand, BankFrame(SmokeBankFirst, SmokeBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                if (step == 1) gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground + GasPuffLift, b.Z), width, width * GasPuffStand, BankFrame(SmokeBankFirst, SmokeBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
                 else gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
             }
             books.DrawPacked(step == 1 ? FlipbookFx.Book.GasPuff : FlipbookFx.Book.GasBank, gasCards, bounds);
