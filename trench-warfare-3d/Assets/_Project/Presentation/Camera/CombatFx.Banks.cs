@@ -23,6 +23,13 @@ namespace TW.Presentation.Tactical
         // (0.14/0.5), because "pale green stripes" is the alpha as much as the overlap.
         // Its colour by day is deeper than the sheet's so it is green ON snow
         public const float GasBankThin = 0.19f, GasBankFull = 0.62f;
+        /// <summary>What counts as a card's full thickness (field load units): a cell carrying this much gas, or more,
+        /// draws at <see cref="GasBankFull"/>. The field tops out near 36, so the body of a bank is already clamped to
+        /// thick 1; the only pale paint is the fringe band of loads up to this point. At 8 that band was a thin lift
+        /// over mud that never read as green, and how much fringe a tick happened to have swung the green share run to
+        /// run (0.47 against 0.61). At 4 every cell at load 4 or more is a plate, so the share rises and its spread
+        /// collapses.</summary>
+        public const float GasBankFullThick = 4f;
         /// <summary>How tall a gas card's painted band is (m): the sheet fills the bottom third of the card, so every card,
         /// thin or wide, paints the same 1.72 m of gas - under a 1.8 m man's head, and tall enough that at the T1 pose one
         /// row of cards reaches the next row's and no bare ground shows between them (a share of the width left the thin
@@ -148,7 +155,7 @@ namespace TW.Presentation.Tactical
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 8f, GasBankJitterXM, GasBankJitterM, true, true, 73856093, 19349663);
+            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, GasBankFullThick, GasBankJitterXM, GasBankJitterM, true, true, 73856093, 19349663);
             gasCards.Clear();
             foreach (var b in gasBank.Cells)
             {
