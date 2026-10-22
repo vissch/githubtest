@@ -47,6 +47,18 @@ namespace TW.Presentation.Tactical
         public static float GasBankZOffset(int x, int step, float h2)
             => ((((x / step) & 1) == 0) ? -GasBankJitterM / 4f : GasBankJitterM / 4f) + (h2 - 0.5f) * GasBankJitterM / 2f;
 
+        /// <summary>How many field blocks a gas card's thickness is read from: its own and the eight around it.</summary>
+        public const int GasBankNeighbourhood = 9;
+        /// <summary>A gas card's load: the mean of the nine block maxima around it (its own plus <paramref name="ringSum"/>,
+        /// the eight neighbours; off the map counts as 0). A card used to read its own 4 m cell alone, so at the cloud's
+        /// edge, where the field decays cell by cell, the outermost ring of cards drew right at the probe's visibility
+        /// bar: that marginal paint broke into blotches and each blotch counted as its own patch (28 / 24 / 18 for one
+        /// bank), and the count swung between captures because the fringe was re-diced every frame. With the mean of
+        /// nine the body keeps its thickness (nine times the same value is that value), the old fringe ring falls under
+        /// the stand floor and goes, and the new outermost ring stands where the gas is about twice the floor - well
+        /// above the bar, so it reads as one plate. It also pulls the bank's width back by about one 4 m ring.</summary>
+        public static float GasBankLoad(float self, float ringSum) => (self + ringSum) / GasBankNeighbourhood;
+
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -82,20 +94,36 @@ namespace TW.Presentation.Tactical
         /// <summary>Refill a field's cells if the tick or the step has moved. floor: the least a cell must hold to stand;
         /// full: what counts as thick; jitterX / jitterZ: how far off its centre a card may stand sideways and in depth;
         /// stratifyZ: place the depth offset in two interleaved strata (<see cref="GasBankZOffset"/>) instead of at
-        /// random; salt: the cell hash's primes.</summary>
-        void Refresh(BankCache cache, Unity.Collections.NativeArray<float> field, int width, int length, int step, float floor, float full, float jitterX, float jitterZ, bool stratifyZ, int p1, int p2)
+        /// random; smooth: read a cell's load from its neighbourhood (<see cref="GasBankLoad"/>) instead of its own
+        /// block; salt: the cell hash's primes.</summary>
+        void Refresh(BankCache cache, Unity.Collections.NativeArray<float> field, int width, int length, int step, float floor, float full, float jitterX, float jitterZ, bool stratifyZ, bool smooth, int p1, int p2)
         {
             uint tick = Host.Local.World.Tick;
             if (cache.Tick == tick && cache.Step == step) return;
             cache.Tick = tick; cache.Step = step; cache.Cells.Clear();
             float cs = MapData.FieldCellSize;
+            // one block's worth of field at (bx, bz): the max over the step x step cells it merges, 0 off the map
+            float Block(int bx, int bz)
+            {
+                if (bx < 0 || bz < 0 || bx >= width || bz >= length) return 0f;
+                float m = 0f;
+                for (int dz = 0; dz < step && bz + dz < length; dz++)
+                for (int dx = 0; dx < step && bx + dx < width; dx++)
+                    m = Mathf.Max(m, field[(bz + dz) * width + bx + dx]);
+                return m;
+            }
             for (int z = 0; z < length; z += step)
             for (int x = 0; x < width; x += step)
             {
-                float c = 0f;
-                for (int dz = 0; dz < step && z + dz < length; dz++)
-                for (int dx = 0; dx < step && x + dx < width; dx++)
-                    c = Mathf.Max(c, field[(z + dz) * width + x + dx]);
+                float c = Block(x, z);
+                if (smooth)
+                {
+                    float ring = 0f;
+                    for (int dz = -1; dz <= 1; dz++)
+                    for (int dx = -1; dx <= 1; dx++)
+                        if (dx != 0 || dz != 0) ring += Block(x + dx * step, z + dz * step);
+                    c = GasBankLoad(c, ring);
+                }
                 if (c < floor) continue;
                 uint h = (uint)(x * p1 ^ z * p2);
                 float h1 = (h & 1023) / 1023f, h2 = ((h >> 10) & 1023) / 1023f;
@@ -121,7 +149,7 @@ namespace TW.Presentation.Tactical
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 8f, GasBankJitterXM, GasBankJitterM, true, 73856093, 19349663);
+            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 8f, GasBankJitterXM, GasBankJitterM, true, true, 73856093, 19349663);
             gasCards.Clear();
             foreach (var b in gasBank.Cells)
             {
@@ -141,7 +169,7 @@ namespace TW.Presentation.Tactical
         void DrawSmokeBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(smokeBank, gas.Smoke, gas.Width, gas.Length, step, 1.5f, 20f, 2.2f, 2.2f, false, 83492791, 29349663);
+            Refresh(smokeBank, gas.Smoke, gas.Width, gas.Length, step, 1.5f, 20f, 2.2f, 2.2f, false, false, 83492791, 29349663);
             smokeCards.Clear();
             foreach (var b in smokeBank.Cells)
             {
