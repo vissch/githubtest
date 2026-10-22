@@ -137,14 +137,18 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   -runTests -testPlatform EditMode -testFilter GasBankStills -testResults <xml> -logFile <log>`).
   GasBankCards (`Tests/Stills/GasBankCards.cs`, Explicit, a graphics device: the isolation still behind GasBankStills
   - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, five stills at one pose, gas, smoke,
-  puff, gaspuff (the close camera's standing `Book.GasPuff`, at `CombatFx.GasPuffStand` and frame 16) and a plate -
+  puff, gaspuff (the close camera's standing `Book.GasPuff` at frame 16, drawn at the full card width like the smoke
+  card: a look reading of the book, while the FIELD puff keeps `CombatFx.GasPuffStand` 0.32) and a plate -
   so a blank still accuses one book and not the sim, the field, the cache and the capture path at once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
-  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g2/probe.py` measures those stills: it COUNTS THE GREEN the gas
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g2-g1/probe.py` measures those stills: it COUNTS THE GREEN the gas
   added over the plate (not a brightness test), in metres, bars the rise, bars the height from BOTH sides (a
   ceiling, so the puff is not a wall, and a floor, so it is not a flat sheet), and refuses two runs that
   photographed the same frame, barred against the SPREAD of three captures of one build at three different
   `TW_GAS_WAIT_FRAMES`. It counts O240's green as connected clouds, not one area fraction
-  (`--calibrate`, `--selftest`, `--pack`; `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1/probe.py`,
+  It also bars the gaspuff CARD over three fresh GasBankCards sets at three `TW_CARDS_WAIT_FRAMES`: its rise in
+  metres, its aspect, and its rise over the smoke card's
+  (`--calibrate`, `--selftest`, `--pack`; `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g2/probe.py`,
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2/probe.py` and
