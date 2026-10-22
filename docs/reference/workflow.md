@@ -600,6 +600,9 @@ In Git Bash, `taskkill /PID` gets its slashes mangled: use `taskkill //PID <n> /
 - Long inline Python in the Bash tool gets its backslashes mangled. Write patch scripts to a file and run them.
 - **One session per checkout.** A second session makes its own (`git worktree add`); two in one tree gate each
   other's half-done edits and cannot rebase.
+- `lane/show/banner-day-film` landed on 2026-10-15. The leftover ref still carried the wider top-kick (every
+  machine, not the Banner alone). `python Tools/test_banner_branch_gone.py` fails while that ref exists locally
+  or as `origin/lane/show/banner-day-film`. The 2026-10-15 row in `decisions.md` stays.
 
 **Crossing a file split during a rebase**, at each stop:
 ```bash
