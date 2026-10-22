@@ -47,6 +47,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-07 | **At night the 8 lamps nearest the view stay real lights; the other 35 are painted only.** The owner, to "Fewer real lights at night: which way?": "The 8 lamps nearest your view stay real, the other 35 painted only. Middle. Closest to today; men by lamps get brighter." Of the 43 fixed lamps that always burn (lanterns, prop lamps, trench lamps, burning trees, torches) the eight nearest the view keep their real light and the rest keep only their painted pool, glow card and glass, with a fade as the eight change while the view moves. Flashes, crater glows, the star shell and burning machines stay as they are. Known and accepted: men beside a lamp get brighter than today. To check while building: lamps by water lose their reflection if painted only (the water takes real lights alone), and the pools are picked by distance to the camera, not to where it looks. He sees night stills, before and after, before it lands. (owner, 2026-10-07, on the Decide page) |
 | 2026-10-08 | **R1 C1 DANGEROUS MAJOR.** **The Bullfrog lands in the battle from its own model once its legs move when it jumps.** The owner, to "The Bullfrog in the battle from its own model: land it?", in his own words: "we need to animate his legs as well as if he jumps, then we land it. i think we alredy did this at some point that needs to carry through". Built the same day on `lane/show/bullfrog-legs`: the Playground's leg rig is carried into the battle (the leg poses, and each Bullfrog its own posed hull), and its full gate was green on 2026-10-07. It lands right after the effects pass, on his words above. Known and not fixed: nobody has looked at its legs from far away (the far model borrows the near model's leg weights), and a landing reads soft because the battle's hop has no crouch before take-off. (owner, 2026-10-07, on the Decide page; taken up by the master 2026-10-08) |
 | 2026-10-08 | **R1 C1 DANGEROUS MAJOR.** **The night with 8 real lamps lands as built; the orange flicker on sandbags is fixed after.** The owner, to "The night with 8 real lamps is built: land it?": "Land it; the one-still orange flicker on sandbags is fixed after" (option A). Built on `lane/show/night-lamps-8` to his pick of 2026-10-07 (the row above the Bullfrog's): the 8 fixed lamps nearest the view keep their real light, the other 35 keep their painted pool, glow card and glass. It lands on top of the effects pass and the Bullfrog's legs, inside the stack of 2026-10-09 (Process). Known and left for after: in a fast pan a few sandbags turn orange for one still; men by a trench lamp are brighter than before (accepted on 2026-10-07). The night exactly as before stays one setting away: `lights.realLamps=43,look.poolsByView=0`. (owner, 2026-10-08 13:31, on the Decide page; taken up by the master 2026-10-09) |
+| 2026-10-22 | **The gas bank's overview hue is accepted as it reads, and the target moves to match.** The owner, to "The gas bank's hue: reshoot brighter, or accept it as is": "Accept the color as it now reads and move the target to match". The side look stays (opacity 0.55/0.75, no reshoot). The three overview seeds already on `lane/show/ability-fx-captures-r2-3-g2-g1` read 71.67, 88.75 and 37.15 deg from the grass they cover. The g2 rule on that spread, min minus 5 deg rounded down, moves `o240_hue_dist_deg` from 69.8 to 32.1. Known and accepted: the thrown-out smear's 32.14 now clears 32.1 by 0.04 deg. `docs/evidence/ability-fx-captures-r2-3-g2-g1/probe.py`. (owner, 2026-10-22, on the Decide page) |
 
 ## Levels
 | Date | Decision |
@@ -396,19 +397,6 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   with the rebased branch, overwriting `2e01bfd94`; (2) a leg is given explicit permission to force-push this one
   ref; (3) land directly from this checkout without pushing first (if `land.py` allows it). Default taken: none
   acted on; the rebase stays local on this checkout pending the owner's push.
-
-- **The gas bank's overview hue after the soft-side rebuild (2026-10-21, `lane/show/ability-fx-captures-r2-3-g2-g1`):**
-  the side look the owner asked for is built and shot (one 12 m body card per 2x2 block plus a fainter crest,
-  opacity 0.55/0.75 instead of 0.95-1.0) and every side bar is met: `side_blob_frac` <= 0.25, `side_edge_soft_px`
-  >= 21, `gas_side_height_m` >= 1.6. The thinner opacity costs hue at the OVERVIEW: on seed 2 the bank now stands
-  37.15 deg from the grass it covers, against the 69.8 deg bar g2's own captures set, so
-  `docs/evidence/ability-fx-captures-r2-3-g2-g1/probe.py` exits 1. Options: (a) raise `GasBankThin` /
-  `GasBankFull` by 0.10 and reshoot both passes, accepting a slightly denser side face; (b) re-set the hue bar -
-  the g2 rule on this build's spread gives 32.1, which the build the critic threw out already passed (32.14), and
-  even the owner-derived floor of 38.0 is still missed by 0.85 deg; (c) accept the overview hue as it is and drop
-  the bar's claim. Default taken: nothing re-set and nothing reshot, the probe left red and the three captures
-  committed as they are, because a bar is never widened to make a run green and the drawing's ink is out of this
-  lane's scope.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is

@@ -68,10 +68,11 @@ ceiling is `max(seeds) + margin` rounded UP, so rounding never moves a bar insid
 | `side_edge_soft_px` | 28 / 46 / 22 | min 22 | 1 row | **>= 21** (new) |
 | `side_blob_frac` | 0.1284 / 0.0477 / 0.2187 | max 0.2187 | 0.03 | **<= 0.25** (new, a ceiling) |
 
-`t1_changed_frac` (>= 0.08), `texture_var_drop` (>= 0.40) and `o240_hue_dist_deg` (>= 69.8) are g2's and are NOT
-re-set here: a bar is never lowered to make a run green. The same three readings on g2's own stills, for the
-comparison: `side_blob_frac` 0.2286 / 0.0902 / 0.3293 and `side_edge_soft_px` 11 / 30 / 22 - the new build's
-footprint is smaller on every seed and its edge is softer on two of three.
+`t1_changed_frac` (>= 0.08) and `texture_var_drop` (>= 0.40) stay g2's: a bar is never lowered to make a run
+green. `o240_hue_dist_deg` was g2's >= 69.8 until 2026-10-22, when the owner accepted this build's overview
+hue and moved the target to match: min 37.15 - 5 deg, rounded down, so >= 32.1. The same three readings on
+g2's own stills, for the comparison: `side_blob_frac` 0.2286 / 0.0902 / 0.3293 and `side_edge_soft_px`
+11 / 30 / 22 - the new build's footprint is smaller on every seed and its edge is softer on two of three.
 
 ## What is here
 
@@ -97,7 +98,7 @@ python docs/evidence/ability-fx-captures-r2-3-g2-g1/probe.py --pack <dir>
 |---|---|---|---|---|---|
 | `t1_changed_frac` | >= 0.08 | 0.0958 | 0.1088 | 0.1156 | OK |
 | `texture_var_drop` | >= 0.40 | 0.6096 | 0.6277 | 0.6753 | OK |
-| `o240_hue_dist_deg` | >= 69.8 | 71.67 | 88.75 | 37.15 | **MISSED on s2** |
+| `o240_hue_dist_deg` | >= 32.1 | 71.67 | 88.75 | 37.15 | OK |
 | `gas_side_height_m` | >= 1.6 | 2.154 | 2.158 | 2.527 | OK |
 | `side_edge_soft_px` | >= 21 | 28 | 46 | 22 | OK |
 | `side_blob_frac` | <= 0.25 | 0.1284 | 0.0477 | 0.2187 | OK |
@@ -105,10 +106,8 @@ python docs/evidence/ability-fx-captures-r2-3-g2-g1/probe.py --pack <dir>
 Reported, not barred: `gas_t1_height_m` (0.885-2.521 m, against `t1_footprint_bias_m`), `side_top_m`
 (3.723-4.429 m) and `side_bias_m` (1.569-1.902 m).
 
-**`probe.py` exits 1**, on one bar and one seed: at the overview, seed 2's bank now stands only 37.15 deg of hue
-from the grass it covers, against the 69.8 g2's captures set. The thinner opacity that gave the side its soft
-face also let the grass hue back through at O240 on that patch. The two ways out - raise `GasBankThin` /
-`GasBankFull` by 0.10 and reshoot both passes, or re-set the hue bar - are an owner decision, open in
-`docs/reference/decisions.md`. Nothing is re-set here: the g2 rule on this build's spread gives
-37.15 - 5 = 32.1, a bar the build the critic threw out already passed (its baseline hue was 32.14), and even the
-owner-derived floor of 38.0 is still missed by 0.85 deg. A bar is never widened to make a run green.
+**`probe.py` exits 0.** At the overview, seed 2's bank stands 37.15 deg of hue from the grass it covers. g2's
+bar was 69.8. On 2026-10-22 the owner accepted that color and moved the target to match: 37.15 - 5 = 32.1,
+rounded down so the bar stays outside this build's spread. The thrown-out smear's 32.14 now clears 32.1 by
+0.04 deg. That is recorded in `docs/reference/decisions.md`. Nothing was reshot and `GasBankThin` /
+`GasBankFull` did not move.

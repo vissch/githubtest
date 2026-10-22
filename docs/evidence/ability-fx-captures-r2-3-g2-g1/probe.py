@@ -105,13 +105,13 @@ BASELINE_MAX = {'t1_changed_frac': 0.0436, 'texture_var_drop': 0.0958, 'o240_hue
 # the bank's own spread, so that is the depth any single view can be fooled by).
 SIDE_PITCH_DEG = 8.0
 SIDE_FOOT_DEPTH_M = 10.0
-# bar = min(seeds) - margin, margin = the floor below (0.5 m / 5.0 deg): the capture of commit 2ba27d4 spreads
-# its three seeds 2.80-2.89 m (height) and 74.8-123.0 deg (hue) apart - a spread-sized margin on the hue reading
-# would undo "it does not police the look" by dropping the bar BELOW the 38.0 r2-3 already set, so the floor
-# governs and the bar is rounded DOWN from the arithmetic so rounding never moves it inside the spread. Never
-# lowered below the owner's bar (`o240_hue_dist_deg` only; `gas_side_height_m` has none), never widened to make a
-# run green. Set from the capture of commit 2ba27d4 (the build the owner accepted); see README.md, "The bars".
-BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 69.8, 'gas_side_height_m': 1.6,
+# bar = min(seeds) - margin, margin = the floor below (0.5 m / 5.0 deg), rounded DOWN so the bar
+# stays outside the spread. g2's captures (commit 2ba27d4, hue 74.8-123.0) set o240_hue_dist_deg
+# at 69.8. 2026-10-22 the owner, on "reshoot brighter, or accept it as is": accept the color as it
+# now reads and move the target to match. This build's three seeds read 71.67 / 88.75 / 37.15.
+# min 37.15 - 5 = 32.15, rounded down to 32.1. The thrown-out smear's 32.14 now clears that target
+# by 0.04 deg; that is the owner's accept, not a silent widening. Nothing is reshot.
+BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 32.1, 'gas_side_height_m': 1.6,
         'side_edge_soft_px': 21.0}
 # CEILINGS are the other direction: a reading that must stay AT OR BELOW its bar. One bank has a limited
 # footprint, so `side_blob_frac` is capped; set max(seeds) + margin, rounded UP, the same way round as a floor.
@@ -250,6 +250,15 @@ def selftest():
     ramp_blob[0:20, 3] = True
     soft = edge_softness_px(ramp_delta, ramp_blob)
     assert abs(soft - 6.0) < 1e-9, 'a 10-row ramp came back %.2f rows, hand calculation says 6' % soft
+
+    # Owner 2026-10-22: accept this build's overview hue and move the target to match.
+    # Seeds read 71.67, 88.75, 37.15. The g2 rule is min - 5 deg, rounded down so the
+    # bar stays outside the spread: 37.15 - 5 = 32.15 -> 32.1. g2's 69.8 does not.
+    hue_bar = BARS['o240_hue_dist_deg']
+    assert abs(hue_bar - 32.1) < 1e-9, 'overview hue target is %.1f, the owner matched it to 32.1' % hue_bar
+    assert hue_bar <= 37.15 - BAR_MARGIN['o240_hue_dist_deg'] + 1e-9, (
+        'hue target %.1f sits inside this build (worst 37.15, margin %.1f)'
+        % (hue_bar, BAR_MARGIN['o240_hue_dist_deg']))
 
     print('selftest ok: centre pixel 10.000 m out, one degree up %.5f m high (hand: 0.34311);' % h)
     print('             stripes -> flat grey is a texture drop of %.3f (hand: 1.000);' % drop)
