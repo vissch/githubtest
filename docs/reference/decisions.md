@@ -328,6 +328,21 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   `06-Medic-b`, `12-AT-Rifle-a` separately) is its own lane, while this lane's own decided scope (count foot
   figures only) is finished, tagged `[foot-only-mud-lift]` and pushed, and still not landed (this leg,
   `found-lift-foot-units-off-the-mud-at-close-range-20261016-0`, 2026-10-16).
+- **The close gas puff: the 0.30 low-gas floor against one standing puff (2026-10-22,
+  `lane/show/ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g1`):** with the close cards touching (`GasPuffBlock` 1, so
+  the green is ONE blob, what he asked for) no stand/rim/frame-window value reaches his `green_low_share` floor of
+  0.30. Six measured rows at frame 804, each a fresh capture of its own build (stand / rim / window -> low_share,
+  height_frac, rise_m, blob_share): 1.2/0.2/12-16 -> 0.1660, 0.1880, 5.125, 0.6355; 1.0/0.2/12-16 -> 0.2373,
+  0.1530, 4.208, 0.5084; 1.0/0.1/12-16 -> 0.2167, 0.1571, 4.280, 0.5863; 1.0/0.2/12-14 -> 0.2352, 0.1112, 3.183,
+  0.4384; 0.7/0.2/12-16 -> 0.2593, 0.0784, 2.345, 0.5214; 0.7/0.35/12-16 -> 0.2522, 0.0957, 2.780, 0.4459.
+  low_share saturates near 0.26: a touching-card mound's green is mostly its standing core, and the only way to put
+  a third of the green under a man's head (1.68 m) is to make the core itself about that low (stand ~0.45, median
+  rise ~1.5 m) — a puddle, not the standing puff of the complaint. The forest IS fixed: `t1_blob_share` rises from
+  the old build's 0.0803 to 0.44-0.64. Options: (a) lower the close puff's `green_low_share` floor to 0.22 and keep
+  the standing puff (the 0.15 `green_height_frac` ceiling and the new `t1_blob_share` bar still hold); (b) keep 0.30
+  and accept a squat, man-high puff; (c) keep both bars and go back to gaps (`GasPuffBlock` 3), the forest he just
+  rejected. Nobody to ask in this run: the default taken is **none of them** — production stays at part 1's build
+  (stand 1.2, rim 0.2) and this unit's probe stays red, so nothing lands on it.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
