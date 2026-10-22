@@ -267,6 +267,8 @@ namespace TW.Tests
             float puff = 7f * CombatFx.GasPuffStand * 0.87f;
             Assert.Greater(puff, 1.8f, "the close puff stands over a man's head: it is a volume, not stripes on the ground");
             Assert.Less(puff, 10f, "and is still a puff, not a column");
+            // the BASE card at 1:1, which GasCloudWiden does not touch: the overview card's drawn band does grow
+            // with its width, and the overview has no height bar (the owner's height rules are the close camera's)
             float sheet = 7f * CombatFx.GasBankSquash / 3f;
             Assert.Less(sheet, 1.8f, "from the overview out the gas is still a sheet under a 1.8 m man's head");
             Assert.Greater(sheet, 0.6f, "and is still thick enough to read: not a painted line on the floor");
@@ -279,13 +281,15 @@ namespace TW.Tests
                 "a close card's width does not scale with the block, only the gap between cards does: gaps are what makes a puff read");
 
             // The overview's mirror (the owner, 2026-10-22: the overview is "still the old squash blanket"). An
-            // overview card's width multiplies by the local step 2, so the widest is (6 + 2) * 1.1 * 2 = 17.6 m,
-            // while cards stand GasCloudBlock * FieldCellSize m apart: a gap at the widest card, not a blanket.
-            float widestOverviewCard = (6f + 2f) * 1.1f * 2f;
+            // overview card's width multiplies by GasCloudWiden, while cards stand GasCloudBlock * FieldCellSize m
+            // apart: a gap at the widest card, not a blanket.
+            float widestOverviewCard = (6f + 2f) * 1.1f * CombatFx.GasCloudWiden;
             Assert.Greater(CombatFx.GasCloudBlock * TW.Sim.Terrain.MapData.FieldCellSize, widestOverviewCard,
                 "the overview's cards stand further apart than the widest card is wide: clouds with gaps, not one sheet");
             Assert.Greater(CombatFx.GasCloudBlock, CombatFx.BankStep(CombatFx.BankMergeZoom),
                 "a block wider than the merge step, else the overview draw did not change at all");
+            Assert.Greater(CombatFx.GasCloudWiden, CombatFx.BankStep(CombatFx.BankMergeZoom),
+                "an overview card is drawn wider than the zoom step made it: at the step itself (2) each cloud was a speck inside its 48 m block, at most 119 px");
         }
     }
 }
