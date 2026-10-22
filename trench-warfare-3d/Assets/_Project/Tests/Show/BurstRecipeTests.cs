@@ -283,7 +283,7 @@ namespace TW.Tests
             // -g1-g1: GasPuffBlock made the card itself a block-of-cells mound, like cards-smoke's own 1:1 card, so
             // a stand near 1 (slightly taller than wide) is the mound's own shape, not "a column" (10f is well
             // short of the GasVent jet's own height, the next book up).
-            float puff = 7f * CombatFx.GasPuffStand * 0.87f;
+            float puff = 7f * CombatFx.GasPuffWide * CombatFx.GasPuffStand * 0.87f;
             Assert.Greater(puff, 1.8f, "the close puff stands over a man's head: it is a volume, not stripes on the ground");
             Assert.Less(puff, 10f, "and is still a puff, not a column");
             float sheet = 7f * CombatFx.GasBankSquash / 3f;
@@ -292,10 +292,16 @@ namespace TW.Tests
 
             Assert.GreaterOrEqual(CombatFx.GasPuffBlock, 2,
                 "the close puff stands for a block of cells, not one: per cell they wash into a sheet, measured 774 cards in -g1's sidecars");
-            const int step = 1; // DrawGasBank's own local `step` at the close camera: CurrentBankStep() == 1
-            float widthMultiplier = step == 1 ? 1f : step;
-            Assert.AreEqual(1f, widthMultiplier,
-                "a close card's width does not scale with the block, only the gap between cards does: gaps are what makes a puff read");
+            // The owner, 2026-10-22: at the close camera the gas is "still separate flat green tree-cards". So the
+            // close card is now drawn WIDER than the gap between cards (GasPuffWide), and the cards overlap into one
+            // cloud. -g1-g1's rule here was the opposite ("gaps are what makes a puff read"); this reverses it for
+            // the close camera only, and the overview half below is untouched.
+            float widestCloseCard = CombatFx.GasPuffWide * (5f + 2f) * 1.1f;
+            Assert.Greater(widestCloseCard, CombatFx.GasPuffBlock * TW.Sim.Terrain.MapData.FieldCellSize,
+                "a close card is wider than the gap between cards: they overlap into one cloud, not a field of trees");
+            float stands = widestCloseCard * CombatFx.GasPuffStand;
+            Assert.Greater(stands, 1.8f, "and the merged cloud still stands over a 1.8 m man: a height a player can see");
+            Assert.Less(stands, 10f, "and is still a cloud, not a column");
 
             // The overview's mirror (the owner, 2026-10-22: the overview is "still the old squash blanket"). An
             // overview card's width multiplies by the local step 2, so the widest is (6 + 2) * 1.1 * 2 = 17.6 m,

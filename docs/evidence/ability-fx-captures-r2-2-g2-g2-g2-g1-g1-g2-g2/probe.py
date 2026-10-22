@@ -79,7 +79,8 @@ BARS = {'green_low_share': ('green_low_share', 'ge'),
         'o240_cloud_count': ('o240_cloud_count', 'ge'),
         'o240_cloud_ceiling': ('o240_cloud_count', 'lt'),
         'o240_cloud_share': ('o240_cloud_share', 'ge'),
-        't1_cloud_count': ('t1_cloud_count', 'le'),
+        # NO bar on `t1_cloud_count`: the merge did not move it (38/41/38 against the old build's 39/44/42, two
+        # overlapping spreads). It stays a printed diagnostic - never bar a measure the change did not move.
         't1_top_share': ('t1_top_share', 'ge'),
         'green_soft_share': ('green_soft_share', 'ge'),
         'pose_error_max': ('pose_error_max', 'lt')}
@@ -686,6 +687,22 @@ def main():
         return 1
 
     ok = True
+    # The owner, 2026-10-22: "the gas card is one flat puddle with rise 0" and "a height a player can see". The
+    # cards set is ONE capture, so there is no spread to bar against: the look report stays unbarred except for
+    # this one refusal, on the card this unit draws - the close standing puff. `cards-gas` is the merged-out
+    # overview card and is NOT barred: GasBankSquash keeps it deliberately under a man's head (BurstRecipeTests
+    # asserts exactly that), and the overview is out of this unit's scope. See README.md.
+    puff_rise = (look.get('cards-gaspuff') or {}).get('rise_m')
+    if puff_rise is None:
+        print('cards-gaspuff   no capture: the cards set is required')
+        ok = False
+    elif puff_rise < HEAD_M:
+        print('cards-gaspuff   rise %.3f m UNDER HEAD_M %.1f: the close card is a flat puddle, not a cloud'
+              % (puff_rise, HEAD_M))
+        ok = False
+    else:
+        print('cards-gaspuff   rise %.3f m over HEAD_M %.1f: the close card stands over a man' % (puff_rise, HEAD_M))
+
     for bar_name, (key, cmp_) in BARS.items():
         values = [results[r][key] for r in results]
         # bars are set once three different-frame runs exist: see this folder's README.md
@@ -712,11 +729,11 @@ BAR_VALUES = {
                                      # spread 0.0017, margin 0.0133, and still OVER -g1's own sheet range
                                      # 0.0741-0.0768, which fails it outright
     'green_rise_m': 2.4,            # re-derived, unmoved: runs 2.575/2.529/2.568, spread 0.046, margin 0.129
-    'green_area_frac': 0.0135,      # the owner's "0.0136 three times": at five decimals the runs are
-                                     # 0.01359/0.01358/0.01356 (blob 12528/12511/12501 px), spread 0.00003, so the
-                                     # floor moves from the slack 0.01 to just outside the real spread (margin
-                                     # 0.00006). T1 did not move at all this unit - only the merged-out branch
-                                     # changed - so these are -g1-g1's close numbers read to one more digit
+    'green_area_frac': 0.05,        # MOVED OUT of the old build, as the owner asked ("the area floor 0.0135 sits
+                                     # 0.00006 under three readings that only span 0.00003"). One merged cloud
+                                     # covers far more screen: runs 0.07577/0.07591/0.07606, spread 0.00029, so the
+                                     # floor at 0.05 clears them by 0.0258 - 89x their spread - and the old build's
+                                     # own 0.01359/0.01358/0.01356 fails it outright
     'o240_green_area_frac': 0.0001,  # RE-SET DOWN, not carried: runs 0.0010/0.0008/0.0006, spread 0.0004, margin
                                      # 0.0005 (0.0002 would be margin == spread, and in binary floats that reads
                                      # 0.00039999 < 0.0004 and fails). GasCloudBlock 12 trades coverage for gaps (-g1-g1 read 0.0094 as
@@ -732,9 +749,14 @@ BAR_VALUES = {
                                      # 0.1176. The fringe specks that are not clouds are now most of the green,
                                      # because each cloud is one card standing alone
     'pose_error_max': 0.50,         # GasBankStills.PoseBar
-    # NO BAR YET for `t1_cloud_count`, `t1_top_share` and `green_soft_share`: part 2 of this unit shoots this
-    # build's own three captures and sets them from that spread. Until then `main` prints "no bar set yet" for
-    # each and returns 1. The old build's readings - the numbers part 2 must beat - are in README.md.
+    't1_top_share': 0.28,           # the merge, measured: runs 0.2908/0.2910/0.2901, spread 0.0009, margin
+                                     # 0.0101. The old build - "separate flat green tree-cards" - read
+                                     # 0.0803/0.0800/0.0797 and fails this by 3.5x
+    'green_soft_share': 0.14,        # the soft edge, measured: runs 0.1637/0.1645/0.1637, spread 0.0008, margin
+                                     # 0.0237. The old build read 0.1230/0.1181/0.1182, so its best reading fails
+                                     # too. Overlapping cards, not Erode, are what widened the faint band: dropping
+                                     # Erode from the GasPuff row was measured and REFUSED (README.md, the edge
+                                     # table) - it took green_px from 156037 to 20438 and the gas all but vanished
 }
 
 

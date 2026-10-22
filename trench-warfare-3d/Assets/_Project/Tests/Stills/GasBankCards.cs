@@ -70,13 +70,16 @@ namespace TW.Tests
                 var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f),
                                         new Vector3(size.x + 20f, 60f, size.y + 20f));
                 bool puff = Which == 3;
+                // the puff card is drawn as CombatFx draws it at BankStep 1: GasPuffWide times as wide, and
+                // GasPuffStand of THAT width tall, so the pair of knobs moves this card exactly as it moves the field
+                float width = puff ? CardWidth * CombatFx.GasPuffWide : CardWidth;
                 float height = Which == 0 ? CardWidth * CombatFx.GasBankSquash
-                             : puff ? CardWidth * CombatFx.GasPuffStand
+                             : puff ? width * CombatFx.GasPuffStand
                              : CardWidth;
                 one.Clear();
                 // the gas bank's own anchor, or the standing puff's (CombatFx.Banks, BankStep 1) for the puff card
                 float y = RenderGround.Sample(map, At.x, At.z) - (puff ? 0.2f : 0.35f);
-                one.Add(FlipbookFx.Pack(new Vector3(At.x, y, At.z), CardWidth, height,
+                one.Add(FlipbookFx.Pack(new Vector3(At.x, y, At.z), width, height,
                                         puff ? PuffFrame : CardFrame, 1f, 1f, 0f,
                                         FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, 1f));
                 Books.DrawPacked(Which_Books[Which], one, bounds);
