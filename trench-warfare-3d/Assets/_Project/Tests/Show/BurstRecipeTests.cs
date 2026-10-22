@@ -279,10 +279,27 @@ namespace TW.Tests
         {
             // r1's critique: gas-t1 read as a standing wall (height_frac 0.32). The sheet's drawing fills the bottom
             // third of the card, so a 7 m card's gas topped out at 2.33 m. Squashed to 0.75 (r2-3) it is 1.75 m, under
-            // a man's head.
-            float top = 7f * CombatFx.GasBankSquash / 3f;
-            Assert.Less(top, 1.8f, "the gas a 7 m card draws stays under a 1.8 m man's head");
+            // a man's head. From g1-g1-g1 the cap is the BED's alone: the crown above it is the bank's volume.
+            float top = CombatFx.GasDrawnTop(7f * CombatFx.GasBankSquash);
+            Assert.AreEqual(7f * CombatFx.GasBankSquash / 3f, top, 1e-4f, "the bed is still the squashed card");
+            Assert.Less(top, 1.8f, "the bed a 7 m card draws stays under a 1.8 m man's head");
             Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+        }
+        [Test]
+        public void TheGasBankStandsAsAVolume()
+        {
+            // g1-g1-g1: the quilt of flat pads is replaced by three card shapes. The crown's drawing stands over the
+            // bed, so the bank has a height a player sees from the side. 2.5 m is the flat build's own best side height
+            // (gas_side_height_m 2.419, docs/evidence/ability-fx-captures-r2-3-g2-g2-g1-g1/probe.json, 2961bc9);
+            // 4.5 m is "not a wall".
+            float crown = CombatFx.GasCrownTop(1f, 1);
+            Assert.Greater(crown, 2.5f, "the crown stands higher than the flat build's best side height");
+            Assert.Less(crown, 4.5f, "and is a bank, not a wall");
+            float rim = CombatFx.GasDrawnTop(7f * 0.85f * CombatFx.GasBankRim);
+            float bed = CombatFx.GasDrawnTop(CombatFx.GasBedHeight(7f, 1f));
+            Assert.Less(rim, bed, "the rim is a lip: lower than the bed at full thickness");
+            Assert.Less(bed, crown, "and the bed is lower than the crown standing over it");
+            Assert.AreEqual(CombatFx.GasBankSquash, CombatFx.GasBedHeight(1f, 0f), 1e-4f, "a thin cell keeps its old pad");
         }
         [Test]
         public void TheGasBankSurvivesTheErodeThreshold()
