@@ -328,6 +328,15 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   `06-Medic-b`, `12-AT-Rifle-a` separately) is its own lane, while this lane's own decided scope (count foot
   figures only) is finished, tagged `[foot-only-mud-lift]` and pushed, and still not landed (this leg,
   `found-lift-foot-units-off-the-mud-at-close-range-20261016-0`, 2026-10-16).
+- **The close gas: one cloud, or gas that still pools under a man's head? (2026-10-22, the close-gas captures)**
+  His ask is "draw one cloud" at the close camera; his own carried bar `green_low_share` >= 0.30 says most of the
+  green sits under a 1.8 m head. Measured, the two pull against each other: every width that merges the cards into
+  one mass (`t1_top_share` over 0.4) reads `low_share` 0.18-0.21, because the merged mass reaches back into the
+  field and the far cards' pixels sit high on screen (the sweep table in
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2/README.md`). Options: (a) keep the 0.30 floor and
+  take `GasPuffWide` 2.0, the widest merge it allows - `top_share` 0.0803 -> 0.2908, the default taken here and
+  landed; or (b) drop the floor to about 0.15 and take `GasPuffWide` 2.2-2.4, one mass with `top_share` 0.42-0.44
+  and a 3.7-4.1 m rise. (b) re-sets an owner-decided bar, so it waits for him.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
