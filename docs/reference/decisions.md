@@ -302,6 +302,15 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   garrison's heads down, and `WreckDecayTests.AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind` asserts exactly
   that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
   only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
+- **The gas bank's dark row is not the flooded ditch (2026-10-22, lane/show/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g2):**
+  the owner's round brief says "the dark line is the flooded ditch, so the probe scores terrain". Two measurements
+  say otherwise (`docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g2/README.md`): the PLATE departs
+  from its own local brightness by only 0.28-1.34 luma at the dip rows (its biggest departure anywhere is 3.7-4.7),
+  and a flatness rule that moved the gas centre off the ditch took `row_gap_deepest` from 0.25-0.27 to 0.43-0.47 while
+  the new site's spread made every bar unsettable. Options: (a) accept that the dip is a CARD seam and spend the next
+  round on the card (a second card per cell at half pitch, or a taller band) — the default taken here, nothing in the
+  build changed; (b) keep chasing terrain with a different mask; (c) leave `row_gap_deepest` unbarred for good and
+  judge the seam by eye. Nothing is barred in that folder either way.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The Banner's front legs, shot and recoil, redone: land it? (2026-10-13):** his answer of 2026-10-12 is built on
   `lane/show/banner-day-film`. Leg against leg never came closer than 0.488 m, so nothing crossed; the right front leg
