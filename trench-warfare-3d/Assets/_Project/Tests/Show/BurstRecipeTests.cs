@@ -326,14 +326,17 @@ namespace TW.Tests
             // five empty carries (0.8 + 2.4) / 9 = 0.3556, well under the floor
             Assert.Less(CombatFx.GasBankLoad(0.8f, 3f * 0.8f), 0.8f,
                 "the half-visible edge ring that read as separate patches falls under the stand floor");
-            // a lone cell is a haze, not a plate: (8 + 0) / 9 = 0.8889, thick 0.8889 / 8 = 0.1111, so its card draws
-            // 0.19 + 0.43 * 0.1111 = 0.2378 - a hair over the thin floor 0.19 and under half the core's 0.62 (0.31).
-            // (A third of the core, 0.2067, is below GasBankThin itself, so no thickness could ever clear it.)
-            float lone = CombatFx.GasBankAlpha(Mathf.Clamp01(CombatFx.GasBankLoad(8f, 0f) / 8f));
-            Assert.Less(lone, CombatFx.GasBankAlpha(0f) + 0.05f,
-                "a cell with no neighbours draws at the thin floor: a haze, not a plate");
+            // a lone cell is a haze, not a plate: (8 + 0) / 9 = 0.8889, thick 0.8889 / 4 = 0.2222, so its card draws
+            // 0.19 + 0.43 * 0.2222 = 0.2856 - under half the core's 0.62 (0.31), and within 0.10 of the thin floor.
+            float lone = CombatFx.GasBankAlpha(Mathf.Clamp01(CombatFx.GasBankLoad(8f, 0f) / CombatFx.GasBankFullThick));
+            Assert.Less(lone, CombatFx.GasBankAlpha(0f) + 0.10f,
+                "a cell with no neighbours stays near the thin floor: a haze, not a plate");
             Assert.Less(lone, CombatFx.GasBankAlpha(1f) / 2f,
                 "and well under the bank's core opacity");
+            // and a cell at the full point is a plate: (4 + 8 * 4) / 9 = 4, thick 4 / 4 = 1, so it draws GasBankFull
+            float atFull = CombatFx.GasBankAlpha(Mathf.Clamp01(CombatFx.GasBankLoad(4f, 32f) / CombatFx.GasBankFullThick));
+            Assert.AreEqual(CombatFx.GasBankFull, atFull, 1e-4f,
+                "a cell at the full thickness point draws the bank's core opacity");
         }
         [Test]
         public void TheGasBankStacksIntoDensity()
