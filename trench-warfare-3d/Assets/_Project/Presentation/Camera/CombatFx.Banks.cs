@@ -23,12 +23,16 @@ namespace TW.Presentation.Tactical
         public const float GasBankThin = 0.6f, GasBankFull = 1f;
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.55 tops out at 1.28 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.55f;
-        /// <summary>Cells one close card stands for (the owner, 2026-10-21: "774 wide, low cards 4 m apart wash into
-        /// a pale sheet" - -g1's own sidecars read gas_cards 774 at the close camera). One puff per 3 x 3 block of
-        /// cells is ~86 cards 12 m apart: gaps between them are what makes a puff read as a puff, not a sheet.
+        /// <summary>Cells one close card stands for. 3 (one puff per 3 x 3 block, ~106 cards 12 m apart) was
+        /// measured a FOREST, not a puff: -g1-g1's own probe read green_px 155940 against blob_px 12528, so the
+        /// biggest connected green patch held 8% of the green - 5-7 m cards 12 m apart cannot touch, and every
+        /// card is its own blob ("a field of flat green bushes", the owner, 2026-10-22). Back to 1: the cards
+        /// overlap again (5-7 m wide, 4 m apart, jitter 2.4), so the green is ONE blob. The gap no longer makes
+        /// the puff read - the HEIGHT PROFILE does (GasPuffRim below): a thin skirt that lies low and a core that
+        /// stands, so the union is one mound with a rim and not the flat sheet 1 gave at a single height.
         /// Only the close drawing (step == 1) uses this; the merged-out overview (step 2, GasBankSquash) is
         /// untouched, so O240 does not move.</summary>
-        public const int GasPuffBlock = 3;
+        public const int GasPuffBlock = 1;
         /// <summary>How tall a close gas card is drawn against its width (the owner, 2026-10-21: a puff with a rim and a
         /// height, like cards-smoke.jpg). -g1's 0.32 was fitted to 774 cards 4 m apart (GasBankCards' close sheet)
         /// and does not carry over to GasPuffBlock's ~86 cards 12 m apart: measured here, not guessed
@@ -44,6 +48,14 @@ namespace TW.Presentation.Tactical
         /// sparse, gapped field, so which puff it keeps - and that puff's own screen-space height - can jump
         /// between nearby stands; re-measure after any further change here, do not interpolate).</summary>
         public const float GasPuffStand = 1.2f;
+        /// <summary>How much of its stand the thinnest card keeps (its skirt), against a full cell's whole
+        /// height: the close puff's RIM. The cards touch (GasPuffBlock 1), so what the player reads is the union
+        /// of their tops: at one height that union is a flat sheet, and with a rim it is one mound. b.Thick is
+        /// the cell's clamped gas thickness, so the cloud's thin edge lies under a man (a 7 m card: 7 * 1.2 *
+        /// 0.2 = 1.68 m, under his 1.8 m head) and its core stands over him (8.4 m). 0.2, not the 0.35 this unit
+        /// started from: at 0.35 the skirt stands 2.94 m, over a man, which is a second wall and not a rim.
+        /// Measured, not interpolated: re-shoot after any change here.</summary>
+        public const float GasPuffRim = 0.2f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -120,13 +132,13 @@ namespace TW.Presentation.Tactical
             {
                 float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
-                // the block widens the GAP between cards (GasPuffBlock below), not the card itself: a close puff
-                // stays 5-7 m wide at any block size, so gaps between puffs are what makes a puff read.
+                // a close puff stays 5-7 m wide whatever the block is (GasPuffBlock above, now 1, so they touch):
+                // the cards' union is the read, and its SHAPE comes from their heights (GasPuffRim), not from gaps.
                 float width = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2) * (step == 1 ? 1f : step);
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                 // close (step 1): the standing puff, its drawing reaching the cell's floor, so the card sits at the
                 // smoke bank's anchor and not GasBankSquash's sunk one. From the overview out: today's squashed blanket.
-                if (step == 1) gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width * GasPuffStand, BankFrame(GasPuffFirst, GasPuffLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                if (step == 1) gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width * GasPuffStand * Mathf.Lerp(GasPuffRim, 1f, b.Thick), BankFrame(GasPuffFirst, GasPuffLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
                 else gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
             }
             books.DrawPacked(step == 1 ? FlipbookFx.Book.GasPuff : FlipbookFx.Book.GasBank, gasCards, bounds);
