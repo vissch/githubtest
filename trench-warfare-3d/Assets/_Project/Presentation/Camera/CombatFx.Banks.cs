@@ -30,13 +30,28 @@ namespace TW.Presentation.Tactical
         /// run (0.47 against 0.61). At 4 every cell at load 4 or more is a plate, so the share rises and its spread
         /// collapses.</summary>
         public const float GasBankFullThick = 4f;
-        /// <summary>How tall a gas card's painted band is (m): the sheet fills the bottom third of the card, so every card,
-        /// thin or wide, paints the same 1.72 m of gas - under a 1.8 m man's head, and tall enough that at the T1 pose one
-        /// row of cards reaches the next row's and no bare ground shows between them (a share of the width left the thin
-        /// cards at 1.09 m, two fifths of the 4 m row pitch bare).</summary>
+        /// <summary>How tall a gas card's painted band is (m) OVER THE HIGHEST GROUND it has to reach: the sheet fills the
+        /// bottom third of the card, so every card, thin or wide, paints the same 1.78 m of gas above that level - under a
+        /// 1.8 m man's head, and tall enough that at the T1 pose one row of cards reaches the next row's and no bare ground
+        /// shows between them (a share of the width left the thin cards at 1.09 m, two fifths of the 4 m row pitch bare).
+        /// A card standing in a dip adds its <see cref="GasBankFillMaxM"/>-clamped fill on top (<see cref="GasBankBandFor"/>),
+        /// because a band of a fixed height standing on its OWN ground is not what gas does: three captures of the
+        /// fixed-band build each showed their deepest screen row at the same y (225, 225 and 453 of 720) under the same
+        /// camera, half the bank's median lift - the same trench lips and crater rims every time, where the ground behind
+        /// steps up higher on screen than the card in front reaches and bare mud shows. Gas pools: its top is level and
+        /// its bottom follows the ground.</summary>
         public const float GasBankBandM = 1.78f;
+        /// <summary>The deepest dip a card fills up out of (m): a trench or a shell crater. Past this a card is not grown
+        /// any taller, so the art is never stretched further than three times this plus the band.</summary>
+        public const float GasBankFillMaxM = 2.5f;
+        /// <summary>How tall a card's painted band is (m) when it stands <paramref name="fill"/> metres below the highest
+        /// ground in its neighbourhood: the band plus that drop, so its TOP sits <see cref="GasBankBandM"/> over the high
+        /// ground whatever the dip, and a man standing on the rim still has his head out of it.</summary>
+        public static float GasBankBandFor(float fill) => GasBankBandM + Mathf.Clamp(fill, 0f, GasBankFillMaxM);
+        /// <summary>How flat a card of this width is drawn, so its bottom third is <paramref name="band"/> tall.</summary>
+        public static float GasBankSquashFor(float width, float band) => 3f * band / width;
         /// <summary>How flat a card of this width is drawn, so its bottom third is <see cref="GasBankBandM"/> tall.</summary>
-        public static float GasBankSquashFor(float width) => 3f * GasBankBandM / width;
+        public static float GasBankSquashFor(float width) => GasBankSquashFor(width, GasBankBandM);
         /// <summary>The full DEPTH span a gas card's centre may fill (m): one full field cell (<see cref="MapData.FieldCellSize"/>),
         /// filled in two strata by <see cref="GasBankZOffset"/> rather than at random - at the old 1.2 m jitter every card
         /// sat within 0.6 m of its row line, so the 4 m row lattice still read as bands, and a random full-cell jitter
@@ -80,7 +95,7 @@ namespace TW.Presentation.Tactical
         const float SmokeBankFirst = 12f, SmokeBankLast = 20.5f; // the mound grown (the firebooks cut stops at 21)
 
         /// <summary>A card's worth of field: its hash, how thick, and where it stands.</summary>
-        struct BankCell { public uint Hash; public float Thick, X, Z, Ground; }
+        struct BankCell { public uint Hash; public float Thick, X, Z, Ground, Fill; }
 
         /// <summary>One field's standing cells, found once a sim tick at one merge step.</summary>
         sealed class BankCache { public readonly List<BankCell> Cells = new List<BankCell>(1024); public uint Tick = uint.MaxValue; public int Step; }
@@ -102,8 +117,9 @@ namespace TW.Presentation.Tactical
         /// full: what counts as thick; jitterX / jitterZ: how far off its centre a card may stand sideways and in depth;
         /// stratifyZ: place the depth offset in two interleaved strata (<see cref="GasBankZOffset"/>) instead of at
         /// random; smooth: read a cell's load from its neighbourhood (<see cref="GasBankLoad"/>) instead of its own
-        /// block; salt: the cell hash's primes.</summary>
-        void Refresh(BankCache cache, Unity.Collections.NativeArray<float> field, int width, int length, int step, float floor, float full, float jitterX, float jitterZ, bool stratifyZ, bool smooth, int p1, int p2)
+        /// block; fill: work out how far a card stands below the highest ground around it
+        /// (<see cref="GasBankBandFor"/>); salt: the cell hash's primes.</summary>
+        void Refresh(BankCache cache, Unity.Collections.NativeArray<float> field, int width, int length, int step, float floor, float full, float jitterX, float jitterZ, bool stratifyZ, bool smooth, bool fill, int p1, int p2)
         {
             uint tick = Host.Local.World.Tick;
             if (cache.Tick == tick && cache.Step == step) return;
@@ -136,7 +152,19 @@ namespace TW.Presentation.Tactical
                 float h1 = (h & 1023) / 1023f, h2 = ((h >> 10) & 1023) / 1023f;
                 float wx = (x + 0.5f * step) * cs + (h1 - 0.5f) * jitterX;
                 float wz = (z + 0.5f * step) * cs + (stratifyZ ? GasBankZOffset(x, step, h2) : (h2 - 0.5f) * jitterZ);
-                cache.Cells.Add(new BankCell { Hash = h, Thick = Mathf.Clamp01(c / full), X = wx, Z = wz, Ground = RenderGround.Sample(Host.Local.Map, wx, wz) });
+                float ground = RenderGround.Sample(Host.Local.Map, wx, wz);
+                float dip = 0f;
+                if (fill)
+                {
+                    // the local level is the highest ground a card has to reach: its own and the eight one cell out
+                    float level = ground;
+                    for (int dz = -1; dz <= 1; dz++)
+                    for (int dx = -1; dx <= 1; dx++)
+                        if (dx != 0 || dz != 0)
+                            level = Mathf.Max(level, RenderGround.Sample(Host.Local.Map, wx + dx * cs * step, wz + dz * cs * step));
+                    dip = Mathf.Clamp(level - ground, 0f, GasBankFillMaxM);
+                }
+                cache.Cells.Add(new BankCell { Hash = h, Thick = Mathf.Clamp01(c / full), X = wx, Z = wz, Ground = ground, Fill = dip });
             }
         }
 
@@ -156,7 +184,7 @@ namespace TW.Presentation.Tactical
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, GasBankFullThick, GasBankJitterXM, GasBankJitterM, true, true, 73856093, 19349663);
+            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, GasBankFullThick, GasBankJitterXM, GasBankJitterM, true, true, true, 73856093, 19349663);
             gasCards.Clear();
             foreach (var b in gasBank.Cells)
             {
@@ -168,7 +196,13 @@ namespace TW.Presentation.Tactical
                 // (lit core, dull skirt) and the roll (+-12 degrees) by the cell's hash so no two card edges line up
                 // every card sits on the ground at the same height: the old sink and +-0.25 m jitter threw away 0.6 m of
                 // the band and pulled the rows apart; the roll and the frame boil already break the top line
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.08f, b.Z), width, width * GasBankSquashFor(width), BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.42f, kind, GasBankAlpha(b.Thick)));
+                // a card in a dip is drawn TALLER, by how far its ground lies under the highest ground one cell around it
+                // (GasBankBandFor), so its top is level with its neighbours' instead of following the ground down. That
+                // ground-following top is what cut the dark row through the lower middle of the sheet: the three captures
+                // of the fixed-band build each put their deepest row at the same screen y under the same camera - the
+                // trench lips and crater rims, where the row behind stands higher than the card in front reached
+                float band = GasBankBandFor(b.Fill);
+                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.08f, b.Z), width, width * GasBankSquashFor(width, band), BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.42f, kind, GasBankAlpha(b.Thick)));
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }
@@ -176,7 +210,7 @@ namespace TW.Presentation.Tactical
         void DrawSmokeBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(smokeBank, gas.Smoke, gas.Width, gas.Length, step, 1.5f, 20f, 2.2f, 2.2f, false, false, 83492791, 29349663);
+            Refresh(smokeBank, gas.Smoke, gas.Width, gas.Length, step, 1.5f, 20f, 2.2f, 2.2f, false, false, false, 83492791, 29349663);
             smokeCards.Clear();
             foreach (var b in smokeBank.Cells)
             {
