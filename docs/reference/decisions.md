@@ -448,6 +448,17 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   Answered in general 2026-10-18 (row above): a leg may now force-push its own lane, so (2) needs no build;
   whether this lane was pushed is still open.
 
+- **The gas bank: turn the pale sheet into a puff — which concept? (2026-10-21):** the brief is open and unanswered on
+  the Decide page (`G:/My Drive/TW3D-pipeline/decisions/2026-10-21-gas-bank-turn-the-sheet-into-a-puff/brief.json`,
+  state open, no answer file), with four options as posted: (A) lumps 1.6x taller; (B) fewer, bigger clots; (C) a
+  dark-cored roll; (D) leave the sheet. **(A) as captioned cannot be built**: two landed guards cap it —
+  `BurstRecipeTests.TheGasBankLiesOnTheGround_NotOverAMansHead` holds `GasBankWidth(1,1,1) * GasBankSquash / 3` under
+  1.8 m (a man's head) and `TheGasBankCardsOverlapIntoOneMass` floors every card at 8 m, so the squash cannot rise
+  above about 0.377 at today's widths. Nobody to ask in a relay leg, so the default taken here is the buildable half
+  of (A): **one mass instead of stripes** (wider cards, three-cell overlap, more roll scatter) and **less pale**
+  (more alpha), with the man rule kept. The gas hue is NOT touched (another lane has its own hue brief open with the
+  owner). Nothing is landed on this.
+
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
 summarised in the docs named; the files themselves are not readable from another machine or lane.
