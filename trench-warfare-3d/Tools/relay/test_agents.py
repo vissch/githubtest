@@ -12,7 +12,7 @@ sys.path.insert(0, str(HERE))
 import agents, config, ledger, relay   # noqa: E402
 
 ENV = ("TW_RELAY_HOME", "TW_BOARD", "TW_STATION", agents.LOGS, ledger.ALSO)
-OPUS, HAIKU = "claude-opus-5-5", "claude-haiku-4-5-20251001"
+OPUS, HAIKU = "claude-opus-5", "claude-haiku-4-5-20251001"
 
 
 def stamp(days_ago=0):
@@ -70,18 +70,22 @@ class Count(Base):
                                   "cache_creation_input_tokens": M}, 0)])
         c = agents.count()
         self.assertEqual((c["day"], c["agents"], c["unpriced"]), (day(), 1, []))
-        self.assertAlmostEqual(c["usd"], 4.0 + 20.0 + 0.2 + 4.0 * 1.25)        # a write counts as kept five minutes
+        self.assertAlmostEqual(c["usd"], 5.0 + 25.0 + 0.5 + 5.0 * 1.25)        # a write counts as kept five minutes
         self.assertEqual(c["models"][OPUS]["cache_write_5m"], M)
 
     def test_a_cache_write_kept_an_hour_costs_twice_the_input_price(self):
         self.agent([("m1", OPUS, {"cache_creation_input_tokens": 3 * M, "cache_creation": {
             "ephemeral_5m_input_tokens": M, "ephemeral_1h_input_tokens": 2 * M}}, 0)])
-        self.assertAlmostEqual(agents.count()["usd"], 4.0 * 1.25 + 2 * 4.0 * 2.0)
+        self.assertAlmostEqual(agents.count()["usd"], 5.0 * 1.25 + 2 * 5.0 * 2.0)
 
     def test_a_dated_model_id_takes_the_price_of_its_model_and_the_longest_name_wins(self):
         self.assertEqual(agents.price(HAIKU, self.st), (self.st["usd_per_million_tokens"]["claude-haiku-4-5"], True))
-        self.assertEqual(agents.price("claude-opus-5-5", self.st)[0]["input"], 4.0)     # not claude-opus-5's 5.0
-        self.assertEqual(agents.price("claude-opus-5", self.st)[0]["input"], 5.0)
+        self.assertEqual(agents.price("claude-opus-5-20260514", self.st)[0]["input"], 5.0)   # a dated real id
+        # after keeping only ids that exist, no shipped key is a prefix of another, so a fake table proves the rule
+        fake = {"usd_per_million_tokens": {
+            "claude-opus": {"input": 1.0, "output": 2.0, "cache_read": 0.1},
+            "claude-opus-5": {"input": 5.0, "output": 25.0, "cache_read": 0.5}}}
+        self.assertEqual(agents.price("claude-opus-5-20260514", fake)[0]["input"], 5.0)
 
     def test_a_model_the_file_does_not_name_is_priced_as_the_dearest_and_said(self):
         self.agent([("m1", "claude-next-9", {"output_tokens": M}, 0)])
@@ -92,12 +96,12 @@ class Count(Base):
     def test_an_answer_logged_once_per_block_is_counted_once_at_its_largest_count(self):
         self.agent([("m1", OPUS, {"output_tokens": 10}, 0), ("m1", OPUS, {"output_tokens": M}, 0),
                     ("m1", OPUS, {"output_tokens": M}, 0), ("m2", OPUS, {"output_tokens": M}, 0)])
-        self.assertAlmostEqual(agents.count()["usd"], 40.0)
+        self.assertAlmostEqual(agents.count()["usd"], 50.0)
 
     def test_only_the_answers_of_that_local_day_count(self):
         self.agent([("m1", OPUS, {"output_tokens": M}, 1), ("m2", OPUS, {"output_tokens": 2 * M}, 0)])
-        self.assertAlmostEqual(agents.count()["usd"], 40.0)
-        self.assertAlmostEqual(agents.count(day(1))["usd"], 20.0)
+        self.assertAlmostEqual(agents.count()["usd"], 50.0)
+        self.assertAlmostEqual(agents.count(day(1))["usd"], 25.0)
         self.assertEqual(agents.count(day(3))["agents"], 0)
 
     def test_an_agent_counts_when_its_folder_or_its_first_prompt_names_the_project(self):
@@ -107,7 +111,7 @@ class Count(Base):
                    prompt="Read C:/Users/me/Documents/GitHub/githubtest/trench-warfare-3d/Tools/relay/ledger.py")
         self.agent(use, cwd="C:\\Users\\me\\Documents\\claude", prompt="Plan my trip to Lisbon.")    # other work
         c = agents.count()
-        self.assertEqual((c["agents"], c["usd"]), (2, 40.0))
+        self.assertEqual((c["agents"], c["usd"]), (2, 50.0))
 
     def test_the_agents_of_a_relay_leg_are_not_counted_again(self):
         use = [("m1", OPUS, {"output_tokens": M}, 0)]
@@ -130,13 +134,22 @@ class Count(Base):
         os.environ[agents.LOGS] = str(self.tmp / "nowhere")
         self.assertEqual(agents.count()["agents"], 0)
 
-    def test_the_shipped_prices_cover_the_models_the_relay_and_its_sessions_run_on(self):
-        for model in ("claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-haiku-4-5-20251001",
-                      "claude-opus-4-8"):
-            p, named = agents.price(model, self.st)
-            self.assertTrue(named, model)
+    # [found-keep-only-model-ids-that-exist-in-agents-jso-20261019-0]
+    def test_only_the_shipped_prices_name_model_ids_that_exist(self):
+        EXIST = ("claude-fable-5-1", "claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5")
+        extra = set(self.st["usd_per_million_tokens"]) - set(EXIST)
+        self.assertEqual(extra, set(),
+                         "[found-keep-only-model-ids-that-exist-in-agents-jso-20261019-0] "
+                         "agents.json prices an id that does not exist: %s" % sorted(extra))
+        for model in EXIST:
+            p = self.st["usd_per_million_tokens"][model]
             self.assertTrue(0 < p["cache_read"] < p["input"] < p["output"], model)
         self.assertEqual((self.st["cache_write_5m_factor"], self.st["cache_write_1h_factor"]), (1.25, 2.0))
+        self.assertTrue(agents.price("claude-opus-5", self.st)[1])
+        self.assertTrue(agents.price("claude-haiku-4-5-20251001", self.st)[1])
+        self.assertIs(agents.price("claude-opus-6", self.st)[1], False,
+                      "[found-keep-only-model-ids-that-exist-in-agents-jso-20261019-0] "
+                      "an id that does not exist must come back unpriced")
 
 
 class Book(Base):
@@ -155,14 +168,14 @@ class Book(Base):
     def test_a_booking_is_the_days_total_of_the_station_and_the_ledger_counts_it(self):
         self.agent([("m1", OPUS, {"output_tokens": M}, 0)])
         rec, before = agents.book(self.board, "laptop", by="me")
-        self.assertEqual((rec["usd"], rec["agents"], rec["station"], rec["by"], before), (20.0, 1, "laptop", "me", None))
-        self.assertEqual(self.held()["models"], {OPUS: 20.0})
+        self.assertEqual((rec["usd"], rec["agents"], rec["station"], rec["by"], before), (25.0, 1, "laptop", "me", None))
+        self.assertEqual(self.held()["models"], {OPUS: 25.0})
         s = ledger.spent(self.board)
-        self.assertEqual((s["usd"], s["agents_usd"], s["agents"], s["legs"]), (20.0, 20.0, 1, 0))
+        self.assertEqual((s["usd"], s["agents_usd"], s["agents"], s["legs"]), (25.0, 25.0, 1, 0))
         self.agent([("m2", OPUS, {"output_tokens": M}, 0)], session="s2")       # later the same day: the new total
         rec, before = agents.book(self.board, "laptop")
-        self.assertEqual((rec["usd"], rec["agents"], before["usd"]), (40.0, 2, 20.0))
-        self.assertEqual(ledger.spent(self.board)["usd"], 40.0)                 # replaced, not added twice
+        self.assertEqual((rec["usd"], rec["agents"], before["usd"]), (50.0, 2, 25.0))
+        self.assertEqual(ledger.spent(self.board)["usd"], 50.0)                 # replaced, not added twice
 
     def test_a_day_with_no_such_agent_writes_nothing(self):
         rec, before = agents.book(self.board, "laptop")
@@ -191,23 +204,23 @@ class Book(Base):
         self.agent([("m1", OPUS, {"output_tokens": M}, 0)])
         code, out = self.main("agents")
         self.assertEqual(code, 0)
-        self.assertIn("this machine: 1 agent, about $20.00 at list prices (about 2.0% of the week).", out)
+        self.assertIn("this machine: 1 agent, about $25.00 at list prices (about 2.5% of the week).", out)
         self.assertIn("Not booked for the day yet", out)
         code, out = self.main("agents", "book", "--who", "me")
-        self.assertIn("booked laptop %s: about $20.00, 1 agent. Board: no board repo." % day(), out)
-        self.assertIn("Booked for the day: $20.00, 1 agent", self.main("agents")[1])
-        self.assertIn("about 2.0% of the week used by the relay and 1 agent outside it", self.main("status")[1])
+        self.assertIn("booked laptop %s: about $25.00, 1 agent. Board: no board repo." % day(), out)
+        self.assertIn("Booked for the day: $25.00, 1 agent", self.main("agents")[1])
+        self.assertIn("about 2.5% of the week used by the relay and 1 agent outside it", self.main("status")[1])
 
     def test_a_machine_without_the_board_writes_a_file_and_the_boards_machine_books_it(self):
         self.agent([("m1", OPUS, {"output_tokens": M}, 0)])
         f = self.tmp / "laptop.json"
         code, out = self.main("agents", "book", "--out", str(f))
-        self.assertIn("written to %s (laptop %s: about $20.00, 1 agent)" % (f, day()), out)
+        self.assertIn("written to %s (laptop %s: about $25.00, 1 agent)" % (f, day()), out)
         self.assertFalse((self.board / "relay").exists())
         os.environ.update({"TW_STATION": "desktop", agents.LOGS: str(self.tmp / "nowhere")})
         code, out = self.main("agents", "book", "--file", str(f))
         self.assertEqual(code, 0)
-        self.assertEqual((self.held("laptop")["usd"], ledger.spent(self.board)["agents"]), (20.0, 1))
+        self.assertEqual((self.held("laptop")["usd"], ledger.spent(self.board)["agents"]), (25.0, 1))
         self.assertIn("nothing to book", self.main("agents", "book")[1])        # the desktop itself spawned none
         f.write_text("{}", encoding="utf-8")
         with self.assertRaises(SystemExit):

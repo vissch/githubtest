@@ -2477,10 +2477,10 @@ class Pace(Repo):
         self.script(self.GOOD)
         f = Path(os.environ["TW_AGENT_LOGS"]) / "p" / "s" / "subagents" / "agent-a1.jsonl"
         f.parent.mkdir(parents=True)
-        f.write_text(json.dumps({                               # 6M output tokens of Opus 5.5: $120, 12 points
+        f.write_text(json.dumps({                               # 4.8M output tokens of Opus 5: $120, 12 points
             "cwd": "C:/x/githubtest-pipe", "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
-            "message": {"role": "assistant", "id": "m1", "model": "claude-opus-5-5",
-                        "usage": {"output_tokens": 6000000}}}), encoding="utf-8")
+            "message": {"role": "assistant", "id": "m1", "model": "claude-opus-5",
+                        "usage": {"output_tokens": 4800000}}}), encoding="utf-8")
         out, stop = self.go()
         self.assertEqual((stop["reason"], stop["legs"]), ("the day's budget is spent (12.00% of 11.00% of the week)", 0))
         rec = json.loads(next((self.board / "relay" / "desktop" / "agents").glob("*.json")).read_text(encoding="utf-8"))
