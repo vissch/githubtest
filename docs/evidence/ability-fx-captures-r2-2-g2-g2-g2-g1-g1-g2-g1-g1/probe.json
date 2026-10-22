@@ -1,9 +1,36 @@
 {
+ "bars": {
+  "green_area_frac": 0.0135,
+  "green_height_floor": 0.08,
+  "green_height_frac": 0.15,
+  "green_low_share": 0.3,
+  "green_rise_m": 2.4,
+  "o240_base_ceiling": 1.0,
+  "o240_blob_floor": 1000,
+  "o240_cloud_ceiling": 15,
+  "o240_cloud_count": 3,
+  "o240_cloud_share": 0.85,
+  "o240_green_area_frac": 0.006,
+  "o240_rise_floor": 7.0,
+  "pose_error_max": 0.5
+ },
  "frames": {
   "run1": {
    "gas-o240": 341,
    "gas-o240-plate": 301,
    "gas-t1": 804,
+   "gas-t1-plate": 796
+  },
+  "run2": {
+   "gas-o240": 356,
+   "gas-o240-plate": 301,
+   "gas-t1": 819,
+   "gas-t1-plate": 796
+  },
+  "run3": {
+   "gas-o240": 371,
+   "gas-o240-plate": 301,
+   "gas-t1": 834,
    "gas-t1-plate": 796
   }
  },
@@ -62,6 +89,78 @@
    "o240_plate_diff_px": 30695,
    "o240_rise_m": 8.176,
    "plate_diff_px": 158111,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  },
+  "run2": {
+   "blob_px": 12521,
+   "green_area_frac": 0.01359,
+   "green_height_frac": 0.0946,
+   "green_low_share": 0.3445,
+   "green_px": 157251,
+   "green_rise_m": 2.563,
+   "o240_base_m": -0.0,
+   "o240_blob_max_px": 2704,
+   "o240_blob_top": [
+    2704,
+    2391,
+    2109,
+    1961,
+    1647,
+    1286,
+    1275,
+    1235,
+    1162,
+    1088
+   ],
+   "o240_cloud_count": 11,
+   "o240_cloud_share": 0.9582,
+   "o240_green_area_frac": 0.0184,
+   "o240_green_px": 17675,
+   "o240_plate_diff_px": 29512,
+   "o240_rise_m": 7.768,
+   "plate_diff_px": 183281,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  },
+  "run3": {
+   "blob_px": 12518,
+   "green_area_frac": 0.01358,
+   "green_height_frac": 0.0947,
+   "green_low_share": 0.345,
+   "green_px": 158466,
+   "green_rise_m": 2.566,
+   "o240_base_m": -0.0,
+   "o240_blob_max_px": 2696,
+   "o240_blob_top": [
+    2696,
+    2372,
+    2102,
+    2061,
+    1662,
+    1275,
+    1256,
+    1243,
+    1165,
+    1056
+   ],
+   "o240_cloud_count": 10,
+   "o240_cloud_share": 0.9691,
+   "o240_green_area_frac": 0.0183,
+   "o240_green_px": 17426,
+   "o240_plate_diff_px": 28788,
+   "o240_rise_m": 7.752,
+   "plate_diff_px": 191547,
    "pose_error_m": {
     "gas-o240": 0.0,
     "gas-o240-plate": 0.0,
