@@ -291,6 +291,14 @@ namespace TW.Tests
                 Assert.Less(CombatFx.GasBankBandM - 0.08f, 1.8f, "the gas a card draws stays under a 1.8 m man's head");
                 Assert.Greater(band, 0.6f, "and is still thick enough to read: not a painted line on the floor");
             }
+            // a card in a dip is grown up to its neighbours' level, so its TOP over the high ground never moves: that is
+            // what keeps it off a man's head when he stands on the trench lip above it
+            Assert.AreEqual(CombatFx.GasBankBandM, CombatFx.GasBankBandFor(0f), 1e-4f, "on flat ground nothing changes");
+            float deep = CombatFx.GasBankFillMaxM;
+            Assert.AreEqual(CombatFx.GasBankBandM, CombatFx.GasBankBandFor(deep) - deep, 1e-4f,
+                "out of the deepest dip the band's top still sits one band over the HIGH ground, not over the card's own");
+            Assert.AreEqual(CombatFx.GasBankBandFor(deep), CombatFx.GasBankBandFor(deep + 5f), 1e-4f,
+                "and no deeper: past the clamp the art is not stretched further");
         }
         [Test]
         public void TheGasBankBandsMeetInDepthAtTheT1Pose()
@@ -308,6 +316,15 @@ namespace TW.Tests
                 float band = width * CombatFx.GasBankSquashFor(width) / 3f;
                 Assert.GreaterOrEqual(band * Mathf.Cos(pitch), 0.90f * rise,
                     $"a card at thick {thick} hash {hash} must cover 90 % of the row behind it, so no mud shows between rows");
+            }
+            // and where the ground STEPS UP over that one row (a trench lip, a crater rim) the row behind stands
+            // rise + s * cos 25 higher on screen. A fixed 1.78 m band cannot reach that - at a 2.5 m step it covers
+            // 1.61 of the 3.56 it must - which is the dark cut the three captures put at the same screen y every run.
+            foreach (float s in new[] { 0f, 1f, 2.5f })
+            {
+                float band = CombatFx.GasBankBandFor(s);
+                Assert.GreaterOrEqual(band * Mathf.Cos(pitch), 0.90f * (rise + s * Mathf.Cos(pitch)),
+                    $"a card {s} m below the row behind it must still cover 90 % of that row");
             }
         }
         [Test]
