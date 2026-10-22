@@ -1,155 +1,148 @@
-# The chlorine bank, round 3-g2-g2-g1-g2: one bank per BAND, and what the T1 frame really shows
+# The chlorine bank, round 3-g2-g2-g1-g2: the drawing, and what the erode threshold really does
 
 The owner (2026-10-21): "Draw one soft gas bank a player can see, not a carpet of flat green pads. gas-t1-s0,
 gas-t1-s1, gas-t1-s2 and the overhead are tiled rectangles, and `texture_var_drop` passes because those pads are
 flat."
 
-He is right, and the fault is two faults that are fixed apart. **This capture fixes the first one only** - the
-one that made the T1 frame hold six banks instead of one. The second, the drawing, is untouched here and is the
-next leg's work. The stills are reshot on this build; nothing is copied from g1.
+The capture half of that was fixed one commit earlier (one bank per band instead of six drifted together). This
+round changes **the drawing**, and the stills here are shot on that build: one card per 4 m cell, 10 m wide,
+with soft flanks, and a thin cell visibly fainter than a full one.
 
-## Fault 1, the capture: the drain ran once a seed, not once a block
+## The wiring, which two comments and one test had backwards
 
-g1's `manifest.json` reads, per seed: `gas_cells_before` **0** on the side row, **153** on o240 and **725** on T1,
-with **1046** gas cards in the T1 frame. The drain sat at the END of a seed, so only the seed's first block (side)
-started on an empty field. o240 then held the side block's bank; T1 held that one, the o240 block's five, and its
-own - six banks, drifted together, which is the "carpet" in the owner's words.
+`DrawGasBank` packs its cards with `Pack(..., frame, 1f, 1f, 0f, kind, GasBankAlpha(thick))`. In `Pack` the
+5th argument is **fade** (`m01`, the shader's `i.tone.x`) and the last is **opacity** (`m21`, `i.opacity`). In
+`Flipbook_URP.shader` the erode is
 
-`DrainFrames` now runs before **every** block. The loop is unconditional, as every wait in this harness is: a
-block one pass skips shifts the plate's sim tick and the probe then refuses the pair (`side_tick_bad`). o240
-keeps its five calls - its five banks are the far band's subject - and loses only the older blocks' leavings.
+```hlsl
+half gone = 1.0 - i.tone.x;                        // fade pinned at 1 -> gone = 0
+half threshold = gone * (0.45 + 0.55 * edge);      // -> 0 on every gas card
+half torn = saturate((tex.a - threshold) / 0.45) * pow(1.0 - gone, 1.5);   // -> saturate(tex.a / 0.45)
+```
 
-**Not before the very first block of the run.** The first run of this change put a drain there too and
-`gas-side-s0` came back with `gas_cells_before` **157**: there are no leavings at tick 0, so that drain is only
-1000 ticks of live battle, in which the AI's own chlorine can land on the field. The condition is on the SEED
-(`s > 0`), never on the pass, so both passes still run frame for frame.
+So **the erode threshold is 0 on every card of this book** and every sheet pixel at alpha 0.45 or more comes out
+fully opaque. `GasBankThin` never touched that threshold - it is only the card's own opacity. At 0.95 against
+1.0 a thin cell and a full one read the same, which is the "flat pads" half of the complaint, and the old comment
+at `CombatFx.Banks.cs:21-24` and the test `BurstRecipeTests.TheGasBankSurvivesTheErodeThreshold` both stated the
+wrong wiring. The comment is rewritten in this lane and that test is replaced by
+`TheGasBankThinAndFullDoNotReadTheSame`, which checks the thing that is really wired: the opacity spread.
 
-**The test's own timeout.** Nine drain blocks take the capture past NUnit's default 180 s - the plate pass died
-on "Timeout value of 180000 ms was exceeded" at 223 s, with its stills half written. `[Timeout(900000)]`, five
-times the measured run, so a slower machine or a colder asset database still finishes.
+What the build therefore changes:
 
-| Reading | g1 | here |
-|---|---|---|
-| `gas_cells_before`, worst row | **725** (T1) | **0**, every row of both manifests |
-| `gas_cells` at the T1 shot | 818 / 679 / 562 | **66 / 68 / 66** |
-| `gas_cards` at the T1 shot | 1046 / 853 / 718 | **90 / 92 / 90** |
-| `draw_calls`, worst row | 139 | **137** (ceiling 300) |
-| `side_tick_skew` | 0 / 0 / 0 | 0 / 0 / 0 |
-| sim tick, gas vs plate | - | identical on all nine stills: 217, 1589, 2898, 4239, 5611, 6920, 8261, 9633, 10942 |
+| Change | Was | Now | Why |
+|---|---|---|---|
+| `GasBankThin` (the card's opacity) | 0.95 | **0.80** | a thin cell has to read fainter than a full one; the 0.05 spread was invisible |
+| the second, wider card per 2x2 block | drawn | **gone** | it was a flat pad stacked on every patch of ground the per-cell cards already covered |
+| `_Feather` (new, the gas book only) | - | **0.60** | each card fades out horizontally over 60 % of its half-width, so a carpet of cards is not a carpet of rectangles |
+| the per-cell card's width | `6f + 3f * Thick` | **`10f + 3f * Thick`** | a feathered card covers much less than a hard one; the cells now overlap through their soft flanks |
 
-Both passes, same build, on the tip of this lane:
+The feather is horizontal only. The card is `Anchored`, its bottom edge is the ground line and the sheet's ink
+sits in its bottom third, so a radial feather would eat the drawing itself.
+
+## The readings, before and after
+
+Before = the stills committed at `3b1e25daf3` (the capture fix, drawing untouched). After = the stills here.
+Three seeds each, measured by the same `probe.py`.
+
+| Reading | Bar | Before (s0 / s1 / s2) | After (s0 / s1 / s2) | |
+|---|---|---|---|---|
+| `t1_changed_frac` | >= 0.08 | 0.0854 / 0.1086 / 0.1220 | **0.0886 / 0.1144 / 0.1215** | OK |
+| `texture_var_drop` | >= 0.40 | 0.7300 / 0.7554 / 0.7110 | **0.8308 / 0.8298 / 0.7998** | OK |
+| `o240_hue_dist_deg` | >= 108.0 | 135.54 / 138.53 / 126.39 | **133.75 / 137.61 / 122.63** | OK |
+| `side_face_px` | >= 30000 | 70300 / **28560** / 116466 | **94847 / 34229 / 130224** | OK (it missed before) |
+| `t1_rim_px` | unset | 3 / 2 / 3 | **3 / 2 / 3** | see below |
+| `t1_gas_cards` | <= 70 | 90 / 92 / 90 | **68 / 69 / 68** | OK |
+
+`python probe.py` exits **0**: every bar is met by every seed, which the previous capture of this folder could
+not say (`side_face_px` missed on seed 1).
+
+## The two bars this round had to derive
+
+The folder's rule: a bar sits **outside** the spread of three captures of the build it guards, and is never
+widened to make a run green.
+
+- **`t1_gas_cards` (`<=`)** reads 68 / 69 / 68. `max(seeds)` rounded up to the next 5 = **70**. It is outside the
+  spread on the high side, and under 90 - the fewest cards the old carpet build ever drew (90 / 92 / 90) - so the
+  bar separates the two builds outright. One bank, 66-68 cells, one card each.
+- **`t1_changed_frac`** keeps the owner's 0.08 and is not re-derived. It is the bar the card width was turned
+  against, and the captures are the arithmetic: 7 m read 0.0570, 8 m 0.0655, 9 m 0.0773, 10 m **0.0886** on the
+  worst seed. Three full two-pass captures, one per width; each is a measurement, none is a bar that moved.
+- **`texture_var_drop`** still clears 0.40 (0.7998 at worst), so its bar stays exactly where it was. It was not
+  demoted and no owner question was opened: it is simply no longer the only thing watching the T1 frame, since
+  `t1_gas_cards` now refuses a carpet by card count.
+
+### `t1_rim_px` stays UNSET, and that is the honest result
+
+Step 7 of the plan wanted the rim bar derived as `floor(min(seeds)) - 1`, above 3, and said to raise `_Feather`
+to 0.60 and reshoot if `min(seeds)` came out under 5. That was done - `_Feather` 0.45 -> 0.60, both passes
+reshot - and **the reading did not move: 3 / 2 / 3 px at 0.45, 3 / 2 / 3 px at 0.60**, the same as the carpet
+build and close to the 1 px the probe's own selftest measures on a hard pad. So the bar would have to be set at
+1, at or below the hard pad, where it gates nothing. It is left unset instead of being set to a number that
+proves nothing.
+
+Why the median walk does not see the feather, measured on `gas-t1-s0` of the first capture of this build:
+
+- the T1 blob's **median plate difference is 0.0955**, barely above the mask bar `LUMA_BAR` 0.06, so the walk's
+  stop level is `0.25 * 0.0955 = 0.0239`;
+- the frame's own JPEG noise outside the bank runs 0.00-0.05, so a walk crosses 0.0239 at the first noise dip -
+  on the widest row of that still the profile outside the edge reads 0.076, 0.058, 0.046, 0.050, 0.055, **0.006**:
+  the walk ends at step 5 on a dip, not where the bank ends.
+
+That the soft flanks ARE in the frame shows in the readings that are not a median of short walks:
+`t1_rim_p90_px` rose from 16 / 15 / 20 to **18 / 17 / 23** px, the T1 blob grew from 37402 / 79166 / 105892 to
+**59816 / 85237 / 107886** px at the same 68-69 cards, and `texture_var_drop` rose. **The next round needs a rim
+reading whose stop level is not inside the frame's noise** (a fixed absolute level, or the walk run on the mean
+of several rows), not a bigger feather.
+
+## Reported, not barred
+
+| Row | s0 | s1 | s2 |
+|---|---|---|---|
+| `t1_rim_p90_px` | 18 | 17 | 23 |
+| `t1_blob_px` | 59816 | 85237 | 107886 |
+| `t1_luma_delta` | 0.1069 | 0.1377 | 0.1205 |
+| `t1_block_var_gas` / `_plate` | 0.000616 / 0.003641 | 0.001121 / 0.006587 | 0.000796 / 0.003978 |
+| `gas_t1_height_m` (bias) | 3.278 (3.856) | 5.251 (3.850) | 4.818 (3.719) |
+| `gas_side_height_m` | 2.195 | 2.166 | 2.490 |
+| `side_top_m` / `side_bias_m` | 3.983 / 1.788 | 3.987 / 1.821 | 4.427 / 1.937 |
+| `side_face_frac` / `side_face_col_px` | 0.5913 / 85 | 0.5779 / 81 | 0.5663 / 112 |
+| `side_blob_px` / `side_cut_frac` | 160405 / 0.2045 | 59235 / 0.3740 | 229944 / 0.2320 |
+| `o240_bank_hue_deg` / `o240_grass_hue_deg` | 88.5 / 222.2 | 86.3 / 223.9 | 98.5 / 221.1 |
+| `o240_core_px` | 6926 | 6626 | 5361 |
+| `side_tick_skew` | 0 | 0 | 0 |
+| `pose_error_m` | 0.0 | 0.0 | 0.0 |
+
+**What `side_face_px` did.** It missed on seed 1 last round (28560 against the 30000 bar) and the README then
+called that capture noise on the one seed holding a burning wreck. This round it reads **34229** on that seed,
+and 94847 / 130224 on the other two - all three over the bar, and up 35 % / 20 % / 12 % on the drawing change
+alone (the capture, the poses and the sim ticks are identical: 217, 1589, 2898, 4239, 5611, 6920, 8261, 9633,
+10942 on both passes, `side_tick_skew` 0). So the earlier miss was the thin end of a real spread, and a wider,
+softer, overlapping card is what moved it: the bank now has more upright face on screen at every seed. The bar
+stays at 30000 and was never touched.
+
+`gas_cells_before` is 0 on all eighteen rows of both manifests, and the worst `draw_calls` is 137 against the
+300 ceiling.
+
+## The capture
+
+Both passes, same build, this lane's tip, this checkout's editor closed:
 
 ```bash
-TW_STILLS_DIR=<dir> Unity.exe -batchmode -projectPath trench-warfare-3d -runTests -testPlatform EditMode \
-  -testFilter GasBankStills -testResults Logs/g.xml -logFile Logs/g.log      # the gas pass
-TW_GAS_PLATE=1 TW_STILLS_DIR=<dir> ...                                       # the plate pass, same script, no gas
+TW_STILLS_DIR=<dir> "C:/Program Files/Unity/Hub/Editor/6000.0.50f1/Editor/Unity.exe" -batchmode \
+  -projectPath trench-warfare-3d -runTests -testPlatform EditMode -testFilter GasBankStills \
+  -testResults Logs/g.xml -logFile Logs/g.log        # the gas pass, ~240 s, 9 stills
+TW_GAS_PLATE=1 TW_STILLS_DIR=<dir> ...same...        # the plate pass, same script, no gas
 python docs/evidence/ability-fx-captures-r2-3-g2-g2-g1-g2/probe.py --pack <dir>
 ```
 
-`Unity.exe` is the EDITOR, `C:/Program Files/Unity/Hub/Editor/6000.0.50f1/Editor/Unity.exe`. The `unity.exe` at
-`%LOCALAPPDATA%/unity/bin/` is the CLI that talks to a running editor and answers `-batchmode` with
-"error: unknown option".
-
-## Fault 2, the drawing: still there, and now visible on its own
-
-`gas-t1-s0.jpg` is one bank now, and it is still **a stack of flat opaque olive pads with hard rims**. That is
-`GasBankThin` = 0.95: the erode threshold `(1 - alpha) * (0.45 + 0.55 * edge)` is near zero, so every card draws
-its sheet's whole alpha blob at full opacity. One card per 4 m cell plus one per 2x2 block puts two such pads on
-every patch of ground. Nothing here touches it; it is the next leg's step.
-
-This is also why `texture_var_drop` is no evidence of a good look: `t1_block_var_gas` 0.000757 / 0.001686 /
-0.001152 against `t1_block_var_plate` 0.002805 / 0.006891 / 0.003987. The gas side is near zero **because the
-pads are flat**, which is exactly the fault, so the bar rewards it. Stated, not barred: moving that bar is the
-drawing leg's job, with a reading that cannot be passed by a flat pad.
-
-## The bars
-
-`probe.py` is g1's, copied unchanged. Three of the four pass on all three seeds; one misses.
-
-| Reading | Bar | s0 | s1 | s2 | |
-|---|---|---|---|---|---|
-| `t1_changed_frac` | >= 0.08 | 0.0854 | 0.1086 | 0.1220 | OK |
-| `texture_var_drop` | >= 0.40 | 0.7300 | 0.7554 | 0.7110 | OK |
-| `o240_hue_dist_deg` | >= 108.0 | 135.54 | 138.53 | 126.39 | OK |
-| `side_face_px` | >= 30000 | 70300 | **28560** | 116466 | **MISSED on s1** |
-
-**`side_face_px` on seed 1 fell from 37666 to 28560, and the bar does not move.** A bar only ever moves up here;
-a reading that falls is a finding, never a lower bar. The finding:
-
-- **The drawing did not change** - this leg changed no presentation code at all - so the fall is not the bank
-  getting smaller. The side block's conditions are also unchanged: it was the first block after a drain in g1 and
-  it still is, with `gas_cells_before` 0 both times.
-- **What changed is the sim tick the side still is taken at.** Six extra drain blocks push the whole timeline
-  along: seed 1's side still was tick 4239 here against g1's much earlier tick. The battlefield behind the bank
-  is a different battlefield, and the probe's two gates cut a different share of it: `side_cut_frac` 0.4141 ->
-  **0.4292**, `side_mask_px` 139794 -> **115185**. Seed 1 is the seed with the burning wreck, and it is the seed
-  that moves.
-- **So 30000 was set from one capture's spread, and the spread is wider than one capture showed.** The honest
-  reading is that `side_face_px` has capture-to-capture noise of at least 24 % on this seed, which the g1 README
-  could not know from a single run. The bar stays at 30000 and this capture MISSES it.
-
-`t1_changed_frac` did fall too, as the plan predicted it would once the T1 frame holds one bank instead of six
-(0.2249 -> 0.0854 at worst), and it still clears the owner's 0.08 - by 0.0054 on s0. That is thin, and it is
-thin for an honest reason: one bank covers less of the frame than six. Settling the bank longer or shooting T1
-nearer the patch would both lift it; neither was done here, because the drawing leg will change this number
-again and the bar should be re-derived once, after it.
+`Unity.exe` is the EDITOR at that path. The `unity.exe` at `%LOCALAPPDATA%/unity/bin/` is the CLI that talks to a
+running editor and answers `-batchmode` with "error: unknown option".
 
 ## What is here
 
 | File | What it is |
 |---|---|
-| `probe.py` | g1's measure plus the two readings below (`t1_rim_px`, `t1_gas_cards`). `--selftest` exits 0; no arguments measures the stills beside it |
+| `probe.py` | the measure. `--selftest` exits 0 (camera maths, texture drop, hue, face, rim, all hand-calculated); no arguments measures the stills beside it |
 | `probe.json` | the readings of this run, one value per seed, with the bars |
 | `gas-t1-s*`, `gas-o240-s*`, `gas-side-s*` | three seeds, three bands, each with its `-plate` (same pose, same sim tick) and its `.json` sidecar |
 | `manifest.json`, `manifest-plate.json` | one row per still: patch, sim tick, pose error, gas field before and after the call, cards drawn, draw calls |
-
-Reported, not barred: `side_tick_skew` (0 / 0 / 0), `side_cut_frac` (0.2658 / 0.4292 / 0.2964), `side_blob_px`
-(125267 / 51315 / 203356), `gas_side_height_m` (1.648 / 2.168 / 2.416 m), `o240_bank_hue_deg` (86.5 / 85.0 /
-94.7) against `o240_grass_hue_deg` (222.1 / 223.5 / 221.1), `o240_core_px` (6683 / 6420 / 5298), and
-`gas_t1_height_m` (2.454 / 5.105 / 4.464) against `t1_footprint_bias_m` (3.552 / 3.794 / 3.727). Pose error is
-0.0000 m on all eighteen stills.
-
-## Fault 2, the measure: a reading that catches a flat pad
-
-`texture_var_drop` cannot find the fault the owner named, because it **rewards** it: a flat pad flattens the
-ground under it, so the flatter and harder the pad, the better that number reads. Both builds pass it (0.56-0.74).
-Two readings are added so the drawing leg has something that bites. Their bars are deliberately **UNSET** here
-(the probe prints them and gates nothing); they are derived in the drawing leg, from three captures of the build
-that has the new drawing, by the same rule as every bar above.
-
-- **`t1_rim_px`** - how soft the bank's edge is, in pixels. From every boundary pixel of the T1 blob whose
-  outside neighbour lies left or right, walk outward along the row up to 24 px and count the steps until the
-  plate difference falls under 0.25 x the median difference inside the blob; the median of those walks is the
-  reading, `t1_rim_p90_px` sits beside it. A hard-edged pad reads 1-2 px (only JPEG softens it); a bank that
-  erodes into wisps reads high single figures. Hand-checked both ways in `--selftest`: a 20 px rectangle with a
-  10 px linear ramp reads **8 px** (the walk ends where 0.20 x (1 - i/10) < 0.05, so i = 8) and the same
-  rectangle with no ramp reads **1 px**.
-- **`t1_gas_cards`** - the cards the harness drew for the T1 still, read from its `manifest.json` row. This bar
-  runs the other way (`<=`, an upper limit): a carpet is more cards, one bank is fewer. A missing field reads as
-  a number no upper bar can pass, so it is never a free pass.
-
-### The old build against the new readings
-
-`python probe.py --dir ../ability-fx-captures-r2-3-g2-g2-g1 --out <outside this folder>`, so g1's folder is left
-untouched. The before numbers come from the stills committed at `1dd0a2750c`, not from the code that reads them.
-
-| Reading | g1, the carpet (s0 / s1 / s2) | here, one bank per block | What it says |
-|---|---|---|---|
-| `t1_gas_cards` | **1046 / 853 / 718** | **90 / 92 / 90** | the capture fix is visible in one number: 11x fewer cards |
-| `t1_rim_px` | 5 / 2 / 3 | 3 / 2 / 3 | **unchanged, and it should be**: the drawing is untouched here |
-| `t1_rim_p90_px` | 24 / 17 / 23 | 16 / 15 / 20 | the widest edges are the drifted leavings g1 still held |
-| `texture_var_drop` | 0.56 / 0.74 / 0.61 | 0.73 / 0.76 / 0.71 | passes on both: the reading that cannot see the fault |
-
-So the two readings do different jobs, and only one of them has fired yet:
-
-- `t1_gas_cards` separates the two builds outright, and would have refused g1 at any bar between 93 and 718.
-- **`t1_rim_px` does not separate them, because neither build has a soft edge.** Both read 2-3 px at worst, which
-  is the hard pad of the selftest's second case. That is the honest state of this folder: the capture is fixed,
-  the drawing is not, and the rim reading is the thing that will say when it is. It is proven to work by hand
-  calculation (8 px against 1 px), not by a difference between these two builds.
-
-### `side_face_px` still misses
-
-Unchanged from the section above, and not touched by this leg: seed 1 reads 28560 against the bar 30000, so
-`python probe.py` exits **1**. That bar is capture noise on the one seed with a burning wreck, and the drawing
-leg reshoots all three seeds; it is settled there, never by widening the bar.

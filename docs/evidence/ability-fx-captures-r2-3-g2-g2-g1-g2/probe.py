@@ -20,6 +20,11 @@ the bank's upright face on screen, measured in pixels and growing when the bank 
 stays, as a reported row beside `side_top_m` and `side_bias_m` - the complaint is that it was barred and blind,
 not that it is useless - and `side_face_frac` / `side_face_col_px` report the face free of the cloud's size.
 
+r2-3-g2-g2-g1-g2 CHANGES NO READING. It only fills in the two bars r2-3-g2-g2-g1 left unset, from three
+captures of the build that draws the new card: `t1_gas_cards` is set to 70 and `t1_rim_px` is left UNSET on
+purpose, because two captures of that build read the same 3 / 2 / 3 px as the carpet build it replaced - at this
+contrast the median walk stops on the frame's own JPEG noise, not at the bank's edge (README.md, "the rim").
+
 r2-3-g2-g2-g1 TAKES THE SCENERY OUT OF THE SIDE MASK. The plate is supposed to be the control: whatever moved
 between it and the shot is the gas. In this band it is not, for two reasons that are both in the manifests.
 (1) The two passes are not on the same tick. The plate pass skips the 8-frame wait after each block it does not
@@ -180,7 +185,17 @@ SIDE_SKEW_TICKS = 2
 # lowered below the owner's bar (`o240_hue_dist_deg` only; `gas_side_height_m` has none), never widened to make a
 # run green. Set from the capture of commit 2ba27d4 (the build the owner accepted); see README.md, "The bars".
 BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 108.0, 'side_face_px': 30000,
-        't1_rim_px': None, 't1_gas_cards': None}
+        't1_rim_px': None, 't1_gas_cards': 70}
+# r2-3-g2-g2-g1-g2 step 7, the two readings of step 3, derived from this build's three seeds:
+# `t1_gas_cards` reads 68 / 69 / 68, so the upper bar is max(seeds) rounded UP to the next 5 = 70 - outside the
+#   spread on the high side, and under 90, the least the old carpet build ever drew (90 / 92 / 90), so the bar
+#   separates the two builds. Rounded up, never widened to make a run green.
+# `t1_rim_px` STAYS UNSET, and that is a finding, not an omission. Two captures of this build read 3 / 2 / 3 px,
+#   exactly what the carpet build read (3 / 2 / 3) and what the selftest's HARD PAD reads (1 px) - while
+#   `t1_rim_p90_px` ran 15-22 px. The rule is bar = floor(min(seeds)) - 1, which would be 1: at or below the hard
+#   pad, so it would gate nothing. It is not set at 1 and it is not lowered to fit; see README.md, "The rim
+#   reading did not move", for why the median walk ends on noise at this build's contrast (the T1 blob's median
+#   plate difference is 0.0955, so the walk's stop level is 0.0239, inside the frame's own JPEG noise).
 # A bar whose value is None is UNSET: the reading is measured and printed, and it gates nothing. The two new
 # readings of r2-3-g2-g2-g1-g2 (step 3) are unset here on purpose - this leg only has to show that they tell a
 # soft bank from a flat pad (README.md, "The old build against the new readings"); step 8 derives their values
@@ -1135,7 +1150,7 @@ def main():
         got, bar, up = bars[k], BARS[k], BAR_DIR.get(k, '>=')
         worst = (max(got) if up == '<=' else min(got)) if got else None
         if bar is None:
-            print('%-18s UNSET (step 8 derives it)   worst %-9s           (the owner asked for %s)'
+            print('%-18s UNSET (README.md, the rim)  worst %-9s           (the owner asked for %s)'
                   % (k, round(worst, 4) if worst is not None else 'none', OWNER_BARS.get(k, 'n/a')))
             continue
         met = len(got) >= SEEDS and (worst <= bar if up == '<=' else worst >= bar)

@@ -102,7 +102,11 @@ namespace TW.Presentation.Tactical
             {
                 float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
-                float width = (7f + 3f * b.Thick) * (0.9f + 0.2f * h2) * step;
+                // 10 m, not 7 (r2-3-g2-g2-g1-g2 step 7): one card per cell with soft flanks covers less of the T1 frame than
+                // the two stacked pads did, and t1_changed_frac fell to 0.0570 against the owner's 0.08. A wider card is the
+                // way back - the cells overlap by their own feathered flanks instead of leaving the ground showing - and the
+                // captures measured it, worst seed: 7 m read 0.0570, 8 m 0.0655, 9 m 0.0773, 10 m the first over 0.08.
+                float width = (10f + 3f * b.Thick) * (0.9f + 0.2f * h2) * step;
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                 gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.10f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
             }
