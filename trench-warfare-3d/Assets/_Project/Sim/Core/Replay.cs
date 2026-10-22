@@ -163,7 +163,11 @@ namespace TW.Sim
         // put every man down pays back the silver and the wait of the men it lost and raises DropLandedShort. No
         // field added, moved or dropped; a battle with a full field keeps silver and an ability it used to lose, so
         // hashes and balance move.
-        public const ushort FormatVersion = 54;
+        // v55 (2026-10-22, [found-buildshelters-excludes-vehicles-from-teams-i-20261015-0]): fire at a wreck keeps down
+        // only the men on foot its Teams set counts. InShadow skipped neither Vehicle nor Airborne, so a machine in
+        // the shadow was pinned though BuildShelters never counted it. No field added, moved or dropped; suppression
+        // of those machines moves, so hashes move.
+        public const ushort FormatVersion = 55;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
