@@ -335,5 +335,28 @@ namespace TW.Tests
             float stacked = 1f - Mathf.Pow(1f - CombatFx.GasBankAlpha(1f), 3f);
             Assert.GreaterOrEqual(stacked, 0.8f, "three full cards stacked still reach the bank's core opacity");
         }
+        [Test]
+        public void TheGasBankCardsFillTheDepthEvenly()
+        {
+            // the rows are real at a 1.2 m jitter: every card sits within +-0.6 m of its row line, so against a
+            // 4 m row pitch they never leave their own bin. GasBankJitterM (one full field cell) must let a card's
+            // centre land anywhere inside its own cell, so card centres fill the depth uniformly and there is no
+            // 4 m lattice left to read as rows.
+            const int cells = 32, bins = 8;
+            int[] counts = new int[bins];
+            for (int x = 0; x < cells; x++)
+            for (int z = 0; z < cells; z++)
+            {
+                uint h = (uint)(x * 73856093 ^ z * 19349663);
+                float h2 = ((h >> 10) & 1023) / 1023f;
+                float wz = (z + 0.5f) * 4f + (h2 - 0.5f) * CombatFx.GasBankJitterM;
+                int bin = ((int)Mathf.Floor(Mathf.Repeat(wz, 4f) / 4f * bins)) % bins;
+                if (bin < 0) bin += bins;
+                counts[bin]++;
+            }
+            int total = cells * cells, uniform = total / bins;
+            foreach (int c in counts)
+                Assert.LessOrEqual(c, uniform * 1.5f, "no bin may hold more than 1.5x the uniform count, or the rows still read as bands");
+        }
     }
 }
