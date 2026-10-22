@@ -651,7 +651,9 @@ apply those by hand, compile, `git add`, delete the `.rej`, `git rebase --contin
   with `python Tools/perfcmp.py`; section 7 gives the noise and the recipe for an older commit. `per_tick_ms` names
   the system (Development build or editor only; `Sim/Core/PerfMarkers.cs` lists the markers). `FrameBudget` counts
   draws (not all of them: `tasks.md`, Performance). `CaptureRig.Stress` and `CaptureRig.Profile` are rough footprint
-  checks: no fixed tick, no hash, not the same fight twice. Do not A/B with them.
+  checks: no fixed tick, no hash, not the same fight twice. Do not A/B with them. A bare report name such as
+  stress.json has no folder: `python Tools/test_capture_rig_report_folder.py` refuses a write that would call
+  CreateDirectory on that empty name.
 - **Looks different than before.** Capture the same pose on both builds and compare with `python Tools/shotstats.py
   after.png before.png`; capture the unchanged build twice first to know the noise (section 6). An older commit:
   section 7, "Before and after across commits". Brightness and grade come from the `BiomeProfile` preset

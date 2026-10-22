@@ -31,6 +31,15 @@ namespace TW.Editor
 {
     public static class CaptureRig
     {
+        /// <summary>Creates the folder of <paramref name="path"/>, when the path names one. A bare file name
+        /// ("stress.json") has no folder: Path.GetDirectoryName returns "" and Directory.CreateDirectory("") throws
+        /// ArgumentException, which left a stress run spinning in Play with its report unwritten.</summary>
+        static void EnsureFolder(string path)
+        {
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+        }
+
         /// <summary>A live slot drawn as a man, not a machine: the same mask the figure path itself uses
         /// (`VATRenderer.cs:312`) to decide whether a slot gets sockets, so what is measured is what is drawn
         /// as a man, foot soldier or rider, trench or not.</summary>
@@ -215,7 +224,7 @@ namespace TW.Editor
                     tex.ReadPixels(new Rect(0, 0, shot.W, shot.H), 0, 0); tex.Apply();
                     RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
 
-                    Directory.CreateDirectory(Path.GetDirectoryName(shot.Path));
+                    EnsureFolder(shot.Path);
                     File.WriteAllBytes(shot.Path, tex.EncodeToPNG());
                     LastJson = Measure(tex, shot, c);
                     File.WriteAllText(Path.ChangeExtension(shot.Path, ".json"), LastJson);
@@ -475,7 +484,7 @@ namespace TW.Editor
                 Object.DestroyImmediate(t);
             }
             sheet.Apply();
-            Directory.CreateDirectory(Path.GetDirectoryName(outPath));
+            EnsureFolder(outPath);
             File.WriteAllBytes(outPath, sheet.EncodeToPNG());
             Object.DestroyImmediate(sheet);
             return "sheet of " + files.Count + " -> " + outPath;
@@ -594,7 +603,7 @@ namespace TW.Editor
                     px[i] = new Color32((byte)Mathf.Min(255, grey + down), (byte)Mathf.Min(255, grey + up), grey, 255);
                 }
                 map.SetPixels32(px); map.Apply();
-                Directory.CreateDirectory(Path.GetDirectoryName(outPath));
+                EnsureFolder(outPath);
                 File.WriteAllBytes(outPath, map.EncodeToPNG());
                 File.WriteAllText(Path.ChangeExtension(outPath, ".json"), sb.ToString());
                 Object.DestroyImmediate(map);
@@ -674,7 +683,7 @@ namespace TW.Editor
                 }
             }
             tex.SetPixels32(px); tex.Apply();
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            EnsureFolder(path);
             File.WriteAllBytes(path, tex.EncodeToPNG());
             Object.DestroyImmediate(tex);
             var names = new StringBuilder();
@@ -736,7 +745,7 @@ namespace TW.Editor
                   .Append(i < rows.Count - 1 && i < top - 1 ? ",\n" : "\n");
             }
             sb.Append("  ]\n}\n");
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            EnsureFolder(path);
             File.WriteAllText(path, sb.ToString());
             return sb.ToString();
         }
@@ -879,7 +888,7 @@ namespace TW.Editor
                 Stat(sb, "setpass", passes, 300); Stat(sb, "draw_calls", draws, 300);
                 Stat(sb, "gc_bytes_per_frame", alloc, 0);
                 sb.Append("  \"frames\": ").Append(mainMs.Count).Append("\n}\n");
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                EnsureFolder(path);
                 File.WriteAllText(path, sb.ToString());
                 Debug.Log("Capture rig: frame cost written to " + path + "\n" + sb);
                 main.Dispose(); gpu.Dispose(); setPass.Dispose(); batches.Dispose(); gc.Dispose();
