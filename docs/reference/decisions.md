@@ -315,6 +315,16 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   `low_share` 0.1938 and `green_height_frac` 0.1539, breaking the floor and the height ceiling at once. Every knob
   that merges the bank is now measured, so the count is barred where the build stands: `t1_cloud_ceiling` `lt` 26
   on three captures reading 24 / 24 / 23. The bank is ~24 clouds, not one, and only (b) changes that.
+  2026-10-22, a third knob measured, in the opposite direction: a SKIRT, a second wide ground-hugging card per
+  cell (`CombatFx.GasPuffSkirtWide` / `GasPuffSkirtStand`, the table on those constants and
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2-g1-g1/README.md`). The hope was to merge the bank
+  LOW, where the floor wants green anyway. It does not help: 1.6 / 0.17 reads `t1_visible_clouds` 17 and
+  `low_share` 0.1915, 2.2 / 0.11 reads 12 and 0.2100, and 2.2 / 0.07 - a skirt whose own top is under a man's head
+  everywhere - reads 16 and 0.2482. **The merge is not bought by how tall a card is drawn.** Once the cards merge,
+  ONE connected mass spans the field, and perspective puts the far cells' pixels high in the frame, so `low_share`
+  falls and `green_height_frac` rises whatever shape the card has. With width, density, the re-fit and now the
+  skirt all measured, nothing inside SHOW merges the bank while the 0.30 floor holds. The default taken, again, is
+  (a): the floor is his, so no bar is set from a skirt capture and the skirted build is NOT landed.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below

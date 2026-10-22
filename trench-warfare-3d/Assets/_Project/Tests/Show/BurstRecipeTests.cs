@@ -284,6 +284,17 @@ namespace TW.Tests
             Assert.Greater(stands, 1.8f, "and the merged cloud still stands over a 1.8 m man: a height a player can see");
             Assert.Less(stands, 10f, "and is still a cloud, not a column");
 
+            // The owner, 2026-10-22: at the close camera the bank is still "about 24 separate flat green cards
+            // with mud in the gaps". Width and density both merge it only by piling green HIGH, which breaks his
+            // green_low_share floor, so the merge is bought LOW: a SKIRT card per cell, under a man's head. Its
+            // two rules, from the lane's own geometry (GasPuffBlock 3 x FieldCellSize 4 = 12 m):
+            float narrowestSkirt = (5f + 0f) * 0.9f * CombatFx.GasPuffWide * CombatFx.GasPuffSkirtWide;
+            Assert.Greater(narrowestSkirt, CombatFx.GasPuffBlock * TW.Sim.Terrain.MapData.FieldCellSize,
+                "even the THINNEST cell's skirt bridges the lane between cards: no skirt leaves mud in its gap");
+            float skirtStands = narrowestSkirt * CombatFx.GasPuffSkirtStand;
+            Assert.Less(skirtStands, (5f + 0f) * 0.9f * CombatFx.GasPuffWide * CombatFx.GasPuffStand,
+                "and the skirt stands LOWER than the card over it: the silhouette's top is still the standing puff");
+
             // The overview's mirror (the owner, 2026-10-22: the overview is "still the old squash blanket"). An
             // overview card's width multiplies by the local step 2, so the widest is (6 + 2) * 1.1 * 2 = 17.6 m,
             // while cards stand GasCloudBlock * FieldCellSize m apart: a gap at the widest card, not a blanket.

@@ -112,6 +112,37 @@ namespace TW.Presentation.Tactical
         /// so it is a diagnostic and not a bar (component counts do not interpolate: re-measure after any change
         /// here, never interpolate).</summary>
         public const float GasPuffWide = 2.0f;
+        /// <summary>How much wider than the standing card the close bank's SKIRT is drawn (this unit, 2026-10-22).
+        /// Width, density and a re-fit all merge the bank only by piling green HIGH, which breaks the owner's
+        /// green_low_share >= 0.30 floor (the parent's README, parts 2 and 3). So the merge is bought LOW instead:
+        /// a second, ground-hugging card per cell in the same list and the same book (no new draw call), wide
+        /// enough to bridge the GasPuffBlock 3 x FieldCellSize 4 = 12 m lane that splits the mask, while its own
+        /// pixels sit under a man's head - which is where the floor wants green anyway. The narrowest skirt is
+        /// (5 + 0) * 0.9 * GasPuffWide * this = 14.4 m at 1.6, over the 12 m lane.
+        /// Measured, not guessed, at TW_GAS_WAIT_FRAMES 170, one gas + plate pass each (the carried bars in
+        /// brackets: green_low_share >= 0.30, green_height_frac 0.08-0.15, green_rise_m >= 2.4; the merge wanted
+        /// t1_visible_clouds 1-3 and t1_top_share over 0.80):
+        ///   no skirt (the kept parent build) -> visible 24, top 0.2908, low 0.3045, height 0.0836, rise 2.653
+        ///   1.6 / 0.17 -> visible 17, top 0.4734, low 0.1915, height 0.1584, rise 4.449
+        ///   2.2 / 0.11 -> visible 12, top 0.6177, low 0.2100, height 0.2031, rise 5.489
+        ///   2.2 / 0.07 -> visible 16, top 0.5368, low 0.2482, height 0.1492, rise 4.030: KEPT of the three, the
+        ///         only row that holds the 0.15 height ceiling, and the closest any skirt came to the floor
+        /// So the skirt merges the bank the same partial way width and density did, and it costs the same floor:
+        /// the merge is not bought by the card's HEIGHT at all. Once the bank merges, ONE connected mass spans the
+        /// field and perspective puts the far cells' pixels high in the frame, so green_low_share falls and
+        /// green_height_frac (the largest blob's screen height) rises whatever the card is drawn like. 0.07 draws
+        /// a skirt whose own top is ~1.4-2.0 m - under a man's head everywhere - and the floor still reads 0.2482.
+        /// None of the three holds the owner's 0.30 floor, so NO bar is set from them and this build does not
+        /// land: it is his open row in docs/reference/decisions.md, "The close gas: one cloud, or gas that still
+        /// pools under a man's head?", and only its option (b) can take the bank to one cloud.
+        /// (connected-component counts do not interpolate: re-measure after any change here.)</summary>
+        public const float GasPuffSkirtWide = 2.2f;
+        /// <summary>How tall the skirt is drawn against its own width: skirtW * this, so at 1.6 / 0.17 a 14-23 m
+        /// skirt stands 2.4-3.9 m and is drawn from b.Ground - 0.2, top ~2.2-3.4 m. Over green_rise_m's 2.4 m
+        /// floor at the wide cells, with most of its pixels under a 1.8 m head. It must stay LOWER than the
+        /// standing card over it (width * GasPuffStand), so the silhouette's top is still the puff's - asserted in
+        /// BurstRecipeTests.TheCloseGasPuffStands_AndTheMergedOutSheetStillLiesFlat.</summary>
+        public const float GasPuffSkirtStand = 0.07f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -194,7 +225,16 @@ namespace TW.Presentation.Tactical
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                 // close (step 1): the standing puff, its drawing reaching the cell's floor, so the card sits at the
                 // smoke bank's anchor and not GasBankSquash's sunk one. From the overview out: today's squashed blanket.
-                if (step == 1) gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width * GasPuffStand, BankFrame(GasPuffFirst, GasPuffLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                if (step == 1)
+                {
+                    gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width * GasPuffStand, BankFrame(GasPuffFirst, GasPuffLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                    // and its SKIRT: a second card in the same list and the same book, so no new draw call. Wide
+                    // and flat, so it bridges the 12 m lane that splits the mask with pixels that sit under a
+                    // man's head; boiled half a cycle out of step with the card over it, so the two do not pulse
+                    // as one flat shape.
+                    float skirtW = width * GasPuffSkirtWide;
+                    gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), skirtW, skirtW * GasPuffSkirtStand, BankFrame(GasPuffFirst, GasPuffLast, slow + 3.1416f), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                }
                 else gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
             }
             books.DrawPacked(step == 1 ? FlipbookFx.Book.GasPuff : FlipbookFx.Book.GasBank, gasCards, bounds);
