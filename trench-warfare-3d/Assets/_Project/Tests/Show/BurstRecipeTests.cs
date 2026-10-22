@@ -272,8 +272,9 @@ namespace TW.Tests
             // because Book.GasBank's drawing inks only the bottom 35% of its cell, however tall the card. The close
             // bank is drawn with the smoke bank's cloud (Book.GasCloud, Ink.y 0.87) instead. The numbers below are
             // hand-worked, not read back out of PackGasCell: a thick cell's card is 6.3 to 7.7 m wide, squashed by
-            // GasCloudSquash 0.25 * (0.8 to 1.2) it stands 1.26 to 2.31 m, inked to 0.87 of that and anchored 0.35 m
-            // down, so its ink tops out at 0.75 to 1.66 m (the clamp holds the tallest, with its rim, at 1.70).
+            // GasCloudSquash 0.33 * (0.8 to 1.2) it stands 1.66 to 3.05 m, inked to 0.87 of that and anchored 0.35 m
+            // down, so its ink tops out at 1.09 to 2.30 m - except the clamp, (GasHeadRoom + GasBankAnchorDrop) /
+            // GasCloudInkTop = 2.356 m of card, holds every cell's ink at or under GasHeadRoom 1.70 m.
             var cards = new List<Matrix4x4>(256);
             var tops = new List<float>(64);
             int two = 0;

@@ -305,6 +305,25 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   a man, which reopens the r1 critique the whole phase answered ("gas pools, it does not stand over a man") and
   changes `TheGasBankLiesOnTheGround_NotOverAMansHead`. Evidence:
   `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g2/README.md`.
+  **2026-10-22, lane `lane/show/ability-fx-captures-r2-2-g2-g2-g2-g2-g2-g1`:** the question is now answered by
+  numbers rather than open in principle. Drawing the close bank with the smoke bank's cloud and squashing it by
+  `GasCloudSquash` 0.33 does reach the 0.6 m the plan asked for (`green_rise_m` 0.620/0.624/0.714 over three
+  captures), and it costs exactly what option (a) predicted: `green_low_share` fell from 0.904-0.919 to
+  0.739-0.884, so a quarter of the gas pixels in one capture stand over a 1.8 m man's head, and the bar had to be
+  re-set from 0.88 to 0.59. The default taken is still (a) in kind — `GasHeadRoom` is untouched at 1.7 m and the
+  ink clamp still holds every card under it — but the head-rule BAR is much weaker than it was. The owner's call:
+  (a) accept the weaker `green_low_share` bar for the taller cloud — **the default taken here**; or (b) go back to
+  `GasCloudSquash` 0.28, where `green_low_share` reads 0.937-1.0000 and `green_rise_m` only 0.52. Evidence:
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g2-g1/README.md`.
+- **Does a one-camera rise measure tell a standing cloud from a flat puddle? (2026-10-22, lane
+  `lane/show/ability-fx-captures-r2-2-g2-g2-g2-g2-g2-g1`):** the owner asked for the gas card's rise and relief to
+  be barred against the smoke card. The relief ratio does the job (3.11 now against the sheet build's 0.37), but
+  the rise ratio does not: the sheet build's flat puddle card reads 2.66 and this build's standing cloud 2.08,
+  because a wide card lying on the ground at the capture's 25 deg pitch covers vertical pixels that the maths
+  reads as height. Both are barred as the owner asked, and the README says plainly which one carries the proof.
+  If the rise ratio is to mean "stands up", it needs a second camera (a flat-on side pose in `GasBankCards`),
+  which is new work nobody has asked for yet. Evidence:
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g2-g1/README.md`.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below

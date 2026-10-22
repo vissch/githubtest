@@ -29,7 +29,7 @@ namespace TW.Presentation.Tactical
         public const float GasCloudInkTop = 0.87f;
         /// <summary>How flat a close gas card is drawn with the cloud drawing: it fills its cell, so a 7 m card is squashed far
         /// harder than GasBankSquash to leave a standing cloud under a man's head and not a wall.</summary>
-        public const float GasCloudSquash = 0.25f;
+        public const float GasCloudSquash = 0.33f;
         /// <summary>How far under the ground a gas card is anchored, so the ink's foot is not a hard line on the grass.</summary>
         public const float GasBankAnchorDrop = 0.35f;
         /// <summary>The highest the drawn gas may reach: under a 1.8 m man's head with 0.1 m to spare.</summary>
