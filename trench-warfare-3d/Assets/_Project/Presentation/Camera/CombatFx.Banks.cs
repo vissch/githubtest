@@ -49,15 +49,22 @@ namespace TW.Presentation.Tactical
 
         /// <summary>How many field blocks a gas card's thickness is read from: its own and the eight around it.</summary>
         public const int GasBankNeighbourhood = 9;
-        /// <summary>A gas card's load: the mean of the nine block maxima around it (its own plus <paramref name="ringSum"/>,
-        /// the eight neighbours; off the map counts as 0). A card used to read its own 4 m cell alone, so at the cloud's
-        /// edge, where the field decays cell by cell, the outermost ring of cards drew right at the probe's visibility
-        /// bar: that marginal paint broke into blotches and each blotch counted as its own patch (28 / 24 / 18 for one
-        /// bank), and the count swung between captures because the fringe was re-diced every frame. With the mean of
-        /// nine the body keeps its thickness (nine times the same value is that value), the old fringe ring falls under
-        /// the stand floor and goes, and the new outermost ring stands where the gas is about twice the floor - well
-        /// above the bar, so it reads as one plate. It also pulls the bank's width back by about one 4 m ring.</summary>
-        public static float GasBankLoad(float self, float ringSum) => (self + ringSum) / GasBankNeighbourhood;
+        /// <summary>A gas card's load: the GREATER of its own thickness and the mean of the nine block maxima around
+        /// it (its own plus <paramref name="ringSum"/>, the eight neighbours; off the map counts as 0). A card used
+        /// to read its own 4 m cell alone, so at the cloud's edge, where the field decays cell by cell, the outermost
+        /// ring of cards drew right at the probe's visibility bar: that marginal paint broke into blotches and each
+        /// blotch counted as its own patch (28 / 24 / 18 for one bank). Reading the mean instead TRIMMED that ring -
+        /// it fell under the stand floor and went - but only moved the problem outward: the ring one further in is
+        /// itself a ragged line of near-threshold cards, so the probe still counted 29 / 18 / 21 patches, a looser
+        /// ceiling than before. The islands are not a property of which ring is outermost; they are a property of
+        /// ANY outermost ring drawn at low opacity, and trimming a ring only makes a new one.
+        /// `max` does not trim, it LIFTS: a fringe cell is raised to its neighbourhood's load rather than cut down to
+        /// it, so the outermost ring draws thick enough to join the body it sits against instead of fading out below
+        /// the paint threshold between its own neighbours. A cell inside a solid body is unchanged (max of equals,
+        /// since nine times the same value over nine is that value), so the core reads exactly as it did under the
+        /// mean. The bank comes out about one ring wider than the mean build - back to roughly its width before the
+        /// neighbourhood read was added at all.</summary>
+        public static float GasBankLoad(float self, float ringSum) => Mathf.Max(self, (self + ringSum) / GasBankNeighbourhood);
 
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 

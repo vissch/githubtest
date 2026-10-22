@@ -313,27 +313,50 @@ namespace TW.Tests
             }
         }
         [Test]
-        public void TheGasBankEdgeDrawsFromItsNeighbourhood()
+        public void TheGasBankEdgeIsLiftedIntoTheMass()
         {
-            // one bank still read as 28 / 24 / 18 separate patches. The islands are the FRINGE: a card used to read
-            // its own 4 m cell alone, so the outermost ring drew right at the probe's visibility bar, broke into
-            // blotches and each blotch counted as a patch. A card's load is now the mean of nine blocks.
-            // the core keeps its alpha: nine times the same value, over nine, is that value
+            // the mean trimmed the fringe but only moved the islands one ring in: 29 / 18 / 21 patches, a looser
+            // ceiling (40) than the plain-cell build's 38. max(own, mean) LIFTS a fringe cell instead of trimming
+            // it, so the outermost ring draws thick enough to join the body rather than fading below the paint
+            // threshold between its own neighbours.
+
+            // the core keeps its own thickness: nine times the same value, over nine, is that value, and max of
+            // equals is that value, so this agrees with the old mean-only formula inside a solid body
             foreach (float c in new[] { 1f, 4f, 8f })
                 Assert.AreEqual(c, CombatFx.GasBankLoad(c, 8f * c), 1e-4f,
                     $"a cell at {c} inside a solid body of gas keeps its own thickness");
-            // the fringe ring no longer stands: a cell at the old 0.8 stand floor with three neighbours at it and
-            // five empty carries (0.8 + 2.4) / 9 = 0.3556, well under the floor
-            Assert.Less(CombatFx.GasBankLoad(0.8f, 3f * 0.8f), 0.8f,
-                "the half-visible edge ring that read as separate patches falls under the stand floor");
-            // a lone cell is a haze, not a plate: (8 + 0) / 9 = 0.8889, thick 0.8889 / 8 = 0.1111, so its card draws
-            // 0.19 + 0.43 * 0.1111 = 0.2378 - a hair over the thin floor 0.19 and under half the core's 0.62 (0.31).
-            // (A third of the core, 0.2067, is below GasBankThin itself, so no thickness could ever clear it.)
-            float lone = CombatFx.GasBankAlpha(Mathf.Clamp01(CombatFx.GasBankLoad(8f, 0f) / 8f));
-            Assert.Less(lone, CombatFx.GasBankAlpha(0f) + 0.05f,
-                "a cell with no neighbours draws at the thin floor: a haze, not a plate");
-            Assert.Less(lone, CombatFx.GasBankAlpha(1f) / 2f,
-                "and well under the bank's core opacity");
+
+            // monotone floor, the whole point of max: it may only ever lift a cell, never trim it below its own
+            // reading, across a small hand table of self/ring pairs
+            foreach (var pair in new[] { (0f, 0f), (0.8f, 6.4f), (4f, 32f), (8f, 64f) })
+                Assert.GreaterOrEqual(CombatFx.GasBankLoad(pair.Item1, pair.Item2), pair.Item1,
+                    $"self {pair.Item1} ring {pair.Item2}: the blend may only lift, never trim");
+
+            // the fringe cell that the plain mean trimmed away: self 0.8 (the stand floor) with three neighbours
+            // also at 0.8 and five empty reads (0.8 + 2.4) / 9 = 0.3556 under the plain mean, by hand - under the
+            // floor, which is why that ring went. Under max(own, mean) the cell keeps its OWN reading instead,
+            // because 0.8 > 0.3556: it never falls under the floor at all.
+            Assert.Less((0.8f + 3f * 0.8f) / CombatFx.GasBankNeighbourhood, 0.8f,
+                "sanity: the plain mean alone still trims this fringe cell");
+            Assert.AreEqual(0.8f, CombatFx.GasBankLoad(0.8f, 3f * 0.8f), 1e-4f,
+                "max(own, mean) keeps the fringe cell at its own reading instead of trimming it to the mean");
+
+            // the outermost ring, lifted the other way: a cell at the stand floor with four neighbours in the body
+            // at 8 reads max(0.8, 32.8 / 9) = 3.644 - the neighbourhood pulls it UP to the body's own thickness
+            // instead of pulling the body down to it. thick = 3.644 / 8 = 0.4556, so GasBankAlpha =
+            // 0.19 + 0.43 * 0.4556 = 0.386, comfortably past half the bank's own core opacity (0.62 / 2 = 0.31) -
+            // against the plain mean's 0.209 for the matching three-neighbour case above, a hair over the thin
+            // floor 0.19, which is the blotchy paint the probe counted at 28/24/18 and then 29/18/21.
+            float lifted = CombatFx.GasBankAlpha(Mathf.Clamp01(CombatFx.GasBankLoad(0.8f, 4f * 8f) / 8f));
+            Assert.GreaterOrEqual(lifted, CombatFx.GasBankAlpha(1f) / 2f,
+                "the lifted fringe ring draws past half the bank's own core opacity, not a hair over the thin floor");
+
+            // a lone cell is no longer a haze: the mean alone used to pull it down to (8 + 0) / 9 = 0.8889
+            // (thick 0.1111, alpha 0.2378, a haze near the thin floor). Under max a lone thick cell keeps its own
+            // full thickness (max(8, 0.8889) = 8); that claim is false by design now, so it is dropped rather than
+            // left stale.
+            Assert.AreEqual(8f, CombatFx.GasBankLoad(8f, 0f), 1e-4f,
+                "a lone cell keeps its own full thickness under max; it is no longer pulled down to a haze");
         }
         [Test]
         public void TheGasBankStacksIntoDensity()
