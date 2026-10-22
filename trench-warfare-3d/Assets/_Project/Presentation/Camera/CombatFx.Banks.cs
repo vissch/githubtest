@@ -23,6 +23,12 @@ namespace TW.Presentation.Tactical
         public const float GasBankThin = 0.6f, GasBankFull = 1f;
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.55 tops out at 1.28 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.55f;
+        /// <summary>Where the GasBank sheet's ink tops out in its card: the Sheets row draws it in the bottom third.</summary>
+        public const float GasInkTop = 1f / 3f;
+        /// <summary>How far under the ground a gas card is anchored, so the ink's foot is not a hard line on the grass.</summary>
+        public const float GasBankAnchorDrop = 0.35f;
+        /// <summary>The highest the drawn gas may reach: under a 1.8 m man's head with 0.1 m to spare.</summary>
+        public const float GasHeadRoom = 1.7f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -91,14 +97,31 @@ namespace TW.Presentation.Tactical
             Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 14f, 2.4f, 73856093, 19349663);
             gasCards.Clear();
             foreach (var b in gasBank.Cells)
-            {
-                float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
-                float slow = now * 0.22f + h3 * 6.2832f;
-                float width = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2) * step;
-                var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
-            }
+                PackGasCell(gasCards, b.Hash, b.Thick, b.X, b.Z, b.Ground, now, step);
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
+        }
+
+        /// <summary>One gas cell's cards, and how many were added. Close up (step 1) the cell's own hash jitters how flat
+        /// its card is drawn and one cell in four carries a second, near-square crown puff over it, so the bank has a lumpy
+        /// top instead of one straight line of pale stripes; the drawn ink never tops GasHeadRoom. From the overview
+        /// (step 2) it is the one flat card it always was.</summary>
+        public static int PackGasCell(List<Matrix4x4> into, uint hash, float thick, float x, float z, float ground, float now, int step)
+        {
+            float h2 = ((hash >> 10) & 1023) / 1023f, h3 = ((hash >> 20) & 1023) / 1023f, h4 = ((hash >> 15) & 1023) / 1023f;
+            float slow = now * 0.22f + h3 * 6.2832f;
+            float width = (5f + 2f * thick) * (0.9f + 0.2f * h2) * step;
+            var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
+            float alpha = GasBankAlpha(thick);
+            float height = step > 1
+                ? width * GasBankSquash
+                : Mathf.Min(width * GasBankSquash * (0.85f + 0.5f * h4), (GasHeadRoom + GasBankAnchorDrop) / GasInkTop);
+            into.Add(FlipbookFx.Pack(new Vector3(x, ground - GasBankAnchorDrop, z), width, height, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, alpha));
+            if (step > 1 || ((hash >> 7) & 3) != 0) return 1;
+            // the volume over the bank: the old Book.Gas fallback's second, higher, smaller card, at its own phase
+            float lift = 0.10f + 0.35f * h3, cw = width * 0.5f;
+            float ch = Mathf.Min(cw, (GasHeadRoom - lift) / GasInkTop);
+            into.Add(FlipbookFx.Pack(new Vector3(x, ground + lift, z), cw, ch, BankFrame(GasBankFirst, GasBankLast, slow + 2.1f), 1f, 1f, 0f, kind ^ FlipbookFx.Kind.Mirror, 0.8f * alpha));
+            return 2;
         }
 
         void DrawSmokeBank(GasSmokeSystem gas, float now, Bounds bounds)

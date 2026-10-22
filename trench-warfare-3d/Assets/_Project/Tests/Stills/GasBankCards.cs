@@ -32,11 +32,14 @@ namespace TW.Tests
     {
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
 
-        /// <summary>Every card is this wide; the gas one is squashed by CombatFx.GasBankSquash, as the bank is.</summary>
+        /// <summary>Every hand-packed card is this wide (smoke and puff); the gas card's size is PackGasCell's own.</summary>
         const float CardWidth = 12f;
         /// <summary>The frame of each book that is drawn: inside GasBankFirst 17 .. GasBankLast 28, where the sheet's
         /// ink is (sheetink.py: mean alpha 0.18 at frames 17-28 of GasBank.png).</summary>
         const float CardFrame = 22f;
+        /// <summary>The cell hash the gas card is packed with: h2 = h4 = 1 (the widest, tallest cell) and ((h >> 7) &amp; 3) == 0,
+        /// so it takes CombatFx.PackGasCell's crown branch and the still shows both cards of a cell.</summary>
+        public const uint GasCellHash = 0x1FFFFC00u;
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
@@ -53,7 +56,7 @@ namespace TW.Tests
             readonly List<Matrix4x4> one = new List<Matrix4x4>(1);
 
             /// <summary>The three books the still set walks through: the gas bank under suspicion, a second Deep bank
-            /// book, and an ordinary card. The gas one is squashed as the real bank is.</summary>
+            /// book, and an ordinary card. The gas one is packed by CombatFx.PackGasCell, so it is the bank's own drawing.</summary>
             public static readonly FlipbookFx.Book[] Which_Books =
                 { FlipbookFx.Book.GasBank, FlipbookFx.Book.SmokeBank, FlipbookFx.Book.Puff };
             public static readonly string[] Which_Names = { "gas", "smoke", "puff" };
@@ -65,11 +68,17 @@ namespace TW.Tests
                 var size = map.SizeMeters;
                 var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f),
                                         new Vector3(size.x + 20f, 60f, size.y + 20f));
-                float height = Which == 0 ? CardWidth * CombatFx.GasBankSquash : CardWidth;
                 one.Clear();
-                float y = RenderGround.Sample(map, At.x, At.z) - 0.35f;   // the gas bank's own anchor
-                one.Add(FlipbookFx.Pack(new Vector3(At.x, y, At.z), CardWidth, height, CardFrame, 1f, 1f, 0f,
-                                        FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, 1f));
+                if (Which == 0)
+                {
+                    // the gas card is packed by the field's own code, or the still cannot accuse the drawing
+                    CombatFx.PackGasCell(one, GasCellHash, 1f, At.x, At.z, RenderGround.Sample(map, At.x, At.z), 0f, 1);
+                }
+                else
+                {
+                    one.Add(FlipbookFx.Pack(new Vector3(At.x, RenderGround.Sample(map, At.x, At.z) - 0.35f, At.z), CardWidth, CardWidth, CardFrame, 1f, 1f, 0f,
+                                            FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, 1f));
+                }
                 Books.DrawPacked(Which_Books[Which], one, bounds);
                 LastDraws = FrameBudget.DrawCalls;
             }
@@ -122,6 +131,8 @@ namespace TW.Tests
                 }
             Assert.Greater(x, 0f, "no open ground for the cards on this map");
             TestContext.Out.WriteLine("cards centre " + x + ", " + z);
+            TestContext.Out.WriteLine("gas cell hash 0x" + GasCellHash.ToString("X8") + ", crown branch "
+                                      + (((GasCellHash >> 7) & 3) == 0 ? "taken" : "NOT taken"));
 
             var go = new GameObject("TW GasBankCards drawer");
             var drawer = go.AddComponent<Drawer>();

@@ -1,6 +1,7 @@
 // Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-7) - CombatFx.RecipeFor, the drawn parts of a burst by what
 // went off. The recipes are on by default (owner, 2026-10-07); fx.recipes 0 must hand every burst the old parts, so the
 // AOSA-tuned column and smoke can be had back untouched.
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation;
@@ -263,6 +264,49 @@ namespace TW.Tests
             float top = 7f * CombatFx.GasBankSquash / 3f;
             Assert.Less(top, 1.8f, "the gas a 7 m card draws stays under a 1.8 m man's head");
             Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+        }
+        [Test]
+        public void TheGasBankReadsAsAPuff_NotAFlatSheet()
+        {
+            // g2-g2-g2-g2-g2's critique: at the close camera the bank was a sheet of pale green stripes
+            // (green_height_frac 0.0116, green_low_share 1.0), because every cell drew the same card at the same
+            // height. The numbers below are hand-worked, not read back out of PackGasCell: a 7 m card squashed to
+            // 0.55 draws its ink in the bottom third, so it topped out at 7 * 0.55 / 3 - 0.35 = 0.93 m, in every cell.
+            var cards = new List<Matrix4x4>(256);
+            var tops = new List<float>(64);
+            int two = 0;
+            for (int z = 0; z < 8; z++)
+            for (int x = 0; x < 8; x++)
+            {
+                uint h = (uint)(x * 73856093 ^ z * 19349663);
+                cards.Clear();
+                int n = CombatFx.PackGasCell(cards, h, 1f, x * 4f, z * 4f, 0f, 0f, 1);
+                Assert.AreEqual(cards.Count, n, "PackGasCell returns how many cards it added");
+                Assert.That(n, Is.InRange(1, 2), "a cell is one card, or two with its crown puff");
+                if (n == 2) two++;
+                float cell = float.MinValue;
+                foreach (var m in cards)
+                {
+                    Assert.AreEqual(1f, m.m20, "every gas card is anchored: its foot, not its middle, is at the y packed");
+                    cell = Mathf.Max(cell, m.m13 + m.m11 * CombatFx.GasInkTop);   // where the ink tops out
+                }
+                tops.Add(cell);
+            }
+            float tallest = float.MinValue, lowest = float.MaxValue;
+            foreach (float t in tops) { tallest = Mathf.Max(tallest, t); lowest = Mathf.Min(lowest, t); }
+            Assert.GreaterOrEqual(tallest, 1.20f, "the tallest cell stands well over the old 0.93 m line: a puff, not a sheet");
+            Assert.LessOrEqual(tallest, 1.70f, "and no cell tops GasHeadRoom, so the gas is still under a 1.8 m man's head");
+            Assert.GreaterOrEqual(tallest - lowest, 0.25f, "the cells' tops spread, so the bank has a lumpy edge (today 0.00)");
+            Assert.That(two / 64f, Is.InRange(0.15f, 0.40f), "about one cell in four carries a crown, so the card budget holds");
+
+            // the overview (step 2) is byte-identical to today: one flat card, no jitter, no crown, no clamp
+            cards.Clear();
+            uint flat = 511u << 10;                                  // h2 = 0.4995: the 7 m card, doubled for a 2 x 2 block
+            Assert.AreEqual(1, CombatFx.PackGasCell(cards, flat, 1f, 0f, 0f, 0f, 0f, 2), "one card a block from the overview");
+            Assert.AreEqual(-0.35f, cards[0].m13, 1e-4f, "anchored a third of a metre into the ground, as before");
+            Assert.AreEqual(14f * CombatFx.GasBankSquash * CombatFx.GasInkTop - 0.35f,
+                            cards[0].m13 + cards[0].m11 * CombatFx.GasInkTop, 0.01f,
+                            "the overview card still tops out where it did: the O240 bars measure the same drawing");
         }
     }
 }
