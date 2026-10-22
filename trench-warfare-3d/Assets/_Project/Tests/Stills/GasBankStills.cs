@@ -129,9 +129,9 @@ namespace TW.Tests
             Assert.Greater(x, 0f, "no open ground for a gas bank on this map");
             TestContext.Out.WriteLine("gas centre " + x + ", " + z);
 
-            // O240 FIRST: its frame holds the whole map, so it must not hold the T1 block's leavings
-            var far = new List<Vector2>();
-            for (int k = -2; k <= 2; k++) far.Add(new Vector2(x, Mathf.Clamp(z + k * 40f, 20f, size.y - 20f)));
+            // O240 FIRST: its frame holds the whole map, so it must not hold the T1 block's leavings. One call at
+            // the same centre T1 gasses: the far camera must pick out ONE cloud, not a wash of five separate calls.
+            var far = new List<Vector2> { new Vector2(x, z) };
             yield return Block(dir, "gas-o240" + (plate ? "-plate" : ""), "o240", tc, x, z, 240f, 25f, far, plate, map, waitFrames);
 
             yield return Block(dir, "gas-t1" + (plate ? "-plate" : ""), "t1", tc, x, z, 30f, 25f,

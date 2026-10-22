@@ -139,12 +139,15 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, four stills at one pose, gas, smoke,
   puff and a plate - so a blank still accuses one book and not the sim, the field, the cache and the capture path at
   once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
-  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2/probe.py` measures those stills: it COUNTS THE GREEN the gas
-  added over the plate (not a brightness test), in metres, bars the rise, and refuses two runs that photographed
-  the same frame, barred against the SPREAD of three captures of one build at three different
-  `TW_GAS_WAIT_FRAMES`. It counts only O240 clouds at or above `LARGE_MIN_PX` (300 px), not every green component
-  (a 50 px floor let a tail of specks count as "clouds")
-  (`--calibrate`, `--selftest`, `--pack`; `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2/probe.py`,
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1/probe.py` measures those stills: it COUNTS THE GREEN the
+  gas added over the plate (not a brightness test), in metres, bars the rise, and refuses two runs that
+  photographed the same frame, barred against the SPREAD of three captures of one build at three different
+  `TW_GAS_WAIT_FRAMES`. The O240 band now gasses ONE point (the same centre T1 gasses), so the far camera's still
+  holds one cloud, not a wash of five; it counts O240 clouds at or above `LARGE_MIN_PX` (300 px) with a `'le'`
+  bar (several large blobs fail) paired against `o240_top_blob_px` (`'ge'`, so a reading of zero clouds also
+  fails)
+  (`--calibrate`, `--selftest`, `--pack`; `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2/probe.py`,
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2/probe.py` and
   `docs/evidence/ability-fx-captures-r2/probe.py` are its predecessors);
