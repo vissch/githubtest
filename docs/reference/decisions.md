@@ -302,6 +302,30 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   garrison's heads down, and `WreckDecayTests.AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind` asserts exactly
   that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
   only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
+- **The standing gas puff at zoom 30 against the 30% low-share floor (2026-10-22, lane
+  `lane/show/ability-fx-captures-r2-2-g2-g2-g2-g1-g2-g1-g1-g1`):** the owner is right that the T1 field is a carpet of
+  flat oval pads - the field's own pad aspect reads 0.2139/0.2367/0.2123 on the current build (`78320befa0`). Five
+  calibration captures of the T1 field sweep the close card's shape (`CombatFx.GasPuffStand`, a new `GasPuffWidth`,
+  the step-1 anchor). The probe's four floors cannot hold at once, because standing the puff up moves ink above a
+  man's head and that is exactly what `green_low_share` counts:
+
+  | card | anchor | pad aspect | low_share (floor 0.30) | height_frac (0.08-0.15) | area_frac (floor 0.04) |
+  |---|---|---|---|---|---|
+  | stand 0.42 (today) | -0.6 | 0.21-0.24 | 0.338-0.352 | 0.089-0.097 | 0.068-0.072 |
+  | width 0.60, stand 0.95 | -0.9 | **0.4685** | 0.3208 | 0.1062 | **0.0411** (bar + 0.0011) |
+  | width 0.70, stand 0.95 | -1.05 | 0.5159 | **0.2589** | 0.1034 | 0.0715 |
+  | width 0.75, stand 0.95 | -1.2 | 0.5172 | **0.2207** | 0.1212 | 0.0864 |
+  | width 0.85, stand 0.75 | -1.0 | 0.3633 | **0.2577** | 0.1053 | 0.0992 |
+  | width 0.68, stand 0.95 | -1.7 | 0.4040 | 0.4659 | **0.0458** | **0.0248** |
+
+  Sinking the anchor is the only lever that lifts `low_share`, and it lowers `height_frac` and `area_frac` with it
+  (slope measured: low +0.032 and height_frac -0.009 per 0.1 m sunk). Narrowing the card lifts the aspect and the
+  low share together but drains the area. So: an upright puff keeps at most about 26-32% of its ink under 1.8 m.
+  Options: (a) relax `green_low_share` from 0.30 to 0.25, and take width 0.70 / stand 0.95 / anchor -1.05 (pad
+  aspect 0.52, 2.4x today, every other bar clear); (b) keep 0.30 and take width 0.60 / stand 0.95 / anchor -0.9,
+  which needs the lane's own `green_area_frac` floor down from 0.04 to 0.035 (this build draws less green because
+  the card is narrower: 0.041 against 0.070); (c) keep every bar and leave the pads flat. Nobody to ask in this run,
+  so the default taken is (c): the look change is reverted and nothing is landed.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The Banner's front legs, shot and recoil, redone: land it? (2026-10-13):** his answer of 2026-10-12 is built on
   `lane/show/banner-day-film`. Leg against leg never came closer than 0.488 m, so nothing crossed; the right front leg
