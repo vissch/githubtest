@@ -139,7 +139,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, four stills at one pose, gas, smoke,
   puff and a plate - so a blank still accuses one book and not the sim, the field, the cache and the capture path at
   once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
-  `docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2/probe.py` measures those stills in metres, barred against the
+  `docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1/probe.py` measures those stills in metres, barred against the
   SPREAD of three repeat captures of the same build on THREE DIFFERENT FRAMES (it refuses captures that share a t1
   `sim_tick` or a byte-identical still: 'three captures, one frame'), with `--calibrate`, `--selftest`, `--pack`,
   `--signature` (prints `GAS_DIR`/`GAS_COS`, the isolation still's own lift direction, and the cone and green share of each

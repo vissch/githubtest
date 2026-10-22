@@ -1,0 +1,134 @@
+{
+ "bars": {
+  "bank_height_frac": 0.34,
+  "bank_low_share": 0.06,
+  "bank_paint_share": 0.7,
+  "bank_patch_count": 27,
+  "gas_green_share": 0.37,
+  "gas_paint_frac": 0.016,
+  "o240_area_frac": 0.013,
+  "pose_error_max": 0.5
+ },
+ "look": {},
+ "runs": {
+  "run1": {
+   "bank_area_frac": 0.1249,
+   "bank_aspect": 3.931,
+   "bank_height_frac": 0.2946,
+   "bank_low_share": 0.0768,
+   "bank_paint_share": 0.7488,
+   "bank_patch_count": 21,
+   "bank_rise_m": 6.862,
+   "bank_width_m": 26.977,
+   "composite_hue_median": 135,
+   "gas_green_share": 0.4039,
+   "gas_lift_dir": [
+    18.18,
+    22.8,
+    -0.02
+   ],
+   "gas_paint_frac": 0.0195,
+   "gas_paint_px": 18007,
+   "mask_px": 115090,
+   "mask_px_patch": 152961,
+   "mask_px_raw": 197867,
+   "o240_area_frac": 0.0164,
+   "o240_mask_px": 15142,
+   "o240_mask_px_patch": 27841,
+   "o240_mask_px_raw": 27841,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  },
+  "run2": {
+   "bank_area_frac": 0.1219,
+   "bank_aspect": 3.432,
+   "bank_height_frac": 0.3132,
+   "bank_low_share": 0.0728,
+   "bank_paint_share": 0.7575,
+   "bank_patch_count": 21,
+   "bank_rise_m": 7.461,
+   "bank_width_m": 25.607,
+   "composite_hue_median": 135,
+   "gas_green_share": 0.3911,
+   "gas_lift_dir": [
+    18.62,
+    23.0,
+    0.0
+   ],
+   "gas_paint_frac": 0.0188,
+   "gas_paint_px": 17303,
+   "mask_px": 112369,
+   "mask_px_patch": 149455,
+   "mask_px_raw": 192353,
+   "o240_area_frac": 0.0186,
+   "o240_mask_px": 17184,
+   "o240_mask_px_patch": 27717,
+   "o240_mask_px_raw": 27717,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  },
+  "run3": {
+   "bank_area_frac": 0.1212,
+   "bank_aspect": 3.839,
+   "bank_height_frac": 0.2985,
+   "bank_low_share": 0.0814,
+   "bank_paint_share": 0.7872,
+   "bank_patch_count": 15,
+   "bank_rise_m": 7.145,
+   "bank_width_m": 27.427,
+   "composite_hue_median": 135,
+   "gas_green_share": 0.4013,
+   "gas_lift_dir": [
+    18.56,
+    23.27,
+    -0.3
+   ],
+   "gas_paint_frac": 0.018,
+   "gas_paint_px": 16569,
+   "mask_px": 111694,
+   "mask_px_patch": 147417,
+   "mask_px_raw": 184315,
+   "o240_area_frac": 0.0191,
+   "o240_mask_px": 17628,
+   "o240_mask_px_patch": 28220,
+   "o240_mask_px_raw": 28220,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  }
+ },
+ "sim_ticks": {
+  "run1": {
+   "gas-o240": 249,
+   "gas-o240-plate": 222,
+   "gas-t1": 557,
+   "gas-t1-plate": 552
+  },
+  "run2": {
+   "gas-o240": 269,
+   "gas-o240-plate": 242,
+   "gas-t1": 597,
+   "gas-t1-plate": 592
+  },
+  "run3": {
+   "gas-o240": 289,
+   "gas-o240-plate": 262,
+   "gas-t1": 637,
+   "gas-t1-plate": 632
+  }
+ }
+}
