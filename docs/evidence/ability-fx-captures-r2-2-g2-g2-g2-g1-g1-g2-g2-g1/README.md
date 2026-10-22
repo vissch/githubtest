@@ -1,8 +1,9 @@
 # ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2-g1: one bank is one cloud, 2026-10-22
 
-**Part 1 of 3.** This folder holds the probe only. No look has moved yet, so there are no captures of this
-build here and `python probe.py` exits 1 with `three runs needed` - by design. Part 2 merges the bank in the
-build, part 3 shoots `run1/`, `run2/`, `run3/` and `cards/` and sets the ceiling from their spread.
+**Parts 1 and 2 of 3.** This folder holds the probe and part 2's density sweep. The look still has not moved -
+part 2 measured every density and kept the build's own block 3 (below) - so there are no captures of this build
+packed here and `python probe.py` exits 1 with `three runs needed`. Part 3 shoots `run1/`, `run2/`, `run3/` and
+`cards/` and sets the ceiling from their spread.
 
 ## The owner's complaint
 
@@ -64,7 +65,33 @@ change did not move is never barred in this unit's line. Its ceiling comes from 
 merged build, set outside their spread - never from a number the probe also computes from the bar. Every other
 bar in `probe.py`'s `BAR_VALUES` is the parent's, carried unchanged.
 
-## What part 2 will try (not done here)
+## Part 2: density was tried and it does not buy the merge
+
+Three capture passes of this checkout at `TW_GAS_WAIT_FRAMES` 200 (`GasBankStills`, gas + plate), one per
+`CombatFx.GasPuffBlock`, `GasPuffWide` 2.0 / `GasPuffStand` 0.50 throughout. Bars carried from the parent in
+brackets.
+
+| `GasPuffBlock` | lane between cards | `t1_visible_clouds` | `t1_cloud_count` | `t1_top_share` [>= 0.28] | `green_low_share` [>= 0.30] | `green_height_frac` [0.08-0.15] | `green_rise_m` [>= 2.4] | `green_soft_share` [>= 0.14] | `green_area_frac` [>= 0.05] | `green_px` |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 3, KEPT | 12 m | 24 / 24 / 23 | 38 / 41 / 38 | 0.2908 | 0.3045 | 0.0836 | 2.653 | 0.1448 | 0.0532 | ~240k |
+| 2 | 8 m | 10 | 18 | 0.8408 | **0.1112** | **0.3100** | 7.559 | **0.0954** | 0.4512 | 494571 |
+| 1 | 4 m | **1** | 5 | 0.9991 | **0.0685** | **0.5470** | 10.289 | **0.0411** | 0.8218 | 758028 |
+
+Block 1 draws exactly the one cloud the owner asked for - and it is a green wall over 82% of the frame, with the
+gas standing far over a man's head. Block 2 is the same fault, half as far. 2.25x (block 2) and 9x (block 1) the
+cards at an unchanged card size doubles and triples the coverage, and the fill sits HIGH on screen, so the share
+under a 1.8 m head falls with the block. **Density pulls against the owner's `green_low_share` floor just as
+width does, so block 3 is kept**: the close bank is about 23 visible clouds, not one. That measured line is added
+under the existing open row in `docs/reference/decisions.md`; the floor is his and is not dropped here.
+
+Untried, and not measured by any capture: block 2 with the width/stand pair re-fitted DOWN to the shorter 8 m lane
+(`GasPuffWide` 1.2 / `GasPuffStand` 0.83, so the card is 8.4 m wide and still ~7 m tall). Its capture pass was
+refused in this leg's session, so it is left for the next leg to measure, not guessed at here.
+
+`BurstRecipeTests.TheCloseGasPuffStands_AndTheMergedOutSheetStillLiesFlat` is untouched: the block stays 3, so
+both of its asserts and their words still describe the build.
+
+## What part 2 planned to try (the plan's own words)
 
 The width knob is **blocked**: every `GasPuffWide` over 2.0 broke the owner's `green_low_share` >= 0.30 floor
 (the parent's sweep table), and that floor is the open row in `docs/reference/decisions.md`, "The close gas: one
