@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""crophue.py with no editor: hue and value of a crop's brightest quartile.
+"""crophue.py and the lamp-pool figure cut, with no editor.
 
-A man standing in a lamp's pool used to take the pool's hue. These checks use pictures whose answer is
-known by hand, including the --sep gate and a blown still.
+A man standing in a lamp's pool used to take the pool's hue. crophue.py measures two crops. TWPoolsOnFigure's
+figureCut (look.poolFigure, default 1) keeps his shaded side on the moon and stops two lamps stacking.
+Props and machines never pass that argument.
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -17,6 +19,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import crophue as H
 from PIL import Image
 
+ROOT = Path(__file__).resolve().parents[1]
+HLSL = ROOT / 'Assets' / '_Project' / 'Shaders' / 'TWLightPools.hlsl'
+VAT = ROOT / 'Assets' / '_Project' / 'Shaders' / 'VAT_URP.shader'
+TOON = ROOT / 'Assets' / '_Project' / 'Shaders' / 'Toon_URP.shader'
+TANK = ROOT / 'Assets' / '_Project' / 'Shaders' / 'Tank_URP.shader'
+POOLS = ROOT / 'Assets' / '_Project' / 'Presentation' / 'Terrain' / 'NightLights.Pools.cs'
 TOOL = Path(__file__).resolve().parent / 'crophue.py'
 
 
@@ -78,6 +86,40 @@ class CropHueTest(unittest.TestCase):
                 [sys.executable, str(TOOL), path, '--crop', '0,0,4,4', '--crop', '4,0,8,4', '--sep', '12,0.2'],
                 capture_output=True, text=True).returncode
             self.assertEqual(code, 1, 'blown_frac at 0.02 or more invalidates the still')
+
+
+class FigureCutTest(unittest.TestCase):
+    def test_a_shaded_side_takes_less_of_the_pool_when_the_cut_is_on(self):
+        text = HLSL.read_text(encoding='utf-8')
+        self.assertIn('half figureCut = 0.0', text)
+        self.assertIn('facingLo = lerp(0.6, 0.85, figureCut)', text)
+        self.assertIn('facingHi = lerp(0.4, 0.15, figureCut)', text)
+        self.assertIn('toward * facingLo + facingHi', text)
+        # toward 0 is the side facing away from the lamp, so its weight is facingHi.
+        hi = re.search(r'facingHi = lerp\(([0-9.]+), ([0-9.]+), figureCut\)', text)
+        self.assertIsNotNone(hi, 'facingHi lerp')
+        off, on = float(hi.group(1)), float(hi.group(2))
+        self.assertLess(on, off, 'the shaded side must take less of the pool when the cut is on')
+
+    def test_two_lamps_cannot_stack_and_the_rim_fades_on_a_blazing_floor(self):
+        text = HLSL.read_text(encoding='utf-8')
+        self.assertIn('figureShoulder = lerp(0.0, 1.2, figureCut)', text)
+        self.assertIn('sum = sum / (1.0 + m * figureShoulder)', text)
+        self.assertIn('rimOut *= saturate(1.0 - max(sum.r, max(sum.g, sum.b)) * 0.9 * figureCut)', text)
+        self.assertIn('return TWPoolRoll(sum);', text)
+
+    def test_only_the_men_pass_the_cut_and_it_defaults_on(self):
+        vat = VAT.read_text(encoding='utf-8')
+        self.assertIn('TWPoolsOnFigure(i.positionWS, n, toEye, fireRim, 0.30, _TWPoolFigure)', vat)
+        self.assertIn('lerp(0.8, 0.8 * 0.5, _TWPoolFigure)', vat)
+        self.assertIn('lerp(0.75, 0.75 * 0.4, _TWPoolFigure)', vat)
+        for path in (TOON, TANK):
+            body = path.read_text(encoding='utf-8')
+            self.assertNotIn('_TWPoolFigure', body, path.name)
+        pools = POOLS.read_text(encoding='utf-8')
+        self.assertIn('DefaultPoolFigure = 1f', pools)
+        self.assertIn('look.poolFigure', pools)
+        self.assertIn('_TWPoolFigure', pools)
 
 
 if __name__ == '__main__':
