@@ -34,10 +34,31 @@ namespace TW.Presentation.Tactical
         /// neighbours overlap three to four deep, and no single card's silhouette is the shape you see. Same card count.</summary>
         public static float GasBankWidth(float thick, float hash01, int step) => (13.5f + 4f * thick) * (0.9f + 0.2f * hash01) * step;
 
+        /// <summary>The ground mat under the bank: one flat card per block of this many cells in x and z. The upright
+        /// cards cannot close the mud between rows - at the T1 camera a 4 m step in depth projects about 2.8 m of
+        /// screen while a 1.73 m upright card projects about 1.2 m, so under half of each row pitch is covered, and a
+        /// card tall enough to close it would stand over a man's head. A card lying ON the ground has no height to
+        /// run out of: its height IS depth, so one mat card covers the whole block and the rows read as one mass.</summary>
+        public const int GasMatStride = 2;
+        /// <summary>How wide the mat card is against the upright card of the same cell (and square: a flat card is not squashed).</summary>
+        public const float GasMatWidth = 2f;
+        /// <summary>The mat is the floor of the bank, not a second bank: about half the upright card's opacity, so the
+        /// mass it adds is under the gas and never over a man.</summary>
+        public const float GasMatAlpha = 0.5f;
+
+        /// <summary>Does this cell carry its block's mat card? One cell per GasMatStride x GasMatStride block, picked by
+        /// the block's own hash (the same primes as the cell hash), so the mat needs no new random draw.</summary>
+        public static bool GasMatCell(int cx, int cz)
+        {
+            uint bh = (uint)((cx / GasMatStride) * 73856093 ^ (cz / GasMatStride) * 19349663);
+            return (cx % GasMatStride) == (int)(bh % GasMatStride)
+                && (cz % GasMatStride) == (int)((bh >> 8) % GasMatStride);
+        }
+
         const float SmokeBankFirst = 12f, SmokeBankLast = 20.5f; // the mound grown (the firebooks cut stops at 21)
 
         /// <summary>A card's worth of field: its hash, how thick, and where it stands.</summary>
-        struct BankCell { public uint Hash; public float Thick, X, Z, Ground; }
+        struct BankCell { public uint Hash; public int Cx, Cz; public float Thick, X, Z, Ground; }
 
         /// <summary>One field's standing cells, found once a sim tick at one merge step.</summary>
         sealed class BankCache { public readonly List<BankCell> Cells = new List<BankCell>(1024); public uint Tick = uint.MaxValue; public int Step; }
@@ -74,7 +95,7 @@ namespace TW.Presentation.Tactical
                 uint h = (uint)(x * p1 ^ z * p2);
                 float h1 = (h & 1023) / 1023f, h2 = ((h >> 10) & 1023) / 1023f;
                 float wx = (x + 0.5f * step) * cs + (h1 - 0.5f) * jitter, wz = (z + 0.5f * step) * cs + (h2 - 0.5f) * jitter;
-                cache.Cells.Add(new BankCell { Hash = h, Thick = Mathf.Clamp01(c / full), X = wx, Z = wz, Ground = RenderGround.Sample(Host.Local.Map, wx, wz) });
+                cache.Cells.Add(new BankCell { Hash = h, Cx = x, Cz = z, Thick = Mathf.Clamp01(c / full), X = wx, Z = wz, Ground = RenderGround.Sample(Host.Local.Map, wx, wz) });
             }
         }
 
@@ -105,6 +126,13 @@ namespace TW.Presentation.Tactical
                 // a zebra of cards is what one hard silhouette per cell looked like: break the top line, the brightness
                 // (lit core, dull skirt) and the roll (+-12 degrees) by the cell's hash so no two card edges line up
                 gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f + (h1 - 0.5f) * 0.5f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.42f, kind, GasBankAlpha(b.Thick)));
+                // the mat: the same card lying on the ground, twice as wide and square, under the upright ones
+                if (GasMatCell(b.Cx / step, b.Cz / step))
+                {
+                    var mat = FlipbookFx.Kind.Flat | (kind & FlipbookFx.Kind.Mirror);
+                    float mw = width * GasMatWidth;
+                    gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground + 0.08f, b.Z), mw, mw, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.42f, mat, GasBankAlpha(b.Thick) * GasMatAlpha));
+                }
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }

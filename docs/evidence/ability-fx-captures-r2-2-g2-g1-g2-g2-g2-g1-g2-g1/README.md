@@ -1,13 +1,10 @@
-# ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g1: every band counts, and the ceiling says the picture is striped, 2026-10-22
+# ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g1: the ground mat, and the patch ceiling still red, 2026-10-22
 
-**`python probe.py` exits 1 here, on purpose.** Only the MEASURE moves in this folder (part 1 of the unit): the
-key now counts the thin bands the owner can see, and the current build has 11 to 18 of them, so it fails. Fixing
-the build to make one mass is part 2.
-
-`CombatFx.Banks.cs` stays at `3d7aa478ea` (the g1 build). `run1`/`run2`/`run3` are the SAME three stills as
-`../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2/` (t1 `sim_tick` 557 / 597 / 637, twelve distinct hashes),
-copied across rather than reshot, so the before/after table below shows the measure change alone with no
-tick-to-tick noise mixed in.
+**`python probe.py` exits 1 here.** Part 1 (the measure) and part 2 (the build) are both in: every band of
+`PATCH_MIN_PX`+ counts again, the gas bank now draws a GROUND MAT under its upright cards, and `run1`/`run2`/`run3`
+are three fresh captures of that build. The mat merged the mass and halved the mud, but it did **not** bring
+`bank_patch_count` to the ceiling of 4: these stills read **13 / 17 / 10**. The ceiling stays where the owner's
+rule put it and this build fails it. Nothing here was loosened to make it pass.
 
 ## The owner's complaint
 
@@ -16,80 +13,95 @@ tick-to-tick noise mixed in.
 > at 10, so 4 to 7 thick patches pass. Count the thin bands with the thick ones and put that ceiling outside the
 > spread of three captures of the current build.
 
-## What the measure counts now
+## The build change: a ground mat
 
-`gas_paint_stats`' `patch_count` is a size test again, and only a size test:
+`CombatFx.Banks.cs`, `DrawGasBank`. The geometry says why an upright card cannot close the mud between rows: the
+field grid is 4 m, a card's painted gas is about 1.73 m tall, and at the T1 camera a 4 m step in depth projects
+about 2.8 m of screen while a 1.73 m upright card projects about 1.2 m. Under half of each row pitch is covered,
+and a card tall enough to close it would stand over a man's head (the owner's chest rule).
 
-```python
-patch_count = sum(1 for s in sizes if s >= PATCH_MIN_PX)
-```
+A card **lying on the ground** has no height to run out of -- its height IS depth. `DrawGasBank` now adds one
+`FlipbookFx.Kind.Flat` card per standing cell on a stride of 2 cells in x and z (`GasMatStride`), which cell of the
+2x2 block carries it picked by the block's own hash, so no new random draw. The mat card is `GasBankWidth(...) * 2`
+(`GasMatWidth`) and square (no `GasBankSquash`: a flat card's height is its depth), at half the upright card's
+opacity (`GasMatAlpha` 0.5), on the same frame, mirror and roll hashes. The upright cards are untouched: the mat is
+the mass, they are the volume.
 
-Every coherent patch of 200 px or more counts -- a thin card edge exactly as much as a card body. The predecessor
-required a surviving eroded core (`PATCH_ERODE` 3, `PATCH_CORE_MIN_PX` 60) and so made the thin bands invisible to
-the one key meant to catch them.
+Budget, from `run1/manifest.json`: `gas_cards` **967** at t1 (743 before, `MaxCards` 1536), `draw_calls` **133**
+(124 before, ceiling 300). 149 cards at O240. Allocation unchanged.
 
-`PATCH_ERODE`, `PATCH_CORE_MIN_PX` and `patch_core_px` all stay, and `bank_thin_patches` keeps its line unchanged
-(`s >= PATCH_MIN_PX and c < PATCH_CORE_MIN_PX`). Its meaning flips: it is now a **breakdown of**
-`bank_patch_count` -- how many of the counted bands are thin -- not the patches the count dropped. 10 of run1's 15
-bands are thin, 11 of run2's 18, 7 of run3's 11.
+## The runs
 
-## The ceiling: 4
+Three launches of the new build, each a gas pass and a `TW_GAS_PLATE=1` plate pass, with `TW_GAS_EXTRA_FRAMES`
+0 / 30 / 60 so they land on three different sim ticks: t1 `sim_tick` **557 / 597 / 637**, O240 249 / 269 / 289.
+`one_frame_fault` passes (no shared tick, no byte-identical still).
 
-The carried stills read **15 / 18 / 11** under this measure. Those are the owner's own three numbers (his
-complaint, and the predecessor README's "before" row at `e602950aba`).
+## The bars
 
-The chain's rule is that a bar must clear the nearest run by at least the three runs' own spread. Here the bar
-must **reject**, so it sits below them: `min - spread` = 11 - (18 - 11) = **4**. That is outside the spread of
-three captures of the current build, below it, and it keeps the standing "ceiling under 11" demand with room.
+Re-set from these three captures by the chain's rule -- a bar clears the nearest run by at least the runs' own
+spread -- except `bank_patch_count`, which must reject and is left where it was.
 
-Every other bar keeps its predecessor value (`bank_low_share` 0.15, `bank_height_frac` 0.31, `o240_area_frac`
-0.014, `pose_error_max` 0.5, `gas_paint_frac` 0.0135, `gas_green_share` 0.183, `bank_paint_share` 0.15,
-`bank_aspect` 4.891) and still clears these stills: none of them reads the patch count, so the carried pixels
-could not move them.
+| key | runs | spread | bar | margin |
+|---|---|---|---|---|
+| `bank_low_share` ge | 0.2003 / 0.1870 / 0.1940 | 0.0133 | 0.17 | 1.28x |
+| `bank_height_frac` le | 0.1400 / 0.1492 / 0.1438 | 0.0092 | 0.16 | 1.17x |
+| `o240_area_frac` ge | 0.0205 / 0.0229 / 0.0232 | 0.0027 | 0.0175 | 1.11x |
+| `pose_error_max` lt | 0 / 0 / 0 | 0 | 0.5 | `GasBankStills.PoseBar` |
+| `gas_paint_frac` ge | 0.0178 / 0.0179 / 0.0169 | 0.0010 | 0.0155 | 1.4x |
+| `gas_green_share` ge | 0.4235 / 0.4030 / 0.4162 | 0.0205 | 0.30 | 5.0x (cards-puff fails by 9.4x) |
+| `bank_paint_share` ge | 0.3620 / 0.3120 / 0.3920 | 0.0800 | 0.22 | 1.15x |
+| `bank_aspect` le | 1.310 / 2.160 / 2.173 | 0.863 | 3.1 | 1.07x |
+| `bank_patch_count` le | **13 / 17 / 10** | 7 | **4** | **-13, FAILED** |
 
-## The zebra margin is back
+`gas_green_share` rose from 0.21-0.24 to 0.40-0.42 and `bank_paint_share` from 0.19-0.22 to 0.31-0.39: the paint is
+greener and much more of it sits in one patch. That is the mat working.
 
-`bank_patch_count`'s old second job -- rejecting the flat zebra sheet -- returns with the erosion gone.
-`python probe.py --against ../ability-fx-captures-r2-2-g2` reads `bank_patch_count` **40** under this measure,
-far over the ceiling of 4, and exits 1 (it always does). The predecessor had lost that margin: at `PATCH_ERODE` 3
-the zebra read 6, inside its ceiling of 10, and only `bank_paint_share` (0.0782 against the 0.15 `ge` bar) was
-rejecting it. Both keys reject it now.
+## The patch count is still red
+
+`max + spread` for these runs would be 17 + 7 = **24**, far over the 10 (and never 11) this chain may ship, so
+re-setting the ceiling from the new captures is not allowed and the ceiling stays at **4**.
+
+What was tried, each a full capture of its own build:
+
+| mat | `bank_patch_count` | `bank_thin_patches` | `bank_paint_share` | `bank_rise_m` |
+|---|---|---|---|---|
+| none (the build before) | 15 / 18 / 11 | 10 / 11 / 7 | 0.2037 / 0.1886 / 0.2152 | - |
+| stride 2, width x2, alpha 0.5 (**shipped**) | 13 / 17 / 10 | 5 / 8 / 4 | 0.3620 / 0.3120 / 0.3920 | 3.42 |
+| stride 2, width x2.4, alpha 0.95 | 21 | 16 | 0.8282 | 5.28 |
+| stride 3, width x3.2, alpha 0.95 | 25 | 17 | 0.5701 | 3.97 |
+
+More paint makes ONE mass (`bank_paint_share` 0.83) but more thin fringes at its soft edge, so the count rises, not
+falls; and at alpha 0.95 `bank_rise_m` goes to 5.28 m, which puts gas over a man's head and breaks the chest rule.
+The shipped mat is the lowest count of the three and the only one that keeps the rise where it was. Getting to 4
+separate paint patches needs something this chain has not tried (the thin fringes are card edges and terrain-split
+slivers, not rows), so it is left to the next leg rather than bought by loosening the bar.
+
+## The eye check
+
+`run1/gas-t1.jpg` against `../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2/run1/gas-t1.jpg` (same pose, same
+tick): the horizontal banding is gone and the middle of the field reads as one green wash instead of stripes with
+mud between them. Dark terrain still breaks through at the near edge, over the rocks and the shell holes -- that is
+the ground showing through a translucent bank, not a row gap, but it is why the owner's "one mass" is not yet a
+clean yes.
+
+## The zebra
+
+`python probe.py --against ../ability-fx-captures-r2-2-g2` still exits 1: the zebra reads `bank_patch_count` 40
+(ceiling 4), `bank_paint_share` 0.0782 (bar 0.22) and `gas_green_share` 0.2446 (bar 0.30) -- three keys reject it
+now, where before only two did.
 
 ## `selftest`
 
-The same hand-worked construction as the predecessor, with the numbers this measure gives: a 40x40 block (1600 px,
-eroded core 34x34 = 1156 px) plus a 3x100 fringe (300 px, core erodes to 0). Both are over `PATCH_MIN_PX`, so
-`bank_patch_count` is **2**, and the fringe alone has no core, so `bank_thin_patches` is **1** -- a subset of the
-count. The camera maths and the `WIDTH_BRIDGE_PX` span case are unchanged. `python probe.py --selftest` exits 0.
-
-## Before and after
-
-| key | before (predecessor's measure, these stills) | after (this measure, same stills) |
-|---|---|---|
-| `bank_patch_count` | 5 / 7 / 4 | **15 / 18 / 11** |
-| `bank_patch_count` ceiling | 10 | **4** |
-| `bank_thin_patches` | 10 / 11 / 7 (patches DROPPED by the count) | 10 / 11 / 7 (a SUBSET of the count) |
-| the key's verdict on this build | OK | **FAILED** (margin -14) |
-| zebra (`--against ...-g2`) `bank_patch_count` | 6 (inside the ceiling) | **40** (rejected by 36) |
-
-Everything else in the run lines is byte-for-byte the predecessor's: `bank_low_share` 0.3743/0.2661/0.3238,
-`bank_height_frac` 0.1118/0.2096/0.1375, `gas_paint_frac` 0.0154/0.0156/0.0148, `gas_green_share`
-0.2296/0.2131/0.2357, `bank_paint_share` 0.2037/0.1886/0.2152, `bank_width_m` 8.986/8.963/8.405, `bank_aspect`
-3.452/2.014/2.606.
-
-## This build fails the key on purpose
-
-The picture has 11 to 18 separate bands and the key now says so. That is the honest state after part 1: the
-measure matches what the owner sees at the game camera. Part 2 changes `CombatFx.Banks.cs` so the bank is one
-mass, reshoots three runs, and only then does `python probe.py` exit 0 with `bank_patch_count` at or under 4.
+Unchanged and green: a 40x40 block plus a 3x100 fringe give `bank_patch_count` 2 and `bank_thin_patches` 1, and the
+camera maths and `WIDTH_BRIDGE_PX` span cases pass. `python probe.py --selftest` exits 0.
 
 ## No `cards/` here
 
-Same as the predecessor: the isolation stills live in `../ability-fx-captures-r2-2-g2-g1/cards/` and did not
-change. The in-folder look report is skipped (`no cards/`); the card rejection check (`gas_green_share`) reads
-that folder directly and still passes (`cards-smoke` 0.0908 and `cards-puff` 0.1076 both `REJECTED`).
+The isolation stills live in `../ability-fx-captures-r2-2-g2-g1/cards/` and did not change. The in-folder look
+report is skipped (`no cards/`); the card rejection check reads that folder directly and passes (`cards-smoke`
+0.0908, `cards-puff` 0.1076, both `REJECTED` against the 0.30 bar).
 
 ## Out of scope
 
-The build itself (part 2), the gas colour constants (`GAS_DIR`/`GAS_COS`/`GREEN_LEAN`), reshooting `cards/`, the
-smoke bank, the predecessor's folder, and landing this lane (the puff brief, `4101179359`, is still unanswered).
+The gas colour constants (`GAS_DIR`/`GAS_COS`/`GREEN_LEAN`), reshooting `cards/`, the smoke bank, the
+predecessor's folder, and landing this lane (the puff brief, `4101179359`, is still unanswered).

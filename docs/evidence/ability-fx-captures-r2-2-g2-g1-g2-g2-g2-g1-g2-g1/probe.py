@@ -901,25 +901,27 @@ def main():
 # the three runs' own spread, and a zebra bar must ALSO leave the zebra failing by more than that spread.
 # See README.md, "The bars", for the table these came out of.
 BAR_VALUES = {
-    'bank_low_share': 0.15,     # runs 0.3743/0.2661/0.3238, spread 0.1082 -> 0.2661 - 0.1082 = 0.1579 is the roof
-    'bank_height_frac': 0.31,   # runs 0.1118/0.2096/0.1375, spread 0.0978 -> 0.2096 + 0.0978 = 0.3074 is the floor
-    'o240_area_frac': 0.014,    # runs 0.0171/0.0193/0.0195, spread 0.0024, margin 0.0031 (1.3x spread)
+    # Re-set from the GROUND MAT build's three captures (t1 sim_tick 557 / 597 / 637), the same rule as before: a bar
+    # clears the nearest run by at least the three runs' own spread.
+    'bank_low_share': 0.17,     # runs 0.2003/0.1870/0.1940, spread 0.0133 -> roof 0.1737; 0.17 clears by 1.28x
+    'bank_height_frac': 0.16,   # runs 0.1400/0.1492/0.1438, spread 0.0092 -> floor 0.1584; 0.16 clears by 1.17x
+    'o240_area_frac': 0.0175,   # runs 0.0205/0.0229/0.0232, spread 0.0027 -> roof 0.0178; 0.0175 clears by 1.11x
     'pose_error_max': 0.5,      # GasBankStills.PoseBar; runs 0.0000, spread 0.0000
-    'gas_paint_frac': 0.0135,   # runs 0.0154/0.0156/0.0148, spread 0.0008, margin 0.0013 (1.6x spread)
-    # runs 0.2296/0.2131/0.2357, spread 0.0226. Three sides have to clear at once: the runs (bar <= 0.1905), the
-    # two isolation cards (bar >= 0.1076 + 0.0226 = 0.1302) and -- new here -- the OLD pale sheet, which must fail
-    # by a spread too (bar >= 0.1535 + 0.0226 = 0.1761). The band is 0.1761-0.1905 and 0.183 is its middle: the
-    # runs clear it by 1.33x their spread, cards-smoke fails by 4.08x, cards-puff by 3.34x, the old sheet by 1.35x.
-    'gas_green_share': 0.183,
-    'bank_paint_share': 0.15,   # runs 0.2037/0.1886/0.2152, spread 0.0266, margin 0.0386; zebra 0.0782 fails by 0.0718
-    # re-set, DOWN from 10: every band of PATCH_MIN_PX+ counts again (thin card edges included), so these same
-    # stills read 15/18/11 -- the owner's own three numbers. This bar must REJECT, so the chain's rule gives
-    # min - spread = 11 - (18 - 11) = 4: outside the three captures' spread, below it, and still under 11 with
-    # room. This build FAILS this key on purpose; see README. Every other bar keeps its g2 value.
+    'gas_paint_frac': 0.0155,   # runs 0.0178/0.0179/0.0169, spread 0.0010 -> roof 0.0159; 0.0155 clears by 1.4x
+    # three sides at once, as before: the runs 0.4235/0.4030/0.4162 (spread 0.0205) want bar <= 0.3825, the two
+    # isolation cards (cards-smoke 0.0908, cards-puff 0.1076) want bar >= 0.1281, and the OLD pale sheet (0.1535)
+    # wants bar >= 0.1761. 0.30 sits in that band: the runs clear it by 5.0x their spread, cards-puff fails by 9.4x.
+    'gas_green_share': 0.30,
+    'bank_paint_share': 0.22,   # runs 0.3620/0.3120/0.3920, spread 0.0800 -> roof 0.2320; 0.22 clears by 1.15x; zebra 0.0782 still fails
+    # NOT re-set, on purpose. Every band of PATCH_MIN_PX+ counts (thin card edges included), and the ground mat build
+    # reads 13 / 17 / 10 here against the 15 / 18 / 11 of the build before it: the mat merged the mass
+    # (bank_paint_share 0.31-0.39, up from 0.19-0.22) but it did not cut the number of separate paint patches to
+    # anything near this ceiling. max + spread would be 17 + 7 = 24, over the 10/11 this chain may never ship, so the
+    # ceiling stays at 4 and this build FAILS this key. See README, "The patch count is still red".
     'bank_patch_count': 4,
-    # barred on the `le` side only: runs 3.452/2.014/2.606, spread 1.438, bar = max + spread = 4.890. The `ge`
-    # floor cannot be set honestly (min - spread = 0.576, at or under 1.0); bank_aspect_lo stays out of BARS.
-    'bank_aspect': 4.891,
+    # barred on the `le` side only: runs 1.310/2.160/2.173, spread 0.863, floor max + spread = 3.036; 3.1 clears by
+    # 1.07x. The `ge` floor still cannot be set honestly; bank_aspect_lo stays out of BARS.
+    'bank_aspect': 3.1,
 }
 
 
