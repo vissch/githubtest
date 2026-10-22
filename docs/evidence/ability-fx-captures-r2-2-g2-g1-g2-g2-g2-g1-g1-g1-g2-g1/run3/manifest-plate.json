@@ -1,0 +1,6 @@
+{
+  "stills": [
+    { "still": "gas-o240-plate.png", "subject": "chlorine gas bank", "band": "o240", "plate": true, "x": 56, "z": 142, "ground_y": 1.4684, "sim_tick": 302, "frame": 422, "pose_error_m": 0, "calls_taken": 0, "gas_cells": 0, "gas_field_max": 0, "gas_cards": 0, "recipes": 1, "books_ready": true, "draw_calls": 115, "calls": [] },
+    { "still": "gas-t1-plate.png", "subject": "chlorine gas bank", "band": "t1", "plate": true, "x": 56, "z": 142, "ground_y": 1.4684, "sim_tick": 712, "frame": 1037, "pose_error_m": 0, "calls_taken": 0, "gas_cells": 0, "gas_field_max": 0, "gas_cards": 0, "recipes": 1, "books_ready": true, "draw_calls": 122, "calls": [] }
+  ]
+}
