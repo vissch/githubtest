@@ -337,6 +337,12 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   take `GasPuffWide` 2.0, the widest merge it allows - `top_share` 0.0803 -> 0.2908, the default taken here and
   landed; or (b) drop the floor to about 0.15 and take `GasPuffWide` 2.2-2.4, one mass with `top_share` 0.42-0.44
   and a 3.7-4.1 m rise. (b) re-sets an owner-decided bar, so it waits for him.
+  2026-10-22, measured on density too (the second knob, `CombatFx.GasPuffBlock`, the sweep in that file and in
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2-g1/README.md`): packing the cards closer merges the
+  bank but breaks the same floor. Block 3 (kept) reads `t1_visible_clouds` 23-24 and `low_share` 0.3045; block 2
+  reads 10 clouds and 0.1112; block 1 reads **one** cloud and 0.0685, a green wall over 82% of the frame. So "one
+  cloud" and the 0.30 floor cannot both hold at any density either: the close bank stays about 23 visible clouds
+  until he answers (a) or (b).
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below

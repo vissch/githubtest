@@ -24,10 +24,36 @@ namespace TW.Presentation.Tactical
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.55 tops out at 1.28 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.55f;
         /// <summary>Cells one close card stands for (the owner, 2026-10-21: "774 wide, low cards 4 m apart wash into
-        /// a pale sheet" - -g1's own sidecars read gas_cards 774 at the close camera). One puff per 3 x 3 block of
-        /// cells is ~86 cards 12 m apart: gaps between them are what makes a puff read as a puff, not a sheet.
+        /// a pale sheet" - -g1's own sidecars read gas_cards 774 at the close camera). A puff per block of cells,
+        /// so gaps between them are what makes a puff read as a puff, not a sheet.
         /// Only the close drawing (step == 1) uses this; the merged-out overview (step 2, GasBankSquash) is
-        /// untouched, so O240 does not move.</summary>
+        /// untouched, so O240 does not move.
+        /// 2026-10-22, the owner: "one bank is one cloud" - the close bank still read 38, 41 and 38 blobs, and about
+        /// 22 of them are man-sized masses (docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2-g1), so the
+        /// build has to merge them. The knob is DENSITY, not width: every GasPuffWide over 2.0 broke the owner's
+        /// green_low_share >= 0.30 floor, because a wider card stands taller on screen and the share under a man's
+        /// head falls. The block keeps every card's size (width is (5 + 2*Thick) * (0.9 + 0.2*h2) * GasPuffWide)
+        /// and only shortens the lane BETWEEN cards - 3 x 4 = 12 m, 2 x 4 = 8 m, 1 x 4 = 4 m - so the hope was that
+        /// the lanes that split the mask fill in while the silhouette's top does not rise. It does rise: the lane
+        /// fill sits high on screen, so the share under a man's head falls with the block. Swept by capture, one
+        /// GasBankStills gas + plate pass
+        /// each at TW_GAS_WAIT_FRAMES 200 (the carried bars in brackets: low_share >= 0.30, height_frac 0.08-0.15,
+        /// rise_m >= 2.4, top_share >= 0.28, soft_share >= 0.14, area_frac >= 0.05):
+        ///   3 (KEPT) -> t1_visible_clouds 24/24/23, t1_cloud_count 38/41/38, top_share 0.2908, low_share 0.3045,
+        ///         height_frac 0.0836, rise_m 2.653, soft_share 0.1448, area_frac 0.0532, green_px ~240k: the only
+        ///         row of the sweep that holds every carried bar - and it is a bank of ~22 man-sized masses
+        ///    2 -> visible 10, count 18, top 0.8408, low 0.1112, height 0.3100, rise 7.559, soft 0.0954,
+        ///         area 0.4512, green_px 494571: it merges, but 2.25x the cards at the same card size doubles the
+        ///         coverage and the mass reaches high up the frame, so the low_share floor, the height ceiling and
+        ///         the soft edge all break at once
+        ///    1 -> visible 1, count 5, top 0.9991, low 0.0685, height 0.5470, rise 10.289, soft 0.0411,
+        ///         area 0.8218, green_px 758028: one cloud, and it is a green wall over four fifths of the frame
+        /// So DENSITY alone cannot buy the merge either: the lanes only fill in once the gas also stands over a
+        /// man's head, which is exactly the owner's green_low_share floor (the open row in
+        /// docs/reference/decisions.md). 3 is kept, so the close bank stays ~23 visible clouds and not one. The
+        /// untried row is block 2 with the width/stand pair re-fitted DOWN to the shorter 8 m lane (GasPuffWide
+        /// 1.2 / GasPuffStand 0.83): no capture has measured it.
+        /// (connected-component counts do not interpolate: re-measure after any change here.)</summary>
         public const int GasPuffBlock = 3;
         /// <summary>Cells one OVERVIEW card stands for (the owner, 2026-10-22: the overview is "still the old squash
         /// blanket"). The merged-out draw used the zoom step itself (2), so cards stood 8 m apart while each is
