@@ -47,7 +47,7 @@ def blown_frac(path):
     if not os.path.exists(sidecar):
         return None
     try:
-        data = json.loads(open(sidecar).read())
+        data = json.loads(open(sidecar, encoding='utf-8').read())
     except (OSError, ValueError):
         return None
     return data.get('blown_frac')
