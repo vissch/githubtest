@@ -343,6 +343,11 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   reads 10 clouds and 0.1112; block 1 reads **one** cloud and 0.0685, a green wall over 82% of the frame. So "one
   cloud" and the 0.30 floor cannot both hold at any density either: the close bank stays about 23 visible clouds
   until he answers (a) or (b).
+  2026-10-22, the last candidate measured and refused: block 2 with the card re-fitted DOWN to its shorter 8 m lane
+  (`GasPuffWide` 1.2 / `GasPuffStand` 0.83) reads `t1_visible_clouds` 24 - no better than the kept block 3 - with
+  `low_share` 0.1938 and `green_height_frac` 0.1539, breaking the floor and the height ceiling at once. Every knob
+  that merges the bank is now measured, so the count is barred where the build stands: `t1_cloud_ceiling` `lt` 26
+  on three captures reading 24 / 24 / 23. The bank is ~24 clouds, not one, and only (b) changes that.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below

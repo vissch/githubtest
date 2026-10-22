@@ -101,6 +101,7 @@ BARS = {'green_low_share': ('green_low_share', 'ge'),
         'o240_cloud_share': ('o240_cloud_share', 'ge'),
         # NO bar on `t1_cloud_count`: the merge did not move it (38/41/38 against the old build's 39/44/42, two
         # overlapping spreads). It stays a printed diagnostic - never bar a measure the change did not move.
+        't1_cloud_ceiling': ('t1_visible_clouds', 'lt'),
         't1_top_share': ('t1_top_share', 'ge'),
         'green_soft_share': ('green_soft_share', 'ge'),
         'pose_error_max': ('pose_error_max', 'lt')}
@@ -803,6 +804,13 @@ BAR_VALUES = {
     't1_top_share': 0.28,           # the merge, measured: runs 0.2908/0.2910/0.2901, spread 0.0009, margin
                                      # 0.0101. The old build - "separate flat green tree-cards" - read
                                      # 0.0803/0.0800/0.0797 and fails this by 3.5x
+    't1_cloud_ceiling': 26,          # the CEILING on blobs a player can SEE (a man-square or bigger), 'lt': the
+                                     # count must stay UNDER 26. Runs 24/24/23, max 24, spread 1, margin 2. It is
+                                     # the one bar in this file that does NOT separate this build from the parent's:
+                                     # the look did not move (GasPuffBlock stays 3, see README part 2 and 3), so the
+                                     # parent reads the same 24/24/23. It pins the count where three captures put it
+                                     # and it fails the day a change lets the bank fray back into 38 specks' worth
+                                     # of man-sized masses. NO bar on t1_cloud_count: see BARS
     'green_soft_share': 0.14,        # the soft edge, measured: runs 0.1637/0.1645/0.1637, spread 0.0008, margin
                                      # 0.0237. The old build read 0.1230/0.1181/0.1182, so its best reading fails
                                      # too. Overlapping cards, not Erode, are what widened the faint band: dropping
