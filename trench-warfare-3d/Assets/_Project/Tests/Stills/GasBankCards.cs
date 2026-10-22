@@ -32,7 +32,7 @@ namespace TW.Tests
     {
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
 
-        /// <summary>Every card is this wide; the gas one is squashed by CombatFx.GasBankSquash, as the bank is.</summary>
+        /// <summary>Every card is this wide; the gas one is squashed by CombatFx.GasBankSquashFor, as the bank is.</summary>
         const float CardWidth = 12f;
         /// <summary>The frame of each book that is drawn: inside GasBankFirst 17 .. GasBankLast 28, where the sheet's
         /// ink is (sheetink.py: mean alpha 0.18 at frames 17-28 of GasBank.png).</summary>
@@ -65,7 +65,7 @@ namespace TW.Tests
                 var size = map.SizeMeters;
                 var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f),
                                         new Vector3(size.x + 20f, 60f, size.y + 20f));
-                float height = Which == 0 ? CardWidth * CombatFx.GasBankSquash : CardWidth;
+                float height = Which == 0 ? CardWidth * CombatFx.GasBankSquashFor(CardWidth) : CardWidth;
                 one.Clear();
                 float y = RenderGround.Sample(map, At.x, At.z) - 0.35f;   // the gas bank's own anchor
                 one.Add(FlipbookFx.Pack(new Vector3(At.x, y, At.z), CardWidth, height, CardFrame, 1f, 1f, 0f,
