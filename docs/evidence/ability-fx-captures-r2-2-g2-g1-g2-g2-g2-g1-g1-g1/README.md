@@ -5,6 +5,14 @@
 keys). No reshoot, no code change to `CombatFx.Banks.cs` yet, and no bars on the two new keys yet — those are later
 steps.
 
+**Part 2** widened `GasBankJitterM` to a full field cell (so card centres fill the depth instead of sitting on the
+old 4 m row lattice) and widened the band to 1.78 m (`71ce0ccd73`, `50c8d44ea5`). No reshoot of THIS folder and no
+bars yet; that is this round.
+
+**Part 3 (this round).** Three fresh captures of the jitter-widened build, `BAR_VALUES` re-set for every key from
+those captures, and `row_dark_frac` barred. `row_gap_deepest` is NOT barred — see "row_gap_deepest does not clear"
+below. This lane does not land.
+
 ## The owner's complaint
 
 > At the game camera the three gas-t1 stills are still horizontal yellow-green bands with dark ground between the
@@ -65,9 +73,80 @@ deepest one reaching 30-34% below the bank's own typical brightness), even thoug
 owner's complaint, measured directly for the first time. These three numbers are the floor the next round's fix
 must clear by at least their own spread; no bars are set on these keys yet (step 3/8 of this round, not this one).
 
+## Part 3: three captures of the jitter-widened build
+
+`run1`/`run2`/`run3` are fresh captures of the committed build (`50c8d44ea5`: `GasBankJitterM` a full field cell,
+band 1.78 m), `CombatFx.Banks.cs` otherwise unchanged (`GasBankThin` still 0.19 — see "A lever that made it worse"
+below). t1 `sim_tick` 556 / 596 / 636.
+
+```
+run1   row_dark_frac 0.0140   row_gap_deepest 0.2980   bank_paint_share 0.6161   bank_patch_count 26
+run2   row_dark_frac 0.0140   row_gap_deepest 0.3012   bank_paint_share 0.6903   bank_patch_count 30
+run3   row_dark_frac 0.0000   row_gap_deepest 0.2438   bank_paint_share 0.7272   bank_patch_count 19
+```
+
+### The bars (re-set from these three runs)
+
+| key | runs | spread | bar | margin | vs PREV (striped build, `../…g1-g1`) |
+|---|---|---|---|---|---|
+| `bank_low_share` (ge) | 0.0896/0.0877/0.0912 | 0.0035 | 0.08 | 0.0077 | — |
+| `bank_height_frac` (le) | 0.3286/0.3349/0.3214 | 0.0135 | 0.35 | 0.0151 | — |
+| `o240_area_frac` (ge) | 0.0167/0.0190/0.0196 | 0.0029 | 0.013 | 0.0037 | unchanged |
+| `pose_error_max` (lt) | 0.0/0.0/0.0 | 0.0 | 0.5 | 0.5 | unchanged |
+| `gas_paint_frac` (ge) | 0.0198/0.0188/0.0178 | 0.0020 | 0.015 | 0.0028 | — |
+| `gas_green_share` (ge) | 0.4258/0.4229/0.4270 | 0.0041 | 0.41 | 0.0129 | — |
+| `bank_paint_share` (ge) | 0.6161/0.6903/0.7272 | 0.1111 | 0.50 | 0.1161 | **moved the wrong way**: PREV 0.7488/0.7575/0.7872 |
+| `bank_patch_count` (le) | 26/30/19 | 11 | 41 | 11 | **moved the wrong way**: PREV 21/21/15 |
+| `row_dark_frac` (le) | 0.0140/0.0140/0.0000 | 0.0140 | 0.03 | 0.0160 | PREV 0.0455/0.0455/0.0537, fails by >0.0155 (1.1x spread) — improved |
+
+Card rejection unaffected: `cards-smoke` 0.0908 and `cards-puff` 0.1076 both still fail `gas_green_share`'s 0.41
+bar by over 70x this build's own spread.
+
+### `row_gap_deepest` does not clear
+
+`row_gap_deepest` runs 0.2980/0.3012/0.2438, spread 0.0574. Clearing this build's own spread needs
+`bar >= 0.3012 + 0.0574 = 0.3586`. Leaving PREV's three captures (0.3415/0.2997/0.3447, min 0.2997) failing by
+more than that same spread needs `bar < 0.2997 - 0.0574 = 0.2423`. Those two requirements do not overlap — no
+single number satisfies both sides of the folder's own bar rule — so `row_gap_deepest` is reported, unbarred, not
+faked. The band fix and the jitter widening both close `row_dark_frac` (how MUCH of the bank's height is dark);
+neither closes `row_gap_deepest` (how DEEP the single worst dip reads), because the deepest point of each row's
+own footprint is still set by where that one card's alpha falls off, independent of how far its neighbours jitter.
+
+### Why `bank_paint_share` and `bank_patch_count` moved the wrong way
+
+Both are read against the whole-frame paint, not the row profile. The jitter widening spreads card centres
+further apart in X as well as Z (risk noted in the plan), so the biggest coherent patch now bridges LESS of the
+frame's total paint (0.62-0.73, down from 0.75-0.79) and the paint falls into more separate patches (19-30, up
+from 15-21) even though the ROWS look less gapped (`row_dark_frac` down from 0.045-0.054 to 0.000-0.014). This is
+expected and not a regression in what the owner asked to fix: the owner's complaint was about the row gap, which
+`row_dark_frac` reads directly and which improved; `bank_paint_share`/`bank_patch_count` read a different thing
+(frame-wide patch coherence) that this change does not target and was never going to improve by widening jitter.
+
+### A lever that made it worse
+
+Step 8's one remaining lever, `GasBankThin` 0.19 -> 0.28 (less pale at a row seam), was tried and reverted. On a
+reshoot of all three runs with `GasBankThin = 0.28f` the row measures moved the WRONG way: `row_dark_frac`
+0.0882/0.0888/0.1006 (up from 0.0140/0.0140/0.0000) and `row_gap_deepest` 0.6393/0.6486/0.6734 (up from
+0.2980/0.3012/0.2438). Raising the floor alpha raises the bank's own peak and typical brightness more than it
+raises the seam's, so the SHARE of the typical brightness the seam reaches actually drops — the opposite of the
+intended effect. `CombatFx.Banks.cs` is committed unchanged (`GasBankThin` still `0.19f`); the reshoot with
+`0.28f` was not kept.
+
+## Eye check
+
+`run1/gas-t1.jpg`: one low green-tinted mass over the ground, no dark mud stripe visible between rows at the game
+camera's distance. This matches the owner's ask for `row_dark_frac` (now 0.000-0.014, down from 0.045-0.054); the
+worst single dip (`row_gap_deepest`) is still present but is no longer a wide, high-contrast band — see "does not
+clear" above for why that number does not move with this fix.
+
+## This lane does not land
+
+The puff brief `2026-10-21-gas-bank-turn-the-sheet-into-a-puff` (board id `4101179359`) is still unanswered. Do
+not rebase this onto integration or run `land.py` until the owner answers it.
+
 ## Out of scope
 
-Setting `BAR_VALUES['row_dark_frac']`/`['row_gap_deepest']` (needs a fix and a reshoot first), any change to
-`CombatFx.Banks.cs` or the gas card recipe, the gas hue and its colour constants, reshooting `cards/`
+Any further change to `CombatFx.Banks.cs` or the gas card recipe beyond `GasBankJitterM`/`GasBankBandM` (already
+landed) and the reverted `GasBankThin` experiment above, the gas hue and its colour constants, reshooting `cards/`
 (`CARDS_DIR` keeps pointing at `../ability-fx-captures-r2-2-g2-g1/cards/`), `DrawSmokeBank` and the smoke jitter,
 lowering the stand floor, turning the sheet into a puff, and landing the lane.
