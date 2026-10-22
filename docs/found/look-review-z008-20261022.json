@@ -1,0 +1,48 @@
+{
+ "subject": "review:Z008",
+ "looked_at": [
+  ".claude/agents/tw-reviewer.md (28 lines) and .claude/skills/tw-review/SKILL.md (84 lines), whole: the role, read-only, and the P0-P3 ladder",
+  "read at integration (git show origin/claude/trench-warfare-2d-3d-plan-idt7lf:<path>), not this stale working tree, which is 245 commits behind",
+  "the whole diff 6959ad812b438a3bc3671c44f8333508a43e72aa..origin/claude/trench-warfare-2d-3d-plan-idt7lf for the unit (+303/-128 over 11 files), read line by line, and git log for it (9 commits)",
+  "trench-warfare-3d/Tools/assetboard/briefs.py: the diff (+47/-25) and then queued_on (273-307) and take (509-565) whole at integration, plus answer (344-366) and became_of (479) for done_already",
+  "trench-warfare-3d/Tools/assetboard/films.py: the diff and attach 228-260 (the new TimeoutExpired kill and the json.loads try)",
+  "trench-warfare-3d/Tools/assetboard/film_blender.py: the diff and write_results 266-287 (temp file, fsync, os.replace; os is imported at line 11)",
+  "trench-warfare-3d/Tools/assetboard/gamefilm.py: the diff and 20-50 plus missing_tools/main 383-405 (shutil is imported, FFMPEG at line 38)",
+  "trench-warfare-3d/Tools/assetboard/feedback.py: the diff and check 56-75 with broken 97-115 whole",
+  "trench-warfare-3d/Tools/assetboard/critiques.py: the diff (notes.write_whole at 130) and notes.py write_whole 104-121",
+  "trench-warfare-3d/Tools/assetboard/build.py: the diff and main 86-160 whole, with ops.live_check 373-384 and src_board.py, to judge whether skipping live_check for --check/--json-only/--no-git reopens N10.2 (it does not: only ops.page/ops.once touch his live briefs and notes, and those stay behind the check)",
+  "trench-warfare-3d/Tools/aosa/occ.py: the diff (+36) and compile_one 120-140, changed 159-185, main 186-200 whole",
+  "trench-warfare-3d/Tools/aosa/cmp.py: deleted on integration (it is still on disk in this checkout), so out of the unit; nothing is reported against it",
+  "not reread whole: Tools/abtest.py (323), Tools/animforge.py (485), Tools/aosa/aosa.py (1584+163 changed) - abtest.py and animforge.py are unchanged since 6959ad81 and were read whole in look-review-z010-20261016.json and look-review-z008-20261017.json with nothing found; aosa.py did change (+163) but the leg's plan puts it out of this leg's reading order, so no finding is claimed about it either way",
+  "the four findings of docs/found/look-review-z008-20261017.json checked at their new lines: FIXED - the Blender worker that killed the whole board build (films.py 251-261 kills a hung worker and catches the bad read; film_blender.py write_results is whole-or-nothing, c717aa7353); FIXED - feedback.py skipping an unreadable capture.json (check() at 56-75 names the torn write and broken() lists it, 5d9dcb3357); FIXED - gamefilm filming with FFMPEG None (missing_tools at 383, 831320ede9). STILL STANDING - take closing a brief off a done record (briefs.py 544-560); no commit in the range touches that guard, and it is not in tasks.md or decisions.md",
+  "counted on the real board (git ls-tree -r --name-only origin/main relay/queue relay/done in C:/Users/PC/Documents/GitHub/tw3d-board): 1122 json files, all of relay/done sorting before any relay/queue - the number the two findings below rest on; no non-json file is there today",
+  "dropped as already found or ruled on: docs/found/look-review-z010-20261021.json (take ignores --queued after a left-over close, player_bench.sh exits 0 with no report, build.board_dir swallows why - the last is the except (SystemExit, Exception) at build.py:50 and is not repeated here), look-tools-trench-warfare-3d-tools-assetboard-20261017.json and look-review-z011-20261017.json",
+  "grepped docs/reference/tasks.md and docs/reference/decisions.md at integration for briefs, queued_on, film, feedback, critique, occ and aosa: neither finding below is queued, decided or rejected"
+ ],
+ "tasks": [
+  {
+   "title": "take: a done record must not close a brief as queued",
+   "why": "P1, still standing from 2026-10-17 at its new line. briefs.py:544-560: when queued_on finds the unit only in the board's relay/done, stands is 'done', the refusal at 553 fires only on `not stands`, and answer() is called with queued=<uid> and done_already='an earlier unit of that id'. The brief closes saying it was queued although nothing stands on the relay's queue and no session will ever run it; became_of (briefs.py:479) only adds that the relay has a done record of that id, and the brief is gone from waiting(). That is the exact failure the guard above it was written to stop ('a yes of his taken up without the work being queued is his word dropped'). The board has 1122 relay/done records today, and unit ids are slugged from titles, so a new yes meeting an old record of the same name is not a corner case. No commit in 6959ad81..origin/integration touches it.",
+   "files": [
+    "trench-warfare-3d/Tools/assetboard/briefs.py"
+   ],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a test in Tools/assetboard/test_briefstates.py puts the unit only in the board's relay/done, commits and pushes it to the board's origin/main, and asserts take either refuses (naming that only a done record exists) or closes the brief with no 'queued' key and an outcome that says nothing was queued; red on today's code",
+   "risk": [false, false, true, false, false],
+   "change": [false, true, false, false, false]
+  },
+  {
+   "title": "queued_on: read the board in one pass, tolerate a bad file",
+   "why": "P2. briefs.py:287-307: queued_on lists relay/queue and relay/done and then spawns `git show` once per json file (line 294). The board carries 1122 of them today and git sorts all of relay/done before any relay/queue, so a unit that does stand on the queue is found only after about 1100 subprocesses: every brief close waits a minute or more on Windows, and take() calls this on the owner's live yes. Worse, line 299-300 turns any single unparseable file under relay/queue or relay/done into a failed read of the whole board, so take() then refuses with 'the board could not be read' and the brief stays open even though the unit plainly stands on the queue - one junk or half-written record on the board blocks every answer until somebody finds it. The old code skipped such a file (`continue`); the 2026-10-16 fix for telling why a read failed widened it to an abort.",
+   "files": [
+    "trench-warfare-3d/Tools/assetboard/briefs.py"
+   ],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a test in Tools/assetboard/test_briefstates.py commits a unit in relay/queue plus a file of junk bytes in relay/done, and asserts queued_on returns ('queue', '') - not a failed read - and that it reads the tree in one git call (count the git invocations, or assert it stays under a handful with 50 done records); red on today's code",
+   "risk": [false, false, true, false, false],
+   "change": [false, true, false, false, false]
+  }
+ ]
+}
