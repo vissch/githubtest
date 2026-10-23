@@ -1,6 +1,7 @@
 // Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-8, look specs L07 and L08) — part of CombatFx. Behind
 // fx.recipes, the gas and smoke fields as the drawn banks: chlorine as GasBank, a low rolling bank standing ON the ground
-// (its drawing fills the bottom third of the card, so a man's legs are in it and his head is not), the smoke screen as
+// (its drawing fills the bottom third of the card; by the owner's order, r2-3 g1-g1-g1-g1, that third now stands to a
+// man's head, so one row of cells reaches the next and the bank is one cloud and not stacked pads), the smoke screen as
 // SmokeBank mounds. Per 4 m field cell as before, placed and boiled by a hash of the cell (no random draws); from the
 // overview (BankMergeZoom) one card a 2 x 2 block, twice the size, so the field is a blanket with an edge and not
 // four times the cards. The field only changes per sim tick, so which cells stand and where their ground is are found
@@ -24,20 +25,29 @@ namespace TW.Presentation.Tactical
         // the sheet carries mean ink 0.167-0.183 in the frames the bank draws, so at 0.6 the threshold (0.18-0.40) cut the
         // whole drawing away and the bank rendered as flat olive smears, not a cloud (harsh critic r1, 22/100).
         public const float GasBankThin = 0.95f, GasBankFull = 1f;
-        /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.75 tops out at 1.75 m - gas pools, it does not stand over a man.</summary>
-        public const float GasBankSquash = 0.75f;
+        /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 6 m card at 1.20 tops out at
+        /// 2.40 m - by the owner's order (r2-3 g1-g1-g1-g1) the bank stands to a man's head, because it has to. At T1's
+        /// pose (pitch 25, GasBankStills) one row of cells is 4 m deep, so a card's ink must clear 4 * tan(25) = 1.87 m
+        /// for one row to reach the next row's base; the old 0.75 drew 1.50 m and the bank read as separate horizontal
+        /// pads with mud between the rows. 1.20 leaves a 28 % margin over that lens.</summary>
+        public const float GasBankSquash = 1.20f;
         /// <summary>The bank as a volume (r2-3 g1-g1-g1), three card shapes over the same card count: the bed stretches
         /// from GasBankSquash at a thin cell to GasBankCore at the thick heart; a rim cell draws a narrower, broken lip;
-        /// the per-block crown stands over the bed so the bank has a height and a rim, not one flat quilt.</summary>
-        public const float GasBankCore = 1.15f, GasBankRim = 0.95f, GasBankCrown = 0.90f;
+        /// the per-block crown stands over the bed so the bank has a height and a rim, not one flat quilt.
+        /// g1-g1-g1-g1: the bed is raised with GasBankSquash (keeping a 0.25 lead for the heart), and GasBankRim is a
+        /// fraction of the BED's height, not of the card's width, so the lip stays lower than the middle whatever the
+        /// bed does - one number for "a rim lower than the middle" instead of two that drift apart.</summary>
+        public const float GasBankCore = 1.45f, GasBankRim = 0.45f, GasBankCrown = 0.90f;
         /// <summary>The nominal card a cell draws, before its hash widens it: the crown's lift is measured off this.</summary>
         public const float GasBankCardWidth = 7f;
         /// <summary>How tall a bed card is at a thickness (0 to 1).</summary>
         public static float GasBedHeight(float width, float thick) => width * Mathf.Lerp(GasBankSquash, GasBankCore, Mathf.Clamp01(thick));
         /// <summary>How high the sheet's drawing reaches on a card of this height: it fills the bottom third.</summary>
         public static float GasDrawnTop(float height) => height / 3f;
-        /// <summary>How far a block's crown card is lifted off the ground: half the bed's drawn top there.</summary>
-        public static float GasCrownLift(float thick, int step) => 0.5f * GasDrawnTop(GasBedHeight(GasBankCardWidth * step, thick));
+        /// <summary>How far a block's crown card is lifted off the ground: 0.9 of the bed's drawn top there
+        /// (g1-g1-g1-g1, up from 0.5). 0.9 and not 1.0, so the crown's ink still OVERLAPS the bed's and the two read as
+        /// one body: a lift of 1.0 or more puts a gap back and the side view gains a fourth stacked band.</summary>
+        public static float GasCrownLift(float thick, int step) => 0.9f * GasDrawnTop(GasBedHeight(GasBankCardWidth * step, thick));
         /// <summary>How high the crown's drawing reaches over the ground at a block thickness.</summary>
         public static float GasCrownTop(float thick, int step) => GasCrownLift(thick, step) + GasDrawnTop(8f * step * GasBankCrown);
         public static readonly Color GasBankNight = new Color(0.78f, 0.86f, 0.22f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
@@ -118,7 +128,7 @@ namespace TW.Presentation.Tactical
 
         /// <summary>A 2 x 2 block of standing gas cells, folded into one wider body card (r2-3 step 7: the per-cell
         /// cards alone left gaps the probe's texture_var_drop read as the bare ground showing through).</summary>
-        struct GasBlock { public int Count; public float X, Z, Ground, Thick; public uint Hash; }
+        struct GasBlock { public int Count; public float X, Z, Ground, Thick; public uint Hash; public bool Edge; }
         readonly Dictionary<long, GasBlock> gasBlocks = new Dictionary<long, GasBlock>(256);
 
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
@@ -138,21 +148,24 @@ namespace TW.Presentation.Tactical
                 // its own hash, so the bank ends in a broken lip and not on a tile line
                 float h4 = ((b.Hash >> 15) & 1023) / 1023f;
                 float cw = b.Edge ? width * 0.85f : width;
-                float ch = b.Edge ? cw * GasBankRim : GasBedHeight(cw, b.Thick);
+                float bed = GasBedHeight(cw, b.Thick);
+                float ch = b.Edge ? bed * GasBankRim : bed;
                 float roll = b.Edge ? (h4 - 0.5f) * 2f * 8f * Mathf.Deg2Rad : 0f;
                 gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.10f, b.Z), cw, ch, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, roll, kind, GasBankAlpha(b.Thick)));
 
                 long key = ((long)Mathf.FloorToInt(b.X / blockSize) << 32) ^ (uint)Mathf.FloorToInt(b.Z / blockSize);
                 gasBlocks.TryGetValue(key, out var blk);
-                blk.Count++; blk.X += b.X; blk.Z += b.Z; blk.Ground += b.Ground; blk.Thick = Mathf.Max(blk.Thick, b.Thick); blk.Hash ^= b.Hash;
+                blk.Count++; blk.X += b.X; blk.Z += b.Z; blk.Ground += b.Ground; blk.Thick = Mathf.Max(blk.Thick, b.Thick); blk.Hash ^= b.Hash; blk.Edge |= b.Edge;
                 gasBlocks[key] = blk;
             }
             foreach (var kv in gasBlocks)
             {
                 var blk = kv.Value;
-                // the crown is the volume: only a full block (three cells of four, half thick) gets one, and it stands
-                // lifted over the bed instead of lying in it as step 7's flat 11 m pad did
-                if (blk.Count < 3 || blk.Thick < 0.5f) continue;
+                // the crown is the volume: only a full INTERIOR block gets one, and it stands lifted over the bed
+                // instead of lying in it as step 7's flat 11 m pad did. g1-g1-g1-g1: the old gate (Thick < 0.5, so
+                // c >= 7 of 14) made crowns so rare that the middle of the bank was no higher than its edge; now
+                // every full interior block crowns and no edge block does, which IS the dome the owner asked for.
+                if (blk.Count < 3 || blk.Edge || blk.Thick < 0.25f) continue;
                 float cx = blk.X / blk.Count, cz = blk.Z / blk.Count, ground = blk.Ground / blk.Count;
                 float h3 = ((blk.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;

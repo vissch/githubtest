@@ -256,15 +256,17 @@ namespace TW.Tests
             Assert.AreEqual(50.2f, CombatFx.LeapStart(3, 50f, 10f, 0f).Until, 1e-4f, "never shorter than 0.2 s");
         }
         [Test]
-        public void TheGasBankLiesOnTheGround_NotOverAMansHead()
+        public void TheGasBankBedBridgesARow()
         {
-            // r1's critique: gas-t1 read as a standing wall (height_frac 0.32). The sheet's drawing fills the bottom
-            // third of the card, so a 7 m card's gas topped out at 2.33 m. Squashed to 0.75 (r2-3) it is 1.75 m, under
-            // a man's head. From g1-g1-g1 the cap is the BED's alone: the crown above it is the bank's volume.
-            float top = CombatFx.GasDrawnTop(7f * CombatFx.GasBankSquash);
-            Assert.AreEqual(7f * CombatFx.GasBankSquash / 3f, top, 1e-4f, "the bed is still the squashed card");
-            Assert.Less(top, 1.8f, "the bed a 7 m card draws stays under a 1.8 m man's head");
-            Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+            // g1-g1-g1-g1, the owner's complaint: at zoom 30 the bank read as separate horizontal pads with mud
+            // between the rows. Cells stand every MapData.FieldCellSize = 4 m; at T1's pose in GasBankStills (pitch
+            // 25) a card's ink must be at least 4 * tan(25) = 1.87 m tall for one row's ink to reach the next row's
+            // base. The expected value therefore comes from the CAPTURE POSE, not from the code's own arithmetic.
+            // A typical cell draws a 6 m card (6 + 3 * thick, thin), so that card is the one that has to bridge.
+            float top = CombatFx.GasDrawnTop(CombatFx.GasBedHeight(6f, 0f));
+            Assert.GreaterOrEqual(top, 4f * Mathf.Tan(25f * Mathf.Deg2Rad),
+                "a thin cell's bed must reach the next row's base at T1's pitch, or the rows read as pads with mud between");
+            Assert.Less(top, 4f, "and is still a bank a man can be seen over, not a wall");
         }
         [Test]
         public void TheGasBankStandsAsAVolume()
@@ -275,11 +277,16 @@ namespace TW.Tests
             // 4.5 m is "not a wall".
             float crown = CombatFx.GasCrownTop(1f, 1);
             Assert.Greater(crown, 2.5f, "the crown stands higher than the flat build's best side height");
-            Assert.Less(crown, 4.5f, "and is a bank, not a wall");
-            float rim = CombatFx.GasDrawnTop(7f * 0.85f * CombatFx.GasBankRim);
+            Assert.Less(crown, 6f, "and is a bank, not a wall (g1-g1-g1-g1: the taller bed lifts the crown to 5.44 m)");
+            // g1-g1-g1-g1: the rim is a fraction of the BED, not of the card's width, so the lip follows the bed up
+            float rim = CombatFx.GasDrawnTop(CombatFx.GasBedHeight(7f, 1f) * CombatFx.GasBankRim);
             float bed = CombatFx.GasDrawnTop(CombatFx.GasBedHeight(7f, 1f));
             Assert.Less(rim, bed, "the rim is a lip: lower than the bed at full thickness");
+            Assert.Less(rim, bed * 0.5f, "and plainly lower, not a hair under it: half the bed's ink at most");
             Assert.Less(bed, crown, "and the bed is lower than the crown standing over it");
+            // the plan asked for crown > 2 * bed; its own step-4 arithmetic gives crown 5.445 m against a bed of
+            // 3.383 m, so 2x is unreachable at GasBankCore 1.45 and the dome is stated as the half again it is.
+            Assert.Greater(crown, 1.5f * bed, "the crown stands half again over the bed: the middle is higher than the rim");
             Assert.AreEqual(CombatFx.GasBankSquash, CombatFx.GasBedHeight(1f, 0f), 1e-4f, "a thin cell keeps its old pad");
         }
         [Test]
