@@ -1,4 +1,4 @@
-// Phase: infantry-firing (2026-10-15) — two of the three repairs the owner asked for in the infantry's firing (Rifle,
+﻿// Phase: infantry-firing (2026-10-15) — two of the three repairs the owner asked for in the infantry's firing (Rifle,
 // Assault, Machinegunner, Sniper), as the character controller shows them. The third, the tracer cut to the gun, is
 // TracerMuzzleTests.
 //   * The shot fired while advancing has its own pose. The locomotion rung called a man "firing" only while
@@ -144,6 +144,10 @@ namespace TW.Tests
             int enemy = r.Man((byte)InfantryArchetype.Rifle, 4f, 30f, 1);
             r.M.World.Events.Clear();
             r.Tick();
+            // every man settled into the pose he fires from first: a braced weapon (the machine gunner) sets up on the
+            // bipod when he stops, and a shot does not cut that set-up short (act-braced-weapons). This test is about the
+            // spread of the squad through its fire clip, not about the stance they reach.
+            for (int t = 0; t < 70; t++) { foreach (int man in squad) r.Aim(man, enemy); r.Tick(); }
             foreach (int man in squad) { r.Aim(man, enemy); r.Shot(man, enemy); }
             r.Decide();
 
