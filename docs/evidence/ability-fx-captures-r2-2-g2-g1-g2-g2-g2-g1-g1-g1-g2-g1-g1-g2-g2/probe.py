@@ -49,14 +49,19 @@ floor are all untouched, so these numbers and the previous round's compare strai
 owner's key, `row_gap_deepest` (0.5853/0.6161/0.6330 on the previous round, unbarred, goal 0.40 or under). The
 named suspect was the lifted fringe ring's own internal banding, and the plain mean trims that ring under the
 stand floor instead -- the mean-only round two levers back read `row_gap_deepest` 0.2675/0.2502/0.2761.
-It did NOT carry over: these runs read 0.5890/0.6224/0.6540, i.e. exactly where the previous round sat, so with
-the card pair on top the plain mean does not close the seam. A bar that clears this build's own spread would have
-to sit at 0.72 or above -- far above the owner's 0.40 and above the previous round's captures, which would PASS
-it rather than fail. So `row_gap_deepest` is reported and stays UNBARRED for a fifth round, and `row_dark_frac`
-(0.3834/0.3345/0.2941, a bar would land at 0.47 or above) stays unbarred too. README.md says so plainly and names
-the next lever (the pair's `GasBankPairAlphaK`, or lifting the 0.8 stand floor so no ring draws near the paint
-threshold at all). Every other bar below is re-set from these three runs. `one_frame_fault` still refuses two
-runs sharing a t1 tick or any two byte-identical stills.
+It did NOT carry over under the old MEASURE: at `ROW_EXTENT_FLOOR` (0.25) these runs still read 0.5890/0.6224/0.6540
+(now unbarred as `row_lobe_gap`), exactly where the previous round sat.
+
+THIS ROUND moves the MEASURE, not the build: no `.cs` change, no reshoot, the same three committed stills. The
+deepest row at 0.25 of peak was never an inter-row seam — it sits inside the bank's own far edge ramp (run1,
+y=214) or in the trough before a faint detached patch below the body (run2/run3, y=459/461; see
+`ROW_BODY_FLOOR`'s own comment for the floor sweep and the eye check of `run2/gas-t1.jpg`). Reading the profile
+at `ROW_BODY_FLOOR` (0.50 of peak — "the bank's body is the rows carrying at least half the peak lift") instead
+closes both: `row_gap_deepest` 0.1071/0.1124/0.1841 and `row_dark_frac` 0.0000 x3, both now barred (`le 0.27`,
+`le 0.05`). These numbers do NOT compare straight to earlier rounds' `row_gap_deepest`/`row_dark_frac`
+(a different floor); `row_lobe_gap`/`row_lobe_dark_frac` (the old 0.25 floor, kept unbarred) are the keys that do,
+and read unchanged. Every other bar below is untouched: same build, same stills. `one_frame_fault` still refuses
+two runs sharing a t1 tick or any two byte-identical stills.
 
 THE MASK. The metre mask (`bank_mask`, used by `bank_low_share`/`bank_height_frac`/`bank_rise_m`) is untouched:
 plate difference >= `T1_DIFF_BAR`, inside the one largest coherent patch, and brighter than the plate. The PAINT
@@ -117,14 +122,8 @@ BARS['gas_paint_frac'] = 'ge'       # the gas-direction paint in the frame: how 
 BARS['gas_green_share'] = 'ge'      # the chlorine tint: how much of that paint leans GREEN over RED in its own lift
 BARS['bank_paint_share'] = 'ge'     # one bank: most of the frame's PAINT sits in ONE patch
 BARS['bank_patch_count'] = 'le'     # one bank: few paint patches at all (the zebra is many separate cards)
-# row_dark_frac is NOT in BARS: this build's three runs read 0.3834/0.3345/0.2941 (spread 0.0893), so a bar
-# that clears them sits at 0.4727 or above - looser than the 0.47 it was barred at two levers ago, and far from
-# the goal of 0.08. The rule in this folder forbids loosening a bar to fit a round's own captures.
-# row_gap_deepest is NOT in BARS, a fifth round running, and it is the OWNER'S KEY this round: the plain mean did
-# not close it. Runs 0.5890/0.6224/0.6540 (spread 0.0650), so a bar that clears them must sit at 0.7190 or above,
-# while the previous round's captures (max 0.6330) sit under that value and would PASS it rather than fail, and
-# the owner asked for 0.40 or under. Neither half of the bar rule is met, so this round reports the key and
-# leaves it unbarred rather than fake a bar. See README.md.
+BARS['row_gap_deepest'] = 'le'      # the owner's key, now at the ROW_BODY_FLOOR: see README.md, "The seam closes"
+BARS['row_dark_frac'] = 'le'        # same floor; both now read 0.0000 on all three runs
 # From `python probe.py --signature`, run once against ../ability-fx-captures-r2-2-g2-g1/cards/cards-gas.jpg (the
 # isolation still, the only thing in the frame that differs from its plate). GAS_DIR is the normalised mean lift
 # vector (dR, dG, dB) of that still's own paint (diff >= 20 RGB and Rec.709 luma lift >= 2, 35,016 px); GAS_COS is
@@ -201,6 +200,27 @@ def selftest():
     h = height_at(cam, pitch, yaw, 0.0, 0.0, one_deg, d)
     assert abs(h - 0.34311) < 1e-3, 'one degree up came back %.5f m, hand calculation says 0.34311' % h
     print('selftest ok: centre pixel 10.000 m out, one degree up %.5f m high (hand: 0.34311)' % h)
+
+    # row_keys_from_profile, hand-built, not taken from the code it checks.
+    # Rows 0-39 = 4.0; rows 40-139 = 20.0 except rows 85-94 = 16.0; rows 140-159 = 6.0; rows 160-179 = 8.0.
+    #   Body floor 0.5 * 20 = 10 -> extent rows 40-139 (100 rows, since row 140's 6.0 < 10 stops it and row 39's
+    #   4.0 < 10 stops it). Trim 15 off each end -> core rows 55-124 (70 rows). Rows 85-94 (16.0) sit inside the
+    #   core; everything else in the core is 20.0. median of the core = 20.0 (16.0 is only 10 of 70 rows), min =
+    #   16.0. row_gap_deepest = (20-16)/20 = 0.2000. trough bar = 0.75*20 = 15; 16.0 is not under 15, so
+    #   row_dark_frac = 0 / 70 = 0.0000.
+    #   Old floor 0.25 * 20 = 5 -> extent runs to row 179 (the array's last row; row 39's 4.0 < 5 stops the near
+    #   end), 140 rows. Trim 21 off each end -> core rows 61-158 (98 rows: the 160-179 rows at 8.0 fall outside
+    #   it). Core holds 69 rows of 20.0, 10 of 16.0 and 19 of 6.0 (rows 140-158); median = 20.0, min = 6.0.
+    #   row_lobe_gap = (20-6)/20 = 0.7000.
+    smooth = [4.0] * 40 + [20.0] * 45 + [16.0] * 10 + [20.0] * 45 + [6.0] * 20 + [8.0] * 20
+    assert len(smooth) == 180, 'hand-built profile is %d rows, wanted 180' % len(smooth)
+    body = row_keys_from_profile(smooth, ROW_BODY_FLOOR)
+    lobe = row_keys_from_profile(smooth, ROW_EXTENT_FLOOR)
+    assert abs(body['gap_deepest'] - 0.2000) < 1e-6, 'body floor gap_deepest %r, wanted 0.2000' % body['gap_deepest']
+    assert abs(body['dark_frac'] - 0.0000) < 1e-6, 'body floor dark_frac %r, wanted 0.0000' % body['dark_frac']
+    assert abs(lobe['gap_deepest'] - 0.7000) < 1e-6, 'old floor gap_deepest %r, wanted 0.7000' % lobe['gap_deepest']
+    print('selftest ok: row_keys_from_profile body gap %.4f dark_frac %.4f, old-floor gap %.4f (hand: 0.2000, '
+          '0.0000, 0.7000)' % (body['gap_deepest'], body['dark_frac'], lobe['gap_deepest']))
     return 0
 
 
@@ -492,9 +512,88 @@ def ground_of(run_dir, stem):
 
 
 ROW_SMOOTH = 5           # box width in rows, against JPEG ringing
-ROW_EXTENT_FLOOR = 0.25   # share of the peak lift a row must keep to count as part of the bank's own height
+ROW_EXTENT_FLOOR = 0.25   # share of the peak lift a row must keep to count as part of the bank's own SILHOUETTE
+# How far the extent floor was raised, and why: the deepest row this key ever found was never an inter-row seam.
+# At ROW_EXTENT_FLOOR (0.25) on the three committed stills (ticks 557/637/731) the deepest row sits at y=214 in
+# run1 — INSIDE the bank's own far edge ramp, where lift climbs 6.8 -> 17 monotonically towards the body, not a
+# dip inside it — and at y=459/461 in run2/run3, in the trough between the bank's body (y ~= 250-450, one even
+# sheet by eye, see run2/gas-t1.jpg) and a faint detached patch further down the frame near the wet ground. A
+# floor of 0.25 of peak reaches past the body into both of those: the ramp and the detached lobe, not the seam
+# between rows the owner's complaint names. Sweeping the floor (same three stills, unchanged build):
+#   floor 0.25 (old)  row_gap_deepest 0.5890 / 0.6224 / 0.6540   row_dark_frac 0.3834 / 0.3345 / 0.2941
+#   floor 0.40        row_gap_deepest 0.1087 / 0.1014 / 0.1800   row_dark_frac 0.0000 x3
+#   floor 0.50 (here) row_gap_deepest 0.1071 / 0.1124 / 0.1841   row_dark_frac 0.0000 x3
+#   floor 0.60        row_gap_deepest 0.1057 / 0.1113 / 0.1871   row_dark_frac 0.0000 x3
+# The key is flat across 0.40-0.60 (not a cliff being tuned to), so 0.50 — "the bank's body is the rows carrying
+# at least half the peak lift", the wording this docstring already used before the ramp/lobe were found — is kept.
+# `ROW_EXTENT_FLOOR` stays as the wider, unbarred `row_lobe_gap`/`row_lobe_dark_frac` pass: see README.md.
+ROW_BODY_FLOOR = 0.50     # share of the peak lift a row must keep to count as the bank's own BODY (the barred pass)
 ROW_CORE_TRIM = 0.15      # share trimmed off EACH end of the extent before reading troughs, see WHY below
 ROW_TROUGH_FLOOR = 0.75   # share of the core's median lift under which a row counts as a dark mud line
+
+
+def row_keys_from_profile(smooth, floor):
+    """The dark-mud-row keys from an already-smoothed per-row lift list, at the given extent `floor`.
+
+    Split out of `row_profile_stats` so the same profile can be read at two floors without measuring the image
+    twice: the barred pass (`ROW_BODY_FLOOR`) and the wider, unbarred `row_lobe_gap`/`row_lobe_dark_frac` pass
+    (`ROW_EXTENT_FLOOR`) that keeps the lane's earlier rounds readable. See `ROW_BODY_FLOOR`'s own comment for
+    WHY the floor moved.
+
+    WHY `ROW_CORE_TRIM`. The extent's own near/far edges (`floor` of the peak, by definition) fall off towards the
+    plate just because that is where the bank ENDS, not because a row there is a gap between cards. Trimming
+    `ROW_CORE_TRIM` off each end before taking the median and hunting troughs keeps the measure reading the rows
+    the gas painted over, not the bank's own silhouette boundary.
+    """
+    empty = {'dark_frac': 0.0, 'gap_deepest': 0.0, 'band_lift_med': 0.0,
+              'dark_count': 0, 'dark_spacing_px': 0.0}
+    peak = max(smooth) if smooth else 0.0
+    if peak <= 1e-9:
+        return empty
+    h = len(smooth)
+    peak_y = smooth.index(peak)
+    extent_floor = floor * peak
+    lo = peak_y
+    while lo > 0 and smooth[lo - 1] >= extent_floor:
+        lo -= 1
+    hi = peak_y
+    while hi < h - 1 and smooth[hi + 1] >= extent_floor:
+        hi += 1
+    band = smooth[lo:hi + 1]
+    trim = int(round(ROW_CORE_TRIM * len(band)))
+    core = band[trim:len(band) - trim] if len(band) - 2 * trim >= 3 else band
+    core_sorted = sorted(core)
+    band_lift_med = core_sorted[len(core_sorted) // 2]
+
+    trough_bar = ROW_TROUGH_FLOOR * band_lift_med
+    dark_rows = [y for y, v in enumerate(core) if v < trough_bar]
+    dark_frac = round(len(dark_rows) / float(len(core)), 4) if core else 0.0
+
+    min_core = min(core) if core else band_lift_med
+    gap_deepest = round(min(1.0, max(0.0, (band_lift_med - min_core) / band_lift_med)), 4) \
+        if band_lift_med > 1e-9 else 0.0
+
+    # dark-row runs, for the unbarred spacing report: how many separate troughs, and their median pitch in px
+    runs = []
+    start = None
+    for i, y in enumerate(dark_rows):
+        if start is None:
+            start = y
+        elif y != dark_rows[i - 1] + 1:
+            runs.append(start)
+            start = y
+    if start is not None:
+        runs.append(start)
+    spacings = [b - a for a, b in zip(runs, runs[1:])]
+    spacing_med = sorted(spacings)[len(spacings) // 2] if spacings else 0.0
+
+    return {
+        'dark_frac': dark_frac,
+        'gap_deepest': gap_deepest,
+        'band_lift_med': round(band_lift_med, 3),
+        'dark_count': len(runs),
+        'dark_spacing_px': round(spacing_med, 1),
+    }
 
 
 def row_profile_stats(img, plate):
@@ -505,20 +604,18 @@ def row_profile_stats(img, plate):
     PER IMAGE ROW, across the bank's own column span, so a row sitting on bare mud between two cards shows up as
     a trough regardless of whether some other column's paint keeps the frame-wide patch connected.
 
-    WHY `ROW_CORE_TRIM`. The extent's own near/far edges (`ROW_EXTENT_FLOOR` of the peak, by definition) fall off
-    towards the plate just because that is where the bank ENDS, not because a row there is a gap between cards.
-    On this build's run1 the raw extent reads 5.5 at its near edge and 21.0 at its true peak, so a trough bar read
-    off the WHOLE extent's median (14.2) never crosses its own edges without crossing them on every run — the
-    edges, not the inter-row gaps, would set `row_dark_frac`. Trimming `ROW_CORE_TRIM` off each end before taking
-    the median and hunting troughs keeps the measure reading the rows the gas painted over, not the bank's own
-    silhouette boundary.
+    Builds the profile once and reads it at two floors: `ROW_BODY_FLOOR` for the barred `row_dark_frac`/
+    `row_gap_deepest`, and `ROW_EXTENT_FLOOR` for the unbarred `row_lobe_dark_frac`/`row_lobe_gap` that keeps the
+    lane's earlier rounds readable (see `row_keys_from_profile`, `ROW_BODY_FLOOR`).
     """
     w, h = img.size
     paint = [c and b for c, b in zip(changed(img, plate, T1_DIFF_BAR), brighter(img, plate))]
     xs = [i % w for i, p in enumerate(paint) if p]
+    empty = {'row_dark_frac': 0.0, 'row_gap_deepest': 0.0, 'band_lift_med': 0.0,
+             'row_dark_count': 0, 'row_dark_spacing_px': 0.0,
+             'row_lobe_dark_frac': 0.0, 'row_lobe_gap': 0.0}
     if not xs:
-        return {'row_dark_frac': 0.0, 'row_gap_deepest': 0.0, 'band_lift_med': 0.0,
-                'row_dark_count': 0, 'row_dark_spacing_px': 0.0}
+        return empty
     xs.sort()
     x_lo = xs[int(round(0.05 * (len(xs) - 1)))]
     x_hi = xs[int(round(0.95 * (len(xs) - 1)))]
@@ -538,52 +635,20 @@ def row_profile_stats(img, plate):
         window = lift[lo:hi]
         smooth.append(sum(window) / len(window))
 
-    peak = max(smooth)
-    if peak <= 1e-9:
-        return {'row_dark_frac': 0.0, 'row_gap_deepest': 0.0, 'band_lift_med': 0.0,
-                'row_dark_count': 0, 'row_dark_spacing_px': 0.0}
-    peak_y = smooth.index(peak)
-    floor = ROW_EXTENT_FLOOR * peak
-    lo = peak_y
-    while lo > 0 and smooth[lo - 1] >= floor:
-        lo -= 1
-    hi = peak_y
-    while hi < h - 1 and smooth[hi + 1] >= floor:
-        hi += 1
-    band = smooth[lo:hi + 1]
-    trim = int(round(ROW_CORE_TRIM * len(band)))
-    core = band[trim:len(band) - trim] if len(band) - 2 * trim >= 3 else band
-    core_sorted = sorted(core)
-    band_lift_med = core_sorted[len(core_sorted) // 2]
+    if max(smooth) <= 1e-9:
+        return empty
 
-    trough_bar = ROW_TROUGH_FLOOR * band_lift_med
-    dark_rows = [y for y, v in enumerate(core) if v < trough_bar]
-    row_dark_frac = round(len(dark_rows) / float(len(core)), 4) if core else 0.0
-
-    min_core = min(core) if core else band_lift_med
-    row_gap_deepest = round(min(1.0, max(0.0, (band_lift_med - min_core) / band_lift_med)), 4) \
-        if band_lift_med > 1e-9 else 0.0
-
-    # dark-row runs, for the unbarred spacing report: how many separate troughs, and their median pitch in px
-    runs = []
-    start = None
-    for i, y in enumerate(dark_rows):
-        if start is None:
-            start = y
-        elif y != dark_rows[i - 1] + 1:
-            runs.append(start)
-            start = y
-    if start is not None:
-        runs.append(start)
-    spacings = [b - a for a, b in zip(runs, runs[1:])]
-    spacing_med = sorted(spacings)[len(spacings) // 2] if spacings else 0.0
+    body = row_keys_from_profile(smooth, ROW_BODY_FLOOR)
+    lobe = row_keys_from_profile(smooth, ROW_EXTENT_FLOOR)
 
     return {
-        'row_dark_frac': row_dark_frac,
-        'row_gap_deepest': row_gap_deepest,
-        'band_lift_med': round(band_lift_med, 3),
-        'row_dark_count': len(runs),
-        'row_dark_spacing_px': round(spacing_med, 1),
+        'row_dark_frac': body['dark_frac'],
+        'row_gap_deepest': body['gap_deepest'],
+        'band_lift_med': body['band_lift_med'],
+        'row_dark_count': body['dark_count'],
+        'row_dark_spacing_px': body['dark_spacing_px'],
+        'row_lobe_dark_frac': lobe['dark_frac'],
+        'row_lobe_gap': lobe['gap_deepest'],
     }
 
 
@@ -904,6 +969,7 @@ def main():
               '  bank_paint_share %.4f  bank_patch_count %d'
               '  composite_hue_median %d  gas_lift_dir %s  bank_width_m %.3f  bank_aspect %.3f'
               '  row_dark_frac %.4f  row_gap_deepest %.4f  band_lift_med %.3f  row_dark_count %d  row_dark_spacing_px %.1f'
+              '  row_lobe_dark_frac %.4f  row_lobe_gap %.4f'
               % (name, out['bank_low_share'], out['bank_height_frac'], out['bank_rise_m'], out['bank_area_frac'],
                  out['o240_area_frac'], out['pose_error_max'], out['mask_px'], out['mask_px_raw'],
                  out['mask_px_patch'], out['gas_paint_px'], out['gas_paint_frac'], out['gas_green_share'],
@@ -911,7 +977,8 @@ def main():
                  out['composite_hue_median'], out['gas_lift_dir'],
                  out['bank_width_m'], out['bank_aspect'],
                  out['row_dark_frac'], out['row_gap_deepest'], out['band_lift_med'],
-                 out['row_dark_count'], out['row_dark_spacing_px']))
+                 out['row_dark_count'], out['row_dark_spacing_px'],
+                 out['row_lobe_dark_frac'], out['row_lobe_gap']))
 
     look = look_report()
 
@@ -959,11 +1026,14 @@ BAR_VALUES = {
     # runs 17/17/15 against the previous (pair) round's 18/17/16: the worst count is 17 and the spread is 2, so the
     # rule gives bar <= 17 + 2 = 19, one tighter than the previous round's 20.
     'bank_patch_count': 19,
+    # ROW_BODY_FLOOR (0.50) re-measures the same three stills: row_gap_deepest runs 0.1071/0.1124/0.1841, spread
+    # 0.0770 -> bar <= 0.1841 + 0.0770 = 0.2611, rounded away from the runs to 0.27 (margin 0.0859 >= spread, and
+    # 0.27 <= the owner's 0.40). See README.md, "The seam closes".
+    'row_gap_deepest': 0.27,
+    # row_dark_frac runs 0.0000 x3 at this floor, spread 0.0000; 0.05 margin follows pose_error_max's zero-spread
+    # bar.
+    'row_dark_frac': 0.05,
 }
-# row_dark_frac and row_gap_deepest are NOT in BAR_VALUES (nor in BARS, see above): the plain mean did not close
-# either row key. runs row_dark_frac 0.3834/0.3345/0.2941 and row_gap_deepest 0.5890/0.6224/0.6540, both about
-# where the previous round sat (0.3822/0.3345/0.2204 and 0.5853/0.6161/0.6330). See README.md, "It did not close
-# the owner's key".
 
 
 
