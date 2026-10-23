@@ -1,0 +1,64 @@
+{
+  "subject": "review:R002",
+  "looked_at": [
+    "Everything was read at origin/claude/trench-warfare-2d-3d-plan-idt7lf (git show), not in this checkout: Tools/relay/ here is 829 lines behind integration.",
+    "trench-warfare-3d/Tools/relay/relay_hook.py at integration (full; hardest on WRITE_PROGS/CODE_WRITE 28-36, _as_path 195-200, write_targets 203-234, off_limits 182-194, refusal 265-300)",
+    "trench-warfare-3d/Tools/relay/runner.py at integration (full; hardest on day_figures 295-306, no_budget 308-366, no_room 368-377, the critic/fix rounds 553-578, the stop record 714-737)",
+    "trench-warfare-3d/Tools/relay/prepush.py at integration (full, 66 lines: rebased_name and the ancestor check are gone)",
+    "trench-warfare-3d/Tools/relay/relay.py at integration (full; the new done check in add, 453-456)",
+    "trench-warfare-3d/Tools/relay/sources/lane.py at integration (full; load 35-58, files 73-88, next 90-110)",
+    "trench-warfare-3d/Tools/relay/sources/pipeline.py at integration (full; the new docstrings 1-6, waits_on_someone 34-44, candidates 58-88)",
+    "trench-warfare-3d/Tools/relay/papers.py, prompt.py, sources/__init__.py, sources/briefs.py, test_agents.py at integration (full; unchanged since the 2026-10-18 review, nothing new found in them)",
+    "Support: cmdrules.py norm_path 74-86, bare 143, prog 150, unwrap/commands 157-240, redirects 259-270, plain 272, push_ok 325-344, never_git 347-397, never 466-480; gitio.py install_prepush 195-207 and door_state 213-220; Tools/pipeline/pipeline.py evaluate 262-293 and cmd_claim 413-421; test_relay.py 257-320, 1503, 1636, 1851, 2165-2303; docs/reference/relay.md 225-235, 400-415, 465-478; docs/reference/pipelines.md 271; docs/reference/stations.md; docs/reference/tasks.md and decisions.md (grepped for relay_hook, off_limits, write_targets, lane.py, prepush: only the 2026-10-18 force-push row, which is built as written)",
+    "Ran write_targets() from integration over 11 realistic leg commands in a scratch copy (read-only, in the leg folder) to check both costs; the output is quoted in task 1.",
+    "SETTLED, not reported again: relay.py add refuses a done id (relay.py:453-456, the exact fix the 2026-10-18 task asked for).",
+    "SETTLED: the stop record survives an unreadable ledger (runner.py day_figures 295-306 and the ledger.one_line try 732-735; test_relay.py:1851 asserts the record exists with no day_usd).",
+    "SETTLED: the critic and fix rounds ask no_room once into `why` (runner.py:556-558, 573-575); moves_up at 543 asks once too.",
+    "SETTLED: relay_hook.refusal now runs off_limits over a command's write paths (relay_hook.py:279-282). It closes the hole the 2026-10-18 task named; task 1 below is about the new code, not about that hole.",
+    "CHECKED AND SOUND, no task: prepush.py's dropped ancestor check matches decisions.md 2026-10-18 word for word, and cmdrules.push_ok (325-344) allows a forced push only onto the lane named in full, so the two doors now agree (test_relay.py:1636, selftest.py:1218-1233 cover both).",
+    "CHECKED AND SOUND, no task: sources/pipeline.py's new docstrings are true. pipeline.py evaluate:285-287 does turn any non-PASS result into FAILED, and candidates:78 takes only READY/STALE/RECHECK, so a failed job is really no candidate and the first field of the sort key is dead as the docstring says.",
+    "CHECKED AND SOUND, no task: `told, first, said = False, None, None` in no_budget shadows the module-level `said = launch.said`, but nothing inside no_budget needs the module one, and a Why returned there reaches `raise Stop(why)` at runner.py:481 and 687, so the pace slide ends the run as its comment claims."
+  ],
+  "tasks": [
+    {
+      "title": "write_targets calls read-only paths writes, so it refuses good commands",
+      "why": "P1. relay_hook.py write_targets (203-234) collects paths a command only READS and hands each to off_limits (279-282), which then refuses the call. Run against integration's own code: `python -c \"import json;d=json.load(open(r'<board>/relay/queue/u1.json'));open('out.txt','w').write(...)\"` yields the board queue path, because the CODE_WRITE branch (228-234) takes every quoted token out of any word that holds a write verb anywhere, so the one path the code reads is refused with 'on the board a leg writes only under evidence/'. `python x.py < <board>/relay/queue/u1.json` yields that path too, because redirects() returns input redirects as well (cmdrules.py:259-270) and line 215 keeps whatever follows the last < or >. `cp <relay-run>/Tools/relay/runner.py /tmp/r.py` yields the SOURCE file (222-227 takes every non-flag argument of a WRITE_PROGS program), refused with 'a leg does not edit the relay or the pipeline tools'; `tar -czf out.tgz <...>/Tools/relay` is the same. A commit message is caught as well: `relay.py leg finish -m \"... <abs path under Tools/relay> ... rename ...\"` yields that path, so a leg's close-out can be refused over its own message. pre-tool fails closed and the leg is told not to retry (_common.md), so each of these ends a leg's step or its close-out for a read. Fix: take a path only from an output redirect, from an argument in a write position, and from a token the write call itself names; never from a plain read.",
+      "files": ["trench-warfare-3d/Tools/relay/relay_hook.py", "trench-warfare-3d/Tools/relay/test_relay.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "New cases in test_relay.py's guard class: relay_hook.refusal returns None for all four commands above (a python -c that reads <board>/relay/queue/u1.json and writes out.txt in the checkout, `python x.py < <board>/relay/queue/u1.json`, `cp <relay>/runner.py <desk>/r.py`, and `leg finish -m` with an absolute Tools/relay path in the message), while the existing refusals (echo into <board>/relay/done, a python -c that opens a board file for writing) still deny; `python Tools/relay/test_relay.py Guard` from trench-warfare-3d/ exits 0. The new cases are red on today's relay_hook.py.",
+      "risk": [false, true, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "One unreadable queue file still kills the whole lane queue",
+      "why": "P2. sources/lane.py next():96-99 now catches FileNotFoundError, but load() (35-58) raises SystemExit for a file that is not valid JSON or is missing a field, and lets OSError/PermissionError out of read_json untouched. Either escapes next(), and run_units catches it at runner.py:701 as 'error: ...', so the run stops with no unit taken: every later unit in the queue waits for a person, which is the failure the FileNotFoundError fix was for. files():81-85 already treats both as survivable when it sorts the queue ('a file that cannot be read sorts as one with no priority'), so the two halves of the same module disagree. The loud SystemExit for bad JSON is on purpose for a file the owner just queued, but it costs every other unit in the queue, and an OSError (a file held open while the board syncs on Windows) is nobody's mistake at all. Fix: catch OSError and SystemExit around load() in next(), print which file and why, and go on to the next unit.",
+      "files": ["trench-warfare-3d/Tools/relay/sources/lane.py", "trench-warfare-3d/Tools/relay/test_day.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "A new case in test_day.py: a queue with a committed but malformed <board>/relay/queue/bad.json and a good good.json returns the good unit from lane.next() and prints why bad.json was skipped; a second case with read_json stubbed to raise OSError does the same; `python Tools/relay/test_day.py` from trench-warfare-3d/ exits 0. Both are red on today's lane.py (SystemExit escapes).",
+      "risk": [false, true, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "off_limits resolves a relative write path against the hook's own cwd",
+      "why": "P2. The new check (relay_hook.py:279-282) feeds write_targets' words to off_limits, which compares them with inside()/cmdrules.norm_path (74-86). norm_path calls os.path.realpath, so a relative word is made absolute against the HOOK PROCESS's working directory, and the hook is never told the leg's: leg.json carries desk, board and work, but refusal() passes the word through as it stands. Two wrong answers follow from the same line. A write the leg aims at a forbidden place with a relative path (`cd <somewhere> && echo x > ../relay/queue/u.json`, or any command after a cd) is measured from the wrong folder and let through; and a harmless relative word under a leg whose cwd is not the hook's can land inside the board or the runner's folder once realpath is done with it and be refused for nothing. Fix: judge only paths that are already absolute, or resolve a relative one against leg['work'] and say so in the docstring; either way one rule, not the process's accident.",
+      "files": ["trench-warfare-3d/Tools/relay/relay_hook.py", "trench-warfare-3d/Tools/relay/test_relay.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "A new case in test_relay.py that runs relay_hook.refusal with the process cwd set to a folder inside the fake board: a Bash command writing to a plain relative file (`echo x > out.txt`) is let through, and one writing to a relative path that reaches the board's queue is denied, with the same answers whatever the process cwd is. Red on today's relay_hook.py, where both answers follow the cwd; `python Tools/relay/test_relay.py Guard` exits 0.",
+      "risk": [false, true, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "Two docs still say the push hook allows only a forward push",
+      "why": "P3. prepush.py's ancestor check went when the owner's 2026-10-18 row let a leg force-push its own lane, and prepush.py's own docstring (2-3) and roles/_common.md say 'forward or forced'. Two pages still say the old rule: docs/reference/relay.md:472 ('refuses every push from it except a forward push of the leg's own lane') and docs/reference/pipelines.md:271 ('only a forward push of its own lane leaves it'). validate.py cannot read prose, so nothing catches it. A leg or a session that reads either page believes a rebased lane cannot be pushed and ends BLOCKED on a push that now works, which is exactly the waste the 2026-10-18 decision was taken to end (decisions.md:429-447 lists two lanes that cost the owner a hand push).",
+      "files": ["docs/reference/relay.md", "docs/reference/pipelines.md"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "Both lines say a leg may push its own lane forward or forced and nothing else; `git grep -n \"forward push\" docs/` names neither file; `cd trench-warfare-3d && python Tools/validate.py` exits 0.",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
