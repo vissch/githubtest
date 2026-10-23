@@ -1,0 +1,50 @@
+{
+  "subject": "review:Z015",
+  "looked_at": [
+    "read at origin/claude/trench-warfare-2d-3d-plan-idt7lf (this checkout is 252 commits behind; every line number below is integration's, not the working tree's)",
+    "git show --stat c55b88f2c2 and its full diff -- the only change to Sim/Combat since 2317a9cb5d (DirectFire.cs: the ownHits fallback deleted, Step now throws without TankGunnerySystem)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs (whole, 510 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs (whole, 222 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Blast.cs (whole, 328 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Burning.cs (whole, 321 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/GasSmokeField.cs (whole, 262 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Engage.cs (whole, 236 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/BeamSystem.cs (whole, 222 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Aura.cs (whole, 118 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatTables.cs (whole, 155 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Armor.cs (whole, 54 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatCatalogue.cs (whole, 66 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatStructs.cs (whole, 34 lines)",
+    "context for the findings: Sim/Units/VehicleModules.cs (Step, the PendingHits drain at 163-164; Burst skips BlastShape.Beam at 347), Sim/Combat/TankGunnery.cs (PendingHits 96/128/174/486), Sim/Match/MatchSim.cs 70-145 (registration order), Sim/Core/ISimSystem.cs (SimSystemOrder: DirectFire 700, Blast 720, Beam 723, Burning 725, VehicleModules 730, GasSmoke 900, Engage 1108), Sim/Combat/TargetAcquisition.cs 330-386 (who writes Hunt), Sim/Match/UnitDefinitions.cs 69-80 and 279-285 (the two HuntsArmour units: the Skimmer and the AT rifle)",
+    "the c55b88f2c2 change holds up and is NOT a finding: git grep shows DirectFireSystem is constructed only in MatchSim.cs:91 (inside if (combat), with TankGunnerySystem at :132) and in the guard test CombatTests.cs:374; VehicleModulesSystem is registered unconditionally at MatchSim.cs:137 and drains and clears PendingHits every tick at VehicleModules.cs:163-164, after DirectFire (700) and TankGunnery (705) have filled it; the throw sits after the n == 0 early return, so an empty world never hits it; the header comment at DirectFire.cs:9 now matches the code",
+    "docs/found/look-review-z015-20261019.json: all three prior findings still hold at integration and are NOT repeated here -- BeamSystem's per-archetype `compiled` fallback (BeamSystem.cs:52,67-68,123), a wreck's shadow suppressing hulls it was never picked for (DirectFire.Wrecks.cs:117,121,148 vs InShadow at :189), Burning.cs:161 clearing the whole nav grid every tick",
+    "docs/reference/tasks.md and docs/reference/decisions.md (grepped for Skimmer, MovingAccuracy, HuntsArmour, armour-piercing: nothing below is queued, decided or rejected; decisions.md:285 queues skimmer-14mm and :322-324 records that the Skimmer never beat a Tusk in ten fights, which finding 1 bears on)",
+    ".claude/agents/tw-reviewer.md, .claude/skills/tw-review/SKILL.md"
+  ],
+  "tasks": [
+    {
+      "title": "Armour-piercing fire skips the vehicle exemption and the roll clamp",
+      "why": "DirectFire.cs:365 halves the chance of any shooter moving faster than CombatTables.MovingSpeed (0.5 m/s): `if (SimMath.Length(Velocity[i]) > MovingSpeed) odds *= MovingAccuracy;`. Every other fire path in the same file exempts a machine, because a hull is a stable platform -- DirectFire.cs:393 and DirectFire.Wrecks.cs:168 both add `&& (Flags[i] & (uint)UnitFlags.Vehicle) == 0`, and line 391 gives a tank the braced accuracy for the same reason. Only the armour-piercing branch (entered at :354 for a vehicle shooter or a HuntsArmour man) left it out. The one unit this branch exists for is the Skimmer (UnitDefinitions.cs:69-77: HuntsArmour, speed 3.4 m/s, a gun whose only job is hunting light machines), so the hunter is at half odds the whole time it hunts, while the same gun at infantry a metre away is at full odds. decisions.md:322-324 records that the Skimmer never beat a Tusk in ten fights and :285 queues skimmer-14mm to re-measure; that measurement is taken through this halving. Same two lines: :366 rolls against raw `odds` with no `math.clamp(odds, 0.02f, 0.95f)`, which :418 and Wrecks:170 both apply -- today's tables stay under 0.95 (the AT rifle peaks at 0.6 x 1.3 = 0.78) so nothing is broken yet, but a 0.74 accuracy ever baked would make a hull hit certain, and there is no 0.02 floor at long range either. P1 for the exemption, P2 for the clamp.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "an EditMode test (Assets/_Project/Tests/Sim/TankTests.cs or CombatTests.cs) steps a Skimmer firing at an enemy hull for a fixed span, once halted and once driving at its full speed with the same seed, and asserts the two runs queue the same number of VehicleHits on TankGunnerySystem.PendingHits: red on today's code (the moving run queues about half), green once :365 carries the same `(Flags[i] & (uint)UnitFlags.Vehicle) == 0` guard as :393; a second case asserts the roll at :366 is clamped to 0.02..0.95 with a patched WeaponStats.Accuracy of 0.9",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Burning's highWater field is dead and its comment contradicts Hash",
+      "why": "Burning.cs:67 declares `int highWater;` with the comment 'what the last Step saw, so Hash() knows how far AlightUntil is live', and Step writes it at :139. Nothing ever reads it: Hash at :305 folds the WHOLE array, `SimHash.Array(AlightUntil, AlightUntil.Length, h)`, on purpose ('every slot: a crewman spawned after this system's step still counts (critic r4)'). So the field is dead and its comment states the opposite of what the hash does. A hashed array's bound is exactly the kind of line a reader trusts without checking, and the next person to touch the hash here is told to clip it to highWater, which would undo critic r4 and move the tick hash. P3, cleanup, but on a seam surface.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/Burning.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "the field and its write are gone, the comment on Hash says the whole array is folded and why (critic r4), and the gate is green: `powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1` with BurningSystemTests, SlotHashBoundTests and DeterminismReplayTests green and no hash change",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
