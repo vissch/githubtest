@@ -96,6 +96,7 @@ namespace TW.Tests
             Assert.AreEqual(CombatFx.ArmsKind.Pistol, CombatFx.KindOf(InfantryArchetype.Shield));
             Assert.AreEqual(CombatFx.ArmsKind.MachinePistol, CombatFx.KindOf(InfantryArchetype.Jetpack));
             Assert.AreEqual(CombatFx.ArmsKind.HullMg, CombatFx.KindOf(VehicleArchetype.Tusk));
+            Assert.AreEqual(CombatFx.ArmsKind.AtRifle, CombatFx.KindOf(InfantryArchetype.AtRifle));
             Assert.AreEqual(1f, CombatFx.HitFlashOf(CombatFx.ArmsKind.Rifle), "the rifle's hit is the old one");
             // each class its own muzzle drawing; the rifle keeps the old flare
             Assert.IsFalse(CombatFx.MuzzleBookOf(CombatFx.ArmsKind.Rifle).HasValue);
@@ -104,6 +105,7 @@ namespace TW.Tests
             Assert.AreEqual(FlipbookFx.Book.MuzzlePop, CombatFx.MuzzleBookOf(CombatFx.ArmsKind.Pistol));
             Assert.AreEqual(FlipbookFx.Book.MuzzleBurst, CombatFx.MuzzleBookOf(CombatFx.ArmsKind.Smg));
             Assert.AreEqual(FlipbookFx.Book.MuzzleCarbine, CombatFx.MuzzleBookOf(CombatFx.ArmsKind.Carbine), "the officer and the SMG no longer share a drawing");
+            Assert.AreEqual(FlipbookFx.Book.GunLong, CombatFx.MuzzleBookOf(CombatFx.ArmsKind.AtRifle));
             Assert.AreEqual(1f, CombatFx.MuzzleScale(FlipbookFx.Book.MuzzleBrake, 0f), "the standard view: the flare's own size");
             Assert.Greater(CombatFx.MuzzleScale(FlipbookFx.Book.MuzzleBrake, 1f), 1.5f, "up close a book is drawn well over its flare's size");
             Assert.Less(CombatFx.BookGrowNight, CombatFx.BookGrow, "smaller at night, where the glow adds to it");
