@@ -42,12 +42,23 @@ namespace TW.Presentation.Tactical
         ///    6 -> 19 clouds, share 0.5933, area 0.0021
         ///    8 -> 17 clouds, share 0.6568, area 0.0020
         ///   16 -> 13 clouds, share 0.5888, o240_green_px 2055 (count does NOT fall with the block past 12)
-        ///   12 -> 11 clouds, share 0.4777, area 0.0010: KEPT, the fewest clouds of the sweep, so a ceiling
-        ///         of 15 sits outside the old 15-21 spread with room, and still well over a 3-cloud floor.
+        ///   12 -> 11 clouds, share 0.4777, area 0.0010: the fewest clouds of the pre-GasCloudWiden sweep.
         ///         Coverage pays for it (0.0094 -> 0.0010) and the o240 area/share bars are re-set: the owner
         ///         asked for clouds with gaps, not for coverage.
+        /// Swept again at GasCloudWiden 5 (the owner, 2026-10-23: "Put o240_cloud_ceiling back to 15 and make the
+        /// overview clouds few enough that all three counts sit under 15 by more than their spread"), because at
+        /// widen 5 every card clears the probe's 50 px cloud floor, so the cloud count IS roughly the card count
+        /// and block 12 read 15/13/13 - run1 sat ON his ceiling. One GasBankStills gas + plate pass each at
+        /// TW_GAS_WAIT_FRAMES 150:
+        ///   12 -> 15/13/13 clouds, share 0.8932, o240_blob_max_px 1041, area 0.0071: the count on the ceiling
+        ///   20 -> 6 clouds, share 0.6894, blob_max 851, area 0.0023: the count is far under 15, but the cards
+        ///         stand so far apart that none touch, so the biggest blob is one bare card - under the 1000 px
+        ///         the o240_blob_floor guard needs to keep refusing the speck build (119 px)
+        ///   16 -> 11 clouds, share 0.8555, blob_max 1063, area 0.0061: KEPT. Cards 64 m apart, a few neighbours
+        ///         still touch, so the blob floor holds while 11 clears a ceiling of 15 by 4 - over the spread of
+        ///         about 2 the three 60-frame captures show.
         /// (connected-component counts do not interpolate: re-measure after any change here.)</summary>
-        public const int GasCloudBlock = 12;
+        public const int GasCloudBlock = 16;
         /// <summary>How much wider an OVERVIEW card is drawn than its close self (the owner, 2026-10-22: at the
         /// overview "the three stills are the night map with no gas a player can see"). GasCloudBlock 12 put the
         /// cards 48 m apart, but the card's own width still multiplied by the local zoom step (2), so each cloud
