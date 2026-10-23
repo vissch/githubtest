@@ -27,9 +27,9 @@ namespace TW.Presentation.Tactical
         public const float GasInkTop = 1f / 3f;
         /// <summary>Where the GasCloud sheet's ink tops out in its card: the smoke bank's drawing fills its cell (its Sheets row's Ink.y).</summary>
         public const float GasCloudInkTop = 0.87f;
-        /// <summary>How flat a close gas card is drawn with the cloud drawing: it fills its cell, so a 7 m card is squashed far
-        /// harder than GasBankSquash to leave a standing cloud under a man's head and not a wall.</summary>
-        public const float GasCloudSquash = 0.33f;
+        /// <summary>How wide a close gas card is for its height (width over height), with the cloud drawing: the card is sized
+        /// from its HEIGHT under GasHeadRoom and then kept narrow, so the cell reads as a standing puff and not a 3:1 band.</summary>
+        public const float GasCloudAspect = 1.35f;
         /// <summary>How far under the ground a gas card is anchored, so the ink's foot is not a hard line on the grass.</summary>
         public const float GasBankAnchorDrop = 0.35f;
         /// <summary>The highest the drawn gas may reach: under a 1.8 m man's head with 0.1 m to spare.</summary>
@@ -116,22 +116,31 @@ namespace TW.Presentation.Tactical
         {
             float h2 = ((hash >> 10) & 1023) / 1023f, h3 = ((hash >> 20) & 1023) / 1023f, h4 = ((hash >> 15) & 1023) / 1023f;
             float slow = now * 0.22f + h3 * 6.2832f;
-            float width = (5f + 2f * thick) * (0.9f + 0.2f * h2) * step;
             var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
             float alpha = GasBankAlpha(thick);
             // the cloud drawing is the smoke bank's 22 frames, so the close card boils in its range: GasBankLast 28 would
             // be clamped to the sheet's last frame by the shader and the boil would stand still
             float frame = step > 1 ? BankFrame(GasBankFirst, GasBankLast, slow) : BankFrame(SmokeBankFirst, SmokeBankLast, slow);
-            float height = step > 1
-                ? width * GasBankSquash
-                : Mathf.Min(width * GasCloudSquash * (0.8f + 0.4f * h4), (GasHeadRoom + GasBankAnchorDrop) / GasCloudInkTop);
+            // the overview card is the flat blanket it always was; the close card is sized from its height: as tall as
+            // GasHeadRoom allows (0.75 to 1 of the clamp) and only GasCloudAspect times that wide, so it stands
+            float width, height;
+            if (step > 1)
+            {
+                width = (5f + 2f * thick) * (0.9f + 0.2f * h2) * step;
+                height = width * GasBankSquash;
+            }
+            else
+            {
+                height = ((GasHeadRoom + GasBankAnchorDrop) / GasCloudInkTop) * (0.75f + 0.25f * h4);
+                width = height * GasCloudAspect * (0.85f + 0.3f * h2);
+            }
             into.Add(FlipbookFx.Pack(new Vector3(x, ground - GasBankAnchorDrop, z), width, height, frame, 1f, 1f, 0f, kind, alpha));
             if (step > 1 || ((hash >> 7) & 7) >= 3) return 1;
             // the rim: the same cloud, a touch wider and brighter and nearly see-through, so a green edge stands out
             // around the body's silhouette (the crown card faked the volume the old drawing lacked; this drawing has it)
-            float rw = width * 1.12f;
-            float rh = Mathf.Min(height * 1.12f, (GasHeadRoom + GasBankAnchorDrop) / GasCloudInkTop);
-            into.Add(FlipbookFx.Pack(new Vector3(x, ground - GasBankAnchorDrop, z), rw, rh, frame, 1f, 1.5f, 0f, kind, 0.30f * alpha));
+            float rw = width * 1.25f;
+            float rh = Mathf.Min(height * 1.25f, (GasHeadRoom + GasBankAnchorDrop) / GasCloudInkTop);
+            into.Add(FlipbookFx.Pack(new Vector3(x, ground - GasBankAnchorDrop, z), rw, rh, frame, 1f, 1.6f, 0f, kind, 0.35f * alpha));
             return 2;
         }
 

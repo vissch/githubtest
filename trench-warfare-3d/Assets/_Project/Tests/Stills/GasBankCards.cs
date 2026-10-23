@@ -55,10 +55,13 @@ namespace TW.Tests
             public int LastDraws;
             readonly List<Matrix4x4> one = new List<Matrix4x4>(1);
 
-            /// <summary>The three books the still set walks through: the gas bank under suspicion, a second Deep bank
-            /// book, and an ordinary card. The gas one is packed by CombatFx.PackGasCell, so it is the bank's own drawing.</summary>
+            /// <summary>The three books the still set walks through: the close gas bank under suspicion, a second Deep bank
+            /// book, and an ordinary card. The gas one is packed by CombatFx.PackGasCell, so it is the bank's own drawing.
+            /// The close bank has been drawn with Book.GasCloud since d372727 (DrawGasBank, step 1), and PackGasCell sizes
+            /// and frames its close card for that book's 22-frame sheet, so the still must photograph GasCloud or it shows
+            /// a card the field never draws. The name stays "gas", so the still is still cards-gas.png.</summary>
             public static readonly FlipbookFx.Book[] Which_Books =
-                { FlipbookFx.Book.GasBank, FlipbookFx.Book.SmokeBank, FlipbookFx.Book.Puff };
+                { FlipbookFx.Book.GasCloud, FlipbookFx.Book.SmokeBank, FlipbookFx.Book.Puff };
             public static readonly string[] Which_Names = { "gas", "smoke", "puff" };
 
             void Update()
