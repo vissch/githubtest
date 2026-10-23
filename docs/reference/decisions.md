@@ -343,6 +343,17 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   reads 10 clouds and 0.1112; block 1 reads **one** cloud and 0.0685, a green wall over 82% of the frame. So "one
   cloud" and the 0.30 floor cannot both hold at any density either: the close bank stays about 23 visible clouds
   until he answers (a) or (b).
+  2026-10-23, the OVERVIEW side hits the same floor. `CombatFx.GasCloudWide` 5.0 (landed, `95deec7795`) is what
+  finally puts a cloud a player can see at O240 - `o240_visible_clouds` 9 / 10 / 10 where the old build read
+  0 / 0 / 0, barred at `o240_visible_floor` >= 6 - but the same wider card lifts the CLOSE bank off the ground:
+  `green_low_share` reads 0.2343 / 0.3045 / 0.3067 on three fresh captures 60 frames apart, and a wait sweep of
+  140-300 reads 0.2343, 0.3028, 0.3045, 0.2990, 0.3067, 0.3062, i.e. every settled frame sits ON the 0.30 floor
+  inside its own noise, so no capture window clears it (the numbers:
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2-g1-g2-g1/README.md`). Options now: (a) keep the
+  0.30 floor and give the T1 block its own narrower width knob, a second sweep (5.0 is what buys the overview
+  cloud, so it cannot simply come down); or (b) drop the floor to about 0.22, which this build clears at every
+  wait and which the close-side candidates clear too. Default taken: nothing moved, the floor left FAILING and
+  visible in that folder's probe, so the lane does not land on it.
   2026-10-22, the last candidate measured and refused: block 2 with the card re-fitted DOWN to its shorter 8 m lane
   (`GasPuffWide` 1.2 / `GasPuffStand` 0.83) reads `t1_visible_clouds` 24 - no better than the kept block 3 - with
   `low_share` 0.1938 and `green_height_frac` 0.1539, breaking the floor and the height ceiling at once. Every knob
