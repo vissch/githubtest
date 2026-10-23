@@ -42,5 +42,25 @@ namespace TW.Tests
             float rifle = CombatFx.ArmsFor(InfantryArchetype.Rifle, 0u, 0).Flare * CombatFx.MuzzleScale(FlipbookFx.Book.MuzzleRifle, 0f);
             Assert.GreaterOrEqual(at, AreaToWidth * rifle, "the anti-tank flash at the standard view");
         }
+
+        [TestCase(InfantryArchetype.AtRifle, true, false, true, TestName = "AtRifle_Hull_NoStrike_Spurts")]
+        [TestCase(InfantryArchetype.AtRifle, true, true, false, TestName = "AtRifle_Hull_Struck_NoSpurt")]
+        [TestCase(InfantryArchetype.Rifle, true, false, false, TestName = "Rifle_Hull_NoSpurt")]
+        [TestCase(InfantryArchetype.AtRifle, false, false, false, TestName = "AtRifle_AMan_NoSpurt")]
+        public void AtRifle_AMissedShotAtAHullSpurtsPastIt(byte archetype, bool hullTarget, bool struckThisTick, bool expected)
+        {
+            Assert.AreEqual(expected, CombatFx.SpurtsPastHull(archetype, hullTarget, struckThisTick));
+        }
+
+        [TestCase(InfantryArchetype.AtRifle, true, false, true, TestName = "AtRifle_Hull_NoStrike_IsMarked")]
+        [TestCase(InfantryArchetype.AtRifle, true, true, true, TestName = "AtRifle_Hull_Struck_IsMarked")]
+        [TestCase(InfantryArchetype.Rifle, true, false, false, TestName = "Rifle_Hull_IsNotMarked")]
+        [TestCase(InfantryArchetype.AtRifle, false, false, false, TestName = "AtRifle_AMan_IsNotMarked")]
+        public void AtRifle_EveryHullShotIsMarkedOnce(byte archetype, bool hullTarget, bool struckThisTick, bool expectMarked)
+        {
+            bool spurts = CombatFx.SpurtsPastHull(archetype, hullTarget, struckThisTick);
+            bool strikeAlreadyDrawn = hullTarget && struckThisTick && CombatFx.KindOf(archetype) == CombatFx.ArmsKind.AtRifle;
+            Assert.AreEqual(expectMarked, spurts || strikeAlreadyDrawn, "a hull shot settles as exactly one mark, or none when it is not this arm's shot");
+        }
     }
 }
