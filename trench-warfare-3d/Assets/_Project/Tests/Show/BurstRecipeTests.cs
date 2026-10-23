@@ -284,14 +284,17 @@ namespace TW.Tests
             Assert.Greater(stands, 1.8f, "and the merged cloud still stands over a 1.8 m man: a height a player can see");
             Assert.Less(stands, 10f, "and is still a cloud, not a column");
 
-            // The overview's mirror (the owner, 2026-10-22: the overview is "still the old squash blanket"). An
-            // overview card's width multiplies by the local step 2, so the widest is (6 + 2) * 1.1 * 2 = 17.6 m,
+            // The overview's mirror (the owner, 2026-10-22: the overview is "still the old squash blanket", then
+            // 2026-10-22 again: "at the overview the chlorine bank is invisible" - the widening is now its own
+            // knob, GasCloudWide, not the local zoom step). The widest overview card is (6 + 2) * 1.1 * GasCloudWide,
             // while cards stand GasCloudBlock * FieldCellSize m apart: a gap at the widest card, not a blanket.
-            float widestOverviewCard = (6f + 2f) * 1.1f * 2f;
+            float widestOverviewCard = (6f + 2f) * 1.1f * CombatFx.GasCloudWide;
             Assert.Greater(CombatFx.GasCloudBlock * TW.Sim.Terrain.MapData.FieldCellSize, widestOverviewCard,
                 "the overview's cards stand further apart than the widest card is wide: clouds with gaps, not one sheet");
             Assert.Greater(CombatFx.GasCloudBlock, CombatFx.BankStep(CombatFx.BankMergeZoom),
                 "a block wider than the merge step, else the overview draw did not change at all");
+            Assert.Greater(CombatFx.GasCloudWide, CombatFx.BankStep(CombatFx.BankMergeZoom),
+                "the overview card is wider than the old build's step-only width, else widening it did nothing");
         }
     }
 }
