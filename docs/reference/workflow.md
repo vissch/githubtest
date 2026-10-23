@@ -409,7 +409,10 @@ It returns `queued ...`; the PNG and a `.json` beside it land a few frames later
 `luma_mean`, `luma_p95`, `blown_frac`, `men_in_frame`, `contrast_median`, `rain`, `drawn_infantry` and the camera pose.
 `contrast_median` (and `contrast_p10`) answer "can you still see the men": each man's brightness against the ground
 around him, where 0.4 means you can find him and 0.1 means he is mud. Use them, with `men_in_frame`, to judge smoke,
-fog or tints over the infantry.
+fog or tints over the infantry. `man_luma` and `bg_luma` are the two sides of that ratio. The chest disc is taken
+from the drawn foot stood on the terrain, and a vehicle is still skipped. The men's ink outline is never thinner
+than 1.6 px; a thicker world-space line is left as it is, and 0 restores that line. `python Tools/test_man_outline.py`
+checks both with no editor.
 `Captures/` is ignored by git.
 
 **Whatever the game view shows right now:**
