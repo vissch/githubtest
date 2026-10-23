@@ -1,0 +1,65 @@
+{
+  "subject": "review:Z009",
+  "looked_at": [
+    "read at origin/claude/trench-warfare-2d-3d-plan-idt7lf, not the working tree (this checkout is 248 commits behind)",
+    ".claude/agents/tw-reviewer.md, .claude/skills/tw-review/SKILL.md (the brief), CLAUDE.md seam section, docs/03-determinism-rules.md",
+    "trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs (902 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/EnvPropEditor.cs (550 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/DeathLab.cs (192 lines)",
+    "trench-warfare-3d/Assets/_Project/Data/Definitions.cs (167 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/BootstrapSceneBuilder.cs (154 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/BuildWindows.cs (115 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/CrabManifest.cs (104 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/EnvKitImport.cs (81 lines)",
+    "trench-warfare-3d/Assets/_Project/Data/DataBaker.cs (77 lines at integration)",
+    "trench-warfare-3d/Assets/_Project/Editor/AssetScaleAudit.cs (66 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/DeterminismPlatformReport.cs (42 lines)",
+    "trench-warfare-3d/Assets/_Project/Data/FactionMap.cs (29 lines)",
+    "git diff f258066cd69b1ca804d076a14e1b68376457b658..integration over the twelve files: one hunk, 14 deletions in DataBaker.cs (commit 7fe2ec9207, the unwired ApplyUpgrades path). SETTLED: no .cs file at integration names ApplyUpgrades (git grep, empty) and Tools/test_applyupgrades_removed.py guards it. Nothing new there.",
+    "docs/found/look-review-z009-20261020.json: the one prior finding (CaptureRig.LastReport() can return a stale shot's measurement after a skipped shot) still holds at integration - TryPose's continue (CaptureRig.cs:128,165-173) and Render's catch (:204-229) both leave Last/LastJson (:80) untouched. SETTLED, still open, not repeated here.",
+    "trench-warfare-3d/Assets/_Project/Tests/Project/FreshCloneSetupTests.cs, docs/reference/tasks.md:1036, docs/20-rig-scoreboard.md:5050-5065 (the C2 instrument-fault log), docs/reference/workflow.md:504, .claude/skills/pipeline/references/driving-and-evidence.md:29",
+    "checked and sound: DeterminismPlatformReport (SimWorld.HashInterval defaults to 1 and CreateGreybox does not clear it, so the per-tick hashes it writes are real); DataBaker.MissionFaction warns and bakes FactionMap.Unmapped, which matches Definitions.cs:152's tooltip and FactionMap.cs:12; BuildWindows writes the BuildResult into build-status.txt and build-info.json and CommandLine exits 1 on anything but Succeeded; AssetScaleAudit disposes its kit in a finally; EnvKitImport keys its smoothing on quantised positions, not on dictionary order; grepped tasks.md and decisions.md for every subject below"
+  ],
+  "tasks": [
+    {
+      "title": "Pending() reports 0 while a shot is still posed and rendered",
+      "why": "P1, read in code. CaptureRig.Rig.Run dequeues a shot before posing it (CaptureRig.cs:127), then burns a frame, a render and shot.Gap frames (:129-151), so Queue.Count - all Pending() returns (:395) - hits 0 up to several frames before the PNG and the .json exist and before the finally puts the tactical camera back (:154-162). The doc comment at :394 and docs/reference/workflow.md:504 both say 0 means the set is finished and the camera is back, and .claude/skills/pipeline/references/driving-and-evidence.md:29 tells every agent to poll Pending() until it returns 0. docs/20-rig-scoreboard.md:5062 records this already costing a capture round (Drain read a still that did not exist yet) and it was fixed in that one script only; every agent following the skill still gets the broken recipe and reads a missing or previous still.",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs", "docs/reference/workflow.md", ".claude/skills/pipeline/references/driving-and-evidence.md"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "Pending() counts the shot in flight as well as the queue (Queue.Count plus the running shot), and a PlayMode test queues one shot and asserts Pending() is never 0 on a frame before the PNG exists; the workflow.md row and the skill line say what the number now means.",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "SetupAll regenerates both scenes when only one is missing",
+      "why": "P2, read in code. BootstrapSceneBuilder.StepsSetupAllWouldRun adds BuildScenes when !Array.TrueForAll(Scenes, File.Exists) (:62), that is when EITHER GreyboxCorridor.unity or Bootstrap.unity is absent, and BuildScenes then rebuilds both from code (:101-113) and resets EditorBuildSettings.scenes to those two, so MainMenu drops out. That is exactly the loss FreshCloneSetupTests.cs:1-4 was written to stop, and the header comment at :8-9 promises SetupAll only runs a step whose output is missing. A clone or merge that loses one of the two scenes silently overwrites the committed, hand-tuned battle scene from batch mode, with no dialog - the batch path never asks. The test cannot catch it: on this repo both files exist.",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/BootstrapSceneBuilder.cs", "trench-warfare-3d/Assets/_Project/Tests/Project/FreshCloneSetupTests.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "BuildScenes writes only the scene files that are missing and leaves an existing scene and the Build Settings list alone; a test that pretends one of the two scenes is missing asserts the other is not rewritten and the Build Settings entries are kept. It is red on today's code.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "DeathLab.Row and DriveAt ignore WriteWorlds returning false",
+      "why": "P2, read in code. docs/03-determinism-rules.md says every direct world write goes through WriteWorlds and must abort on false (it writes nothing while the worlds are a tick apart). DeathLab.Row (DeathLab.cs:50) and DriveAt (:147-152) throw the return value away and report success: Row returns the slot list as if the men had been given their hp and been stopped, DriveAt returns 'slot N driving at x, z'. Burst (:60-61) does it right and says 'worlds a tick apart: try again'. With the canary on, a staging that silently did not apply leaves men at full hp or a machine that never drives, and the capture that follows is filmed and judged as if it had - the same class of mistake the rules record costing an hour on 2026-09-23.",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/DeathLab.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "Row and DriveAt return the 'worlds a tick apart: try again' wording when WriteWorlds returns false (Row also stops rather than spawning the rest of the line), and a PlayMode test with the canary waiting asserts neither reports a staging it did not apply.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "CrabManifest throws out of the importer on a bad crabs.json",
+      "why": "P2, read in code. CrabManifest.Places guards only File.Exists (CrabManifest.cs:22) and then runs the hand-rolled reader, whose Value/Str loops index s[i] with no end-of-string check (:59,63,74,93) and whose Vec hard-casts each element to double (:45-46). A truncated or hand-edited Resources/Vehicles/crabs.json - the file Tools/crabsplit.py writes, so a killed split leaves exactly that - raises IndexOutOfRangeException or InvalidCastException inside TankImport's postprocess instead of the documented null when the manifest has no such machine, so the walker import fails with a stack trace and no hint at the real cause and the nodes stay where Blender's FBX export put them (up to 1.4x their parent's offset out, per the header).",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/CrabManifest.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "Places catches a malformed manifest, logs the path and the reason once and returns null; an EditMode test feeds it a truncated and a wrong-typed crabs.json and asserts null plus one warning instead of an exception. Both cases throw on today's code.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
