@@ -139,7 +139,14 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, four stills at one pose, gas, smoke,
   puff and a plate - so a blank still accuses one book and not the sim, the field, the cache and the capture path at
   once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
-  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1-g2/probe.py` measures those stills: it COUNTS THE GREEN the
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1-g2-g1/probe.py` now measures those stills (the close band's
+  current probe): it counts the close band's own connected components the same way the O240 band already did
+  (`T1_LARGE_MIN_PX` 4000 px), and bars `green_large_cloud_count` (`'le'` 1) paired with `green_large_share`
+  (`'ge'`), so a carpet of several pads fails even where a size floor alone would pass; `CombatFx.GasBankStand`
+  (now `1f`) draws the close card the smoke mound's own 1:1 square, matching `DrawSmokeBank`'s own
+  `width, width` pack.
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1-g2/probe.py` (its immediate predecessor) measures those
+  stills: it COUNTS THE GREEN the
   gas added over the plate (not a brightness test), in metres, bars the rise, and refuses two runs that
   photographed the same frame, barred against the SPREAD of three captures of one build at three different
   `TW_GAS_WAIT_FRAMES`. The O240 band now gasses ONE point (the same centre T1 gasses), so the far camera's still
@@ -151,7 +158,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   stripe sheet could pass, and `green_relief` bars how far from flat the cloud reads
   (`--calibrate`, `--selftest`, `--pack`). `GasBankCards` hand-packs its gas card the same way, so `cards/`'s
   `gas_smoke_relief_ratio` (the gas card's relief over the smoke card's) is barred too;
-  (`docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1/probe.py`,
+  (`docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1-g2/probe.py`,
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2/probe.py`,

@@ -264,7 +264,7 @@ namespace TW.Tests
             const float HEAD_M = 1.8f;
             float close = 7f * CombatFx.GasBankStand;
             Assert.Greater(close, HEAD_M, "close, the cloud stands over a 1.8 m man: it is not a puddle");
-            Assert.Less(close, 7f, "and is a cloud, not a wall as tall as the card is wide");
+            Assert.AreEqual(7f, close, 1e-4f, "close, the gas card is the smoke mound's own square card");
             float overview = 7f * CombatFx.GasBankSquash / 3f;   // the gas sheet's drawing fills the bottom third of the card
             Assert.Less(overview, HEAD_M, "from the overview the gas a 7 m card draws stays under a 1.8 m man's head");
             Assert.Greater(overview, 0.6f, "and is still thick enough to read: not a painted line on the floor");

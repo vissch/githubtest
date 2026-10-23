@@ -23,14 +23,15 @@ namespace TW.Presentation.Tactical
         public const float GasBankThin = 0.6f, GasBankFull = 1f;
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.55 tops out at 1.28 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.55f;
-        /// <summary>How tall the close gas card is drawn, as a share of its width: a standing cloud over a man's head, not a flat
-        /// puddle (the owner, 2026-10-22: the close shot was a sheet of pale green stripes). A 7 m card stands 2.94 m, and because
-        /// the gas row now draws SmokeBank's cloud, which fills its cell, that IS the cloud's height and not a third of it.
-        /// Measured by captures, not picked: at 0.9 the field read as a wall (green_low_share 0.11 against the 0.30 floor) and at
-        /// 0.30 its rise fell back under the old stripe sheet. The overview keeps the flat GasBankSquash blanket.</summary>
-        public const float GasBankStand = 0.42f;
-        /// <summary>How far the close card's bottom edge sits under the ground, so the cloud's foot is in the mud and its mass stays low.</summary>
-        public const float GasBankSink = 0.20f;
+        /// <summary>How the close gas card is drawn: the smoke mound's own 1:1 card, in green (the owner, 2026-10-23: at zoom 30
+        /// the close gas was still a carpet of flat pads, 80324 of 193455 green px in one blob of many; draw it as cards-smoke's
+        /// one standing cloud). A 7 m card now stands 7 m tall, exactly DrawSmokeBank's width, width pack. The overview keeps the
+        /// flat GasBankSquash blanket.</summary>
+        public const float GasBankStand = 1f;
+        /// <summary>How far the close card's bottom edge sits under the ground, so the cloud's foot is in the mud and its mass
+        /// stays low. Raised from 0.20 for the 1:1 card (the owner, 2026-10-23): a full-height card's visible mass sits higher
+        /// than the old flat puddle's, so green_low_share needs a deeper sink to clear its 0.30 floor.</summary>
+        public const float GasBankSink = 3.0f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
