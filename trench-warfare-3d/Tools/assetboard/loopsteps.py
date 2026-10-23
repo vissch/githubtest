@@ -431,6 +431,8 @@ def attempts(w, opens, dones, running, idle, extras=None):
         if not w.acting:
             out.append(f'attempts: {uid} would be parked: ' + (f'refused {len(rec["refused"])} times' if refused else f'{len(rec["fails"])} tries with nothing changed between them'))
             continue
+        if refused:
+            rec['fp'] = dict(lane=w.lane_sha(u.get('lane', '')), base=w.int_sha())     # as it stands now: a unit never tried has no fingerprint, and {} reads as 'new commits' (back on the queue a round later)
         if not park(w, uid, rec, on, out):
             continue
         rec['next'] = note_next(w, w.main, uid) or next((note_next(w, b, uid) for b in on if note_next(w, b, uid)), '')
@@ -530,7 +532,7 @@ def answered(w, uid):
     """His A on a parked unit's brief queued it again: its count starts over, and a later park gets a brief of its own."""
     st = load(w.home / 'attempts.json', {})
     if uid in st:
-        st[uid].update(parked=None, fails=[], fp={}, brief='', dropped=False, drop=False)
+        st[uid].update(parked=None, fails=[], fp={}, refused=[], brief='', dropped=False, drop=False)
         save(w.home / 'attempts.json', st)
 
 
