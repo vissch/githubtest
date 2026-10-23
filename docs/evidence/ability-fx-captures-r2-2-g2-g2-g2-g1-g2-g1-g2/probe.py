@@ -24,6 +24,14 @@ read an ink rise of 7.874 m. `cards_gaspuff_smoke_rise` stays on the ink mask: `
 mask keeps only noise on it and cannot compare the two cards; it proves only that the two cards are drawn in one
 box, not that the puff stands as tall as the smoke.
 
+PART 2 (2026-10-23): the band was right and the card was still flat. Measured offline, the cels this row plays
+(SmokeBankFirst 12 .. SmokeBankLast 20.5; the card's PuffFrame 16) SPAN 0.17-0.31 - cel 16's ink reads p10 0.178,
+p50 0.238, p90 0.541 - so nothing is clipped and no band change was due. The one difference left from the smoke
+card was `Lit`: 0.75 mixed a quarter of the raw unshaded ink back over the shading. `GasPuff.Lit` is now 1,
+SmokeBank's own (`Lit = 0` means 1 for a non-additive book, FlipbookFx line 661). Relief 0.1455 -> 0.1708 and the
+card got slightly GREENER, not greyer (mean G - max(R, B) -17.3 -> -15.8 over the card's changed pixels), so it
+cost nothing. It is still under 0.20; see README.md and the `BAR_VALUES` note at the foot.
+
 Below this point is the prior unit's design (-g1-g2-g1), carried unchanged except where noted above.
 
 Three faults, all fixed there.
@@ -743,15 +751,19 @@ BAR_VALUES = {
     'cards_gaspuff_rise_m': 7.8,     # GREEN mask, this unit's three fresh sets: 7.922/7.906/7.948, spread 0.042:
                                      # the round number under 7.864. The old squashed card was 3.84 m tall in
                                      # total, so it cannot reach this at all
-    'cards_gaspuff_aspect': 0.75,   # GREEN mask, this unit's three fresh sets: 0.7940/0.7974/0.8026, spread 0.0086:
-                                     # the round number under 0.7854. The pre-change card's green mask read aspect
+    'cards_gaspuff_aspect': 0.75,   # GREEN mask, part 2's three fresh sets: 0.7949/0.7906/0.7949, spread 0.0043:
+                                     # the round number under 0.7906. The pre-change card's green mask read aspect
                                      # 0.19, a puddle
-    'cards_gaspuff_smoke_rise': 0.90,  # INK mask (unchanged key, unchanged value): this unit's sets 1.1405/1.1739/
+    'cards_gaspuff_smoke_rise': 0.90,  # INK mask (unchanged key, unchanged value): part 2's sets 1.1326/1.1739/
                                      # 1.0613, spread 0.1126, margin 0.1613 - still clears; proves only the two
                                      # cards are drawn in one box (cards-smoke is grey, so green cannot compare them)
-    # cards_gaspuff_ink_relief: NOT set yet. This unit's three sets read 0.1455/0.1433/0.1454 on the fixed shader
-    # (Low/High no longer borrowed from GasBank) - above the pre-fix 0.1276 but still under the 0.20 floor the
-    # owner's own smoke-card relief (0.3238) implies. See README.md: the band was not the whole fault.
+    # cards_gaspuff_ink_relief: STILL NOT set. Part 2's three sets (GasPuff Lit 0.75 -> 1, SmokeBank's own) read
+    # 0.1708/0.1671/0.1686, spread 0.0037 - up again from part 1's 0.1455/0.1433/0.1454 and the pre-fix 0.1276, and
+    # it cost no green, but still under the 0.20 floor the owner's own smoke-card relief (0.3238) implies. Both
+    # levers the row has (the band, then Lit) are spent. README.md holds the cel table, the offline prediction that
+    # no band reaches 0.20 by much, and the finding that the 0.32 the floor comes from is mostly the BACKGROUND
+    # seen through the faint grey cards, not their own shading - so it is not a like-for-like target. The owner's
+    # call (decisions.md, open).
 }
 
 

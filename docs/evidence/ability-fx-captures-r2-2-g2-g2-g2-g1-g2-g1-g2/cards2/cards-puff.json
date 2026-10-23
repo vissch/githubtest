@@ -21,8 +21,8 @@
   "blown_frac": 0.00037,
   "black_frac": 0,
   "men_in_frame": 6,
-  "contrast_median": 0.10739,
-  "contrast_p10": 0.01987,
+  "contrast_median": 0.12078,
+  "contrast_p10": 0.02,
   "rain": 0,
   "wind": 7.94132,
   "drawn_infantry": 6,
@@ -31,5 +31,5 @@
   "vertices": 11004,
   "shadows": 1,
   "fallen": 0,
-  "warnings": ["men barely separate from the ground: unreadable"]
+  "warnings": []
 }
