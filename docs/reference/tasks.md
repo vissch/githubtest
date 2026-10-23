@@ -139,9 +139,11 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `TW_ABILITYFX_SUBJECT`, `TW_ABILITYFX_PLATE`, `TW_ABILITYFX_REPS` (N captures over, each named for its subject, band and rep);
   the drop's plate stages the same drop with `CombatFx.DropFx` off, so its men are in both frames and only the drop's
   own drawing is measured, and the beams are off in both; the drop ignores `TW_ABILITYFX_REPS` and is always six shots
-  a band at ONE paused sim tick (`TimeScale = 0`): three of the canopies open and three of the same frozen frame with
-  `CombatFx.DropCanopies` off (`_nochute`); the pixels are measured by
-  `docs/evidence/ability-fx-captures-r3-2-2-g2-g3/probe.py` (12 rows: the drop is three captures a band), whose floor
+  a band at THREE DIFFERENT MOMENTS of the one drop (`DropMarks`, each frozen while its shots are taken): three of the
+  canopies open and three of the same frozen frames with `CombatFx.DropCanopies` off (`_nochute`); the pixels are
+  measured by
+  `docs/evidence/ability-fx-captures-r3-2-2-g2-g3-g1/probe.py` (12 rows: the drop is three moments a band, and a band
+  whose three reps share a tick fails), whose floor
   is a ground footprint for smoke, barrage and splash and, for the drop, two fixed bars a band - the whole drop
   against its plate and the canopies alone against their nochute, which is zero when the canopies are gone however
   much wake and dust remain (`--as-nochute` runs that negative proof) - and is guarded by
