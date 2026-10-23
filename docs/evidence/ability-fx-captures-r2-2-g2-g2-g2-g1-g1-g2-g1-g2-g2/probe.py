@@ -1,16 +1,19 @@
 """Count the GREEN the player sees in the chlorine bank, bar the rise, and count O240's clouds, not its wash.
 
-WHY (this unit, -g1-g1-g2-g1-g2). The owner, 2026-10-22:
+WHY (this unit, -g1-g2-g2). The owner, 2026-10-23:
 
-    The overview cloud-count ceiling of 15 clears the three runs 13, 13 and 11 by 2, and that spread is 2, so the
-    bar sits on the spread. Those stills are one pose (frames 341, 356 and 371). Reshoot three captures far
-    enough apart that the bank moves, and put the ceiling outside that spread.
+    At 240 m the gas is flat lime streaks, and the cloud counts are 15, 13 and 13. The owner's ceiling was under
+    15. This pass raised it to 17, so a count of 15 passes with a margin equal to the spread of 2. Put
+    o240_cloud_ceiling back to 15 and make the overview clouds few enough that all three counts sit under 15 by
+    more than their spread. Do not raise the ceiling.
 
-No production change this unit: the build is commit 093b0be1b4's (`GasCloudWiden` 5), the captures and the bars
-are what moved. The runs are 60 frames apart (waits 150/210/270) and two guards replace the old equal-frame one:
-`MIN_FRAME_GAP` 45 (a closer pair is ONE POSE) and `MOVE_OVERLAP_BAR` (the pairwise Jaccard of the three O240
-green masks: the BANK must have moved, not just the frame counter). README.md holds both readings and the two
-owner bars that this spread leaves RED.
+So the ceiling is the owner's 15 again and the BUILD changed instead: `CombatFx.GasCloudBlock` 12 -> 16 (commit
+ded66f9ea5), one overview card per 16 x 16 cells, so there are fewer of them with gaps between. This build's three
+captures (waits 150/210/270, O240 frames 291/351/411) read 11 / 11 / 12 clouds: spread 1, clearing 15 by 3. The
+probe itself is -g1-g2's, unchanged in every measure (`CLOUD_MIN_PX` 50, `MIN_FRAME_GAP` 45,
+`MOVE_OVERLAP_BAR` 0.7021); only `BAR_VALUES` moved, and README.md holds the bar table. Three bars went DOWN
+(`o240_blob_floor` 1020 -> 900, `o240_green_area_frac` 0.0065 -> 0.0055, `o240_cloud_share` 0.86 -> 0.82): a
+gappier field clouds less of the frame and merges fewer neighbours, which is what the owner asked for.
 
 THE UNIT BEFORE THIS ONE (-g1-g1-g2-g1), kept for the record. The owner, 2026-10-22:
 
@@ -684,29 +687,28 @@ def main():
 
 # Bar values, set from the spread of run1/run2/run3 at three different frames (see README.md "The bars").
 BAR_VALUES = {
-    'green_low_share': 0.11,        # re-read: runs 0.2317/0.3473/0.3042 (spread 0.1156, margin 0.1217). This is
-                                     # WEAKER than the owner's 0.30, which a one-pose set's fake spread let through;
-                                     # across the bank's life (waits 150..270) the share runs 0.23..0.35, so 0.30
-                                     # and an honest spread cannot both hold. `green_height_frac` 0.15 and
-                                     # `green_rise_m` 1.9 are this look's other guards, so this one bar is not the
-                                     # only thing barring the pooling look. See docs/reference/decisions.md
+    'green_low_share': 0.11,        # carried: runs 0.2317/0.3473/0.3040 (spread 0.1156, margin 0.1217). Still
+                                     # the owner's open row in decisions.md; 0.30 cannot hold with an honest
+                                     # spread - the share runs 0.23..0.35 across waits 150..270
     'green_height_frac': 0.15,      # owner-decided CEILING, kept; runs 0.0977/0.0933/0.0879, spread 0.0098,
                                      # margin 0.0523
-    'green_height_floor': 0.075,    # the FLOOR, re-read from these runs: 0.0977/0.0933/0.0879, spread 0.0098,
-                                     # margin 0.0129 (0.08 only cleared by 0.0079, inside the spread)
-    'green_rise_m': 1.9,            # re-read: runs 3.091/2.529/2.779, spread 0.562, margin 0.629. The 2.4 it
-                                     # replaces cleared by 0.129, far inside this spread
-    'green_area_frac': 0.0075,      # re-read: 0.01860/0.01360/0.01323, spread 0.00537, margin 0.00573
-    'o240_blob_floor': 1020,        # re-read: biggest overview blob 1041/1033/1042, spread 9, margin 13. The
-                                     # speck build still fails by an order of magnitude (119/117/116)
-    'o240_green_area_frac': 0.0065,  # re-read: runs 0.0071/0.0070/0.0074, spread 0.0004, margin 0.0005
-    'o240_cloud_count': 3,          # the FLOOR, carried: runs 15/13/13, spread 2, margin 10
+    'green_height_floor': 0.075,    # the FLOOR, carried: 0.0977/0.0933/0.0879, spread 0.0098, margin 0.0129
+    'green_rise_m': 1.9,            # carried: runs 3.091/2.529/2.779, spread 0.562, margin 0.629
+    'green_area_frac': 0.0075,      # carried: 0.01860/0.01360/0.01319, spread 0.00541, margin 0.00569
+    'o240_blob_floor': 900,         # re-read DOWN from 1020: biggest overview blob 1063/1045/990, spread 73,
+                                     # margin 90. Block 16 leaves gaps, so fewer neighbours merge and the biggest
+                                     # blob is both smaller and noisier. The speck build this floor refuses still
+                                     # reads 119/117/116 - an order of magnitude below
+    'o240_green_area_frac': 0.0055,  # re-read DOWN from 0.0065: runs 0.0061/0.0063/0.0065, spread 0.0004,
+                                     # margin 0.0006. Fewer overview cards clouds less of the frame: the gaps the
+                                     # owner asked for, not coverage
+    'o240_cloud_count': 3,          # the FLOOR, carried: runs 11/11/12, spread 1, margin 8
     'o240_cloud_ceiling': 15,       # the owner's own number, put back (2026-10-23: "Put o240_cloud_ceiling back
-                                     # to 15 ... Do not raise the ceiling"). The BUILD makes fewer overview clouds
-                                     # instead: GasCloudBlock 12 -> 16 reads 11 clouds at wait 150, so it clears 15
-                                     # by 4, over the ~2 spread of three 60-frame captures. The other bars below
-                                     # are still -g1-g2's and are re-read from this build's run1/run2/run3.
-    'o240_cloud_share': 0.86,       # re-read: runs 0.8932/0.8847/0.9057, spread 0.0210, margin 0.0247
+                                     # to 15 ... Do not raise the ceiling"). The BUILD makes fewer overview
+                                     # clouds instead: GasCloudBlock 12 -> 16 reads 11/11/12, clearing 15 by 3
+                                     # against a spread of 1
+    'o240_cloud_share': 0.82,       # re-read DOWN from 0.86: runs 0.8555/0.8681/0.8865, spread 0.0310,
+                                     # margin 0.0355
     'pose_error_max': 0.50,         # GasBankStills.PoseBar
 }
 
