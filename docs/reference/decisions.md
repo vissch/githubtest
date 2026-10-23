@@ -447,6 +447,22 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   Answered in general 2026-10-18 (row above): a leg may now force-push its own lane, so (2) needs no build;
   whether this lane was pushed is still open.
 
+- **MG bursts re-phase the dice and `MatchLoopTests.TheEnemy_BreaksAPlayerWhoOnlySitsInHisTrench` goes red
+  (2026-10-23, lane `lane/sim/fire-mg-bursts`):** the burst clock is built and balance-neutral by construction --
+  `CombatTables.BurstPlan`'s cycle is `BurstRounds x ShotGapTicks`, so the four machine guns (ids 2, 4, 5, 18) fire
+  the same 300 rounds a minute and the same suppression a minute they did; `CombatTests.TheGunsFireAtThePace...` and
+  the two re-pinned golden hashes are green, and 1346 of 1347 EditMode tests pass. The one red is an outcome test on
+  a 2-of-3-seeds threshold: the enemy broke a player who only sits in his trench on 1 seed of 3, not 2. Nothing in
+  the balance moved; the rounds now land on different ticks, so `SimRandom` (seeded on tick and slot) rolls a
+  different sequence and a coin-flip threshold fell the other way. The test is in `Tests/Match`, which is SHOW's,
+  and the plan for this lane says in as many words: if a balance test goes red by a hair, report the number and do
+  not retune the clock. Options: (a) the threshold is widened to 1 of 3, or the test given more seeds, in a SHOW
+  commit -- the honest reading, since the figure it guards did not move; (b) the per-slot offset
+  (`(uint)slot * 2654435761u`) is dropped so every gunner bursts in unison on the same phase, which leaves the dice
+  closer to where they were but makes a line of guns fire as one; (c) the burst is abandoned. Default taken: none.
+  The work is built and tested in the checkout but **not committed**: the edit gate is red on exactly this one test,
+  and a leg commits only on a green gate.
+
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
 summarised in the docs named; the files themselves are not readable from another machine or lane.
