@@ -1,0 +1,18 @@
+CombatFx.BurnReport() -- GreyboxCorridor in Play, 2026-10-23, the session the after-* stills were taken in
+(Tools/tw eval 'return UnityEngine.Object.FindFirstObjectByType<TW.Presentation.Tactical.CombatFx>().BurnReport();')
+
+while a swept patch burned (after-day.png was taken here):
+  cells=2 sim=2 drawn=0 covered=29149/29149 (100%) uncovered=0 late=0 scorch=48 retired=48 tier=EPIC cap=62
+
+while one cell burned at night (after-night.png was taken here):
+  cells=1 sim=1 drawn=0 covered=44790/44790 (100%) uncovered=0 late=0 scorch=61 retired=61 tier=EPIC cap=62
+
+at the end of the session, every fire out:
+  cells=0 sim=0 drawn=0 covered=44971/44971 (100%) uncovered=0 late=0 scorch=62 retired=62 tier=EPIC cap=62
+
+Read it as: every frame the sim reported a burning cell (44971 of them) had a drawn flame within 0.5 m of that
+cell's centre; no frame had an uncovered burning cell; nothing was drawn on a cell after the sim put it out
+(late=0); 62 cells went out and each left a scorch mark. drawn=0 in a line only means no fire renewed its cards
+on that one frame (a card lasts BurnRelight * 1.6 s).
+
+On the pre-change tree the same probe answers "no BurnReport (pre-change code)": nothing read CellBurning.

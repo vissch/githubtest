@@ -1085,6 +1085,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   did not move: 11.15 -> 11.43, still at 0 degrees. What is left is the card's own UV boundary (`Fill = 0.90`, so
   the glyph is clipped by the quad), which no alpha ramp feathers. `probe.py` exits 1 on `seam_score_max` alone and
   the remaining remedies are an open question for the owner (`decisions.md`).
+  `Tools/flamecheck.py` rejects a shot with no fire in it. The burning GROUND needs a real jet, so it is staged with
+  `TW.Perf.GymDirector` (`Spawn` + `Hold`, the victims given hp and teleported back to six metres every couple of
+  seconds, or they close to melee and nobody fires) and the still taken 1.5 s after the flamethrowers are despawned:
+  `docs/evidence/fire-flame-burning-ground/README.md` is the worked recipe with before/after stills day and night.
+  `flamecheck.py` does NOT tell that pair apart (it counts any warm pixel in the frame, snow included);
+  `CombatFx.BurnReport()` and BurningGroundTests do.
 - **Trap:** `FlipbookFx` indexes its sheets by the `Book` enum's ordinal and is only `Ready` when every sheet loads.
   A missing PNG or a row out of order silently disables every flipbook in the game. Add the enum entry, the row and
   the PNG together, and check `books.Ready`.
