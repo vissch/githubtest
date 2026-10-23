@@ -1,4 +1,4 @@
-// Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-8, look spec L05) — part of CombatFx. Behind fx.recipes,
+﻿// Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-8, look spec L05) — part of CombatFx. Behind fx.recipes,
 // the shells of an off-map barrage are seen coming in: the sim schedules every payload ahead (OffMapAbilitySystem.
 // Scheduled, read here and never written), so a ShellFall card (a shell streaking down onto its point, 8 frames at
 // 12 fps) is laid IncomingLead before each shell's tick and ends as the shell lands (on game time: at a raised
@@ -135,7 +135,9 @@ namespace TW.Presentation.Tactical
             float firedSeconds = e.Tick * Host.Local.World.Config.TickSeconds;
             for (int k = 0; k < men; k++)
             {
-                float a = (k + 0.5f) / men * 6.2832f, d = 12f * Mathf.Sqrt(Hash01(at.x + k, at.z, 71 + k));
+                // 18 m, not 12: at zoom 30 thirteen 5 m canopies in a 12 m circle stacked into one blob, so the
+                // spread is wider than the bank of domes is
+                float a = (k + 0.5f) / men * 6.2832f, d = 18f * Mathf.Sqrt(Hash01(at.x + k, at.z, 71 + k));
                 Vector3 g = at + new Vector3(Mathf.Cos(a) * d, 0f, Mathf.Sin(a) * d);
                 float gx = Mathf.Clamp(g.x, 1f, size.x - 1f), gz = Mathf.Clamp(g.z, 1f, size.y - 1f);
                 g.y = RenderGround.Sample(map, gx, gz);
@@ -143,7 +145,10 @@ namespace TW.Presentation.Tactical
                 // a dome a player reads at both zooms and the off switch changes one frame's picture. It opens fall
                 // seconds before the landing and comes down from PlaneLow onto the man's ground point.
                 if (canopies.Count >= 48) canopies.RemoveAt(0);
-                canopies.Add(new Canopy { Ground = g, Open = firedSeconds + warm - fall, Land = firedSeconds + warm });
+                // and each man's own moment, +-0.5 s off the point: thirteen canopies that open and land together
+                // read as one object, and a shot at any one tick catches them all at the same height
+                float lag = (Hash01(at.z, at.x + k, 137 + k) - 0.5f);
+                canopies.Add(new Canopy { Ground = g, Open = firedSeconds + warm - fall + lag, Land = firedSeconds + warm + lag });
             }
 
             if (flyovers.Count >= 4) flyovers.RemoveAt(0);

@@ -110,11 +110,13 @@ namespace TW.Presentation.Tactical
         readonly Flamethrower flames = new Flamethrower();
         System.Func<int, Vector3> drawnAt; System.Func<float, float, float> groundAt;   // cached: Update must not allocate
         Material dirtMat, woodMat, smokeMat;
-        Material canopyMat;   // the paratroopers' canopies: unlit white, so a night drop still reads (DrawCanopies)
+        Material canopyMat;   // the paratroopers' canopies: unlit off-white, so a night drop still reads (DrawCanopies)
+        Material trooperMat;   // the man hanging under a canopy: mid grey, so he reads against dark ground and against the canopy
         Material smokeThin, smokeFaint;
         readonly List<Matrix4x4> batch = new List<Matrix4x4>(1023);
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
         Mesh cube, capsule, sphere, plume, puff, flashMesh;
+        Mesh canopyMesh;   // a gored dome with a scalloped rim and a flared skirt: a parachute a player can name at zoom 30
         Mesh clod;   // a lump for the dirt a burst or a round throws: Unity's cube read as a cube from close by
         Material flashMat;
         Material tracerNightA, tracerNightB, tracerCore, sparkMat;
@@ -292,8 +294,11 @@ namespace TW.Presentation.Tactical
             smokeFaint = Transparent(unlit, new Color(0.34f, 0.32f, 0.29f, 0.07f));
             flashMat = new Material(unlit) { enableInstancing = true, color = new Color(1f, 0.91f, 0.65f) };
             // unlit, not Painted: a toon-lit canopy would go dark at night, and the owner asked for canopies that read at night
-            canopyMat = new Material(unlit) { enableInstancing = true, color = Color.white, hideFlags = HideFlags.HideAndDontSave };
-            plume = BuildPlume(); puff = BuildPuff(); flashMesh = BuildFlash();
+            // not pure white: thirteen clipped-white domes melted into one another (drop_T1_r1 blown_frac 0.13348
+            // against its plate's 0.00045), so the canopy sits just under clipping and keeps its shading
+            canopyMat = new Material(unlit) { enableInstancing = true, color = new Color(0.78f, 0.78f, 0.76f), hideFlags = HideFlags.HideAndDontSave };
+            trooperMat = new Material(unlit) { enableInstancing = true, color = new Color(0.5f, 0.5f, 0.5f), hideFlags = HideFlags.HideAndDontSave };
+            plume = BuildPlume(); puff = BuildPuff(); flashMesh = BuildFlash(); canopyMesh = BuildCanopy();
             markMine = Transparent(unlit, new Color(1f, 0.85f, 0.3f, 0.35f));
             markTheirs = Transparent(unlit, new Color(1f, 0.2f, 0.15f, 0.35f));
             aimMat = Transparent(unlit, new Color(1f, 1f, 1f, 0.22f));
@@ -466,6 +471,39 @@ namespace TW.Presentation.Tactical
             mesh.SetVertices(vertices); mesh.SetTriangles(triangles, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds(); return mesh;
         }
 
+        /// <summary>A parachute canopy: a dome of 8 gores with a scalloped rim and a short flared skirt, one metre
+        /// wide and one half metre tall, so DrawCanopies scales it by the canopy's width. The gores are what makes it
+        /// a parachute and not an egg: the rim dips in the middle of every gore and lifts at the seams, so the
+        /// silhouette shows eight lobes at zoom 30 and the shader needs no lighting to say what it is. Double-sided,
+        /// because a camera below the bank sees the inside of the dome.</summary>
+        static Mesh BuildCanopy()
+        {
+            const int gores = 8, perGore = 4, sides = gores * perGore, rings = 6;
+            var vertices = new List<Vector3>(); var triangles = new List<int>();
+            for (int ring = 0; ring <= rings + 1; ring++)
+            for (int side = 0; side <= sides; side++)
+            {
+                float a = side * Mathf.PI * 2f / sides;
+                float gore = Mathf.Cos(a * gores);               // +1 on a seam, -1 in the middle of a gore
+                bool skirt = ring == rings + 1;
+                float b = Mathf.Min(ring, rings) / (float)rings * Mathf.PI * 0.5f;
+                float r = Mathf.Sin(b) * 0.5f, y = Mathf.Cos(b) * 0.5f;
+                r *= 1f + 0.05f * gore * Mathf.Sin(b);           // each gore bulges between its seams
+                if (ring == rings) { r *= 1f + 0.10f * gore; y += 0.06f * (1f + gore) * 0.5f; }   // the scalloped rim
+                if (skirt) { r *= 1.14f; y -= 0.11f; }           // the skirt: a short flare under the rim
+                vertices.Add(new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r));
+                if (ring > rings || side == sides) continue;
+                int i = ring * (sides + 1) + side;
+                triangles.Add(i); triangles.Add(i + 1); triangles.Add(i + sides + 1);
+                triangles.Add(i + 1); triangles.Add(i + sides + 2); triangles.Add(i + sides + 1);
+            }
+            int front = triangles.Count;
+            for (int i = 0; i < front; i += 3) { triangles.Add(triangles[i]); triangles.Add(triangles[i + 2]); triangles.Add(triangles[i + 1]); }
+            var mesh = new Mesh { name = "Parachute canopy", hideFlags = HideFlags.HideAndDontSave };
+            mesh.SetVertices(vertices); mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateNormals(); mesh.RecalculateBounds(); return mesh;
+        }
+
         static Mesh BuildFlash()
         {
             var vertices = new List<Vector3> { new Vector3(0f, 0f, 0.55f) }; var triangles = new List<int>();
@@ -509,13 +547,14 @@ namespace TW.Presentation.Tactical
             flames.Clear();
             SceneHooks.FootFall = null;
             books?.Dispose();
-            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat, canopyMat }) if (mat != null) Destroy(mat);
+            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat, canopyMat, trooperMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             foreach (var mat in markMats) if (mat != null) Destroy(mat);
             foreach (var mat in new[] { fallenMat, brassMat, helmetMat, vapourMat }) if (mat != null) Destroy(mat);
             foreach (var mesh in fallen) if (mesh != null) Destroy(mesh);
             if (markQuad != null) Destroy(markQuad);
             if (plume != null) Destroy(plume); if (puff != null) Destroy(puff); if (flashMesh != null) Destroy(flashMesh);
+            if (canopyMesh != null) Destroy(canopyMesh);
         }
 
         /// <summary>How long one Shot of a burning weapon holds the stream open: a little over the quarter second between

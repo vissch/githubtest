@@ -1,4 +1,4 @@
-// Phase: C4 / docs/21 phase 5 (implemented) — part of CombatFx (see CombatFx.cs for the event dispatch and the shared
+﻿// Phase: C4 / docs/21 phase 5 (implemented) — part of CombatFx (see CombatFx.cs for the event dispatch and the shared
 // pools): what the line abilities look like. The aim: the disc or the corridor the player is dragging (AbilityAim's
 // Shape, through SceneHooks.AimPreview: the effects do not know who owns the aim), with a tick at every lift of a
 // stepping pattern. The strafe: an aircraft's run-in from 200 m out, timed to
@@ -140,16 +140,18 @@ namespace TW.Presentation.Tactical
             }
         }
 
-        /// <summary>The paratroopers' canopies: a white dome per man on its riser, coming down from PlaneLow onto his
-        /// ground point between Open and Land. Unlit and white, so it reads at night; grown by FarGrow, so a bank of
-        /// them is still a white streak at zoom 240. Two instanced draws however many men are in the air.</summary>
+        /// <summary>The paratroopers' canopies: per man a gored dome on four shrouds with a man hanging under it,
+        /// coming down from PlaneLow onto his ground point between Open and Land, then collapsing flat on the ground
+        /// over DropCanopyLinger. Unlit, so a night drop still reads; grown by half of FarGrow, so a bank of them is
+        /// still a white streak at zoom 240 and not one blob. Three instanced draws however many men are in the air.</summary>
         void DrawCanopies(Bounds bounds)
         {
             if (canopies.Count == 0 || !DropFx || !DropCanopies || canopyMat == null) return;
             // half of FarGrow, not all of it: at zoom 240 thirteen domes grown x2.5 merged into one round white
             // blob the size of a village (the first g3 capture). Half the growth keeps the bank reading as one white
             // streak that still follows the biplane's line.
-            float simNow = SimNow, w = 6f * (1f + (DropGrow() - 1f) * 0.5f);
+            float simNow = SimNow, w = 5f * (1f + (DropGrow() - 1f) * 0.5f);
+            const float Hang = 3.5f, Man = 1.8f;   // the drop from the canopy's rim to the man's shoulders, and the man
             var rp = new RenderParams(canopyMat) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off };
             batch.Clear();
             for (int i = canopies.Count - 1; i >= 0; i--)
@@ -158,19 +160,48 @@ namespace TW.Presentation.Tactical
                 if (simNow > c.Land + DropCanopyLinger) { canopies.RemoveAt(i); continue; }
                 float t = Mathf.Clamp01((simNow - c.Open) / Mathf.Max(0.01f, c.Land - c.Open));
                 float height = Mathf.Lerp(PlaneLow, 0f, t);
-                batch.Add(Matrix4x4.TRS(c.Ground + Vector3.up * (height + w * 0.3f), Quaternion.identity, new Vector3(w, w * 0.55f, w)));
+                if (simNow <= c.Land)
+                {
+                    batch.Add(Matrix4x4.TRS(c.Ground + Vector3.up * (height + Man + Hang), Quaternion.identity, new Vector3(w, w, w)));
+                    continue;
+                }
+                // down: the dome folds to a flat widened disc on the ground, so it reads as a collapsed chute and not
+                // as a dome floating over the man who is now a soldier the sim draws
+                float u = Mathf.Clamp01((simNow - c.Land) / Mathf.Max(0.01f, DropCanopyLinger));
+                float flat = Mathf.Lerp(1f, 0.12f, u), spread = Mathf.Lerp(1f, 1.3f, u);
+                batch.Add(Matrix4x4.TRS(c.Ground + Vector3.up * 0.05f, Quaternion.identity, new Vector3(w * spread, w * flat, w * spread)));
             }
             if (batch.Count == 0) return;
-            Flush(sphere, rp);
-            // the risers: the lines the men hang on, under each dome (the spent ones are already pruned above)
+            Flush(canopyMesh, rp);
+            // the shrouds: four lines per man, from the dome's rim to his shoulders (the spent ones are already pruned)
+            float shroud = 0.06f * w / 5f;
             for (int i = 0; i < canopies.Count; i++)
             {
                 var c = canopies[i];
+                if (simNow > c.Land) continue;
                 float t = Mathf.Clamp01((simNow - c.Open) / Mathf.Max(0.01f, c.Land - c.Open));
                 float height = Mathf.Lerp(PlaneLow, 0f, t);
-                batch.Add(Matrix4x4.TRS(c.Ground + Vector3.up * (height - 1.1f + w * 0.3f), Quaternion.identity, new Vector3(0.12f * w / 6f, 2.2f, 0.12f * w / 6f)));
+                Vector3 shoulder = c.Ground + Vector3.up * (height + Man * 0.85f);
+                for (int k = 0; k < 4; k++)
+                {
+                    float a = (k + 0.5f) * Mathf.PI * 0.5f;
+                    Vector3 rim = c.Ground + Vector3.up * (height + Man + Hang) + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * (w * 0.45f);
+                    Vector3 along = rim - shoulder;
+                    batch.Add(Matrix4x4.TRS((rim + shoulder) * 0.5f, Quaternion.FromToRotation(Vector3.up, along.normalized),
+                                            new Vector3(shroud, along.magnitude, shroud)));
+                }
             }
             if (batch.Count > 0) Flush(cube, rp);
+            // and the man himself: mid grey, so he reads both against the dark ground and against the pale canopy
+            for (int i = 0; i < canopies.Count; i++)
+            {
+                var c = canopies[i];
+                if (simNow > c.Land) continue;
+                float t = Mathf.Clamp01((simNow - c.Open) / Mathf.Max(0.01f, c.Land - c.Open));
+                float height = Mathf.Lerp(PlaneLow, 0f, t);
+                batch.Add(Matrix4x4.TRS(c.Ground + Vector3.up * (height + Man * 0.5f), Quaternion.identity, new Vector3(0.5f, Man * 0.5f, 0.5f)));   // the builtin capsule is 2 units tall
+            }
+            if (batch.Count > 0) Flush(capsule, new RenderParams(trooperMat) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off });
         }
 
         void DrawSweeps(float now, Bounds bounds)
