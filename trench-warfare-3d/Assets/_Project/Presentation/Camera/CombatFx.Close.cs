@@ -17,7 +17,7 @@ namespace TW.Presentation.Tactical
     public sealed partial class CombatFx
     {
         /// <summary>What a class carries, as drawn.</summary>
-        public enum ArmsKind : byte { Rifle, Smg, Mg, Sniper, Pistol, Carbine, MachinePistol, HullMg }
+        public enum ArmsKind : byte { Rifle, Smg, Mg, Sniper, Pistol, Carbine, MachinePistol, HullMg, AtRifle }
 
         public static ArmsKind KindOf(byte archetype)
         {
@@ -29,6 +29,7 @@ namespace TW.Presentation.Tactical
                 case InfantryArchetype.Officer: return ArmsKind.Carbine;
                 case InfantryArchetype.Shield: return ArmsKind.Pistol;
                 case InfantryArchetype.Jetpack: return ArmsKind.MachinePistol;
+                case InfantryArchetype.AtRifle: return ArmsKind.AtRifle;
                 case VehicleArchetype.Maw: case VehicleArchetype.Tusk: case VehicleArchetype.Breaker: case VehicleArchetype.Skimmer: return ArmsKind.HullMg;
                 default: return ArmsKind.Rifle;
             }
@@ -44,6 +45,7 @@ namespace TW.Presentation.Tactical
         {
             switch (kind)
             {
+                case ArmsKind.AtRifle: return 1.4f;   // the heaviest round a man carries
                 case ArmsKind.Sniper: return 1.35f;
                 case ArmsKind.HullMg: return 1.15f;
                 case ArmsKind.Mg: return 1.05f;
@@ -106,6 +108,25 @@ namespace TW.Presentation.Tactical
                         Vector3 kick = new Vector3(barrel.x, 0f, barrel.z) * 0.8f + Vector3.up * 0.25f;
                         books.Add(FlipbookFx.Book.DustPuff, foot + barrel * (0.4f * scale), 1.6f * scale, 1.4f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((h & 1u) != 0 ? FlipbookFx.Kind.Mirror : 0),
                             velocity: kick, grow: 0.4f, alpha: SceneMood.Night ? 0.2f : 0.45f, delay: delay);   // at night the burst light lit it into a yellow smear (la4)
+                    }
+                    break;
+                case ArmsKind.AtRifle:
+                    if (!flared) break;   // end-on (or no flare this round): the book carries it
+                    // the anti-tank rifle's blast: the brake's jets thrown wider and harder than the sniper's, a crack at the
+                    // mouth, and the dirt his shot tears off the ground under the barrel
+                    for (int s = -1; s <= 1; s += 2)
+                    {
+                        float side = roll + s * 1.5708f;
+                        books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.12f) + ScreenDir(cam, side) * (flare * 0.35f), Mathf.Min(flare * 0.6f, most), 0.18f,
+                            velocity: carried, roll: side, glow: glow, delay: delay);
+                    }
+                    books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.15f), Mathf.Min(flare * 0.7f, most), 0.15f, roll: spin, glow: glow * 0.9f, delay: delay);
+                    if (Host != null && Host.Local != null)
+                    {
+                        Vector3 foot = new Vector3(from.x, RenderGround.Sample(Host.Local.Map, from.x, from.z), from.z);
+                        Vector3 kick = new Vector3(barrel.x, 0f, barrel.z) * 1.1f + Vector3.up * 0.35f;
+                        books.Add(FlipbookFx.Book.DustPuff, foot + barrel * (0.4f * scale), 2.4f * scale, 1.8f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((h & 1u) != 0 ? FlipbookFx.Kind.Mirror : 0),
+                            velocity: kick, grow: 0.5f, alpha: SceneMood.Night ? 0.2f : 0.45f, delay: delay);   // at night the blast light smears a brighter one (la4)
                     }
                     break;
                 case ArmsKind.Mg:

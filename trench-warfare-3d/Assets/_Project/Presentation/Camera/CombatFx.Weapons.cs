@@ -67,6 +67,8 @@ namespace TW.Presentation.Tactical
                     return Look(0.8f, 0.9f, 0.9f, 0.3f, true, 0.12f, 0.8f, 0.7f);   // smaller and quicker than the SMG's cone (critique r7)
                 case InfantryArchetype.Shield:   // a pistol behind the plate: a short spit
                     return Look(0.6f, 0.7f, 0.7f, 0.5f, true, 0.18f, 0.6f, 0.3f);
+                case InfantryArchetype.AtRifle:  // an anti-tank rifle: a huge flash with side blast, a heavy round that carries, a big cloud
+                    return Look(2.6f, 1.6f, 1.6f, 1.8f, true, 0.26f, 1.6f, 1.4f);
                 case InfantryArchetype.Jetpack:  // a machine pistol: tiny flares that flicker three times (CombatFx.Close.cs)
                     return Look(0.5f, 0.8f, 0.8f, 0.6f, true, 0.18f, 0.55f, 0.4f);
                 case VehicleArchetype.Maw: case VehicleArchetype.Tusk: case VehicleArchetype.Breaker: case VehicleArchetype.Skimmer:
@@ -123,6 +125,7 @@ namespace TW.Presentation.Tactical
             switch (kind)
             {
                 case ArmsKind.Sniper: return FlipbookFx.Book.MuzzleBrake;
+                case ArmsKind.AtRifle: return FlipbookFx.Book.GunLong;   // the long gun's blast, already baked (TankRenderer.Guns.cs)
                 case ArmsKind.Mg: case ArmsKind.HullMg: return FlipbookFx.Book.MuzzleStream;
                 case ArmsKind.Pistol: case ArmsKind.MachinePistol: return FlipbookFx.Book.MuzzlePop;
                 case ArmsKind.Smg: return FlipbookFx.Book.MuzzleBurst;
@@ -151,6 +154,7 @@ namespace TW.Presentation.Tactical
         public static float MuzzleScale(FlipbookFx.Book book, float closeUp)
         {
             float k = book == FlipbookFx.Book.MuzzleBrake ? (SceneMood.Night ? 1.25f : BrakeDay) : book == FlipbookFx.Book.MuzzleStream ? 1.4f : book == FlipbookFx.Book.MuzzlePop ? 0.9f
+                    : book == FlipbookFx.Book.GunLong ? 1.2f   // the calibre scale the long guns use (TankRenderer.Guns.cs CalibreScale)
                     : book == FlipbookFx.Book.MuzzleBurst && !SceneMood.Night ? BurstDay : 1f;
             float near = book == FlipbookFx.Book.MuzzleRifle ? RifleStandard : 1f;   // the rifle's cone big enough to read at zoom 30
             return Mathf.Lerp(near, Mathf.Max(near, k * (SceneMood.Night ? BookGrowNight : BookGrow)), closeUp);
