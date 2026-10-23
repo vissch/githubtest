@@ -459,6 +459,18 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   (more alpha), with the man rule kept. The gas hue is NOT touched (another lane has its own hue brief open with the
   owner). Nothing is landed on this.
 
+- **The gas bank's `gas_green_share` bar: 0.44 cleared, but not by the spread (2026-10-23):** the reshoot
+  (`docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/`) gives three runs of one build
+  at 0.4828 / 0.4431 / 0.4478. Every run is above the owner's floor of 0.44, but the nearest clears it by 0.0031
+  while the runs' own spread is 0.0397, and his rule is that the bar sits outside the spread of three captures. The
+  plan's named fallback (`GasBankThin` 0.19 -> 0.26) was shot and moved the lowest pose only 0.4431 -> 0.4535, a
+  tenth of what the margin needs, so it was reverted. Options: (a) keep the bar at 0.44 and accept that the runs
+  clear it without the spread margin — the default taken here, so `probe.py` exits 1 and the lane does not land;
+  (b) shoot the round at three poses whose green share does not spread 0.04 (run1's earlier tick is the outlier);
+  (c) raise the thin alpha far enough to close it, which also rewrites `TheGasBankStacksIntoDensity`'s "a card is a
+  haze, not a tile" guard — a look decision. Lowering the bar below 0.44 is refused by the owner and was not done.
+  Nobody to ask in a relay leg; nothing is landed on this.
+
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
 summarised in the docs named; the files themselves are not readable from another machine or lane.
