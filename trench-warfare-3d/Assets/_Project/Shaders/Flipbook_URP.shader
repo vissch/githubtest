@@ -35,6 +35,7 @@ Shader "TW/Flipbook (URP)"
         _Ember ("A cloud born of fire: warm light on its underside while it is young (0 = none)", Color) = (0, 0, 0, 0)
         _EmberLit ("The ember on the lit billows (1) or in the drawing's darks (0)", Range(0, 1)) = 0
         _Ground ("A book lying on the ground (1): not softened against the ground it lies on", Float) = 0
+        _Solid ("A bank's soft alpha shoulder pulled up to full (0 = the drawing's own)", Range(0, 0.95)) = 0
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src", Float) = 5
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("Dst", Float) = 10
     }
@@ -61,7 +62,7 @@ Shader "TW/Flipbook (URP)"
             CBUFFER_START(UnityPerMaterial)
                 float4 _Grid, _Levels, _Bands, _Contour;
                 half4 _Tint, _Shade, _Smoke, _Fringe, _Core, _InkColor, _Ember;
-                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Fire, _Rise, _Hot, _Soft, _Hard, _BurstLit, _Ground, _EmberLit;
+                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Fire, _Rise, _Hot, _Soft, _Hard, _BurstLit, _Ground, _EmberLit, _Solid;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings
@@ -139,6 +140,12 @@ Shader "TW/Flipbook (URP)"
                 }
                 // soft where it meets the ground or a wall (the scene's depth behind it, over 0.8 m), and gone as it comes
                 // through the lens: up close a card wider than the picture was a wall of smoke for seconds
+                // r2-3-g2-g2-g2-g2: a blob pixel is a*card + (1-a)*grass, so a bank with a wide soft shoulder reads as a
+                // mix of its tint and whatever is behind it, and each seed's own fringe-to-core mix lands on a different
+                // hue. Pulling the shoulder up to full makes the alpha near-binary: inside the silhouette the pixel is the
+                // card's own colour and nothing else. Monotone and 0 stays 0, so the silhouette keeps its shape and only
+                // its shoulder narrows; after the _Hard block so it lifts whichever alpha path ran.
+                alpha = saturate(alpha / max(0.05, 1.0 - _Solid));
                 float scene = LinearEyeDepth(SampleSceneDepth(i.screen.xy / i.screen.w), _ZBufferParams);
                 // a ground book (_Ground 1) lies a hand above the ground, so the ground soften would take most of it away
                 alpha *= lerp(saturate((scene - i.extra.y) / 0.8), 1.0, _Ground) * saturate((i.extra.y - 0.25 * i.extra.x) / (0.5 * i.extra.x + 0.01));
