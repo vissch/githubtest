@@ -517,6 +517,24 @@ class World:
                     out.append((d.get('run') or f.stem, d.get('stopped_at') or '', uid, v, ' '.join(map(str, why)) if isinstance(why, list) else str(why)))
         return sorted(out, key=lambda x: (x[1], x[0]))
 
+    def refusal_runs(self):
+        """[(run, unit)] the API refused (safety refusal), once per run and unit: a stop record with "refusals" >= 1 names its
+        unit(s) that did not PASS (else the one it was on); a leg result record with stop_reason "refusal" names its unit."""
+        since = time.strftime('%Y%m%d', time.localtime(self.now() - loopsteps.SINCE_DAYS * 86400))
+        out = set()
+        for board in [self.main, *self.extras.values()]:
+            for f in Path(board).glob('relay/*/stops/*.json'):
+                d = load(f, {})
+                if f.name[:8] < since or not isinstance(d, dict) or not (d.get('refusals') or 0) >= 1:
+                    continue
+                us = [u for u, v in (d.get('units') or {}).items() if v != 'PASS'] or ([d['now_on']] if d.get('now_on') else [])
+                out |= {(d.get('run') or f.stem, u) for u in us}
+            for f in Path(board).glob('relay/*/legs/*.json'):
+                d = load(f, {})
+                if f.name[:8] >= since and isinstance(d, dict) and d.get('stop_reason') == 'refusal' and d.get('unit'):
+                    out.add((d.get('run') or f.stem, d['unit']))
+        return sorted(out)
+
     def lane_sha(self, lane, at=''):
         """The head of origin/<lane>, or the commit it stood at by `at` (a stop record's time); '' when none."""
         if not lane:
