@@ -38,6 +38,15 @@ namespace TW.Presentation.Tactical
             return new GunLay { Centre = centre, Rotation = Quaternion.LookRotation(facing, Vector3.up), Length = AtRifleLength * scale };
         }
 
+        /// <summary>The two ends of a laid gun in world space: the muzzle out front along his facing, the butt behind.
+        /// What a reading of a still needs - nothing else says where in the world the gun begins and ends.</summary>
+        public static void GunEnds(GunLay lay, out Vector3 muzzle, out Vector3 butt)
+        {
+            var along = lay.Rotation * Vector3.forward * (lay.Length * 0.5f);
+            muzzle = lay.Centre + along;
+            butt = lay.Centre - along;
+        }
+
         Mesh atRifleMesh; Material atRifleMat; bool atRifleTried;
         readonly List<Matrix4x4> atRifles = new List<Matrix4x4>(64);
         Matrix4x4[] atRifleBatch = new Matrix4x4[128];

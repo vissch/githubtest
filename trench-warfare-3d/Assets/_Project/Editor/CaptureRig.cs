@@ -59,6 +59,19 @@ namespace TW.Editor
             return true;
         }
 
+        /// <summary>One world point in this image's pixels, x from the left and y from the top, by the same
+        /// projection ManBox uses (the camera's own carries the game view's aspect, not the picture's).</summary>
+        public static bool ImgPoint(Matrix4x4 worldToCamera, Matrix4x4 projection, int w, int h, Vector3 p,
+            out float imgX, out float imgY)
+        {
+            imgX = imgY = float.NaN;
+            Vector4 c = projection * worldToCamera * new Vector4(p.x, p.y, p.z, 1f);
+            if (c.w <= 0.0001f) return false;
+            imgX = (c.x / c.w * 0.5f + 0.5f) * w;
+            imgY = h - 1 - (c.y / c.w * 0.5f + 0.5f) * h;
+            return true;
+        }
+
         /// <summary>
         /// Runs last in the frame (after the camera, the presenter and the renderers have all had their LateUpdate),
         /// so what it photographs is what those systems just prepared.
@@ -319,7 +332,26 @@ namespace TW.Editor
                     drawn.y += host.Local.Map.Height.Sample(drawn.x, drawn.z);
                     if (ManBox(cam.worldToCameraMatrix, boxProj, w, h, drawn,
                             out float bx, out float by, out float bTall))
-                        boxes.Add(new[] { s, (float)world.Archetype[s], bx, by, bTall });
+                    {
+                        // and where his own gun is drawn, for the men who carry one (CombatFx.AtRifle): the capture's
+                        // own projection of its two ends, so a reading measures the gun the draw put there and does
+                        // not guess it off the man's box. NaN for everyone else.
+                        float gx0 = float.NaN, gy0 = float.NaN, gx1 = float.NaN, gy1 = float.NaN;
+                        if (CombatFx.Carries(world.Archetype[s]))
+                        {
+                            var anim = host.Animation;
+                            float gunYaw = anim != null && anim.Yaw.IsCreated && s < anim.Yaw.Length ? anim.Yaw[s] : world.Yaw[s];
+                            var gunStance = (Stance)(anim != null && host.UseAnimationController ? anim.State[s].Stance : world.StanceOf[s]);
+                            var vatNow = Object.FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
+                            float figure = vatNow != null ? vatNow.UnitScale * vatNow.CurrentGrow : 1f;
+                            var lay = CombatFx.Lay(drawn, drawn.y, gunYaw, gunStance, figure);
+                            CombatFx.GunEnds(lay, out var muzzle, out var butt);
+                            if (ImgPoint(cam.worldToCameraMatrix, boxProj, w, h, muzzle, out float mx, out float my)
+                                && ImgPoint(cam.worldToCameraMatrix, boxProj, w, h, butt, out float tx, out float ty))
+                            { gx0 = mx; gy0 = my; gx1 = tx; gy1 = ty; }
+                        }
+                        boxes.Add(new[] { s, (float)world.Archetype[s], bx, by, bTall, gx0, gy0, gx1, gy1 });
+                    }
                     Vector3 sp = cam.WorldToScreenPoint(chest);
                     int cx = Mathf.RoundToInt(sp.x * w / cam.pixelWidth), cy = Mathf.RoundToInt(sp.y * h / cam.pixelHeight);
                     // how tall he is drawn, in this image's pixels. The ring that samples the ground has to sit OUTSIDE
@@ -365,6 +397,11 @@ namespace TW.Editor
                 string k = "man" + i.ToString(CultureInfo.InvariantCulture);
                 N(sb, k + "_slot", boxes[i][0]); N(sb, k + "_archetype", boxes[i][1]);
                 N(sb, k + "_img_x", boxes[i][2]); N(sb, k + "_img_y", boxes[i][3]); N(sb, k + "_tall_px", boxes[i][4]);
+                if (!float.IsNaN(boxes[i][5]))
+                {
+                    N(sb, k + "_gun_x0", boxes[i][5]); N(sb, k + "_gun_y0", boxes[i][6]);
+                    N(sb, k + "_gun_x1", boxes[i][7]); N(sb, k + "_gun_y1", boxes[i][8]);
+                }
             }
             // which squall the shot was taken in: rain wanders over a ~50 s cycle and nothing used to record it, so
             // two captures minutes apart were compared in different weather without anybody knowing

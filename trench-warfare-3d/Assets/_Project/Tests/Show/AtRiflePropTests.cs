@@ -59,6 +59,20 @@ namespace TW.Tests
         }
 
         [Test]
+        public void GunEnds_SpanTheGunAlongHisFacing()
+        {
+            // a man lying on the parapet at (50, 25), ground 2.95 m up, facing 0.7 rad, drawn life-size
+            const float yaw = 0.7f, scale = 1f, ground = 2.95f;
+            var lay = CombatFx.Lay(new Vector3(50f, ground, 25f), ground, yaw, Stance.Prone, scale);
+            CombatFx.GunEnds(lay, out var muzzle, out var butt);
+            Assert.That(Vector3.Distance(muzzle, butt), Is.EqualTo(lay.Length).Within(1e-4f), "the two ends are the gun's length apart");
+            Assert.That(Vector3.Distance((muzzle + butt) * 0.5f, lay.Centre), Is.EqualTo(0f).Within(1e-4f), "their midpoint is where the gun is drawn");
+            var facing = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
+            Assert.That(Vector3.Dot((muzzle - butt).normalized, facing), Is.EqualTo(1f).Within(1e-4f), "the muzzle is the end out along his facing");
+            Assert.That(lay.Length, Is.EqualTo(1.65f * scale).Within(1e-4f), "1.65 m at his drawn scale (docs/reference/tasks.md)");
+        }
+
+        [Test]
         public void OnlyTheAtRiflemanCarriesOne([Values(0, 1, 2, 3)] int arche)
         {
             Assert.IsFalse(CombatFx.Carries((byte)arche), "archetype " + arche + " keeps the rifle of his baked figure");
