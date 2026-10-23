@@ -140,7 +140,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   puff, gaspuff (the close camera's standing `Book.GasPuff` at frame 16, drawn at the full card width like the smoke
   card: a look reading of the book, while the FIELD puff keeps `CombatFx.GasPuffStand` 0.32) and a plate -
   so a blank still accuses one book and not the sim, the field, the cache and the capture path at once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
-  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g2-g1/probe.py` measures those stills: it COUNTS THE GREEN the gas
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g2-g1-g2/probe.py` measures those stills: it COUNTS THE GREEN the gas
   added over the plate (not a brightness test), in metres, bars the rise, bars the height from BOTH sides (a
   ceiling, so the puff is not a wall, and a floor, so it is not a flat sheet), and refuses two runs that
   photographed the same frame, barred against the SPREAD of three captures of one build at three different
