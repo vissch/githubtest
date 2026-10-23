@@ -408,6 +408,20 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   (more alpha), with the man rule kept. The gas hue is NOT touched (another lane has its own hue brief open with the
   owner). Nothing is landed on this.
 
+- **The gas bank's `row_gap_deepest` cap of 0.15 is out of the measure's reach (2026-10-23, lane
+  `lane/show/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g1`):** the owner's other cap for the
+  round, `bank_patch_count` le 8, is MET (runs 2/5/3, rule's bar 8). `row_gap_deepest` reads 0.4473/0.4495/0.5207
+  and cannot reach 0.15 on ANY build: `probe.py`'s `ROW_CORE_TRIM` 0.15 does not trim away an extent that falls to
+  `ROW_EXTENT_FLOOR` 0.25 of the peak, so a perfectly smooth dome scores 0.3033 (parabola) / 0.3360 (half-cosine)
+  on this very measure. The sheet's own plateau is already flat (middle 60% of the core within 0.17-0.22 of its
+  median) and every run's deepest row sits at an END of the core - the cloud's silhouette, not a gap between
+  cards. Options: (a) drop this cap and judge the banding by `bank_patch_count`, `row_dark_frac` and the eye, all
+  of which now pass; (b) raise `ROW_EXTENT_FLOOR`/`ROW_CORE_TRIM` so the measure reads only the plateau, then set
+  a cap against the dome number; (c) keep the cap as written and accept the lane stays blocked. Nobody to ask in a
+  relay leg, so the default taken here is **(c): nothing was loosened, no measure was moved, and the leg ends
+  BLOCKED on the cap.** Evidence:
+  `docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g1/README.md`.
+
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
 summarised in the docs named; the files themselves are not readable from another machine or lane.

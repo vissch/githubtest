@@ -42,19 +42,26 @@ through the same `green_share` the frame goes through, and this probe REFUSES to
 below `BAR_VALUES['gas_green_share']` by at least the three runs' own spread (or if `CARDS_DIR` is gone). One
 function measures the frame and the cards, so the two can never drift apart.
 
-THE FRAME. A RESHOOT: `run1`/`run2`/`run3` are three fresh captures of the TWO-SUB-ROW build
-(`CombatFx.Banks.cs`: every standing 4 m cell now stands `GasBankSubRows` = 2 cards, one per half-cell stratum
-with `GasBankSubJitterM` = 1 m inside it, so the worst depth step between consecutive card centres down a screen
-column is 3 m, not 6 m; at the T1 pose a card's painted band reaches 1.78 * cos25 = 1.613 m, which covers
-3 * sin25 = 1.268 m but not 6 * sin25 = 2.535 m). The lever was aimed at the owner's two keys.
-IT CLOSED THE ISLANDS AND NOT THE BANDS. `bank_patch_count` fell to 7/8/5 from the raised-floor round's 19/13/6:
-worst 8, spread 3, so the rule's ceiling is 8 + 3 = 11. That is far tighter than every earlier round
-(32 / 38 / 40 / 46) but still OUTSIDE the owner's cap of 8, because the rule's own spread does not fit under it.
-`row_gap_deepest` moved the WRONG way: 0.5930/0.5417/0.4656 against the previous round's 0.2807-0.2911, nowhere
-near the owner's cap of 0.15, so it stays unbarred for a fifth round. `row_dark_frac` moved the wrong way with it
-(0.2018-0.3077 against 0.0331-0.0733) and its bar is re-set from these runs, not tuned.
-Per the plan's rule, neither cap was loosened to make a bar fit: the two caps are reported as MISSED in README.md
-and the leg ends BLOCKED on them. Every other bar below is re-set from these three runs.
+THE FRAME. A RESHOOT: `run1`/`run2`/`run3` are three fresh captures of the FULL-LOAD build
+(`CombatFx.Banks.cs`: `GasBankFullM` is now `GasBankStandFloor` itself, so every cell that passes the stand floor
+draws `Thick` exactly 1 -- one alpha 0.62, one brightness 1.2, no near-threshold ring anywhere in the bank. The
+soft edge now comes from how many cards OVERLAP at the fringe, not from each fringe card being faint). The lever
+was aimed at the owner's two keys, and the row profile of the previous round said why it was needed: over the
+paint's 5-95% column span the mean luma lift of the PAINTED pixels was 14.3 at image row 220 and 12.5 at 540
+against 25.2 at row 400, so a lip card painted 0.38 of a core card.
+THE FIRST CAP IS MET. `bank_patch_count` fell to 2/5/3 from the two-sub-row round's 7/8/5: worst 5, spread 3, so
+the rule's ceiling is 5 + 3 = 8 -- exactly the owner's cap, reached by the rule and not by loosening it (32 / 38 /
+40 / 46 in the rounds before). `bank_paint_share` is 0.9841-0.9899, the highest recorded here.
+`row_gap_deepest` STILL MISSES: 0.4473/0.4495/0.5207 (spread 0.0734) against the owner's cap of 0.15. It is not a
+banding fact any more. The core profile's middle 60% is flat to within 0.17-0.22 of its own median on all three
+runs, and every run's deepest row sits at an END of the trimmed core (core row 0 on run2, 343/370 and 297/299 on
+run1/run3): what is left is the cloud's own near/far silhouette surviving `ROW_CORE_TRIM` 0.15 of an extent that
+runs all the way down to `ROW_EXTENT_FLOOR` 0.25 of the peak. A perfectly smooth dome scores 0.3033 (parabola) or
+0.3360 (half-cosine) on this very measure, both well over 0.15, so no gas build can pass that cap as the measure
+stands. README.md puts that to the owner.
+Per the plan's rule, no cap was loosened to make a bar fit: `row_gap_deepest` is reported MISSED and the leg ends
+BLOCKED on it. Every other bar below is re-set from these three runs; `bank_height_frac` loosened and
+`row_dark_frac` tightened by more than half.
 `one_frame_fault` still refuses two runs sharing a t1 tick or any two byte-identical stills.
 
 THE MASK. The metre mask (`bank_mask`, used by `bank_low_share`/`bank_height_frac`/`bank_rise_m`) is untouched:
@@ -117,10 +124,12 @@ BARS['gas_green_share'] = 'ge'      # the chlorine tint: how much of that paint 
 BARS['bank_paint_share'] = 'ge'     # one bank: most of the frame's PAINT sits in ONE patch
 BARS['bank_patch_count'] = 'le'     # one bank: few paint patches at all (the zebra is many separate cards)
 BARS['row_dark_frac'] = 'le'        # the dark mud lines, as a share of the bank's own on-screen height
-# row_gap_deepest is NOT in BARS, a fifth round running, and this time it got WORSE: the three runs read
-# 0.5930/0.5417/0.4656 (spread 0.1274) against the previous round's 0.2807-0.2911. The owner's cap for it this
-# round is 0.15; the rule's own bar off these runs would be 0.5930 + 0.1274 = 0.7204, five times the cap. A cap is
-# never loosened to fit a build, so the key stays reported only and README.md names the next lever.
+# row_gap_deepest is NOT in BARS, a sixth round running: the three runs read 0.4473/0.4495/0.5207 (spread
+# 0.0734), so the rule's own bar off them would be 0.5207 + 0.0734 = 0.5941 against the owner's cap of 0.15. It
+# improved on the previous round's 0.4656-0.5930 but the cap is out of this measure's reach: a perfectly smooth
+# dome reads 0.3033 (parabola) / 0.3360 (half-cosine) here, because ROW_CORE_TRIM 0.15 does not trim away an
+# extent that falls to ROW_EXTENT_FLOOR 0.25 of the peak. A cap is never loosened to fit a build and a measure is
+# never moved to fit a cap, so the key stays reported only and README.md puts the geometry to the owner.
 
 # From `python probe.py --signature`, run once against ../ability-fx-captures-r2-2-g2-g1/cards/cards-gas.jpg (the
 # isolation still, the only thing in the frame that differs from its plate). GAS_DIR is the normalised mean lift
@@ -944,25 +953,24 @@ def main():
 # clear the nearest run by at least the three runs' own spread. See README.md, "The bars", for the table these
 # came out of, and which keys moved the wrong way against the previous round's captures.
 BAR_VALUES = {
-    'bank_low_share': 0.066,     # runs 0.0750/0.0830/0.0811, spread 0.0080 -> 0.0750 - 0.0080 = 0.0670 is the roof
-    'bank_height_frac': 0.37,    # runs 0.3290/0.3057/0.2946, spread 0.0344 -> 0.3290 + 0.0344 = 0.3634 is the floor
-    'o240_area_frac': 0.022,     # runs 0.0252/0.0277/0.0283, spread 0.0031 -> 0.0252 - 0.0031 = 0.0221 is the roof
+    'bank_low_share': 0.065,     # runs 0.0770/0.0813/0.0881, spread 0.0111 -> 0.0770 - 0.0111 = 0.0659 is the roof
+    # LOOSENED, and allowed (not an owner cap): runs 0.4061/0.3490/0.3183, spread 0.0878 -> 0.4061 + 0.0878 =
+    # 0.4939 is the floor. Every standing card now draws full alpha, so the stack reads taller on screen.
+    'bank_height_frac': 0.50,
+    'o240_area_frac': 0.024,     # runs 0.0284/0.0316/0.0322, spread 0.0038 -> 0.0284 - 0.0038 = 0.0246 is the roof
     'pose_error_max': 0.5,       # GasBankStills.PoseBar; runs 0.0000, spread 0.0000
-    'gas_paint_frac': 0.011,     # runs 0.0215/0.0197/0.0163, spread 0.0052 -> 0.0163 - 0.0052 = 0.0111 is the roof
-    # runs 0.5376/0.4875/0.4786, spread 0.0590 -> bar <= 0.4786 - 0.0590 = 0.4196. Tighter than last round's 0.38.
-    'gas_green_share': 0.41,
-    # runs 0.9567/0.9353/0.9524, spread 0.0214 -> bar <= 0.9353 - 0.0214 = 0.9139. Tighter than last round's 0.76.
-    'bank_paint_share': 0.91,
-    # THE OWNER'S FIRST KEY, and the two sub-rows nearly closed it: runs 7/8/5 against the raised-floor round's
-    # 19/13/6. The worst count is 8 and the spread is 3, so the rule gives bar >= 8 + 3 = 11 -- a third of last
-    # round's 32, but still OUTSIDE the owner's cap of 8, which the runs' own spread of 3 will not fit under.
-    # The cap was NOT loosened and the bar was NOT faked down to 8: the bar is the rule's 11, README.md reports
-    # the cap as MISSED, and the leg that shot these runs ends BLOCKED on it.
-    'bank_patch_count': 11,
-    # MOVED THE WRONG WAY: runs 0.3077/0.2510/0.2018, spread 0.1059 -> bar >= 0.3077 + 0.1059 = 0.4136, so 0.42.
-    # Last round's bar was 0.12 off runs of 0.0331-0.0733. The denser stack reads as one sheet (bank_paint_share
-    # 0.94-0.96) but its rows dip deeper, the same thing row_gap_deepest says. Re-set, not re-measured.
-    'row_dark_frac': 0.42,
+    'gas_paint_frac': 0.013,     # runs 0.0329/0.0270/0.0231, spread 0.0098 -> 0.0231 - 0.0098 = 0.0133 is the roof
+    # runs 0.6687/0.6207/0.6017, spread 0.0670 -> bar <= 0.6017 - 0.0670 = 0.5347. Tighter than last round's 0.41.
+    'gas_green_share': 0.53,
+    # runs 0.9899/0.9841/0.9861, spread 0.0058 -> bar <= 0.9841 - 0.0058 = 0.9783. Tighter than last round's 0.91.
+    'bank_paint_share': 0.97,
+    # THE OWNER'S FIRST KEY, AND IT IS MET: runs 2/5/3 against the two-sub-row round's 7/8/5. The worst count is 5
+    # and the spread is 3, so the rule gives bar >= 5 + 3 = 8 -- exactly the owner's cap of 8, from the rule and
+    # not from the cap: the bar was neither faked down to fit nor tightened past what the runs support.
+    'bank_patch_count': 8,
+    # TIGHTER AGAIN: runs 0.0838/0.1781/0.1070, spread 0.0943 -> bar >= 0.1781 + 0.0943 = 0.2724, so 0.28. Last
+    # round's bar was 0.42 off runs of 0.2018-0.3077, so the dark mud share fell by more than half.
+    'row_dark_frac': 0.28,
 }
 
 
