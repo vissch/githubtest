@@ -138,20 +138,28 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   GasBankCards (`Tests/Stills/GasBankCards.cs`, Explicit, a graphics device: the isolation still behind GasBankStills
   - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, four stills at one pose, gas, smoke,
   puff and a plate - so a blank still accuses one book and not the sim, the field, the cache and the capture path at
-  once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
-  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1-g2/probe.py` measures those stills: it COUNTS THE GREEN the
-  gas added over the plate (not a brightness test), in metres, bars the rise, and refuses two runs that
+  once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`; `TW_CARD_WAIT_FRAMES` or
+  SessionState `tw.gasbank.cardwaitframes` sets how many frames each card settles before its shot, default 10,
+  clamped 5..60 - three cards passes at three values land on three different `cards-gas` frames, the same job
+  `TW_GAS_WAIT_FRAMES` does for run1/run2/run3).
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1-g2-g2/probe.py` measures those stills: it COUNTS THE GREEN the
+  gas added over the plate (not a brightness test), in metres, bars the rise, and refuses two passes that
   photographed the same frame, barred against the SPREAD of three captures of one build at three different
   `TW_GAS_WAIT_FRAMES`. The O240 band now gasses ONE point (the same centre T1 gasses), so the far camera's still
-  holds one cloud, not a wash of five; it counts O240 clouds at or above `LARGE_MIN_PX` (300 px) with a `'le'`
-  bar (several large blobs fail) paired against `o240_top_blob_px` (`'ge'`, so a reading of zero clouds also
-  fails). The close band now draws the smoke mound's sheet in green (the gas row of `FlipbookFx.Sheets` keeps its
-  ordinal and its green and points at `SmokeBank.png`) standing `CombatFx.GasBankStand` of its width tall, while the
-  overview keeps the flat `GasBankSquash` bank; so `green_height_frac` is a FLOOR there, not the old ceiling a pale
-  stripe sheet could pass, and `green_relief` bars how far from flat the cloud reads
-  (`--calibrate`, `--selftest`, `--pack`). `GasBankCards` hand-packs its gas card the same way, so `cards/`'s
-  `gas_smoke_relief_ratio` (the gas card's relief over the smoke card's) is barred too;
-  (`docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1/probe.py`,
+  holds one cloud, not a wash of five; `o240_large_cloud_count` is printed only (a count can only ever sit on a
+  1-vs-2 reading with zero margin), and the barred `o240_top_blob_share` (`o240_top_blob_px / o240_green_px`, `'ge'`)
+  costs room the moment a second cloud of any size appears, paired against `o240_top_blob_px` (`'ge'`, so a reading
+  of zero clouds also fails). The close band now draws the smoke mound's sheet in green (the gas row of
+  `FlipbookFx.Sheets` keeps its ordinal and its green and points at `SmokeBank.png`) standing `CombatFx.GasBankStand`
+  of its width tall, while the overview keeps the flat `GasBankSquash` bank; so `green_height_frac` is a FLOOR
+  there, not the old ceiling a pale stripe sheet could pass, and `green_relief` bars how far from flat the cloud
+  reads (`--calibrate`, `--selftest`, `--pack`). `GasBankCards` hand-packs its gas card the same way; its stills are
+  read by `card_measure`, a LUMA-ADD mask inside a centre `CARD_WINDOW` (not the green mask, which the gas card's own
+  green defeats) with the same column-foot metre maths `measure_t1` uses (the earlier per-pixel version always read
+  0.000 m of rise), so `cards_gas_rise_m` and `gas_smoke_relief_ratio` (the gas card's relief over the smoke card's)
+  are both barred off three cards/cards2/cards3 passes, frame-guarded and spread-checked the same way as run1/run2/run3;
+  (`docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1-g2/probe.py`,
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2/probe.py`,

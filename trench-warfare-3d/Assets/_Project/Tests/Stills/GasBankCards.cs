@@ -39,7 +39,27 @@ namespace TW.Tests
         /// ink is (sheetink.py: mean alpha 0.18 at frames 17-28 of GasBank.png).</summary>
         const float CardFrame = 22f;
 
+        const int DefaultCardWaitFrames = 10;
+        const int MinCardWaitFrames = 5;
+        const int MaxCardWaitFrames = 60;
+
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
+
+        /// <summary>How many frames to settle each card before its shot: SessionState "tw.gasbank.cardwaitframes",
+        /// else TW_CARD_WAIT_FRAMES, else <see cref="DefaultCardWaitFrames"/>, clamped 5..60. Three runs at three
+        /// values are three different FRAMES of the same build, which is what the probe's cards frame guard asks
+        /// for (GasBankStills' ResolveWaitFrames does the same job for run1/run2/run3).</summary>
+        static int ResolveCardWaitFrames()
+        {
+            int n = SessionState.GetInt("tw.gasbank.cardwaitframes", 0);
+            if (n <= 0)
+            {
+                string env = System.Environment.GetEnvironmentVariable("TW_CARD_WAIT_FRAMES");
+                if (!string.IsNullOrEmpty(env)) int.TryParse(env, out n);
+            }
+            if (n <= 0) n = DefaultCardWaitFrames;
+            return Mathf.Clamp(n, MinCardWaitFrames, MaxCardWaitFrames);
+        }
 
         /// <summary>Submits one hand-packed card per book from Update, at the default execution order, so the cards
         /// are in the frame CaptureRig photographs from its own LateUpdate (order 30000).</summary>
@@ -139,14 +159,16 @@ namespace TW.Tests
                 tc.BaseYaw = -90f; tc.Zoom = 30f; tc.Focus = new Vector2(x, z);
                 for (int f = 0; f < 30; f++) yield return null;
 
+                int waitFrames = ResolveCardWaitFrames();
+                TestContext.Out.WriteLine("card wait frames " + waitFrames);
                 for (int b = 0; b < Drawer.Which_Books.Length; b++)
                 {
                     drawer.Which = b;
-                    for (int f = 0; f < 10; f++) yield return null;
+                    for (int f = 0; f < waitFrames; f++) yield return null;
                     yield return One(dir, "cards-" + Drawer.Which_Names[b], x, z, drawer);
                 }
                 drawer.Which = -1;
-                for (int f = 0; f < 10; f++) yield return null;
+                for (int f = 0; f < waitFrames; f++) yield return null;
                 yield return One(dir, "cards-plate", x, z, drawer);
             }
 
