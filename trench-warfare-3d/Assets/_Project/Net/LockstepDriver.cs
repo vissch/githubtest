@@ -110,8 +110,15 @@ namespace TW.Net
             var cmds = pendingLocal.Count == 0 ? Array.Empty<SimCommand>() : pendingLocal.ToArray();
             for (int i = 0; i < cmds.Length; i++) cmds[i].Tick = tick;
             pendingLocal.Clear();
-            // HashTick keeps 0 for "no tick stepped yet" over the wire, deliberately not LastSteppedTick's sentinel.
-            Transport.Send(new CommandFrame { Tick = tick, Player = (byte)Transport.LocalPlayer, Commands = cmds, Hash = World.LastHash, HashTick = World.Tick == 0 ? 0u : World.Tick - 1u });
+            // A skipped hash stores LastHash 0, which is also a legal hash of a ticked world. Say "no hash"
+            // with NoHash so a reader can tell them apart. NothingStepped stays the driver's own sentinel.
+            if (LastHashIsAHash())
+                Transport.Send(new CommandFrame { Tick = tick, Player = (byte)Transport.LocalPlayer, Commands = cmds, Hash = World.LastHash, HashTick = World.Tick - 1u });
+            else
+                Transport.Send(new CommandFrame { Tick = tick, Player = (byte)Transport.LocalPlayer, Commands = cmds, Hash = 0, HashTick = CommandFrame.NoHash });
         }
+
+        // True only when the tick just completed is one SimWorld hashed, so LastHash is that tick's hash.
+        bool LastHashIsAHash() => World.Tick > 0 && World.HashesTick(World.Tick);
     }
 }

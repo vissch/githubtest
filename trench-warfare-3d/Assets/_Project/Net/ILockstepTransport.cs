@@ -8,18 +8,19 @@ namespace TW.Net
 {
     public struct CommandFrame
     {
+        public const uint NoHash = uint.MaxValue;   // HashTick when the sender had no hash for any tick
+
         public uint Tick;
         public byte Player;
         public SimCommand[] Commands;   // may be empty; an empty frame still counts as "peer reported for tick"
         public ulong Hash;              // the sender's sim hash when it sent this frame, for desync detection (N3).
-                                        // Hash == 0 means "this frame carries no hash": the sender had not stepped a
-                                        // tick yet (the primed frames before InputDelay), or its world skipped the
-                                        // hash this tick (SimWorld.HashInterval != 1, the live single-player path).
-                                        // A reader must skip a frame with Hash == 0 and must not read HashTick on it:
-                                        // HashTick is meaningless when there is no hash to go with it.
+                                        // Meaningful only when HasHash. 0 is a real hash value, not a marker: a world
+                                        // that skipped the hash (SimWorld.HashInterval) and a seat that owns no world
+                                        // send Hash 0 together with HashTick = NoHash.
         public uint HashTick;           // S9: the tick Hash is the hash of. It is NOT frame.Tick - 1: a frame is sent
                                         // InputDelay ticks ahead, so HashTick is the last tick the sender had stepped.
-                                        // Ignore this field when Hash == 0.
+                                        // NoHash when the sender had no hash. Do not read this field unless HasHash.
+        public bool HasHash => HashTick != NoHash;
     }
 
     public interface ILockstepTransport

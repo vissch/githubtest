@@ -80,13 +80,82 @@ namespace TW.Tests
             foreach (var f in net.Sent)
             {
                 Assert.That(f.Hash, Is.EqualTo(0UL), $"[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] a world with HashInterval = 0 must send Hash 0 on every frame, but the frame for tick {f.Tick} carries a hash");
-                if (f.Tick > (uint)cfg.InputDelayTicks)
-                {
-                    uint expected = f.Tick - (uint)cfg.InputDelayTicks - 1u;   // the finding's formula, a real tick that was stepped
-                    Assert.That(f.HashTick, Is.EqualTo(expected), $"[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] the frame for tick {f.Tick} is labelled as the hash of tick {f.HashTick}, not {expected} — a reader keying on HashTick alone would compare Hash 0 against a real local hash");
-                }
+                Assert.That(f.HasHash, Is.False, $"[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] the frame for tick {f.Tick} claims a hash although HashInterval is 0");
+                Assert.That(f.HashTick, Is.EqualTo(CommandFrame.NoHash), $"[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] the frame for tick {f.Tick} is labelled as tick {f.HashTick} instead of NoHash, so a reader keying on HashTick would compare a missing hash against a real one");
                 Assert.DoesNotThrow(() => exchange.Observe(f, 0xABCDEF1234567890UL), $"[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] HashExchange.Observe must skip a frame with Hash == 0, not try to compare it");
                 Assert.That(exchange.DesyncDetected, Is.False, $"[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] a frame with Hash == 0 carries no hash and must never raise a desync");
+            }
+        }
+
+        [Test] // [rebase-mark-a-frame-that-carries-no-hash-instea-20261019]
+        public void AWorldThatNeverHashesSendsFramesThatSayNoHash()
+        {
+            var cfg = SimConfig.Default; cfg.InputDelayTicks = 2;
+            using var m = MatchSim.CreateGreybox(cfg);
+            m.World.HashInterval = 0;
+            var net = new RecordingTransport();
+            var driver = new LockstepDriver(m.World, net);
+            net.DeliverPeerFrames(0, 40);
+            for (int i = 0; i < 10; i++)
+                Assert.That(driver.TryStep(), Is.True, "[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] the driver stalled");
+            Assert.That(net.Sent.Count, Is.GreaterThanOrEqualTo(10), "[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] the driver sent no frames to check");
+            foreach (var f in net.Sent)
+            {
+                Assert.That(f.HasHash, Is.False, $"[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] the frame for tick {f.Tick} claims a hash although the world never hashes");
+                Assert.That(f.HashTick, Is.EqualTo(CommandFrame.NoHash), $"[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] the frame for tick {f.Tick} is not labelled NoHash");
+                if (f.Tick > 0)
+                    Assert.That(f.HashTick, Is.Not.EqualTo(f.Tick - 1u), $"[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] the frame for tick {f.Tick} is labelled as the hash of tick {f.Tick - 1u} instead of NoHash");
+                Assert.That(f.HashTick, Is.Not.EqualTo(0u), $"[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] the frame for tick {f.Tick} is labelled as the hash of tick 0 instead of NoHash");
+            }
+        }
+
+        [Test] // [rebase-mark-a-frame-that-carries-no-hash-instea-20261019]
+        public void AWorldThatHashesEveryTenthTickLabelsOnlyTheHashedTicks()
+        {
+            var cfg = SimConfig.Default; cfg.InputDelayTicks = 2;
+            using var m = MatchSim.CreateGreybox(cfg);
+            m.World.HashInterval = 10;
+            var net = new RecordingTransport();
+            var driver = new LockstepDriver(m.World, net);
+            net.DeliverPeerFrames(0, 60);
+            var hashOf = new Dictionary<uint, ulong>();
+            for (int i = 0; i < 25; i++)
+            {
+                Assert.That(driver.TryStep(), Is.True, "[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] the driver stalled");
+                uint stepped = m.World.Tick - 1u;
+                if ((stepped + 1u) % 10u == 0u) hashOf[stepped] = m.World.LastHash;
+            }
+            bool sawHashed = false, sawUnhashed = false;
+            foreach (var f in net.Sent)
+            {
+                if (f.HasHash)
+                {
+                    sawHashed = true;
+                    Assert.That((f.HashTick + 1u) % 10u, Is.EqualTo(0u), $"[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] frame for tick {f.Tick} claims a hash for tick {f.HashTick}, which is not a hashed tick");
+                    Assert.That(hashOf.ContainsKey(f.HashTick), Is.True, $"[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] tick {f.HashTick} was never recorded as hashed");
+                    Assert.That(f.Hash, Is.EqualTo(hashOf[f.HashTick]), $"[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] frame for tick {f.Tick} does not carry the hash of tick {f.HashTick}");
+                }
+                else
+                {
+                    sawUnhashed = true;
+                    Assert.That(f.HashTick, Is.EqualTo(CommandFrame.NoHash), $"[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] frame for tick {f.Tick} has no hash but is not labelled NoHash");
+                }
+            }
+            Assert.That(sawHashed, Is.True, "[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] no frame with a hash was sent");
+            Assert.That(sawUnhashed, Is.True, "[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] no frame without a hash was sent");
+        }
+
+        [Test] // [rebase-mark-a-frame-that-carries-no-hash-instea-20261019]
+        public void ASeatSendsFramesThatSayNoHash()
+        {
+            var net = new RecordingTransport();
+            var seat = new CommandSeat(net, 2);
+            for (uint t = 0; t < 4; t++) seat.Pump(t);
+            Assert.That(net.Sent.Count, Is.GreaterThan(0), "[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] the seat sent no frames to check");
+            foreach (var f in net.Sent)
+            {
+                Assert.That(f.HasHash, Is.False, $"[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] the seat's frame for tick {f.Tick} claims a hash although a seat owns no world");
+                Assert.That(f.HashTick, Is.EqualTo(CommandFrame.NoHash), $"[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] the seat's frame for tick {f.Tick} is not labelled NoHash");
             }
         }
     }
