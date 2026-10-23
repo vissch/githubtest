@@ -5,8 +5,9 @@
 // Env: TW_STILLS_DIR the folder (default %TEMP%/tw-abilityfx), TW_ABILITYFX_PLATE=1 runs the identical script with the
 // staging call skipped — the plate pass. TW_ABILITYFX_REPS=N (default 1) shoots every subject and band N times over,
 // naming the files subject_band_rN.png, so a bar can be set outside the spread of one build's own captures.
-// TW_ABILITYFX_REP=N shoots only rep N and keeps the _rN name, so each rep can be a fresh editor run on the same sim
-// tick; TW_ABILITYFX_DROP_PEAK=a[,b,c] moves the drop's shot frame (rep N takes the Nth value).
+// TW_ABILITYFX_REP=N shoots only rep N and keeps the _rN name, so a rep can be a fresh editor run of its own.
+// The drop's three reps are shot at THREE shot frames (DropPeaks 210/220/230), so they stand on three sim ticks and
+// show three moments of the drop's life; TW_ABILITYFX_DROP_PEAK=a[,b,c] overrides them (rep N takes the Nth value).
 // The drop is the one subject whose plate DOES stage: its 13 paratroopers, their fallen and their fire would otherwise
 // be the whole diff, so the plate drops the same men on the same ticks with CombatFx.DropFx off (the g2 measurement,
 // the owner 2026-10-21: "hold the plate's men, turn the beams off, so the mask is the drop and not the soldiers"). The ability-area disc is off (CombatFx.ShowOverlays), the clock is pinned and
@@ -96,6 +97,12 @@ namespace TW.Tests
 
         /// <summary>The drop's shot frame, overridden per rep by TW_ABILITYFX_DROP_PEAK (one number, or a comma list
         /// where rep N takes the Nth value: that is a sweep of shot frames in one launch). -1 when unset.</summary>
+        /// <summary>The drop's shot frame per rep: three moments of one drop, all inside the plateau a recorded sweep
+        /// found (155 a faint haze, 190 a thin cloud, 220 a cloud over the whole landing, 250 nothing left). Three
+        /// different frames put the three reps on three sim ticks by construction, so their spread is the drop's own
+        /// variation and not render noise.</summary>
+        static readonly int[] DropPeaks = { 210, 220, 230 };
+
         static int DropPeakOverride(int rep)
         {
             var raw = System.Environment.GetEnvironmentVariable("TW_ABILITYFX_DROP_PEAK");
@@ -168,8 +175,7 @@ namespace TW.Tests
             int reps = 1;
             int.TryParse(System.Environment.GetEnvironmentVariable("TW_ABILITYFX_REPS"), out reps);
             if (reps < 1) reps = 1;
-            // TW_ABILITYFX_REP=N shoots exactly rep N, in its own editor run, and still writes the _rN suffix: three
-            // launches of one rep each are identical by construction, so all three reps land on the same sim tick.
+            // TW_ABILITYFX_REP=N shoots exactly rep N, in its own editor run, and still writes the _rN suffix.
             int only = 0;
             int.TryParse(System.Environment.GetEnvironmentVariable("TW_ABILITYFX_REP"), out only);
             if (only < 1) only = 0;
@@ -193,7 +199,7 @@ namespace TW.Tests
             {
                 string band = zoom < 100f ? "T1" : "O240";
                 var pl = Plan(subject);
-                if (subject == "drop") { int over = DropPeakOverride(rep); if (over > 0) pl.peak = over; }
+                if (subject == "drop") { int over = DropPeakOverride(rep); pl.peak = over > 0 ? over : DropPeaks[Mathf.Clamp(rep - 1, 0, DropPeaks.Length - 1)]; }
                 // How far this band's point must stand from the one the other band used. The overview band runs first,
                 // so this only keeps the standard view's frame clear of what the overview block left behind: water is
                 // scarce and a splash is gone in 1.5 s, and open ground a drop can land on is scarcer still (7 points
