@@ -1008,6 +1008,9 @@ namespace TW.Presentation.Tactical
                 case SimEventType.UnitAlight:
                     OnAlight(e);  // the sim's BurningSystem lit or doused him
                     break;
+                case SimEventType.CellBurning:
+                    OnCellBurning(e);   // CombatFx.BurningGround.cs: the sim set a nav cell alight
+                    break;
                 case SimEventType.GasCloudSpawned:
                 case SimEventType.SmokeSpawned:
                     OnBankSpawned(e);   // CombatFx.Banks.cs: the canister's release (fx.recipes)
@@ -1425,6 +1428,7 @@ namespace TW.Presentation.Tactical
             TickSmoulders(now);
             TickHeroes(now);
             TickDigs();
+            TickBurningGround(now);   // CombatFx.BurningGround.cs: the ground the sim is burning, in the same books pass
             books?.Draw(now, bounds);
             hitsThisFrame = 0; healsThisFrame = 0;
 
