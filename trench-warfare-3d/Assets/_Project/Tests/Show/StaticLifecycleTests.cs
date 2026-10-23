@@ -58,6 +58,7 @@ namespace TW.Tests
             ["CampaignSession.AwardedFor"] = "part of the mission in flight, carried across the scene load by design",
             ["CampaignSession.ResumeMap"] = "part of the mission in flight, carried across the scene load by design",
             ["EventPump.ProfileSubscribers"] = "a profiling switch, off unless a profiling run sets it",
+            ["AnimationController.DrawRally"] = "the before/after test switch, set and restored by the test that flips it",
             ["Flamethrower.Active"] = "the live instance, replaced when the next CombatFx starts",
             ["FlipbookFx.Hidden"] = "a capture switch: the caller that hides a book restores it",
             ["FlipbookFx.Spied"] = "a capture switch: the caller that spies on a book restores it",

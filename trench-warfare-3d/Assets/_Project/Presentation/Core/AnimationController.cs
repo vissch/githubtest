@@ -263,7 +263,7 @@ namespace TW.Presentation
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
             shotThisTick.Dispose(); gasHere.Dispose(); threw.Dispose(); leapSeconds.Dispose(); leapMetres.Dispose(); Lunge.Dispose(); blow.Dispose(); blocked.Dispose(); layUntil.Dispose(); shotAt.Dispose(); act.Dispose(); actOn.Dispose();
-            DisposeDeaths(); DisposePins();
+            DisposeDeaths(); DisposePins(); DisposeRally();
         }
 
         // ------------------------------------------------------------------------------------------------------ tick
@@ -273,6 +273,7 @@ namespace TW.Presentation
             tick = w.Tick; tickSeconds = w.Config.TickSeconds; count = w.HighWater;
             Latch(w);
             Incoming(w);
+            RallyTick(w);
             for (int i = 0; i < count; i++)
             {
                 uint f = w.Flags[i];
@@ -576,6 +577,8 @@ namespace TW.Presentation
                 Start(i, ref s, Clip.Burning, Rung.Reaction, "on fire: runs", 1f, 0.2f);
                 return;
             }
+
+            if (DrawRally && Rally(i, ref s, w)) return;
 
             // the stance the situation implies (Wanted): the sim's, damped against its target flicker and held by a routine
             byte want = (byte)simStance;
