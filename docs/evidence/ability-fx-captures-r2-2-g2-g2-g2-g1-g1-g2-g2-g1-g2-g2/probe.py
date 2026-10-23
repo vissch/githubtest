@@ -30,9 +30,10 @@ in the probe:
      CLOUD_MIN_PX, so it is never undefined. `o240_med_d` and `o240_tank_px` print as diagnostics.
      The counting rule is now ONE helper, `count_at_least`, which `green_shape`'s `t1_visible_clouds` uses too,
      so both bands count one way.
-     NOT BARRED YET: on the carried captures it reads 0, 0 and 0 - that zero IS the owner's complaint, measured.
-     A bar on 0/0/0 would bar the broken build. Part 2 widens the overview card and part 3 sets the bar from
-     that build's own three captures.
+     IT IS NOW THE PASS'S COUNT. `o240_visible_floor` ge 4 and `o240_visible_ceiling` lt 6 read it, and
+     `o240_cloud_count` - the speck count the owner refused - carries no bar at all. On the parent build's
+     captures (probe.json at 8e329978c1) it reads 0, 0 and 0, which fails the floor outright; on this build's
+     three fresh captures it reads 5, 5 and 5.
 
 The changes earlier legs made, carried here unchanged:
 
@@ -60,9 +61,14 @@ The four changes -g1-g1-g2-g2 made, carried here unchanged:
   4. `selftest` gains hand-worked cases: the identity that broke the cards, and three PIL images built in memory
      whose cloud count, top share and soft share are counted by hand in `selftest`'s own docstring.
 
-`o240_visible_clouds` IS NOT BARRED YET. Part 1 moves no look, so there is nothing new to bar; part 2 widens the
-overview card in the build and part 3 shoots this build's own three captures and sets the bar from that spread.
-Every bar in BAR_VALUES is -g1-g1-g2-g2-g1's, carried unchanged.
+THE FRAME RULE IS NOW A GAP RULE. The owner, 2026-10-23: "Reshoot three captures at least 60 frames apart." The
+carried refusal only caught the SAME frame, and the parent's three captures (frames 804, 819 and 834) were fifteen
+apart - one moment of the cloud photographed three times. `MIN_FRAME_GAP` is 60 and `frame_gap_refusal` refuses
+anything closer, in both bands.
+
+THE BARS. Every T1 bar is carried unchanged and holds on the fresh captures. The O240 bars are re-derived from
+this build's own three readings: the two count bars moved onto `o240_visible_clouds`, and `o240_green_area_frac`
+and `o240_cloud_share` were re-fitted to the four-wide card (see README.md, "The bars").
 
 USAGE
     python probe.py                 bar run1/run2/run3 against each other, print the cards/ look report
@@ -98,6 +104,8 @@ STILLS = ['gas-t1', 'gas-t1-plate', 'gas-o240', 'gas-o240-plate']
 CARDS = ['cards-gas', 'cards-smoke', 'cards-puff', 'cards-gaspuff', 'cards-plate']
 CLOUD_MIN_PX = 50             # a component this small or smaller is noise, not a gas cloud (O240's five calls)
 MIN_COLUMN_PX = 8             # a pixel column with fewer masked pixels gives no reliable ground crossing
+MIN_FRAME_GAP = 60            # the owner, 2026-10-23: "three captures at least 60 frames apart" - under it they
+                              # are one capture of one moment, so the probe refuses them (see frame_gap_refusal)
 SOFT_FRAC = 0.35              # a masked pixel under this share of the blob's p90 greenness counts as faint
 # bar name -> (the measured key it reads, the comparison). Two bars may read ONE measure: height has both a
 # ceiling and a floor, because the ceiling alone let the flat sheet through (see the docstring).
@@ -107,8 +115,11 @@ BARS = {'green_low_share': ('green_low_share', 'ge'),
         'green_area_frac': ('green_area_frac', 'ge'),
         'green_rise_m': ('green_rise_m', 'ge'),
         'o240_green_area_frac': ('o240_green_area_frac', 'ge'),
-        'o240_cloud_count': ('o240_cloud_count', 'ge'),
-        'o240_cloud_ceiling': ('o240_cloud_count', 'lt'),
+        # NO bar on `o240_cloud_count`: the owner, 2026-10-23 - "the overview pass still counts specks ...
+        # o240_cloud_count 11/9/7 still clears a ceiling of 15". Both O240 count bars now read the TANK-SQUARE
+        # measure, and the count is a printed diagnostic, as `t1_cloud_count` already is.
+        'o240_visible_floor': ('o240_visible_clouds', 'ge'),
+        'o240_visible_ceiling': ('o240_visible_clouds', 'lt'),
         'o240_cloud_share': ('o240_cloud_share', 'ge'),
         # NO bar on `t1_cloud_count`: the merge did not move it (38/41/38 against the old build's 39/44/42, two
         # overlapping spreads). It stays a printed diagnostic - never bar a measure the change did not move.
@@ -272,6 +283,16 @@ def selftest():
     assert got_n == 1, 'the tank-square counted %d of 3, hand says 1 (400, 196, 100 px against 243)' % got_n
     print('selftest (g) tank-square ok: frame %.3f m, tank_px %.1f, counted %d of 3 (hand: 277.118 m, 243.0 px, '
           '1 - only the 400-px patch passes)' % (frame_h, tank_px, got_n))
+
+    def _frames(a, b, c):
+        return {'run1': {'gas-t1': a + 600, 'gas-o240': a + 140},
+                'run2': {'gas-t1': b + 600, 'gas-o240': b + 140},
+                'run3': {'gas-t1': c + 600, 'gas-o240': c + 140}}
+    assert not frame_gap_refusal(_frames(180, 240, 300)), 'waits 180/240/300 must pass the gap rule'
+    assert frame_gap_refusal(_frames(180, 239, 300)), 'waits 180/239/300 must fail the gap rule'
+    print('selftest (h) frame gap ok: 180/240/300 pass (gaps 60 and 60, both >= %d), 180/239/300 fail (hand: '
+          '239 - 180 = 59, one under the bar, in BOTH bands because a wait moves both frame numbers alike)'
+          % MIN_FRAME_GAP)
     return 0
 
 
@@ -693,18 +714,22 @@ def frames_of(run_dir):
     return out
 
 
-def same_frame_refusal(frames):
-    """Print and return True when two runs photographed the same gas-t1 frame or the same gas-o240 frame."""
+def frame_gap_refusal(frames):
+    """Print and return True when two runs' gas-t1 frames, or their gas-o240 frames, lie under MIN_FRAME_GAP apart.
+
+    The owner's rule grew: -g1-g2 only had to refuse the SAME frame, and three captures one frame apart passed it
+    while being one moment of the cloud's life. Sixty frames is two seconds of its 240-frame life, so each capture
+    is a different cloud. Both bands are checked on their own, because the T1 and O240 frame numbers differ by the
+    whole O240 block and only move together with the wait.
+    """
     bad = False
     for stem in ('gas-t1', 'gas-o240'):
-        seen = {}
-        for name in sorted(frames):
-            f = frames[name][stem]
-            if f in seen:
-                print('same frame: %s and %s both photographed frame %s (%s)' % (seen[f], name, f, stem))
+        got = sorted((frames[name][stem], name) for name in frames)
+        for (f_a, name_a), (f_b, name_b) in zip(got, got[1:]):
+            if f_b - f_a < MIN_FRAME_GAP:
+                print('frames too close: %s frame %s and %s frame %s are %s apart, under MIN_FRAME_GAP %d (%s)'
+                      % (name_a, f_a, name_b, f_b, f_b - f_a, MIN_FRAME_GAP, stem))
                 bad = True
-            else:
-                seen[f] = name
     return bad
 
 
@@ -810,8 +835,8 @@ def main():
             json.dump({'runs': results, 'look': look, 'frames': frames}, f, indent=1, sort_keys=True)
         return 0
 
-    if same_frame_refusal(frames):
-        print('FAILED: three captures of the same frame are one capture')
+    if frame_gap_refusal(frames):
+        print('FAILED: three captures under %d frames apart are one capture' % MIN_FRAME_GAP)
         return 1
 
     ok = True
@@ -862,20 +887,24 @@ BAR_VALUES = {
                                      # covers far more screen: runs 0.07577/0.07591/0.07606, spread 0.00029, so the
                                      # floor at 0.05 clears them by 0.0258 - 89x their spread - and the old build's
                                      # own 0.01359/0.01358/0.01356 fails it outright
-    'o240_green_area_frac': 0.0001,  # RE-SET DOWN, not carried: runs 0.0010/0.0008/0.0006, spread 0.0004, margin
-                                     # 0.0005 (0.0002 would be margin == spread, and in binary floats that reads
-                                     # 0.00039999 < 0.0004 and fails). GasCloudBlock 12 trades coverage for gaps (-g1-g1 read 0.0094 as
-                                     # one blanket), and the owner asked for clouds, not coverage
-    'o240_cloud_count': 3,          # the FLOOR: clouds exist at all. Runs 11/9/7, spread 4, so the floor sits at
-                                     # 3 (margin 4) - a blanket from the other side (one or two clouds) fails it
-    'o240_cloud_ceiling': 15,       # the CEILING, 'lt': the count must stay UNDER 15, so -g1-g1's own speck field
-                                     # (21/15/20, its 15 included) fails outright. Runs 11/9/7, max 11, spread 4,
-                                     # margin 4. 'lt' not 'le' because at 'le' the two sides cannot both hold:
-                                     # the spread check needs margin >= 4, i.e. a bar of 15 or more, while the
-                                     # goal needs the old 15 to fail. 'lt' 15 is the only bar that does both
-    'o240_cloud_share': 0.25,       # RE-SET DOWN with the area: runs 0.4777/0.4413/0.3676, spread 0.1101, margin
-                                     # 0.1176. The fringe specks that are not clouds are now most of the green,
-                                     # because each cloud is one card standing alone
+    'o240_green_area_frac': 0.003,   # RE-DERIVED from this unit's three captures, which read 0.0042/0.0042/0.0047
+                                     # (spread 0.0005): the floor is min - spread rounded down, 0.003, margin
+                                     # 0.0012. GasCloudWide 4.0 draws four times the card, so the overview holds
+                                     # four times the green of -g1-g2's 0.0010/0.0008/0.0006, which fails this
+    # NO bar on `o240_cloud_count`: the owner, 2026-10-23 - "o240_cloud_count 11/9/7 still clears a ceiling of 15".
+    # It counted specks (CLOUD_MIN_PX, 50 px) on a frame whose tank-square is 319 px. It prints as a diagnostic.
+    'o240_visible_floor': 4,        # the FLOOR on clouds a TANK-SQUARE wide, the measure the owner asked for. The
+                                     # three captures read 5/5/5 (spread 0), so min - spread is 5; the floor is set
+                                     # one under it, at 4, so margin 1 is OVER the spread and one cloud of slack
+                                     # does not turn the pass red. It is >= 1, which is what makes the parent
+                                     # build's 0, 0 and 0 (probe.json at 8e329978c1) fail outright
+    'o240_visible_ceiling': 6,      # the CEILING, 'lt': under 6. Runs 5/5/5, max 5, spread 0, margin 1. 'lt 5'
+                                     # (max + spread) cannot be used - the readings themselves would fail it - so
+                                     # the bar sits one cloud over the measured count, the smallest that holds
+    'o240_cloud_share': 0.80,       # RE-DERIVED UP from these captures: 0.8293/0.8193/0.8337, spread 0.0144, so
+                                     # the floor is 0.8193 - 0.0144 rounded down, 0.80, margin 0.0193. Four-wide
+                                     # cards put nearly all the overview green INTO clouds; -g1-g2's own
+                                     # 0.4777/0.4413/0.3676 fails this by a wide margin
     'pose_error_max': 0.50,         # GasBankStills.PoseBar
     't1_top_share': 0.28,           # the merge, measured: runs 0.2908/0.2910/0.2901, spread 0.0009, margin
                                      # 0.0101. The old build - "separate flat green tree-cards" - read

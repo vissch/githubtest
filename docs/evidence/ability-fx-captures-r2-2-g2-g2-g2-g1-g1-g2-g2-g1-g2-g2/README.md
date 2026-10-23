@@ -1,9 +1,8 @@
-# ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2-g1-g2-g2: a cloud at the overview, swept, 2026-10-23
+# ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2-g1-g2-g2: a cloud at the overview, barred by the tank-square, 2026-10-23
 
-**Part 1 of 2, done: the look moved.** This part widens the overview card and sweeps it by capture. It sets
-**no bar** and carries **no run captures**: `probe.py` here is the parent's file byte-for-byte, and `cards/` is
-the parent's one `GasBankCards` launch. `python probe.py` therefore exits 1 ("three runs needed: found 0") until
-part 2 shoots `run1/`, `run2/` and `run3/` and sets the floor on `o240_visible_clouds`.
+**Done.** Part 1 widened the overview card (`CombatFx.GasCloudWide` 4.0, swept). Part 2 shot this build's three
+captures 65 and 70 frames apart, moved both O240 count bars onto the tank-square count, and made the frame rule
+the owner's 60-frame gap. `python probe.py` exits **0** with every bar OK.
 
 ## The owner's complaint
 
@@ -66,3 +65,82 @@ must stay wider than the widest card, which is what caps this knob near 6.
 
 `GasPuffBlock`, `GasPuffWide`, `GasPuffStand`, `GasCloudBlock`, every T1 measure and bar, the probe's code, and
 the owner's open close-gas row in `docs/reference/decisions.md`.
+
+---
+
+# Part 2: the captures and the bars
+
+## The three captures
+
+Each run is two `GasBankStills` batch passes into one stills directory - the gas pass and the no-gas plate pass at
+the same `TW_GAS_WAIT_FRAMES`, so the plate hits the shot's own frame - packed with `probe.py --pack <dir> --into runN`.
+
+| run | `TW_GAS_WAIT_FRAMES` | `gas-t1` frame | `gas-o240` frame | gap to the run before |
+|---|---|---|---|---|
+| run1 | 165 | 769 | 306 | - |
+| run2 | 230 | 834 | 371 | **65** frames, both bands |
+| run3 | 300 | 904 | 441 | **70** frames, both bands |
+
+A wait does **not** map one-to-one onto the captured frame: `Block` retries the shot up to three times, 12 frames
+each, so a run can sit ~6-12 frames late. Waits 60 apart are therefore not frames 60 apart - the first try,
+180/240/300, came out at frames 784/850/904, gaps **66 and 54**, and the 54 is refused. The waits above were
+chosen from measured frames, not from the nominal gap.
+
+## Why not 140/200/260 or 180/240/300
+
+Both triples were shot in full and read. They fail on the owner's own floor, not on anything this unit set:
+
+| triple (waits) | frames, T1 | gaps | `green_low_share` [`ge` 0.30, owner-set] | verdict |
+|---|---|---|---|---|
+| 140 / 200 / 260 | 743 / 803 / 863 | 60, 60 | **0.2331** / 0.3025 / 0.3011 | refused: at 140 the bank is young and tall (`green_rise_m` 3.369, `green_height_frac` 0.1091) and a third of its green is not low |
+| 180 / 240 / 300 | 784 / 850 / 904 | 66, **54** | 0.3028 / **0.2990** / 0.3062 | refused twice: the 54-frame gap, and the middle run under the owner's floor |
+| **165 / 230 / 300** | 769 / 834 / 904 | **65, 70** | 0.3037 / 0.3034 / 0.3062 | **kept** |
+
+The cloud is only settled from about wait 160 on, and the wait ceiling is 300, so the whole usable band is ~135
+frames wide: two gaps of 65 and 70 is as far apart as three captures of this harness can be. No owner-set floor
+was lowered to fit a wait.
+
+**The part 1 table above, "T1 did not move, but the wait 240 does", is superseded for wait 240.** Those T1
+numbers came from the sweep's **shared plate**, which was shot in a separate pass from the gas rows; a fresh
+plate at wait 240 reads `green_height_frac` 0.0835, `green_rise_m` 2.649 and `t1_top_share` 0.2990 - all three
+pass. What rules 240 out is the frame gap and the owner's `green_low_share` floor, as the table above shows.
+
+## The bars
+
+Every bar, as `probe.py` prints it on run1/run2/run3. T1 bars are carried from the parent unchanged; the O240 bars
+are re-derived from these three readings.
+
+| bar | readings | spread | bar | margin | carried or re-derived |
+|---|---|---|---|---|---|
+| `green_low_share` | 0.3037 / 0.3034 / 0.3062 | 0.0028 | `ge` 0.30 | 0.0034 | owner-set, carried |
+| `green_height_frac` | 0.0835 / 0.0841 / 0.0830 | 0.0011 | `le` 0.15 | 0.0659 | owner-set ceiling, carried |
+| `green_height_floor` | same | 0.0011 | `ge` 0.08 | 0.0030 | carried |
+| `green_area_frac` | 0.07616 / 0.07606 / 0.07555 | 0.0006 | `ge` 0.05 | 0.0256 | carried |
+| `green_rise_m` | 2.650 / 2.669 / 2.634 | 0.035 | `ge` 2.4 | 0.234 | carried |
+| `t1_top_share` | 0.2894 / 0.2901 / 0.2903 | 0.0009 | `ge` 0.28 | 0.0094 | carried |
+| `t1_cloud_ceiling` | 23 / 23 / 24 | 1 | `lt` 26 | 2 | carried |
+| `green_soft_share` | 0.1681 / 0.1637 / 0.1639 | 0.0044 | `ge` 0.14 | 0.0237 | carried |
+| **`o240_visible_floor`** | **5 / 5 / 5** | 0 | **`ge` 4** | 1 | **new: the tank-square count** |
+| **`o240_visible_ceiling`** | **5 / 5 / 5** | 0 | **`lt` 6** | 1 | **new** |
+| `o240_green_area_frac` | 0.0042 / 0.0042 / 0.0047 | 0.0005 | `ge` 0.003 | 0.0012 | re-derived (was 0.0001) |
+| `o240_cloud_share` | 0.8293 / 0.8193 / 0.8337 | 0.0144 | `ge` 0.80 | 0.0193 | re-derived (was 0.25) |
+| `pose_error_max` | 0 / 0 / 0 | 0 | `lt` 0.50 | 0.50 | `GasBankStills.PoseBar`, carried |
+| `o240_cloud_count` | 13 / 12 / 15 | - | **no bar** | - | **dropped**: the speck count the owner refused |
+
+The floor is `min - spread` rounded down and must stay at or over 1. With the readings all 5 the spread is 0, so
+the floor sits one cloud under them, at 4, and the margin (1) is over the spread (0). The ceiling cannot be
+`lt (max + spread)` = `lt 5` - the readings themselves would fail it - so it is `lt 6`, one cloud over the count.
+
+## The parent build fails the new floor
+
+`docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2-g1-g2/probe.json`, written at commit `8e329978c1`,
+reads `o240_visible_clouds` **0, 0 and 0** (`o240_tank_px` 323/324/324). The floor is `ge` 4, so the parent build
+fails it outright - the separation the owner asked for. Its `o240_cloud_share` 0.4777/0.4413/0.3676 and
+`o240_green_area_frac` 0.0010/0.0008/0.0006 fail the re-derived bars too, and its three captures (frames 804, 819
+and 834) are 15 frames apart, so they would now be refused before any bar is read.
+
+## The frame rule
+
+`MIN_FRAME_GAP = 60`, and `frame_gap_refusal` replaces `same_frame_refusal`: for `gas-t1` and `gas-o240` on their
+own, any two runs under 60 frames apart are printed and refused. Selftest case (h) hand-counts it: frames from
+waits 180/240/300 pass, 180/239/300 fail on 239 - 180 = 59.
