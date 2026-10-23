@@ -1,8 +1,8 @@
 # ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2: the overview as one cloud, the sheet back to full width
 
-Work in progress. `probe.py` is here and the new overview key is calibrated on the previous round's captures; the
-three fresh runs of this build are not shot yet. Until `run1/`-`run3/` exist, `python probe.py` exits 1 with
-"three runs needed".
+Work in progress. `probe.py` is here, the new overview key is calibrated on the previous round's captures, and
+`run1/` is shot. `run2/` and `run3/` are not. Until all three exist, `python probe.py` exits 1 with "three runs
+needed".
 
 `probe.py` is the previous round's file with only its FRAME paragraph changed and `measure_o240` extended. No
 MEASURE already in it moved and `CARDS_DIR` still points at `../ability-fx-captures-r2-2-g2-g1/cards/`, so every
@@ -57,13 +57,35 @@ For reference, the same striped runs' T1 row keys are `row_dark_frac` 0.0331/0.0
 0.2807/0.2911/0.2830 — the T1 frame was already much less striped than the overview, which is exactly why the
 complaint is about the overview and why the T1-only keys could not see it.
 
+## run1, the calibration capture
+
+`python probe.py --calibrate` on `run1/` (t1 sim_tick 557, o240 sim_tick 249):
+
+| key | run1 | previous round's three runs | reading |
+|---|---|---|---|
+| `gas_green_share` | **0.4828** | 0.4357 / 0.4102 / 0.4193 | clear of the owner's 0.44, and of 0.47 (0.44 + a 0.03 allowance for three runs' spread), so the plan's `GasBankThin` 0.19 -> 0.26 fallback is NOT needed and was not taken |
+| `o240_dark_frac` | **0.0093** | 0.1415 / 0.1204 / 0.1122 | the overview striping is essentially gone: 12x down on the worst striped run |
+| `o240_gap_deepest` | **0.2574** | 0.4944 / 0.4888 / 0.4007 | the deepest overview trough is roughly half as deep |
+| `o240_band_lift_med` | 9.782 | 4.333-5.532 | the overview bank is about twice as bright: the merged cards now paint their whole block |
+| `bank_width_m` | **31.248** | 36.40 / 24.16 / 28.72 | the skirt is back; above two of the three previous runs |
+| `bank_patch_count` | 15 | 19 / 13 / 6 | inside the owner's cap of 38 |
+| `gas_paint_frac` | 0.0205 | 0.0195 / 0.0183 / 0.0161 | above all three |
+| `o240_area_frac` | 0.0309 | 0.0194 / 0.0215 / 0.0220 | the overview bank covers half again as much frame |
+| `row_dark_frac` | 0.0000 | 0.0331 / 0.0733 / 0.0608 | no dark mud line at T1 at all |
+| `bank_height_frac` | 0.3614 | 0.3007 / 0.2747 / 0.2716 | **the one key that moved the wrong way**: the bank stands higher in frame, above the previous round's bar of 0.33 |
+| `bank_rise_m` | 7.955 | 6.52-7.22 | the same fact in metres: wider cards reach further up the screen |
+
+`bank_height_frac` and `bank_rise_m` are the cost of the wider cards and will need their bars re-set from the
+three runs. Nothing else moved the wrong way.
+
 ## Still to do
 
-1. Three fresh captures of this build into `run1/`-`run3/`.
+1. `run2/` and `run3/` (`TW_GAS_EXTRA_FRAMES` 30 and 60), to go with `run1/`.
 2. Re-set every bar from those three runs, with `gas_green_share` at **0.44 or higher** and `bank_patch_count` at
-   or under the owner's cap of **38**. The named fallback if the green share falls short is `GasBankThin`
-   0.19 -> 0.26 (the thinnest standing card then draws 0.26 + 0.36 * 0.3 = 0.368, still past the half-core 0.31
-   that `TheGasBankStandFloorKeepsEveryCardOverHalfTheCore` guards). The bar is never lowered below 0.44.
+   or under the owner's cap of **38**. run1's 0.4828 says the green share is there without the
+   `GasBankThin` fallback, so the build is fixed for all three runs. The bar is never lowered below 0.44.
+   `bank_height_frac` and `bank_rise_m` need their bars re-set upward; `o240_dark_frac` and `o240_gap_deepest`
+   can be barred against the striped baseline above if the three runs hold run1's margin.
 3. `python probe.py` -> exit 0.
 
 ## This lane does not land
