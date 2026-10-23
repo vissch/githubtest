@@ -140,6 +140,7 @@ namespace TW.Presentation.Tactical
             books.Tint(FlipbookFx.Book.GroundRing, t.Dust);
             books.Tint(FlipbookFx.Book.DustPuff, t.Dust);
             books.Tint(FlipbookFx.Book.GasBank, FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid) ? GasBankNight : GasBankDay);   // CombatFx.Banks.cs
+            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightGas(GasBankNight);   // r2-3-g2-g2-g2-g2: the moon lit the gas bank blue, so three capture seeds read three hues; PaintNight keeps the pixel on the paint's hue
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight, smokeNightWarm, smokeNightFire);   // AOSA C59/C61: after the biome's smoke tint
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightPlume(smokeNight, smokeNightWarm, smokeNightFire);   // fx.recipes: the plume as the night smoke (the book is drawn with the recipes only)
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightEarth(columnEarth);   // AOSA C57: after the biome's column tint
