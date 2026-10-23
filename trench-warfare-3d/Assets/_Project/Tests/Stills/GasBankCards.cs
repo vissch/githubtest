@@ -65,7 +65,7 @@ namespace TW.Tests
                 var size = map.SizeMeters;
                 var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f),
                                         new Vector3(size.x + 20f, 60f, size.y + 20f));
-                float height = Which == 0 ? CardWidth * CombatFx.GasBankSquashFor(CardWidth) : CardWidth;
+                float height = Which == 0 ? CardWidth * CombatFx.GasBankSquashFor(CardWidth, 1) : CardWidth;
                 one.Clear();
                 float y = RenderGround.Sample(map, At.x, At.z) - 0.35f;   // the gas bank's own anchor
                 one.Add(FlipbookFx.Pack(new Vector3(At.x, y, At.z), CardWidth, height, CardFrame, 1f, 1f, 0f,

@@ -35,8 +35,13 @@ namespace TW.Presentation.Tactical
         /// row of cards reaches the next row's and no bare ground shows between them (a share of the width left the thin
         /// cards at 1.09 m, two fifths of the 4 m row pitch bare).</summary>
         public const float GasBankBandM = 1.78f;
-        /// <summary>How flat a card of this width is drawn, so its bottom third is <see cref="GasBankBandM"/> tall.</summary>
-        public static float GasBankSquashFor(float width) => 3f * GasBankBandM / width;
+        /// <summary>The painted band at a merge step (m): <see cref="GasBankBandM"/> scaled by <paramref name="step"/>,
+        /// so a 2 x 2 overview block (which is twice as wide, <see cref="GasBankWidth"/>) also paints a band twice as
+        /// tall. Without this the overview's row rise (<c>step</c> times a play-zoom row) outran the band and the
+        /// bank striped - the exact failure <c>TheGasBankBandsMeetInDepthAtTheT1Pose</c> already forbids at T1.</summary>
+        public static float GasBankBandFor(int step) => GasBankBandM * step;
+        /// <summary>How flat a card of this width is drawn, so its bottom third is <see cref="GasBankBandFor"/> tall.</summary>
+        public static float GasBankSquashFor(float width, int step) => 3f * GasBankBandFor(step) / width;
         /// <summary>The full DEPTH span a gas card's centre may fill (m): one full field cell (<see cref="MapData.FieldCellSize"/>),
         /// filled in two strata by <see cref="GasBankZOffset"/> rather than at random - at the old 1.2 m jitter every card
         /// sat within 0.6 m of its row line, so the 4 m row lattice still read as bands, and a random full-cell jitter
@@ -65,6 +70,13 @@ namespace TW.Presentation.Tactical
         /// the stand floor and goes, and the new outermost ring stands where the gas is about twice the floor - well
         /// above the bar, so it reads as one plate. It also pulls the bank's width back by about one 4 m ring.</summary>
         public static float GasBankLoad(float self, float ringSum) => (self + ringSum) / GasBankNeighbourhood;
+
+        /// <summary>The least load a gas card must carry to stand (field load units), half <see cref="GasBankFullThick"/>.
+        /// At the old literal 0.8 the outermost ring drew <see cref="GasBankAlpha"/>(0.8/4) = 0.276, barely over the
+        /// probe's visibility bar, so it broke into the blotches counted as 13/19/21 patches. At this floor the
+        /// thinnest card that stands draws the midpoint of <see cref="GasBankThin"/> and <see cref="GasBankFull"/>
+        /// (0.405), so no card sits at the bar: the fringe either joins the body or is not drawn at all.</summary>
+        public const float GasBankStandFloor = GasBankFullThick / 2f;
 
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
@@ -156,7 +168,7 @@ namespace TW.Presentation.Tactical
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, GasBankFullThick, GasBankJitterXM, GasBankJitterM, true, true, 73856093, 19349663);
+            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, GasBankStandFloor, GasBankFullThick, GasBankJitterXM, GasBankJitterM, true, true, 73856093, 19349663);
             gasCards.Clear();
             foreach (var b in gasBank.Cells)
             {
@@ -168,7 +180,7 @@ namespace TW.Presentation.Tactical
                 // (lit core, dull skirt) and the roll (+-12 degrees) by the cell's hash so no two card edges line up
                 // every card sits on the ground at the same height: the old sink and +-0.25 m jitter threw away 0.6 m of
                 // the band and pulled the rows apart; the roll and the frame boil already break the top line
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.08f, b.Z), width, width * GasBankSquashFor(width), BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.42f, kind, GasBankAlpha(b.Thick)));
+                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.08f, b.Z), width, width * GasBankSquashFor(width, step), BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.42f, kind, GasBankAlpha(b.Thick)));
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }

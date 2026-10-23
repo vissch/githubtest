@@ -265,7 +265,7 @@ namespace TW.Tests
             foreach (float hash in new[] { 0f, 1f })
             {
                 float width = CombatFx.GasBankWidth(thick, hash, 1);
-                float band = width * CombatFx.GasBankSquashFor(width) / 3f;
+                float band = width * CombatFx.GasBankSquashFor(width, 1) / 3f;
                 Assert.AreEqual(CombatFx.GasBankBandM, band, 1e-3f,
                     $"a card at thick {thick} hash {hash} paints the same band of gas as every other");
                 // the card sinks 0.08 m into the ground (DrawGasBank), so that much of the band is below it
@@ -286,9 +286,26 @@ namespace TW.Tests
             foreach (float hash in new[] { 0f, 1f })
             {
                 float width = CombatFx.GasBankWidth(thick, hash, 1);
-                float band = width * CombatFx.GasBankSquashFor(width) / 3f;
+                float band = width * CombatFx.GasBankSquashFor(width, 1) / 3f;
                 Assert.GreaterOrEqual(band * Mathf.Cos(pitch), 0.90f * rise,
                     $"a card at thick {thick} hash {hash} must cover 90 % of the row behind it, so no mud shows between rows");
+            }
+        }
+        [Test]
+        public void TheGasBankBandsMeetInDepthAtTheO240Pose()
+        {
+            // the same test, at the overview's merge step: a 2 x 2 block's row is two 4 m cells (8 m), and the band
+            // must scale with it (GasBankBandFor) or the overview stripes exactly as the play zoom used to.
+            const float pitch = 25f * Mathf.Deg2Rad, rowPitch = 8f;
+            const int step = 2;
+            float rise = rowPitch * Mathf.Sin(pitch);
+            foreach (float thick in new[] { 0f, 1f })
+            foreach (float hash in new[] { 0f, 1f })
+            {
+                float width = CombatFx.GasBankWidth(thick, hash, step);
+                float band = width * CombatFx.GasBankSquashFor(width, step) / 3f;
+                Assert.GreaterOrEqual(band * Mathf.Cos(pitch), 0.90f * rise,
+                    $"a card at thick {thick} hash {hash} must cover 90 % of the overview's row behind it, so no mud shows between rows");
             }
         }
         [Test]
@@ -322,10 +339,15 @@ namespace TW.Tests
             foreach (float c in new[] { 1f, 4f, 8f })
                 Assert.AreEqual(c, CombatFx.GasBankLoad(c, 8f * c), 1e-4f,
                     $"a cell at {c} inside a solid body of gas keeps its own thickness");
-            // the fringe ring no longer stands: a cell at the old 0.8 stand floor with three neighbours at it and
-            // five empty carries (0.8 + 2.4) / 9 = 0.3556, well under the floor
-            Assert.Less(CombatFx.GasBankLoad(0.8f, 3f * 0.8f), 0.8f,
+            // the fringe ring no longer stands: a cell at the stand floor with three neighbours at it and
+            // five empty carries (floor + 3 * floor) / 9, well under the floor itself
+            Assert.Less(CombatFx.GasBankLoad(CombatFx.GasBankStandFloor, 3f * CombatFx.GasBankStandFloor), CombatFx.GasBankStandFloor,
                 "the half-visible edge ring that read as separate patches falls under the stand floor");
+            // a standing card is never a haze: the thinnest card that stands (right at the floor) draws the
+            // midpoint of GasBankThin and GasBankFull, well above the lone-cell haze value below
+            float atFloor = CombatFx.GasBankAlpha(CombatFx.GasBankStandFloor / CombatFx.GasBankFullThick);
+            Assert.AreEqual((CombatFx.GasBankThin + CombatFx.GasBankFull) / 2f, atFloor, 1e-4f,
+                "the thinnest standing card draws the midpoint between haze and the bank's core opacity");
             // a lone cell is a haze, not a plate: (8 + 0) / 9 = 0.8889, thick 0.8889 / 4 = 0.2222, so its card draws
             // 0.19 + 0.43 * 0.2222 = 0.2856 - under half the core's 0.62 (0.31), and within 0.10 of the thin floor.
             float lone = CombatFx.GasBankAlpha(Mathf.Clamp01(CombatFx.GasBankLoad(8f, 0f) / CombatFx.GasBankFullThick));
@@ -333,6 +355,7 @@ namespace TW.Tests
                 "a cell with no neighbours stays near the thin floor: a haze, not a plate");
             Assert.Less(lone, CombatFx.GasBankAlpha(1f) / 2f,
                 "and well under the bank's core opacity");
+            Assert.Greater(atFloor, lone, "a standing card is never as faint as a lone cell's haze");
             // and a cell at the full point is a plate: (4 + 8 * 4) / 9 = 4, thick 4 / 4 = 1, so it draws GasBankFull
             float atFull = CombatFx.GasBankAlpha(Mathf.Clamp01(CombatFx.GasBankLoad(4f, 32f) / CombatFx.GasBankFullThick));
             Assert.AreEqual(CombatFx.GasBankFull, atFull, 1e-4f,
