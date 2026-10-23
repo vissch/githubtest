@@ -518,21 +518,27 @@ class World:
         return sorted(out, key=lambda x: (x[1], x[0]))
 
     def refusal_runs(self):
-        """[(run, unit)] the API refused (safety refusal), once per run and unit: a stop record with "refusals" >= 1 names its
-        unit(s) that did not PASS (else the one it was on); a leg result record with stop_reason "refusal" names its unit."""
+        """[(run, unit)] whose leg the API refused on safety grounds, once per run and unit. Read from the leg's result
+        record, the "result" line of <relay home>/runs/<run>/legs/<NN>/out.jsonl: stop_reason "refusal" (with
+        terminal_reason "api_error"); the unit is that leg's leg.json "unit". NOT the stop record's "refusals": that
+        counts command-guard refusals and is non-zero on PASS runs."""
         since = time.strftime('%Y%m%d', time.localtime(self.now() - loopsteps.SINCE_DAYS * 86400))
+        base = Path(os.environ.get('LOCALAPPDATA') or Path.home()) / 'TrenchWarfare'
+        homes = getattr(self, 'relay_homes', None) or sorted(p for p in base.glob('relay*') if (p / 'runs').is_dir())
         out = set()
-        for board in [self.main, *self.extras.values()]:
-            for f in Path(board).glob('relay/*/stops/*.json'):
-                d = load(f, {})
-                if f.name[:8] < since or not isinstance(d, dict) or not (d.get('refusals') or 0) >= 1:
+        for home in homes:
+            for f in Path(home).glob('runs/*/legs/*/out.jsonl'):
+                run = f.parent.parent.parent.name
+                if run[:8] < since:
                     continue
-                us = [u for u, v in (d.get('units') or {}).items() if v != 'PASS'] or ([d['now_on']] if d.get('now_on') else [])
-                out |= {(d.get('run') or f.stem, u) for u in us}
-            for f in Path(board).glob('relay/*/legs/*.json'):
-                d = load(f, {})
-                if f.name[:8] >= since and isinstance(d, dict) and d.get('stop_reason') == 'refusal' and d.get('unit'):
-                    out.add((d.get('run') or f.stem, d['unit']))
+                try:
+                    lines = [x for x in f.read_text(encoding='utf-8', errors='replace').splitlines() if '"stop_reason"' in x and '"result"' in x]
+                    hit = any(isinstance(d, dict) and d.get('type') == 'result' and d.get('stop_reason') == 'refusal' for d in map(json.loads, lines))
+                    unit = load(f.with_name('leg.json'), {}).get('unit') if hit else ''
+                except (OSError, ValueError):
+                    continue
+                if hit and unit:
+                    out.add((run, unit))
         return sorted(out)
 
     def lane_sha(self, lane, at=''):

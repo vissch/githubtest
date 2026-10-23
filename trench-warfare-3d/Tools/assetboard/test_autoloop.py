@@ -528,6 +528,30 @@ def main():
     rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get('first') or {}
     case('when its main copy cannot come off 99, the unit is not marked as the main relay\'s, so it is never stranded', not rec.get('main_try'), rec)
 
+    # the real records (relay 6, run 20261023-103331-101432, trimmed): the API's safety refusal is the result record's stop_reason
+    w = wt('wt17')
+    real = '20261023-103331-101432'
+    legd = tmp / 'wt17h' / 'relay6' / 'runs' / real / 'legs' / '01'
+    legd.mkdir(parents=True)
+    (legd / 'out.jsonl').write_text('\n'.join([json.dumps(dict(type='assistant', message=dict(content=[dict(type='text', text='"stop_reason" and "result" in prose')]))),
+        json.dumps({'type': 'result', 'subtype': 'success', 'is_error': True, 'api_error_status': None, 'num_turns': 35, 'stop_reason': 'refusal',
+                    'terminal_reason': 'api_error', 'session_id': '5bb60fce-f5b9-4f72-b139-170669f1ca08',
+                    'result': "API Error: Opus 5's safeguards flagged this message (https://www.anthropic.com/legal/aup). Details: `[bio]`", 'permission_denials': []})]), encoding='utf-8')
+    (legd / 'leg.json').write_text(json.dumps(dict(run=real, leg=1, unit='ability-fx-captures-r2-3-g2-g2-g1-g1-g1-g2', guard_refusals=1)), encoding='utf-8')
+    okd = tmp / 'wt17h' / 'relay' / 'runs' / '20261005-161419-39764' / 'legs' / '01'      # a PASS run whose stop record says refusals: 5
+    okd.mkdir(parents=True)
+    (okd / 'out.jsonl').write_text(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'stop_reason': 'end_turn', 'terminal_reason': 'completed'}), encoding='utf-8')
+    (okd / 'leg.json').write_text(json.dumps(dict(run='20261005-161419-39764', leg=1, unit='landtools-1-land-py', guard_refusals=5)), encoding='utf-8')
+    stop = w.main / 'relay' / 'desktop' / 'stops' / '20261005-161419-39764.json'
+    stop.parent.mkdir(parents=True)
+    stop.write_text(json.dumps({'run': '20261005-161419-39764', 'refusals': 5, 'now_on': None, 'reason': 'nothing left to do',
+                                'units': {'landtools-1-land-py': 'PASS', 'landtools-2-port-split': 'PASS'}}), encoding='utf-8')
+    w.relay_homes = [tmp / 'wt17h' / 'relay', tmp / 'wt17h' / 'relay6']
+    w.clock = 1792750000.0
+    got = autoloop.World.refusal_runs(w)
+    case('refusal_runs reads the result record\'s stop_reason "refusal" (relay 6 run 20261023-103331-101432) and its leg\'s unit; a PASS run with "refusals": 5 in its stop record (command-guard refusals) is not one',
+         got == [(real, 'ability-fx-captures-r2-3-g2-g2-g1-g1-g1-g2')], got)
+
     w = wt('wt16')
     put(w.extras[2], 'queue', 'gas', lane='lane/show/gas', goal='g')
     qf = type('Q', (), {'exists': staticmethod(lambda: any((b / 'relay' / 'queue' / 'gas.json').exists() for b in (w.main, w.extras[2])))})   # sent back, the fake queues it on the main board
