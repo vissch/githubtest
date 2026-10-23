@@ -1,0 +1,10 @@
+{
+  "variant": "night",
+  "rushUpCrouched": 467,
+  "rushUpManTicks": 499,
+  "rushUpCrouchedShare": 0.936,
+  "drops": 16,
+  "dropToFlatWorstTicks": 1,
+  "budgetTicks": 10,
+  "requiredShare": 0.70
+}

@@ -597,7 +597,11 @@ namespace TW.Presentation
                 else if (speed > 1.5f && !inTrench && Hash(s.Seed, tick) < 0.5f) Start(i, ref s, Clip.Stumble, Rung.Reaction, (i == FollowSlot ? "shell at " + d.ToString("0.0") + " m at a run: stumbles" : null), math.clamp(speed / 3f, 1f, 2f));   // a runner keeps going (half the time with a stumble)
                 if (s.Rung == Rung.Reaction && s.ClipStart == tick) return;
             }
-            if (s.Rung == Rung.Reaction && Playing(s) && !(cur == Clip.Stumble && s.Frame > 1.2f) && !(speed > 0.3f && cur != Clip.Stumble && cur != Clip.HitRun && cur != Clip.DiveAway && Left(s) > 0.4f && !s.Down)) return;   // a stumble is 1.2 s of it, then the run
+            // a stumble is 1.2 s of it, then the run; but a man under fire whom the sim has just dropped breaks it off at
+            // once - he is going down anyway, and 1.2 s of him upright over a hole is the whole complaint (the stills rig
+            // measured one such drop at 18 ticks, act-rush-and-drop)
+            bool rushDropOverStumble = alarmed && cur == Clip.Stumble && want == (byte)Stance.Prone;
+            if (s.Rung == Rung.Reaction && Playing(s) && !rushDropOverStumble && !(cur == Clip.Stumble && s.Frame > 1.2f) && !(speed > 0.3f && cur != Clip.Stumble && cur != Clip.HitRun && cur != Clip.DiveAway && Left(s) > 0.4f && !s.Down)) return;
             if (s.Down && s.KnockedUntil != 0u && cur == Clip.Trip)
             {
                 // blown down: he lies on his face where he landed a moment, then picks himself up (at once, and quickly, if
@@ -735,10 +739,16 @@ namespace TW.Presentation
                 // the end of a rush: he throws himself into the hole, he does not lie down. DiveAway at 2.0x is flat in
                 // 0.35 s, so the next tick after it picks a prone clip well inside the half second the owner asked for.
                 // Rung.StanceChange keeps it under the blast dive (Rung.Reaction), whose own gate (LastDive) is untouched.
-                if (alarmed && !fromProne && toProne && tick - s.LastRushDive > 20)
+                if (alarmed && !fromProne && toProne)
                 {
-                    s.LastRushDive = tick;
-                    Start(i, ref s, Clip.DiveAway, Rung.StanceChange, (i == FollowSlot ? "end of the rush: dives into cover" : null), 2.0f, 0.1f);
+                    // the dive itself is once in 20 ticks, or a man the sim flickers up and down would stutter; but he
+                    // is flat on this tick either way (he already is, on the ground from the dive a moment ago), so the
+                    // gate can never put him back on the slow lie-down (the stills rig measured 18 ticks that way)
+                    if (tick - s.LastRushDive > 20)
+                    {
+                        s.LastRushDive = tick;
+                        Start(i, ref s, Clip.DiveAway, Rung.StanceChange, (i == FollowSlot ? "end of the rush: dives into cover" : null), 2.0f, 0.1f);
+                    }
                     s.Stance = (byte)Stance.Prone; return;
                 }
                 if (fromProne && !toProne) { Start(i, ref s, Clip.ProneToKneel, Rung.StanceChange, (i == FollowSlot ? "stance " + from + " -> " + to + ": up to a knee" : null)); s.Stance = (byte)Stance.Crouch; return; }
@@ -754,10 +764,14 @@ namespace TW.Presentation
                 {
                     // the same dive, carried at a run, and the rush up without the half-second hold: his beat is his own,
                     // so coming up on the first tick cannot bunch the section (act-rush-and-drop, 2026-10-23)
-                    if (alarmed && wProne && tick - s.LastRushDive > 20)
+                    if (alarmed && wProne)
                     {
-                        s.FlipSince = 0; s.LastRushDive = tick; s.Routine = 0;
-                        Start(i, ref s, Clip.DiveAway, Rung.StanceChange, (i == FollowSlot ? "end of the rush: dives into cover" : null), 2.0f, 0.1f);
+                        s.FlipSince = 0; s.Routine = 0;
+                        if (tick - s.LastRushDive > 20)
+                        {
+                            s.LastRushDive = tick;
+                            Start(i, ref s, Clip.DiveAway, Rung.StanceChange, (i == FollowSlot ? "end of the rush: dives into cover" : null), 2.0f, 0.1f);
+                        }
                         s.Stance = (byte)Stance.Prone; return;
                     }
                     if (alarmed && !wProne) { s.FlipSince = 0; s.Routine = 0; s.Stance = want; }
