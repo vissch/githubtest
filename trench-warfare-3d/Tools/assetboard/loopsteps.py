@@ -340,6 +340,11 @@ def depth(uid):
     return len(re.findall(r'-g\d+(?=-g\d+|$)', uid))
 
 
+def chain_family(uid):
+    """A fix chain's family: the id up to its first -g<digits> segment."""
+    return re.split(r'-g\d+', uid)[0]
+
+
 def park(w, uid, rec, on, out, dropped=False):
     """Take a unit off the queues of `on` {board: its unit} and keep it in the loop's folder. True when it is off all."""
     u = next(iter(on.values()))
@@ -446,6 +451,15 @@ def attempts(w, opens, dones, running, idle, extras=None):
             rec['fp'] = dict(lane=w.lane_sha(u.get('lane', '')), base=w.int_sha())     # as it stands now: a unit never tried has no fingerprint, and {} reads as 'new commits' (back on the queue a round later)
         if not park(w, uid, rec, on, out):
             continue
+        peer = next((r for k, r in sorted(st.items()) if rec['deep'] and k != uid and r.get('deep') and r.get('parked') and r.get('brief') and chain_family(k) == chain_family(uid)
+                     and not w.brief_answered(r['brief'])), None)
+        if peer:                                            # one brief per chain family: this unit joins the open one
+            rec['cfam'], rec['brief'] = chain_family(uid), peer['brief']
+            out.append(f'attempts: {uid} parked: a chain of {depth(uid)} fix units (limit {CHAIN_DEPTH}); it joins the open brief {peer["brief"]} of its family')
+            continue
+        if rec['deep']:
+            rec['cfam'] = chain_family(uid)
+            rec['family_ids'] = sorted(k for k in units if chain_family(k) == rec['cfam'] and depth(k) > CHAIN_DEPTH and not (st.get(k) or {}).get('kept'))
         rec['next'] = note_next(w, w.main, uid) or next((note_next(w, b, uid) for b in on if note_next(w, b, uid)), '')
         try:
             rec['brief'] = w.park_brief(uid, rec, rec['next'], {k: v for k, v in u.items() if k != 'priority'})
@@ -545,24 +559,33 @@ def stuck_on_extras(w, st, opens, idle, extras):
 def answered(w, uid):
     """His A on a parked unit's brief queued it again: its count starts over, and a later park gets a brief of its own."""
     st = load(w.home / 'attempts.json', {})
+    bid = (st.get(uid) or {}).get('brief')
     if uid in st:
         st[uid].update(parked=None, fails=[], fp={}, refused=[], brief='', dropped=False, drop=False, deep=False, kept=True)
+        for k, r in sorted(st.items()):                      # the family brief: his A sends back every unit parked under it
+            if k != uid and r.get('deep') and r.get('parked') and r.get('brief') and r.get('brief') == bid:
+                u = {a: b for a, b in r['parked'].items() if a not in ('fp', 'boards', 'old_priority', 'at', 'priority')}
+                ok, _ = w.add(u)
+                if ok:
+                    w.prio(k, r['parked'].get('old_priority', 50))
+                    r.update(parked=None, fails=[], fp={}, refused=[], dropped=False, drop=False, deep=False, kept=True)
         save(w.home / 'attempts.json', st)
 
 
 def dropped_by(w, bid):
     """His answer closed brief `bid` with nothing built: when it is a parked unit's brief and the unit came back by
     itself meanwhile, the next round takes it off the queue again."""
-    st = load(w.home / 'attempts.json', {})
+    st, hit = load(w.home / 'attempts.json', {}), False
     for rec in st.values():
         if rec.get('brief') == bid:
             if rec.get('parked'):
                 rec['dropped'] = True
             else:
                 rec['drop'] = True
-            save(w.home / 'attempts.json', st)
-            return True
-    return False
+            hit = True
+    if hit:
+        save(w.home / 'attempts.json', st)
+    return hit
 
 
 def park_text(uid, rec, nxt):
@@ -574,8 +597,10 @@ def park_text(uid, rec, nxt):
     if rec.get('deep'):
         say = (f'{uid} is a fix of a fix {depth(uid)} links deep (limit {CHAIN_DEPTH}) and no try has landed, so the loop took it off the queue. '
                f'Last problem: {words(rec.get("why") or "none recorded", 12)} Its leg said next: {words(nxt or "nothing", 14)}')
-        return (f'{uid}: chained {depth(uid)} fixes deep', words(say, SAY_MOST - 1),
-                'R0 C0. Each fix opens a new unit, so the tries rule never fires; it stays off the queue until you send it back.')
+        ids = rec.get('family_ids') or []
+        return (f'{chain_family(uid)}: chain of fix units {depth(uid)} deep' + (f', {len(ids)} units' if len(ids) > 1 else ''), words(say, SAY_MOST - 1),
+                'R0 C0. Each fix opens a new unit, so the tries rule never fires; they stay off the queue until you send them back. '
+            + (f'A puts back all {len(ids)} of the family: {", ".join(ids)}.' if len(ids) > 1 else ''))
     tried = ', '.join(f'{k} {n}x' for k, n in kinds.items())
     say = (f'The relay tried {uid} {len(rec["fails"])} times ({tried}) with nothing changed between tries, so the loop took it off the queue. '
            f'Last problem: {words(rec.get("why") or "none recorded", 12)} Its leg said next: {words(nxt or "nothing", 14)}')

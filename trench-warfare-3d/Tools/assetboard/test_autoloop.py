@@ -603,6 +603,29 @@ def main():
     autoloop.attempts(w)
     case('chain depth: a unit a relay is running is not parked', (w.extras[2] / 'relay' / 'queue' / (d5 + '.json')).exists() and w.briefs_written == [], w.briefs_written)
 
+    # chain depth: one brief per chain family
+    fa = ['fam-a-g1-g1-g1-g1-g1', 'fam-a-g2-g1-g1-g1-g1-g1', 'fam-a-g1-g2-g1-g1-g1-g1-g1']
+    w = wt('wt22')
+    for i, f in enumerate(fa + ['fam-b-g1-g1-g1-g1-g1']):
+        put(w.extras[2], 'queue', f, lane='lane/show/fam%d' % i, goal='g')
+    autoloop.attempts(w)
+    autoloop.attempts(w)
+    st = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8'))
+    case('chain depth: three deep units of one family get one brief, a second family a second brief; every unit is parked with its queue data kept',
+         sorted(b[0] for b in w.briefs_written) in (sorted([fa[0], 'fam-b-g1-g1-g1-g1-g1']), sorted([fa[1], 'fam-b-g1-g1-g1-g1-g1']), sorted([fa[2], 'fam-b-g1-g1-g1-g1-g1']))
+         and all((st.get(f) or {}).get('parked') and (w.home / 'parked' / (f + '.json')).exists() for f in fa + ['fam-b-g1-g1-g1-g1-g1'])
+         and len({st[f]['brief'] for f in fa}) == 1, w.briefs_written)
+    first = next(b[0] for b in w.briefs_written if b[0].startswith('fam-a'))
+    autoloop.loopsteps.answered(w, first)                              # his A on the family brief
+    put(w.main, 'queue', first, lane='lane/show/fam0', goal='g')
+    autoloop.attempts(w)
+    autoloop.attempts(w)
+    st = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8'))
+    back = [f for f in fa if f != first and (st.get(f) or {}).get('kept') and not st[f].get('parked')]
+    case('chain depth: his A on a family brief brings all its units back, each kept, and none is parked again or gets a second brief',
+         len(back) == 2 and st[first].get('kept') and not st[first].get('parked') and len(w.briefs_written) == 2
+         and (st.get('fam-b-g1-g1-g1-g1-g1') or {}).get('parked'), (st, w.briefs_written))
+
     w = wt('wt16')
     put(w.extras[2], 'queue', 'gas', lane='lane/show/gas', goal='g')
     qf = type('Q', (), {'exists': staticmethod(lambda: any((b / 'relay' / 'queue' / 'gas.json').exists() for b in (w.main, w.extras[2])))})   # sent back, the fake queues it on the main board
