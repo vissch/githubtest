@@ -144,7 +144,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   (`T1_LARGE_MIN_PX` 4000 px), and bars `green_large_cloud_count` (`'le'` 1) paired with `green_large_share`
   (`'ge'`), so a carpet of several pads fails even where a size floor alone would pass; `CombatFx.GasBankStand`
   (now `1f`) draws the close card the smoke mound's own 1:1 square, matching `DrawSmokeBank`'s own
-  `width, width` pack.
+  `width, width` pack; `GasBankCards`' `cards/` is reshot against that same card (no code change needed there),
+  and `gas_smoke_relief_ratio` is barred again (`'ge'` 0.40, against the reshot 0.4725).
   `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g1-g2/probe.py` (its immediate predecessor) measures those
   stills: it COUNTS THE GREEN the
   gas added over the plate (not a brightness test), in metres, bars the rise, and refuses two runs that

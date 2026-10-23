@@ -33,8 +33,13 @@ single biggest component:
 
 Everything else is carried unchanged: the camera maths (`ray`, `ground_distance`, `height_at`, `selftest`),
 `greenness`, `green_mask`, `components`, `largest_blob`, `measure_o240` with its `LARGE_MIN_PX` floor, the frame
-guard and `spread_check`. `CARD_BARS` is `{}` for this part: the carried `cards/` still holds the OLD gas card
-(`CardWidth * 0.42`, not the new 1:1 card); re-deriving the cards look report is part 2's work.
+guard and `spread_check`.
+
+PART 2: `cards/` RESHOT. `GasBankCards.cs` needed no edit: it already packs the gas card at `CardWidth *
+CombatFx.GasBankStand` with its foot sunk `GasBankSink`, so with `GasBankStand` now `1f` the gas card is
+`DrawSmokeBank`'s own 1:1 square. `cards/` is reshot (`-testFilter GasBankCards` into a temp dir, `--pack ...
+--into cards`) and `gas_smoke_relief_ratio` goes back into `CARD_BARS` (`'ge'`), barred at `0.40` against the
+reshot `0.4725` (gas relief 0.1029 over smoke's 0.2178; margin 0.0725, more than the 0.05 the plan called for).
 
 THE NAMES. Every T1 key says green: `green_low_share`, `green_height_frac`, `green_rise_m`, `green_relief`,
 `green_area_frac`, `green_large_cloud_count`, `green_large_share`. `green_px`, `plate_diff_px`, `blob_px`,
@@ -52,9 +57,8 @@ the nearest run value to the bar must clear it by at least the three runs' own s
 inside the run values, or within one spread of them, is "the build cannot tell a measure from its own noise" and
 the probe exits 1 rather than print a false green.
 
-THE LOOK REPORT. `cards/` is carried unchanged from -g2-g2-g2-g2-g1-g2: the OLD gas card
-(`CardWidth * 0.42`), not this part's new 1:1 card. `CARD_BARS` is `{}` here, so nothing from `cards/` is
-barred; re-shooting it against the new card is part 2's work.
+THE LOOK REPORT. `cards/` is this part's reshoot: the gas card at `CardWidth * GasBankStand` (now `1f`), the
+smoke card's own 1:1 square. `gas_smoke_relief_ratio` is BARRED (`ge`, see PART 2 above).
 
 USAGE
     python probe.py                 bar run1/run2/run3 against each other, print the cards/ look report
@@ -90,8 +94,7 @@ LARGE_MIN_PX = 300            # a cloud a player can pick out at the far camera 
                               # speck ceiling, well under the two big clouds at 2310+)
 T1_LARGE_MIN_PX = 4000        # a close cloud a player can pick out (0.43% of the 1280x720 still); set from this
                               # part's --calibrate green_blob_top print (see README.md)
-# The cards/ look report has no barred reading in this part: `cards/` still holds the OLD gas card.
-CARD_BARS = {}
+CARD_BARS = {'gas_smoke_relief_ratio': 'ge'}
 
 BARS = {'green_low_share': 'ge', 'green_height_frac': 'ge', 'green_area_frac': 'ge', 'green_rise_m': 'ge',
         'green_relief': 'ge', 'green_large_cloud_count': 'le', 'green_large_share': 'ge',
@@ -681,6 +684,8 @@ BAR_VALUES = {
                                        # 0.0880 - the cloud is the green, not a wash around it
     'o240_top_blob_px': 2800,         # re-derived: runs 3348/3436/3840 px, spread 492, floor 3348, margin 548
     'pose_error_max': 0.50,         # GasBankStills.PoseBar
+    'gas_smoke_relief_ratio': 0.40,  # cards/, reshot with the 1:1 gas card: 0.4725 (gas relief 0.1029 over
+                                      # smoke's 0.2178), margin 0.0725
 }
 
 

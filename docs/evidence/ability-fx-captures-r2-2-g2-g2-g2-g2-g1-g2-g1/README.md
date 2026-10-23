@@ -1,8 +1,8 @@
 # ability-fx-captures-r2-2-g2-g2-g2-g2-g1-g2-g1: the close gas is one standing cloud, 2026-10-23
 
-**`python probe.py` clears, exit 0.** Part 1 of 2: the in-game close band draws the smoke mound's own 1:1 card,
-and its close blob count is barred at one. `cards/` is carried unchanged from the previous unit (the OLD gas
-card), so `CARD_BARS` is `{}` here; re-shooting the cards against the new 1:1 card is part 2's work.
+**`python probe.py` clears, exit 0.** Part 1: the in-game close band draws the smoke mound's own 1:1 card, and
+its close blob count is barred at one. Part 2: `cards/` is reshot against the new 1:1 card, and
+`gas_smoke_relief_ratio` is barred again.
 
 ## The owner's complaint
 
@@ -36,10 +36,14 @@ became the smoke mound's own square shape, and the field's many per-cell cards n
   barred, paired so a reading of zero clouds fails too), and the diagnostic `green_blob_top` (barred on
   nothing). `blob_px` keeps its old meaning — the single biggest component — so `green_area_frac`,
   `green_height_frac` and `green_rise_m` are computed exactly as before, just over that component.
-  `CARD_BARS` goes to `{}`: the carried `cards/` is the OLD gas card. `green_relief` and `green_rim_ratio` are
-  carried unchanged in shape, over the same single-biggest-component mask.
+  `green_relief` and `green_rim_ratio` are carried unchanged in shape, over the same single-biggest-component
+  mask.
 - **`run1/`, `run2/`, `run3/`** — three fresh `GasBankStills` captures of the committed tree,
   `TW_GAS_WAIT_FRAMES` 200/215/230, each the four stills with sidecars and manifests.
+- **`cards/` (part 2).** `GasBankCards.cs` needed no edit: it already hand-packs the gas card at
+  `CardWidth * CombatFx.GasBankStand` with its foot sunk `GasBankSink`, so at `GasBankStand = 1f` the gas card is
+  already `DrawSmokeBank`'s own 1:1 square. Reshot (`-testFilter GasBankCards`, `--pack ... --into cards`), and
+  `CARD_BARS` goes back to `{'gas_smoke_relief_ratio': 'ge'}`, barred at `0.40`.
 
 ## `GasBankSink` was measured, not picked
 
@@ -79,8 +83,7 @@ differently from the predecessor's puddle/cloud, so none of the old floors clear
 | `o240_large_share` | `ge` | 0.70 | 0.7880, 0.8616, 0.8573 | 0.0736 | 0.0880 | re-derived: new frames, same shape of reading |
 | `o240_top_blob_px` | `ge` | 2800 | 3348, 3436, 3840 | 492 | 548 | unchanged |
 | `pose_error_max` | `lt` | 0.50 | 0.0000, 0.0000, 0.0000 | 0.0000 | 0.5000 | `GasBankStills.PoseBar` |
-
-`CARD_BARS` is `{}`: `cards/` still holds the old gas card, so nothing from it is barred in this part.
+| `gas_smoke_relief_ratio` | `ge` | 0.40 | 0.4725 (cards/, one pose) | 0 | 0.0725 | **new, part 2**: the gas card's relief (0.1029) over the smoke card's (0.2178), reshot with the 1:1 card |
 
 ## The look report (unbarred)
 
@@ -88,16 +91,13 @@ differently from the predecessor's puddle/cloud, so none of the old floors clear
 |---|---|---|
 | `green_rim_ratio` (T1, in game) | 0.8804, 0.8773, 0.8786 | under 1: the cloud's silhouette is its dark rim. Reported, never barred |
 | `green_blob_top` (T1, in game) | e.g. 67418, 3548, 3065, 2318, ... | one dominant component and several small stragglers well under `T1_LARGE_MIN_PX` |
-| `cards-gas` relief | 0.1199 | carried from the previous unit: `cards/` still draws the OLD card (`CardWidth * 0.42`) |
+| `cards-gas` relief | 0.1029 | reshot (part 2) with the new 1:1 card |
 | `cards-smoke` relief | 0.2178 | unchanged |
 | gas/smoke rise ratio | 0.0000 | carried, unbarred |
 
-Re-shooting `cards/` against the new 1:1 card, and barring the relief/rise ratios it produces, is part 2's work.
-
-## Status: done (part 1 of 2)
+## Status: done
 
 `python probe.py` exits 0, `OK`. `python probe.py --selftest` exits 0 (camera hand calculation, 0.34311 m).
 `TW.Tests.BurstRecipeTests.TheCloseGasStandsAsACloud_TheOverviewBankStillLies` green. These are regression bars
 from this build's own spread, as in every predecessor of this chain: they prove the close gas now draws as one
-standing cloud, not a carpet of flat pads. Part 2 reshoots `cards/` against the new card and bars its own
-relief/rise ratios.
+standing cloud, not a carpet of flat pads, and `cards/` now draws the gas card the same bank does.
