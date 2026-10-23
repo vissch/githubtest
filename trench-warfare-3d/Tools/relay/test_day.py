@@ -148,6 +148,24 @@ class Order(Base):
             lane.next(ctx)
 
 
+    def test_a_unit_that_leaves_the_queue_before_it_is_read_is_skipped(self):
+        self.queue("a")
+        gone = self.queue("b")
+        self.queue("c")
+        real = lane.files
+
+        def racy(board):
+            ok, skipped = real(board)
+            gone.unlink()                                       # the autoloop takes it off the board after the pick
+            return ok, skipped
+        lane.files = racy
+        try:
+            ctx = {"board": str(self.board), "skip": {"a"}}
+            self.assertEqual(lane.next(ctx)["id"], "c")
+        finally:
+            lane.files = real
+
+
 class Prio(Base):
     """`relay.py prio <id> <n>`: the owner's (or the master's) way to move a unit in the queue."""
     def test_prio_writes_the_priority_keeps_the_rest_and_moves_the_unit(self):
