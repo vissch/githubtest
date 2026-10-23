@@ -576,6 +576,33 @@ def main():
     case('his A on a refusal-parked unit (answered) clears its refusals as well as its fails, so the next idle round does not park it again',
          rec['refused'] == [] and not rec['parked'] and rec['brief'] == '', rec)
 
+    # chain depth: a fix unit chained past CHAIN_DEPTH -gN segments is parked like a no-progress unit
+    d4, d5 = 'fx-g2-g1-g2-g1', 'fx-g2-g1-g2-g1-g1'
+    w = wt('wt20')
+    put(w.extras[2], 'queue', d4, lane='lane/show/fx4', goal='g')
+    autoloop.attempts(w)
+    case('chain depth: a unit with %d -g segments (the limit) is not parked' % autoloop.loopsteps.CHAIN_DEPTH,
+         (w.extras[2] / 'relay' / 'queue' / (d4 + '.json')).exists() and w.briefs_written == [], w.briefs_written)
+    put(w.extras[2], 'queue', d5, lane='lane/show/fx5', goal='g')
+    autoloop.attempts(w)
+    autoloop.attempts(w)
+    on_q = [b.name for b in (w.main, *w.extras.values()) if (b / 'relay' / 'queue' / (d5 + '.json')).exists()]
+    rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get(d5) or {}
+    case('chain depth: a unit with 5 -g segments is parked with one brief, its queue data kept, and is still parked the next round',
+         rec.get('parked') and on_q == [] and (w.home / 'parked' / (d5 + '.json')).exists() and [b[0] for b in w.briefs_written] == [d5], (rec, on_q, w.briefs_written))
+    autoloop.loopsteps.answered(w, d5)
+    put(w.main, 'queue', d5, lane='lane/show/fx5', goal='g')
+    autoloop.attempts(w)
+    autoloop.attempts(w)
+    rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get(d5) or {}
+    case('chain depth: a unit he sent back (answered) is not parked again for its depth, with no second brief',
+         rec.get('kept') and not rec.get('parked') and (w.main / 'relay' / 'queue' / (d5 + '.json')).exists() and len(w.briefs_written) == 1, (rec, w.briefs_written))
+    w = wt('wt21')
+    put(w.extras[2], 'queue', d5, lane='lane/show/relay-four-checks', goal='g')
+    w.text[w.main] = RUN
+    autoloop.attempts(w)
+    case('chain depth: a unit a relay is running is not parked', (w.extras[2] / 'relay' / 'queue' / (d5 + '.json')).exists() and w.briefs_written == [], w.briefs_written)
+
     w = wt('wt16')
     put(w.extras[2], 'queue', 'gas', lane='lane/show/gas', goal='g')
     qf = type('Q', (), {'exists': staticmethod(lambda: any((b / 'relay' / 'queue' / 'gas.json').exists() for b in (w.main, w.extras[2])))})   # sent back, the fake queues it on the main board

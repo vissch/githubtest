@@ -36,6 +36,7 @@ WRITE_USD = 0.25        # the most one leg that reads his words may cost
 WRITE_DAY_USD = 2.0     # what those legs may cost together in a day
 WRITE_TRIES = 2         # a reply that is no unit: tried again once on the same note, then said once and left
 REFUSALS = 3            # the API refused a unit leg more than this often (safety refusal): it is parked, never removed
+CHAIN_DEPTH = 4         # a fix unit chained past this many -gN segments is parked: each link is a new id, so TRIES never fires
 TRIES = 2               # FAIL or BLOCKED this often with nothing changed between: the unit is parked
 SINCE_DAYS = 3          # stop records older than this are not counted (the boards keep weeks of them)
 PARKED = found.PARKED
@@ -334,6 +335,11 @@ def note_next(w, board, uid):
     return found.one(m.group(1)) if m else ''
 
 
+def depth(uid):
+    """How many -g<digits> follow-up segments a unit id carries."""
+    return len(re.findall(r'-g\d+(?=-g\d+|$)', uid))
+
+
 def park(w, uid, rec, on, out, dropped=False):
     """Take a unit off the queues of `on` {board: its unit} and keep it in the loop's folder. True when it is off all."""
     u = next(iter(on.values()))
@@ -384,6 +390,9 @@ def attempts(w, opens, dones, running, idle, extras=None):
         if run not in rec.setdefault('rseen', []):
             rec['rseen'] = (rec['rseen'] + [run])[-40:]
             rec['refused'] = (rec.get('refused') or []) + [run]
+    for uid in units:
+        if depth(uid) > CHAIN_DEPTH:
+            st.setdefault(uid, dict(seen=[], fails=[]))
     for uid, rec in sorted(st.items()):
         parked = rec.get('parked')
         if uid in dones:
@@ -414,24 +423,26 @@ def attempts(w, opens, dones, running, idle, extras=None):
                 ok, said = w.add(u)
                 if ok:
                     code, psaid = w.prio(uid, old)
-                    rec.update(parked=None, fails=[], fp={}, refused=[])
+                    rec.update(parked=None, fails=[], fp={}, refused=[], deep=False, kept=True)
                     refused = f' (priority {old} was refused: {str(psaid)[:80]})' if code else ''
                     out.append(f'attempts: {uid} is back on the queue: {what}' + refused + (f' (its brief {rec["brief"]} stays: his B on it takes it off again)' if rec.get('brief') else ''))
                 else:
                     out.append(f'attempts: {uid} could not go back on the queue: {said[:160]}')
             continue
         refused = len(rec.get('refused') or []) > REFUSALS
-        if (len(rec.get('fails') or []) < TRIES and not refused) or not on:
+        deep = depth(uid) > CHAIN_DEPTH and not rec.get('kept')
+        if (len(rec.get('fails') or []) < TRIES and not refused and not deep) or not on:
             continue
         u = next(iter(on.values()))
         if u.get('lane') in running or not all(Path(b) in idle for b in on):
             continue                                        # a leg works on it, or a board it is on is in a run: next round
-        if not refused and changed_since(w, rec.get('fp') or {}, u):
+        if not refused and not deep and changed_since(w, rec.get('fp') or {}, u):
             continue                                        # one more try is fair: something changed since the last
         if not w.acting:
-            out.append(f'attempts: {uid} would be parked: ' + (f'refused {len(rec["refused"])} times' if refused else f'{len(rec["fails"])} tries with nothing changed between them'))
+            out.append(f'attempts: {uid} would be parked: ' + (f'refused {len(rec["refused"])} times' if refused else f'chained {depth(uid)} fixes deep' if deep else f'{len(rec["fails"])} tries with nothing changed between them'))
             continue
-        if refused:
+        rec['deep'] = deep and not refused and len(rec.get('fails') or []) < TRIES
+        if refused or deep:
             rec['fp'] = dict(lane=w.lane_sha(u.get('lane', '')), base=w.int_sha())     # as it stands now: a unit never tried has no fingerprint, and {} reads as 'new commits' (back on the queue a round later)
         if not park(w, uid, rec, on, out):
             continue
@@ -441,6 +452,9 @@ def attempts(w, opens, dones, running, idle, extras=None):
         except Exception as e:      # noqa: BLE001  the unit stays parked; the brief is tried next round
             rec['brief'] = ''
             out.append(f'attempts: {uid} parked, its brief was refused: {str(e)[:160]}')
+        if rec['deep']:
+            out.append(f'attempts: {uid} parked: a chain of {depth(uid)} fix units (limit {CHAIN_DEPTH}); brief {rec.get("brief") or "not written"}')
+            continue
         if refused:
             out.append(f'attempts: {uid} parked after {len(rec["refused"])} refusals ({", ".join(rec["refused"][-3:])}); brief {rec.get("brief") or "not written"}')
             continue
@@ -532,7 +546,7 @@ def answered(w, uid):
     """His A on a parked unit's brief queued it again: its count starts over, and a later park gets a brief of its own."""
     st = load(w.home / 'attempts.json', {})
     if uid in st:
-        st[uid].update(parked=None, fails=[], fp={}, refused=[], brief='', dropped=False, drop=False)
+        st[uid].update(parked=None, fails=[], fp={}, refused=[], brief='', dropped=False, drop=False, deep=False, kept=True)
         save(w.home / 'attempts.json', st)
 
 
@@ -557,6 +571,11 @@ def park_text(uid, rec, nxt):
     for f in rec['fails']:
         k = f.split()[-1]
         kinds[k] = kinds.get(k, 0) + 1
+    if rec.get('deep'):
+        say = (f'{uid} is a fix of a fix {depth(uid)} links deep (limit {CHAIN_DEPTH}) and no try has landed, so the loop took it off the queue. '
+               f'Last problem: {words(rec.get("why") or "none recorded", 12)} Its leg said next: {words(nxt or "nothing", 14)}')
+        return (f'{uid}: chained {depth(uid)} fixes deep', words(say, SAY_MOST - 1),
+                'R0 C0. Each fix opens a new unit, so the tries rule never fires; it stays off the queue until you send it back.')
     tried = ', '.join(f'{k} {n}x' for k, n in kinds.items())
     say = (f'The relay tried {uid} {len(rec["fails"])} times ({tried}) with nothing changed between tries, so the loop took it off the queue. '
            f'Last problem: {words(rec.get("why") or "none recorded", 12)} Its leg said next: {words(nxt or "nothing", 14)}')
