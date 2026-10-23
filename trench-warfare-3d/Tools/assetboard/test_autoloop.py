@@ -144,6 +144,11 @@ class Fake(autoloop.World):
     def stops(self):
         return list(self.stop_records)
 
+    refusal_records = []
+
+    def refusal_runs(self):
+        return list(self.refusal_records)
+
     def lane_sha(self, lane, at=''):
         return self.shas.get(lane, 'L0')
 
@@ -522,6 +527,35 @@ def main():
     autoloop.attempts(w)
     rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get('first') or {}
     case('when its main copy cannot come off 99, the unit is not marked as the main relay\'s, so it is never stranded', not rec.get('main_try'), rec)
+
+    w = wt('wt16')
+    put(w.extras[2], 'queue', 'gas', lane='lane/show/gas', goal='g')
+    qf = type('Q', (), {'exists': staticmethod(lambda: any((b / 'relay' / 'queue' / 'gas.json').exists() for b in (w.main, w.extras[2])))})   # sent back, the fake queues it on the main board
+
+    def seen():
+        autoloop.attempts(w)
+        return json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get('gas') or {}
+    w.refusal_records = [('q1', 'gas'), ('q2', 'gas'), ('q3', 'gas')]
+    rec = seen()
+    case('refusals: a unit the API refused three times is not parked and keeps its place on the queue',
+         not rec.get('parked') and qf.exists() and w.briefs_written == [] and len(rec.get('refused') or []) == 3, (rec, w.briefs_written))
+    w.refusal_records = w.refusal_records + [('q4', 'gas')]
+    rec = seen()
+    case('refusals: the 4th refusal of the same unit parks it the way a no-progress unit is parked: off the queue, its data kept, one brief',
+         rec.get('parked') and not qf.exists() and (w.home / 'parked' / 'gas.json').exists() and [b[0] for b in w.briefs_written] == ['gas']
+         and rec.get('brief') == 'brief-gas', (rec, w.briefs_written))
+    seen()
+    case('refusals: a parked unit gets no second brief on the next round', len(w.briefs_written) == 1, w.briefs_written)
+    w.shas['lane/show/gas'] = 'L9'                                      # he sent it back (A): something changed, it is queued again
+    rec = seen()
+    case('refusals: a unit he sends back starts its refusal count over', not rec.get('parked') and rec.get('refused') == [] and qf.exists(), rec)
+    w.refusal_records = w.refusal_records + [('q5', 'gas'), ('q6', 'gas'), ('q7', 'gas')]
+    rec = seen()
+    case('refusals: three more after it came back do not park it; the 4th does',
+         not rec.get('parked') and qf.exists() and len(rec.get('refused') or []) == 3, rec)
+    w.refusal_records = w.refusal_records + [('q8', 'gas')]
+    rec = seen()
+    case('refusals: and the 4th after it came back parks it again', rec.get('parked') and not qf.exists() and len(w.briefs_written) == 2, (rec, w.briefs_written))
 
     whys = []
     real = (autoloop.found.take, autoloop.found.rota)

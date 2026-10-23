@@ -35,6 +35,7 @@ import found  # noqa: E402
 WRITE_USD = 0.25        # the most one leg that reads his words may cost
 WRITE_DAY_USD = 2.0     # what those legs may cost together in a day
 WRITE_TRIES = 2         # a reply that is no unit: tried again once on the same note, then said once and left
+REFUSALS = 3            # the API refused a unit leg more than this often (safety refusal): it is parked, never removed
 TRIES = 2               # FAIL or BLOCKED this often with nothing changed between: the unit is parked
 SINCE_DAYS = 3          # stop records older than this are not counted (the boards keep weeks of them)
 PARKED = found.PARKED
@@ -378,6 +379,11 @@ def attempts(w, opens, dones, running, idle, extras=None):
                 rec['fails'] = []                           # it moved since the try before: that one does not count against it
             rec['fails'] = (rec['fails'] + [f'{run} {verdict}'])[-12:]
             rec['why'], rec['fp'] = found.one(why)[:300], fp
+    for run, uid in w.refusal_runs():                       # one count per run and unit; a unit he sends back starts over
+        rec = st.setdefault(uid, dict(seen=[], fails=[]))
+        if run not in rec.setdefault('rseen', []):
+            rec['rseen'] = (rec['rseen'] + [run])[-40:]
+            rec['refused'] = (rec.get('refused') or []) + [run]
     for uid, rec in sorted(st.items()):
         parked = rec.get('parked')
         if uid in dones:
@@ -408,21 +414,22 @@ def attempts(w, opens, dones, running, idle, extras=None):
                 ok, said = w.add(u)
                 if ok:
                     code, psaid = w.prio(uid, old)
-                    rec.update(parked=None, fails=[], fp={})
+                    rec.update(parked=None, fails=[], fp={}, refused=[])
                     refused = f' (priority {old} was refused: {str(psaid)[:80]})' if code else ''
                     out.append(f'attempts: {uid} is back on the queue: {what}' + refused + (f' (its brief {rec["brief"]} stays: his B on it takes it off again)' if rec.get('brief') else ''))
                 else:
                     out.append(f'attempts: {uid} could not go back on the queue: {said[:160]}')
             continue
-        if len(rec.get('fails') or []) < TRIES or not on:
+        refused = len(rec.get('refused') or []) > REFUSALS
+        if (len(rec.get('fails') or []) < TRIES and not refused) or not on:
             continue
         u = next(iter(on.values()))
         if u.get('lane') in running or not all(Path(b) in idle for b in on):
             continue                                        # a leg works on it, or a board it is on is in a run: next round
-        if changed_since(w, rec.get('fp') or {}, u):
+        if not refused and changed_since(w, rec.get('fp') or {}, u):
             continue                                        # one more try is fair: something changed since the last
         if not w.acting:
-            out.append(f'attempts: {uid} would be parked: {len(rec["fails"])} tries with nothing changed between them')
+            out.append(f'attempts: {uid} would be parked: ' + (f'refused {len(rec["refused"])} times' if refused else f'{len(rec["fails"])} tries with nothing changed between them'))
             continue
         if not park(w, uid, rec, on, out):
             continue
@@ -432,6 +439,9 @@ def attempts(w, opens, dones, running, idle, extras=None):
         except Exception as e:      # noqa: BLE001  the unit stays parked; the brief is tried next round
             rec['brief'] = ''
             out.append(f'attempts: {uid} parked, its brief was refused: {str(e)[:160]}')
+        if refused:
+            out.append(f'attempts: {uid} parked after {len(rec["refused"])} refusals ({", ".join(rec["refused"][-3:])}); brief {rec.get("brief") or "not written"}')
+            continue
         out.append(f'attempts: {uid} parked after {len(rec["fails"])} tries with no progress ({", ".join(rec["fails"][-3:])}); brief {rec.get("brief") or "not written"}')
     out += superseded(w, st, opens, idle)
     out += stuck_on_extras(w, st, opens, idle, extras or set())
