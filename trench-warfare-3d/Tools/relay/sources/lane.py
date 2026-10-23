@@ -93,7 +93,11 @@ def next(ctx, kind=None):
     for p in skipped:
         print("skipping %s: it is not committed on the board, so nobody but a leg may have written it" % p.name)
     for p in ok:
-        u = load(p)
+        try:
+            u = load(p)
+        except FileNotFoundError:
+            print("skipping %s: it left the queue before the runner read it" % p.name)    # taken off the board after the pick
+            continue
         if u["id"] in ctx["skip"] or (root / "done" / (u["id"] + ".json")).exists():
             continue
         if kind and kind_of(NAME, u["role"], u.get("kind")) != kind:
