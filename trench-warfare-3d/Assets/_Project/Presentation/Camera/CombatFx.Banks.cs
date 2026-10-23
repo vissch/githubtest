@@ -18,21 +18,27 @@ namespace TW.Presentation.Tactical
     {
         public const float BankMergeZoom = 120f;
         const float GasBankFirst = 17f, GasBankLast = 28f;       // the bank at its full spread (its early frames are a puff)
-        // How clearly the bank reads: a thin cell's card and a full one's. One card is a haze now, not a tile - three
-        // stacked cards reach 1-(1-0.62)^3 = 0.945, so the bank is volume and not stripes. Less pale than the sheet was
-        // (0.14/0.5), because "pale green stripes" is the alpha as much as the overlap.
-        // Its colour by day is deeper than the sheet's so it is green ON snow
+        // How clearly the bank reads: the lerp's two ends. One card is 0.62 now, not a tile - three stacked cards
+        // reach 1-(1-0.62)^3 = 0.945, so the bank is volume and not stripes. Less pale than the sheet was (0.14/0.5),
+        // because "pale green stripes" is the alpha as much as the overlap. Since GasBankFullM equals
+        // GasBankStandFloor, no gas card draws at GasBankThin any more: it is only the lerp's floor (the smoke bank
+        // and the tests' hand table still read it). Its colour by day is deeper than the sheet's so it is green ON snow
         public const float GasBankThin = 0.19f, GasBankFull = 0.62f;
         /// <summary>How much gas a 4 m cell must hold (after <see cref="GasBankLoad"/>) before it stands a card at all,
-        /// and the load that counts as a full card. Two rounds proved the islands are not about WHICH ring is outermost:
-        /// trimming the fringe to its neighbourhood's mean moved the blotches one ring in (28 / 24 / 18 -> 29 / 18 / 21
-        /// patches) and lifting it with max(own, mean) made them worse again (35 / 30 / 24), because either way some ring
-        /// still draws right at the paint threshold and breaks into separate patches. The floor removes that ring instead
-        /// of re-weighting it: at the old 0.8 the thinnest standing card drew 0.19 + 0.43 * 0.1 = 0.233, a hair over
-        /// <see cref="GasBankThin"/>; at 2.4 it draws 0.19 + 0.43 * 0.3 = 0.319, past half the bank's own core opacity
-        /// (0.62 / 2 = 0.31), the same haze/paint line <c>TheGasBankEdgeIsLiftedIntoTheMass</c> uses. So every card that
-        /// stands is paint, and a cell that would only haze does not stand.</summary>
-        public const float GasBankStandFloor = 2.4f, GasBankFullM = 8f;
+        /// and the load that counts as a full card. They are ONE number now, so a cell either does not stand or stands
+        /// as a full card: there is no thickness ramp across the bank and no near-threshold ring anywhere in it. Three
+        /// rounds proved the islands are not about WHICH ring is outermost - trimming the fringe to its neighbourhood's
+        /// mean moved the blotches one ring in (28 / 24 / 18 -> 29 / 18 / 21 patches), lifting it with max(own, mean)
+        /// made them worse again (35 / 30 / 24), and raising the floor alone still left a ramp from
+        /// 0.19 + 0.43 * 0.3 = 0.319 at the lips to <see cref="GasBankFull"/> 0.62 in the core, which the row profile
+        /// of the committed stills read as dark bands at the bank's two ENDS (the painted pixels there were half as
+        /// bright as the core's, not missing). With the ramp gone every standing card draws <see cref="GasBankFull"/>,
+        /// and the bank's soft edge comes from how many cards OVERLAP at the fringe. <see cref="GasBankLoad"/>'s
+        /// neighbourhood read is untouched; it now only chooses WHICH cells stand.</summary>
+        public const float GasBankStandFloor = 2.4f;
+        /// <summary>The load that draws a full card - the stand floor itself, see <see cref="GasBankStandFloor"/>.
+        /// A separate declaration so the const may be defined from the other const.</summary>
+        public const float GasBankFullM = GasBankStandFloor;
         /// <summary>How tall a gas card's painted band is (m): the sheet fills the bottom third of the card, so every card,
         /// thin or wide, paints the same 1.72 m of gas - under a 1.8 m man's head, and tall enough that at the T1 pose one
         /// row of cards reaches the next row's and no bare ground shows between them (a share of the width left the thin

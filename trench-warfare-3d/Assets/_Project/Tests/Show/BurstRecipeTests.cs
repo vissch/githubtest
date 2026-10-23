@@ -324,6 +324,8 @@ namespace TW.Tests
             // ceiling (40) than the plain-cell build's 38. max(own, mean) LIFTS a fringe cell instead of trimming
             // it, so the outermost ring draws thick enough to join the body rather than fading below the paint
             // threshold between its own neighbours.
+            // The / 8f literals below are GasBankLoad's OWN neighbourhood formula (nine cells, so a solid body
+            // reads 8 * c), not the bank's full load: that is GasBankFullM, which equals GasBankStandFloor now.
 
             // the core keeps its own thickness: nine times the same value, over nine, is that value, and max of
             // equals is that value, so this agrees with the old mean-only formula inside a solid body
@@ -364,24 +366,27 @@ namespace TW.Tests
                 "a lone cell keeps its own full thickness under max; it is no longer pulled down to a haze");
         }
         [Test]
-        public void TheGasBankStandFloorKeepsEveryCardOverHalfTheCore()
+        public void TheGasBankStandsEveryCardAtFullLoad()
         {
-            // the lift made the sheet worse, not better (35 / 30 / 24 patches): whichever ring is outermost, it drew
-            // at the paint threshold and broke into islands. The stand floor removes that ring instead - a cell that
-            // could only haze does not stand at all, so every card that IS drawn is paint.
+            // the lift made the sheet worse, not better (35 / 30 / 24 patches) and the raised floor alone still left a
+            // thickness RAMP: the row profile of the committed stills showed the bank's two ENDS painting half the
+            // core's brightness, which is the dark banding the owner saw. The full load is now the stand floor itself,
+            // so a cell either does not stand or stands as a full card - no ramp and no near-threshold ring.
             Assert.Greater(CombatFx.GasBankStandFloor, 0.8f, "the stand floor rose above the old 0.8");
+            Assert.AreEqual(CombatFx.GasBankStandFloor, CombatFx.GasBankFullM, 1e-6f,
+                "the stand floor and the full load are one number, so every standing cell is a full card");
 
-            // the thinnest card that may stand, by hand: thick = 2.4 / 8 = 0.3, so 0.19 + 0.43 * 0.3 = 0.319
-            float thinnest = CombatFx.GasBankAlpha(CombatFx.GasBankStandFloor / CombatFx.GasBankFullM);
-            Assert.AreEqual(0.319f, thinnest, 1e-3f, "the thinnest standing card draws at 0.319");
+            // the thinnest card that may stand IS a core card: thick = clamp01(2.4 / 2.4) = 1, so
+            // Mathf.Lerp(0.19, 0.62, 1) = 0.62, by hand
+            float thinnest = CombatFx.GasBankAlpha(Mathf.Clamp01(CombatFx.GasBankStandFloor / CombatFx.GasBankFullM));
+            Assert.AreEqual(CombatFx.GasBankFull, thinnest, 1e-3f,
+                "the thinnest standing card draws the bank's full core opacity 0.62");
 
-            // the same haze/paint line TheGasBankEdgeIsLiftedIntoTheMass uses: half the bank's own core opacity
-            Assert.GreaterOrEqual(thinnest, CombatFx.GasBankAlpha(1f) / 2f,
-                "every standing card draws past half the bank's core opacity, so none of them is threshold paint");
-
-            // the regression this round fixes: at the old floor the thinnest card fell short of that line
-            Assert.Less(CombatFx.GasBankAlpha(0.8f / CombatFx.GasBankFullM), CombatFx.GasBankAlpha(1f) / 2f,
-                "at the old 0.8 floor the thinnest standing card was a hair over the thin floor, below half the core");
+            // the regression this round fixes, with the OLD build's own committed number (CombatFx.Banks.cs at
+            // d36c420919: 0.19 + 0.43 * 0.3): at an 8 m full load the thinnest standing card drew 0.319, only 0.51
+            // of the core's 0.62 - the ramp across the bank
+            Assert.Less(0.319f, 0.52f * CombatFx.GasBankFull,
+                "at the old 8 m full load the thinnest standing card drew 0.319, barely half the core's paint");
         }
         [Test]
         public void TheGasBankStacksIntoDensity()
