@@ -139,6 +139,7 @@ namespace TW.Presentation
         public uint FlipSince, FlipLock;                // when the sim first asked a moving man to go flat or come up (held ten ticks, then a transition); the last flip (locked 40 ticks)
         public uint StopTick;                           // when his speed last dropped under the walking threshold (a shuffle in a queue keeps the gait)
         public uint LastDive, DownUntil;                // the last dive away from a shell; lying flat after it until then
+        public uint LastRushDive;                       // the last dive into cover at the end of a rush (its own gate: LastDive is the blast dive's, which must still win)
         public bool Scramble;                           // up off the ground straight into a run: the gait fades in slowly
         public float ThrowX, ThrowZ, ThrowUp;           // a shell killed him: how far it throws him (m, world XZ) and how high the arc goes
         public float HopHeight, HopFrame, HopFor; public uint HopTick;   // HopFor: seconds the lift lasts (0 = HopSeconds; a jetpack leap's flight)   // a shell blew him off his feet (and he lived): how high it lifts him (life-size metres; drawn at his scale), where in the clip and on which tick it did
@@ -551,6 +552,10 @@ namespace TW.Presentation
             // archetypes UnitDefinitions fields count too
             bool braced = bracedSetup && w.Units != null && w.Units.Infantry.IsCreated && arche < w.Units.Infantry.Length && w.Units.Infantry[arche].Braced;
             bool inTrench = (f & (uint)UnitFlags.InTrench) != 0;
+            // under fire in the open he moves in rushes (StanceRules): bent double up, then flat in the nearest hole.
+            // The sim gives him Crouch then Prone, which on their own read as a jog and a lie-down, so the rush is the
+            // one fact the sprint, the gait and the dive below key off (act-rush-and-drop, 2026-10-23).
+            bool alarmed = w.Alarm[i] >= StanceRules.CarefulAlarm && !inTrench;
             int ncx = math.clamp((int)(p.x / MapData.NavCellSize), 0, map.NavWidth - 1), ncz = math.clamp((int)(p.z / MapData.NavCellSize), 0, map.NavLength - 1);
             byte layer = map.NavLayers[map.NavIndex(ncx, ncz)];
             bool mud = (layer & (byte)NavLayer.Mud) != 0, wire = (layer & (byte)NavLayer.Wire) != 0;
@@ -586,7 +591,8 @@ namespace TW.Presentation
 
             // the stance the situation implies (Wanted): the sim's, damped against its target flicker and held by a routine
             byte want = (byte)simStance;
-            if (simStance == Stance.Vault || simStance == Stance.FireStep || simStance == Stance.Sprint) want = (byte)Stance.Standing;
+            if (simStance == Stance.Vault || simStance == Stance.FireStep) want = (byte)Stance.Standing;
+            if (simStance == Stance.Sprint) want = alarmed ? (byte)Stance.Crouch : (byte)Stance.Standing;   // a man dashing under fire goes bent double, not upright
             if (arche == 3 && inTrench && want == (byte)Stance.Standing && simStance == Stance.FireStep) want = (byte)Stance.Crouch;   // the sniper fires from the knee, off the fire step
             // braced, stopped in the open: he sets the bipod down and fires flat (drawn only, like the sniper's line above;
             // the sim keeps his stance). Only when stopped: prone on the move would send him off at a crawl. In a trench
@@ -1000,6 +1006,15 @@ namespace TW.Presentation
                 bool fromProne = from == Stance.Prone || from == Stance.Pinned, toProne = to == Stance.Prone || to == Stance.Pinned;
                 bool fromLow = from == Stance.Crouch, toLow = to == Stance.Crouch;
                 s.Routine = 0;
+                // the end of a rush: he throws himself into the hole, he does not lie down. DiveAway at 2.0x is flat in
+                // 0.35 s, so the next tick after it picks a prone clip well inside the half second the owner asked for.
+                // Rung.StanceChange keeps it under the blast dive (Rung.Reaction), whose own gate (LastDive) is untouched.
+                if (alarmed && !fromProne && toProne && tick - s.LastRushDive > 20)
+                {
+                    s.LastRushDive = tick;
+                    Start(i, ref s, Clip.DiveAway, Rung.StanceChange, (i == FollowSlot ? "end of the rush: dives into cover" : null), 2.0f, 0.1f);
+                    s.Stance = (byte)Stance.Prone; return;
+                }
                 if (fromProne && !toProne) { Start(i, ref s, Clip.ProneToKneel, Rung.StanceChange, (i == FollowSlot ? "stance " + from + " -> " + to + ": up to a knee" : null)); s.Stance = (byte)Stance.Crouch; return; }
                 if (!fromProne && toProne) { Start(i, ref s, fromLow ? Clip.KneelToProne : Clip.StandToKneel, Rung.StanceChange, (i == FollowSlot ? "stance " + from + " -> " + to + ": " + (fromLow ? "down flat" : "down to a knee") : null)); s.Stance = fromLow ? want : (byte)Stance.Crouch; return; }
                 if (fromLow && !toLow) { Start(i, ref s, Clip.KneelToStand, Rung.StanceChange, (i == FollowSlot ? "stance " + from + " -> " + to + (inTrench ? ": up to the parapet" : "") : null)); s.Stance = want; return; }
@@ -1011,17 +1026,29 @@ namespace TW.Presentation
                 bool sProne = s.Stance == (byte)Stance.Prone || s.Stance == (byte)Stance.Pinned, wProne = want == (byte)Stance.Prone || want == (byte)Stance.Pinned;
                 if (sProne != wProne)
                 {
-                    // on the move the sim flips a man under fire between flat and upright from tick to tick: he keeps his gait
-                    // half a second, then goes down (or comes up) through the transition while the sim carries him
-                    if (s.FlipSince == 0 || tick - s.FlipSince > 30) s.FlipSince = tick;
-                    if (tick - s.FlipSince >= 10 && tick - s.FlipLock >= 40)
+                    // the same dive, carried at a run, and the rush up without the half-second hold: his beat is his own,
+                    // so coming up on the first tick cannot bunch the section (act-rush-and-drop, 2026-10-23)
+                    if (alarmed && wProne && tick - s.LastRushDive > 20)
                     {
-                        s.FlipSince = 0; s.FlipLock = tick; s.Routine = 0;
-                        if (speed > 1f) { s.Stance = want; }   // carried at a run: the gait cross-fades (a 2 s transition would slide him metres)
-                        else
+                        s.FlipSince = 0; s.LastRushDive = tick; s.Routine = 0;
+                        Start(i, ref s, Clip.DiveAway, Rung.StanceChange, (i == FollowSlot ? "end of the rush: dives into cover" : null), 2.0f, 0.1f);
+                        s.Stance = (byte)Stance.Prone; return;
+                    }
+                    if (alarmed && !wProne) { s.FlipSince = 0; s.Routine = 0; s.Stance = want; }
+                    else
+                    {
+                        // on the move the sim flips a man under fire between flat and upright from tick to tick: he keeps his gait
+                        // half a second, then goes down (or comes up) through the transition while the sim carries him
+                        if (s.FlipSince == 0 || tick - s.FlipSince > 30) s.FlipSince = tick;
+                        if (tick - s.FlipSince >= 10 && tick - s.FlipLock >= 40)
                         {
-                            Start(i, ref s, wProne ? Clip.KneelToProne : Clip.ProneToKneel, Rung.StanceChange, (i == FollowSlot ? "moving, stance " + (Stance)s.Stance + " -> " + (Stance)want + (wProne ? ": goes flat" : ": comes up") : null), math.clamp(1f + speed, 1f, 2f));
-                            s.Stance = wProne ? want : (byte)Stance.Crouch; return;
+                            s.FlipSince = 0; s.FlipLock = tick; s.Routine = 0;
+                            if (speed > 1f) { s.Stance = want; }   // carried at a run: the gait cross-fades (a 2 s transition would slide him metres)
+                            else
+                            {
+                                Start(i, ref s, wProne ? Clip.KneelToProne : Clip.ProneToKneel, Rung.StanceChange, (i == FollowSlot ? "moving, stance " + (Stance)s.Stance + " -> " + (Stance)want + (wProne ? ": goes flat" : ": comes up") : null), math.clamp(1f + speed, 1f, 2f));
+                                s.Stance = wProne ? want : (byte)Stance.Crouch; return;
+                            }
                         }
                     }
                 }
@@ -1068,7 +1095,7 @@ namespace TW.Presentation
                 // crouched and shooting as he goes: FireStoop and StoopWalk are authored at 1 m/s, so the rate clamp
                 // (0.6 to 1.6) can only carry the ground up to 1.6 m/s; above that CrouchRun (authored 2.4, clamp
                 // reaches it from 1.44) is the only crouched clip whose feet still match the ground, firing or not
-                else if (inTrench || simStance == Stance.Crouch) gait = speed > 1.6f ? Clip.CrouchRun : firing ? Clip.FireStoop : supp > 40f ? Clip.StoopLow : Clip.StoopWalk;
+                else if (inTrench || simStance == Stance.Crouch || (alarmed && s.Stance == (byte)Stance.Crouch)) gait = speed > 1.6f ? Clip.CrouchRun : firing ? Clip.FireStoop : supp > 40f ? Clip.StoopLow : Clip.StoopWalk;
                 else if (arche == 2 && speed < 2.2f && target < 0) { gait = Clip.MGCarry; env = " carrying the gun"; }
                 else if ((simStance == Stance.Sprint && speed > 2.2f) || speed > 3.6f) gait = firing && arche == 1 ? Clip.FireSprint : Clip.Sprint;
                 else if (speed > 2.2f) gait = math.abs(rel) > 2.27f && arche <= 1 ? Clip.RunBack : firing && math.abs(rel) < 0.87f ? Clip.FireRun : Clip.Run;
@@ -1091,7 +1118,10 @@ namespace TW.Presentation
                 if (wire && !prone && gait != Clip.WireCross) rate = math.min(rate, 0.6f);
                 Start(i, ref s, gait, Rung.Locomotion, (i == FollowSlot ? "moves at " + speed.ToString("0.0") + " m/s: " + gait + env + (s.Scramble ? ", scrambling up off the ground" : "") : null), rate, s.Scramble ? 0.4f : 0.15f);
                 s.Scramble = false;
-                s.Stance = flat ? (bowl ? (byte)Stance.Prone : (byte)simStance) : simStance == Stance.Crouch ? (byte)Stance.Crouch : (byte)Stance.Standing;   // the gait sets the stance, no transition needed
+                // the gait sets the stance, no transition needed. An alarmed sprinter is drawn in a crouched gait, so
+                // the stance follows the gait, not the sim's Sprint, or it would flip back upright every tick
+                bool crouchedGait = Clips.Table[(int)gait].Stance == (byte)Stance.Crouch;
+                s.Stance = flat ? (bowl ? (byte)Stance.Prone : (byte)simStance) : simStance == Stance.Crouch || (alarmed && crouchedGait) ? (byte)Stance.Crouch : (byte)Stance.Standing;
                 if (flat && !prone) s.Stance = (byte)Stance.Prone;
                 return;
             }
