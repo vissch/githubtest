@@ -217,6 +217,10 @@ namespace TW.Tests
             int enemy = r.Man((byte)InfantryArchetype.Rifle, 4f, 30f, 1);
             r.M.World.Events.Clear();
             r.Tick();
+            // every man settled into the pose he fires from first: a braced weapon (the machine gunner) sets up on the
+            // bipod when he stops, and a shot does not cut that set-up short (act-braced-weapons). This test is about the
+            // spread of the squad through its fire clip, not about the stance they reach.
+            for (int t = 0; t < 70; t++) { foreach (int man in squad) r.Aim(man, enemy); r.Tick(); }
             foreach (int man in squad) { r.Aim(man, enemy); r.Shot(man, enemy); }
             r.Decide();
 

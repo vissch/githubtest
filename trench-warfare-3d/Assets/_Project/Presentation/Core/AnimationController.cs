@@ -148,6 +148,7 @@ namespace TW.Presentation
         public float ClimbTime;                         // seconds since this climb started (ClimbHold/ClimbLadder loop and start at a hashed phase, so Lift cannot use Frame)
         public bool InBowl;                             // lying in a shell crater's bowl (entered after a stop, left when he moves on or it goes quiet)
         public uint TendUntil; public int TendOn;       // the medic or repair man at work until this tick, on this slot (the sim's sweeps renew it)
+        public uint BracedAt;                           // a braced weapon's set-up or pack-up last started on this tick, so neither of them flaps
     }
 
     /// <summary>One class in two files: this one is the ladder, the latch and the render-frame advance;
@@ -185,6 +186,8 @@ namespace TW.Presentation
         public NativeArray<ushort> PrevRow;  // the clip fading out, where it stopped, and its weight (VATRenderer reads these)
         public NativeArray<float> PrevPhase, Blend;
         readonly int maxSlots;
+        /// <summary>fx.braced: 1 (the default) gives a braced weapon its set-up and its prone/rested fire; 0 is the old look, which is what the before captures are filmed from.</summary>
+        readonly bool bracedSetup;
         int count;
         uint tick; float tickSeconds = 0.05f;
         readonly MapData map;
@@ -226,6 +229,7 @@ namespace TW.Presentation
         public AnimationController(int maxSlots, MapData map, TW.Sim.Combat.GasSmokeSystem gas, NativeArray<ushort> row, NativeArray<float> phase, NativeArray<float> yaw)
         {
             this.maxSlots = maxSlots; this.map = map; this.gas = gas;
+            bracedSetup = Knobs.Get("fx.braced", 1f) > 0.5f;
             State = new NativeArray<AnimState>(maxSlots, Allocator.Persistent);
             Row = row; Phase = phase; Yaw = yaw;
             PrevRow = new NativeArray<ushort>(maxSlots, Allocator.Persistent);
@@ -538,6 +542,9 @@ namespace TW.Presentation
             if (target >= 0) { if (tick - s.LastTarget > 1) s.TargetSince = tick; s.LastTarget = tick; }   // every tick, whatever rung returns below
             float supp = w.Suppression[i];
             byte arche = w.Archetype[i];
+            // a braced weapon (the MG team, the Sentry, the AT rifle): the match's table, not InfantrySpec.For, so the
+            // archetypes UnitDefinitions fields count too
+            bool braced = bracedSetup && w.Units != null && w.Units.Infantry.IsCreated && arche < w.Units.Infantry.Length && w.Units.Infantry[arche].Braced;
             bool inTrench = (f & (uint)UnitFlags.InTrench) != 0;
             int ncx = math.clamp((int)(p.x / MapData.NavCellSize), 0, map.NavWidth - 1), ncz = math.clamp((int)(p.z / MapData.NavCellSize), 0, map.NavLength - 1);
             byte layer = map.NavLayers[map.NavIndex(ncx, ncz)];
@@ -574,6 +581,10 @@ namespace TW.Presentation
             byte want = (byte)simStance;
             if (simStance == Stance.Vault || simStance == Stance.FireStep || simStance == Stance.Sprint) want = (byte)Stance.Standing;
             if (arche == 3 && inTrench && want == (byte)Stance.Standing && simStance == Stance.FireStep) want = (byte)Stance.Crouch;   // the sniper fires from the knee, off the fire step
+            // braced, stopped in the open: he sets the bipod down and fires flat (drawn only, like the sniper's line above;
+            // the sim keeps his stance). Only when stopped: prone on the move would send him off at a crawl. In a trench
+            // the parapet rest is the firestep pose he already holds, so want is left alone.
+            if (braced && !inTrench && speed < 0.15f && want == (byte)Stance.Standing) want = (byte)Stance.Prone;
             // the AT rifle is bipod-laid (UnitLook): standing still, in a trench or in the open, he lies down behind his
             // gun, which is what tells him from the Sniper at a glance (critique r1: the two men read as one)
             if (arche == InfantryArchetype.AtRifle && speed < 0.15f && simStance != Stance.Melee && simStance != Stance.Leap && simStance != Stance.Vault && simStance != Stance.Dead)
@@ -802,6 +813,9 @@ namespace TW.Presentation
             // the magazine each weapon draws a reload after: SMG and machine pistol 20, MG belt 50, pistol 8, rifle 5
             int magazine = arche == 1 || arche == 17 ? 20 : arche == 2 ? 50 : arche == 13 ? 8 : 5;
             bool bolt = arche == 0 || arche == 3;   // the rifle and the sniper work a bolt after every shot
+            // flat as he is DRAWN, not only as the sim has him: a braced man the stance rung took down does not stand up
+            // again to aim, to work a bolt or to reload (the locomotion rung's own `flat` is the same test, nested below)
+            bool fireFlat = prone || s.Stance == (byte)Stance.Prone;
             if (tick < layUntil[i] && !prone && speed < 0.3f)
             {
                 s.Routine = 0; s.Aimed = false; s.WantStance = (byte)Stance.Crouch;
@@ -857,13 +871,14 @@ namespace TW.Presentation
             if (shotThisTick[i] != 0 && speed < 0.3f && !(s.Rung == Rung.Reaction && hitClip && Playing(s)))
             {
                 if (s.Rung == Rung.Turn && Playing(s)) return;   // mid-turn: the turn finishes (the tracer still draws), the next shot plays
-                if (s.Rung == Rung.StanceChange && Playing(s)) { if (Left(s) > 0.4f) return; s.Stance = s.WantStance; low = s.Stance == (byte)Stance.Crouch; }   // a rise or a drop finishes first (the tracer still draws); one nearly done lands
+                if (s.Rung == Rung.StanceChange && Playing(s)) { if (braced || Left(s) > 0.4f) return; s.Stance = s.WantStance; low = s.Stance == (byte)Stance.Crouch; }   // a rise or a drop finishes first (the tracer still draws); one nearly done lands. A braced man's set-up is never cut to an upright shot
                 s.Routine = 0;
                 if (aimAt >= 0 && aimAt < count) { s.BodyYaw = s.AimYaw; s.TurnTo = s.AimYaw; }   // the feet come round while he fires (Advance, at a firing pace)
+                fireFlat = prone || s.Stance == (byte)Stance.Prone;   // the landing above may have put him down
                 // the pistol (the shield bearer) snaps a quick shot rather than shouldering a rifle for a second
                 // Prone, the automatics fire the prone loop (the 0.9 s one-shot restarted three times a second stuttered);
                 // at a parapet they shoulder it (the stooped hip burst would put the muzzle under the sandbags).
-                Clip fire = prone ? (auto ? Clip.FireMG : Clip.FireProne) : low ? Clip.FireKneel : auto && !inTrench ? Clip.FireStoop : arche == InfantryArchetype.AtRifle ? Clip.FireProne : bolt || arche == 13 ? Clip.FireSnap : Clip.FireStand;   // the AT rifle off his bipod
+                Clip fire = fireFlat ? (auto || arche == 26 ? Clip.FireMG : Clip.FireProne) : low ? Clip.FireKneel : auto && !inTrench ? Clip.FireStoop : arche == InfantryArchetype.AtRifle ? Clip.FireProne : bolt || arche == 13 ? Clip.FireSnap : Clip.FireStand;   // the AT rifle off his bipod
                 // and his own pace through it, within a tenth either way, so repeated shots keep drifting apart instead of
                 // falling back into step with his neighbour's (infantry-firing, 2026-10-15)
                 Start(i, ref s, fire, Rung.Fire, (i == FollowSlot ? "fires at " + shotAt[i] : null), 0.9f + 0.2f * Hash(s.Seed, 23u), 0.05f);
@@ -872,13 +887,21 @@ namespace TW.Presentation
             // a one-shot fire plays out before a stance change, a turn or the idle can take him (the loops of rung 8 have their own hold)
             if (s.Rung == Rung.Fire && !info.Loop && Playing(s) && speed < 0.3f) return;
             if (s.Rung == Rung.StanceChange && Playing(s)) return;   // a rise or a drop plays out before a reload, an aim-up or a turn (a shot lands it above)
-            if (s.Rung == Rung.Action && Playing(s)) { if (speed > 0.3f && Left(s) > 0.4f && (cur != Clip.Throw || speed > 1.5f)) {   // a throw holds a walk, not a run (it skated metres)
+            if (s.Rung == Rung.Action && Playing(s)) { if (speed > 0.3f && Left(s) > 0.4f && (cur != Clip.Throw || speed > 1.5f) && cur != Clip.Sling) {   // a throw holds a walk, not a run (it skated metres)
  /* dropped: the run takes over below */ } else return; }
+            // braced, in a trench: he rests the gun on the parapet before the first shot (Unsling, "Rifle Pull Out"), once
+            // every ten seconds at most. In the open the stance rung's drop is the set-up instead.
+            if (braced && inTrench && target >= 0 && speed < 0.15f && shotThisTick[i] == 0 && tick - s.BracedAt > 200)
+            { s.BracedAt = tick; Start(i, ref s, Clip.Unsling, Rung.Action, "braced: rests the gun on the parapet"); return; }
+            // and he packs it up again as he comes off it: the gun goes on his back (Sling) once he is back on a knee, at a
+            // walk. Above 1.2 m/s today's cross-fade stands: a 1.6 s clip would slide him metres.
+            if (braced && cur == Clip.ProneToKneel && !Playing(s) && speed > 0.15f && speed < 1.2f && tick - s.BracedAt > 200)
+            { s.BracedAt = tick; Start(i, ref s, Clip.Sling, Rung.Action, "braced: packs the gun up to move"); return; }
             byte wantNow = Wanted(ref s, w, i, simStance, inTrench, target, speed);
-            if (bolt && (cur == Clip.FireSnap || cur == Clip.FireStand || cur == Clip.FireKneel) && !Playing(s) && s.Rung == Rung.Fire && speed < 0.3f && !prone && s.Shots < magazine)
+            if (bolt && (cur == Clip.FireSnap || cur == Clip.FireStand || cur == Clip.FireKneel) && !Playing(s) && s.Rung == Rung.Fire && speed < 0.3f && !fireFlat && s.Shots < magazine)
             { Start(i, ref s, low ? Clip.BoltKneel : Clip.ReloadBolt, Rung.Action, "works the bolt"); return; }
-            if (target >= 0 && !s.Aimed && speed < 0.3f && !prone && s.Stance == wantNow) { s.Aimed = true; Start(i, ref s, low ? Clip.KneelAimUp : Clip.AimUp, Rung.Action, "target seen: rifle up"); return; }
-            if (target < 0 && s.Aimed && tick - s.LastShot > 160 && tick - s.LastTarget > 160 && speed < 0.3f && !prone && s.Stance == wantNow) { s.Aimed = false; Start(i, ref s, low ? Clip.KneelAimDown : Clip.AimDown, Rung.Action, "target lost 8 s: rifle down"); return; }
+            if (target >= 0 && !s.Aimed && speed < 0.3f && !fireFlat && s.Stance == wantNow) { s.Aimed = true; Start(i, ref s, low ? Clip.KneelAimUp : Clip.AimUp, Rung.Action, "target seen: rifle up"); return; }
+            if (target < 0 && s.Aimed && tick - s.LastShot > 160 && tick - s.LastTarget > 160 && speed < 0.3f && !fireFlat && s.Stance == wantNow) { s.Aimed = false; Start(i, ref s, low ? Clip.KneelAimDown : Clip.AimDown, Rung.Action, "target lost 8 s: rifle down"); return; }
             // the magazine: reloaded in the gap before the sim's next shot, played faster to fit it (the rifle has 0.85 s after
             // its fire clip, so its reload runs at 2x and the next shot cuts the last quarter); a man with no target takes his time.
             // The MG's 7 rps never leaves a gap, so its belt change comes when the burst ends (target lost).
@@ -886,7 +909,7 @@ namespace TW.Presentation
             if (s.Shots >= magazine && shotThisTick[i] == 0 && speed < 0.3f && (gap >= 0.7f || target < 0) && !(s.Rung == Rung.Fire && Playing(s) && s.Frame < 0.5f) && !(s.Rung == Rung.Action && Playing(s)))
             {
                 s.Shots = 0;
-                Clip reload = prone ? Clip.ReloadProne : low ? (inTrench || arche != 2 ? Clip.ReloadKneel : Clip.ReloadStoop) : Clip.ReloadStand;
+                Clip reload = fireFlat ? Clip.ReloadProne : low ? (inTrench || arche != 2 ? Clip.ReloadKneel : Clip.ReloadStoop) : Clip.ReloadStand;
                 float rate = target < 0 ? 1f : math.clamp(Clips.Table[(int)reload].Seconds / math.max(0.5f, gap), 1f, 2f);
                 Start(i, ref s, reload, Rung.Action, (i == FollowSlot ? "magazine empty: reloads" + (rate > 1.05f ? " (" + rate.ToString("0.0") + "x)" : "") : null), rate); return;
             }
