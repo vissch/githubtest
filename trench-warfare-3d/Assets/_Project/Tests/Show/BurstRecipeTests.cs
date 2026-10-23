@@ -265,7 +265,7 @@ namespace TW.Tests
             foreach (float hash in new[] { 0f, 1f })
             {
                 float width = CombatFx.GasBankWidth(thick, hash, 1);
-                float band = width * CombatFx.GasBankSquashFor(width) / 3f;
+                float band = width * CombatFx.GasBankSquashFor(width, 1) / 3f;
                 Assert.AreEqual(CombatFx.GasBankBandM, band, 1e-3f,
                     $"a card at thick {thick} hash {hash} paints the same band of gas as every other");
                 // the card sinks 0.08 m into the ground (DrawGasBank), so that much of the band is below it
@@ -286,7 +286,7 @@ namespace TW.Tests
             foreach (float hash in new[] { 0f, 1f })
             {
                 float width = CombatFx.GasBankWidth(thick, hash, 1);
-                float band = width * CombatFx.GasBankSquashFor(width) / 3f;
+                float band = width * CombatFx.GasBankSquashFor(width, 1) / 3f;
                 Assert.GreaterOrEqual(band * Mathf.Cos(pitch), 0.90f * rise,
                     $"a card at thick {thick} hash {hash} must cover 90 % of the row behind it, so no mud shows between rows");
             }
@@ -307,10 +307,32 @@ namespace TW.Tests
                 Assert.GreaterOrEqual(CombatFx.GasBankWidth(thick, hash, 1), 12f,
                     $"a gas card at thick {thick} hash {hash} must span three cells, so no card edge is the silhouette");
                 // the patch count read 19-30 islands: the holes between card skirts are what splits the bank. A card
-                // must span four cells of the 4 m grid (16 m); the narrowest is 18 * 0.9 = 16.2 m.
+                // must span four cells of the 4 m grid (16 m); the narrowest is 26 * 0.9 = 23.4 m.
                 Assert.GreaterOrEqual(CombatFx.GasBankWidth(thick, hash, 1), 16f,
                     $"a gas card at thick {thick} hash {hash} must span four cells, so the skirts of neighbours meet");
             }
+        }
+        [Test]
+        public void TheGasBankBlanketsTheBlockItStandsForAtTheOverview()
+        {
+            // the O240 stills read as a striped rectangle: from BankMergeZoom one card stands for an 8 m block, so its
+            // width doubled but its painted band stayed 1.78 m and its depth jitter +-2 m, against an 8 m row pitch -
+            // half of every row was bare mud. Band and depth spread both scale with the block now.
+            foreach (float thick in new[] { 0f, 1f })
+            foreach (float hash in new[] { 0f, 1f })
+            {
+                float w2 = CombatFx.GasBankWidth(thick, hash, 2);
+                Assert.AreEqual(2f * CombatFx.GasBankBandM, w2 * CombatFx.GasBankSquashFor(w2, 2) / 3f, 1e-3f,
+                    $"at the overview a card at thick {thick} hash {hash} paints 3.56 m, the two cells it stands for");
+                float w1 = CombatFx.GasBankWidth(thick, hash, 1);
+                Assert.AreEqual(CombatFx.GasBankBandM, w1 * CombatFx.GasBankSquashFor(w1, 1) / 3f, 1e-3f,
+                    "and the close pose is unchanged at 1.78 m");
+            }
+            // the depth spread fills the whole 8 m block: the nearest an even column stands and the farthest an odd one
+            Assert.AreEqual(-4f, CombatFx.GasBankZOffset(0, 2, 0f), 1e-3f, "an even block column reaches the block's near edge");
+            Assert.AreEqual(4f, CombatFx.GasBankZOffset(2, 2, 1f), 1e-3f, "an odd block column reaches the block's far edge");
+            Assert.AreEqual(-2f, CombatFx.GasBankZOffset(0, 1, 0f), 1e-3f, "at step 1 the near edge is still its own 4 m cell's");
+            Assert.AreEqual(2f, CombatFx.GasBankZOffset(1, 1, 1f), 1e-3f, "and the far edge too");
         }
         [Test]
         public void TheGasBankEdgeIsLiftedIntoTheMass()

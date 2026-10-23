@@ -1,4 +1,4 @@
-// Phase: ability-fx-captures-r2-2 (2026-10-19, the owner's call (a): a capture-path fault) — the CHEAP ISOLATION
+﻿// Phase: ability-fx-captures-r2-2 (2026-10-19, the owner's call (a): a capture-path fault) — the CHEAP ISOLATION
 // STILL for "133 submitted GasBank cards leave no pixels in a batch-mode Camera.Render". GasBankStills drives the
 // sim, the ability, the gas field, the bank cache and the book all at once, so a blank still accuses all of them.
 // This test cuts every one of them out: its own FlipbookFx, three hand-packed cards at known places, no sim call and
@@ -65,7 +65,7 @@ namespace TW.Tests
                 var size = map.SizeMeters;
                 var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f),
                                         new Vector3(size.x + 20f, 60f, size.y + 20f));
-                float height = Which == 0 ? CardWidth * CombatFx.GasBankSquashFor(CardWidth) : CardWidth;
+                float height = Which == 0 ? CardWidth * CombatFx.GasBankSquashFor(CardWidth, 1) : CardWidth;
                 one.Clear();
                 float y = RenderGround.Sample(map, At.x, At.z) - 0.35f;   // the gas bank's own anchor
                 one.Add(FlipbookFx.Pack(new Vector3(At.x, y, At.z), CardWidth, height, CardFrame, 1f, 1f, 0f,

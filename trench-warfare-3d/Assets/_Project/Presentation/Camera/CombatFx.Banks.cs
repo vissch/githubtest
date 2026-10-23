@@ -33,14 +33,20 @@ namespace TW.Presentation.Tactical
         /// (0.62 / 2 = 0.31), the same haze/paint line <c>TheGasBankEdgeIsLiftedIntoTheMass</c> uses. So every card that
         /// stands is paint, and a cell that would only haze does not stand.</summary>
         public const float GasBankStandFloor = 2.4f, GasBankFullM = 8f;
-        /// <summary>How tall a gas card's painted band is (m): the sheet fills the bottom third of the card, so every card,
-        /// thin or wide, paints the same 1.72 m of gas - under a 1.8 m man's head, and tall enough that at the T1 pose one
-        /// row of cards reaches the next row's and no bare ground shows between them (a share of the width left the thin
-        /// cards at 1.09 m, two fifths of the 4 m row pitch bare).</summary>
+        /// <summary>How tall a gas card's painted band is (m) PER MERGED BLOCK: the sheet fills the bottom third of the
+        /// card, so every card, thin or wide, paints the same 1.72 m of gas per cell it stands for - under a 1.8 m man's
+        /// head at the close poses (step 1), and tall enough that at the T1 pose one row of cards reaches the next row's
+        /// and no bare ground shows between them (a share of the width left the thin cards at 1.09 m, two fifths of the
+        /// 4 m row pitch bare).</summary>
         public const float GasBankBandM = 1.78f;
-        /// <summary>How flat a card of this width is drawn, so its bottom third is <see cref="GasBankBandM"/> tall.</summary>
-        public static float GasBankSquashFor(float width) => 3f * GasBankBandM / width;
-        /// <summary>The full DEPTH span a gas card's centre may fill (m): one full field cell (<see cref="MapData.FieldCellSize"/>),
+        /// <summary>How flat a card of this width is drawn, so its bottom third is <see cref="GasBankBandM"/> tall per
+        /// merged block (<paramref name="step"/>). At the overview a card's WIDTH doubles with the step but its painted
+        /// depth did not: the band stayed 1.78 m against an 8 m row pitch, so half of every row was bare ground and the
+        /// O240 still read as a striped rectangle. The band scales with the block the card stands for instead: 1.78 m at
+        /// step 1, 3.56 m at step 2.</summary>
+        public static float GasBankSquashFor(float width, int step) => 3f * GasBankBandM * step / width;
+        /// <summary>The full DEPTH span a gas card's centre may fill (m) PER MERGED BLOCK: one full field cell
+        /// (<see cref="MapData.FieldCellSize"/>) at step 1, the whole 8 m block at the overview's step 2,
         /// filled in two strata by <see cref="GasBankZOffset"/> rather than at random - at the old 1.2 m jitter every card
         /// sat within 0.6 m of its row line, so the 4 m row lattice still read as bands, and a random full-cell jitter
         /// covered the depth only on average, so the worst screen row still read a quarter under the bank's median.</summary>
@@ -50,12 +56,14 @@ namespace TW.Presentation.Tactical
         /// the painted bank into separate patches.</summary>
         public const float GasBankJitterXM = 1.2f;
 
-        /// <summary>Where in its cell a card stands in depth (m off the cell centre): even card columns in the near half,
-        /// odd columns in the far half, each filling its own 2 m stratum. The union still fills the whole 4 m cell
+        /// <summary>Where in the block it stands for a card sits in depth (m off the block centre): even card columns in
+        /// the near half, odd columns in the far half, each filling its own stratum. The union fills the whole block
         /// uniformly, but never by chance: a neighbouring column always has a card core over the other's soft band edge.
-        /// A card is four to five columns wide, so every screen x sees both parities.</summary>
+        /// A card is four to five columns wide, so every screen x sees both parities. Both terms scale with
+        /// <paramref name="step"/>, so the spread is +-2 m of a 4 m cell at step 1 and +-4 m of the overview's 8 m block -
+        /// the fixed 4 m spread left the far half of every merged row empty.</summary>
         public static float GasBankZOffset(int x, int step, float h2)
-            => ((((x / step) & 1) == 0) ? -GasBankJitterM / 4f : GasBankJitterM / 4f) + (h2 - 0.5f) * GasBankJitterM / 2f;
+            => ((((x / step) & 1) == 0) ? -GasBankJitterM * step / 4f : GasBankJitterM * step / 4f) + (h2 - 0.5f) * GasBankJitterM * step / 2f;
 
         /// <summary>How many field blocks a gas card's thickness is read from: its own and the eight around it.</summary>
         public const int GasBankNeighbourhood = 9;
@@ -85,11 +93,14 @@ namespace TW.Presentation.Tactical
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
         public static float GasBankAlpha(float thick) => Mathf.Lerp(GasBankThin, GasBankFull, Mathf.Clamp01(thick));
 
-        /// <summary>How wide a gas cell's card is drawn (m): 16.2-24.2 m on the 4 m field grid, so a card spans four to
-        /// five cells, neighbours overlap four to five deep, and no single card's silhouette is the shape you see. More
+        /// <summary>How wide a gas cell's card is drawn (m): 23.4-33.0 m on the 4 m field grid, so a card spans six to
+        /// eight cells, neighbours overlap six to eight deep, and no single card's silhouette is the shape you see. More
         /// cards reach every screen row, so the worst row sits less far under the median and the sub-threshold holes
-        /// between card skirts (which read as separate patches) close. Same card count.</summary>
-        public static float GasBankWidth(float thick, float hash01, int step) => (18f + 4f * thick) * (0.9f + 0.2f * hash01) * step;
+        /// between card skirts (which read as separate patches) close. Same card count. It was 16.2-24.2 m until the
+        /// 2.4 m <see cref="GasBankStandFloor"/> dropped the bank's outer skirt and took 5-9 m off its width: wider
+        /// cards put that width back and thicken the paint by overlap, without touching the floor, the alpha or the hue.
+        /// A card's HEIGHT does not move with this (<c>width * GasBankSquashFor(width, step)</c> cancels the width).</summary>
+        public static float GasBankWidth(float thick, float hash01, int step) => (26f + 4f * thick) * (0.9f + 0.2f * hash01) * step;
 
         const float SmokeBankFirst = 12f, SmokeBankLast = 20.5f; // the mound grown (the firebooks cut stops at 21)
 
@@ -182,7 +193,7 @@ namespace TW.Presentation.Tactical
                 // (lit core, dull skirt) and the roll (+-12 degrees) by the cell's hash so no two card edges line up
                 // every card sits on the ground at the same height: the old sink and +-0.25 m jitter threw away 0.6 m of
                 // the band and pulled the rows apart; the roll and the frame boil already break the top line
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.08f, b.Z), width, width * GasBankSquashFor(width), BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.42f, kind, GasBankAlpha(b.Thick)));
+                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.08f, b.Z), width, width * GasBankSquashFor(width, step), BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.42f, kind, GasBankAlpha(b.Thick)));
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }
