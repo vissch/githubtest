@@ -142,9 +142,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   the drop's plate stages the same drop with `CombatFx.DropFx` off, so its men are in both frames and only the drop's
   own drawing is measured, and the beams are off in both; the pixels are measured by
   `docs/evidence/ability-fx-captures-r3-2-2-g2-g1-g2/probe.py` (24 rows: every subject - smoke, barrage, splash and
-  the drop - is three captures a band, all three reps of a subject and band on one sim tick), whose floor is
-  a ground footprint for smoke, barrage and splash and a fixed bar a band for the drop, and is guarded by
-  `AbilityFxReadAtEveryBand`).
+  the drop - is three captures a band, all three reps of a subject and band on one sim tick), whose floor for
+  smoke, barrage and splash is the stricter of a spread bar (0.98 x the smallest of its own three captures) and
+  the ground footprint, a fixed bar a band for the drop, splash also checked for a blue-dominant pixel shift, and
+  is guarded by `AbilityFxReadAtEveryBand`).
 - **Tests:** VfxStills (Explicit: run by name with a graphics device; it only checks that stills were written),
   EffectFilmStills (Explicit, a graphics device, about ten minutes a look: it only checks that stills were written),
   AbilityFxStills (Explicit, a graphics device, 24 s a subject: it checks that its two stills were written and, for

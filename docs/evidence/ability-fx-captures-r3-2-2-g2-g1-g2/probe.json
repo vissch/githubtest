@@ -7,12 +7,13 @@
       "frame_area_m2": 4614.3,
       "effect_px": 152454,
       "effect_ground_m2": 763.3,
-      "floor_frac": 0.086687,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.1621,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 377,
       "plate_sim_tick": 377,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "smoke_r2",
@@ -21,12 +22,13 @@
       "frame_area_m2": 4614.3,
       "effect_px": 152454,
       "effect_ground_m2": 763.3,
-      "floor_frac": 0.086687,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.1621,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 377,
       "plate_sim_tick": 377,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "smoke_r3",
@@ -35,12 +37,13 @@
       "frame_area_m2": 4614.3,
       "effect_px": 152454,
       "effect_ground_m2": 763.3,
-      "floor_frac": 0.086687,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.1621,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 377,
       "plate_sim_tick": 377,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "smoke_r1",
@@ -49,12 +52,13 @@
       "frame_area_m2": 322191.9,
       "effect_px": 29998,
       "effect_ground_m2": 10487.3,
-      "floor_frac": 0.001241,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.0318,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 195,
       "plate_sim_tick": 195,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "smoke_r2",
@@ -63,12 +67,13 @@
       "frame_area_m2": 322191.9,
       "effect_px": 29995,
       "effect_ground_m2": 10486.3,
-      "floor_frac": 0.001241,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.0318,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 195,
       "plate_sim_tick": 195,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "smoke_r3",
@@ -77,12 +82,13 @@
       "frame_area_m2": 322191.9,
       "effect_px": 29995,
       "effect_ground_m2": 10486.3,
-      "floor_frac": 0.001241,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.0318,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 195,
       "plate_sim_tick": 195,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "barrage_r1",
@@ -91,12 +97,13 @@
       "frame_area_m2": 4911.2,
       "effect_px": 199948,
       "effect_ground_m2": 1065.5,
-      "floor_frac": 0.081446,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.2126,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 450,
       "plate_sim_tick": 450,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "barrage_r2",
@@ -105,12 +112,13 @@
       "frame_area_m2": 4911.2,
       "effect_px": 202345,
       "effect_ground_m2": 1078.3,
-      "floor_frac": 0.081446,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.2126,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 450,
       "plate_sim_tick": 450,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "barrage_r3",
@@ -119,12 +127,13 @@
       "frame_area_m2": 4911.2,
       "effect_px": 200370,
       "effect_ground_m2": 1067.8,
-      "floor_frac": 0.081446,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.2126,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 450,
       "plate_sim_tick": 450,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "barrage_r1",
@@ -133,12 +142,13 @@
       "frame_area_m2": 324639.3,
       "effect_px": 14685,
       "effect_ground_m2": 5172.9,
-      "floor_frac": 0.001232,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.0156,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 229,
       "plate_sim_tick": 229,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "barrage_r2",
@@ -147,12 +157,13 @@
       "frame_area_m2": 324639.3,
       "effect_px": 14732,
       "effect_ground_m2": 5189.4,
-      "floor_frac": 0.001232,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.0156,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 229,
       "plate_sim_tick": 229,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "barrage_r3",
@@ -161,12 +172,13 @@
       "frame_area_m2": 324639.3,
       "effect_px": 14700,
       "effect_ground_m2": 5178.2,
-      "floor_frac": 0.001232,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.0156,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 229,
       "plate_sim_tick": 229,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "splash_r1",
@@ -175,12 +187,17 @@
       "frame_area_m2": 5639.1,
       "effect_px": 83066,
       "effect_ground_m2": 508.3,
-      "floor_frac": 0.070933,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.0883,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 197,
       "plate_sim_tick": 197,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": [
+        23.5,
+        37.7,
+        71.2
+      ]
     },
     {
       "subject": "splash_r2",
@@ -189,12 +206,17 @@
       "frame_area_m2": 5639.1,
       "effect_px": 83066,
       "effect_ground_m2": 508.3,
-      "floor_frac": 0.070933,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.0883,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 197,
       "plate_sim_tick": 197,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": [
+        23.5,
+        37.7,
+        71.2
+      ]
     },
     {
       "subject": "splash_r3",
@@ -203,12 +225,17 @@
       "frame_area_m2": 5639.1,
       "effect_px": 83066,
       "effect_ground_m2": 508.3,
-      "floor_frac": 0.070933,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.0883,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 197,
       "plate_sim_tick": 197,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": [
+        23.5,
+        37.7,
+        71.2
+      ]
     },
     {
       "subject": "splash_r1",
@@ -217,12 +244,17 @@
       "frame_area_m2": 332514.7,
       "effect_px": 2895,
       "effect_ground_m2": 1044.5,
-      "floor_frac": 0.001203,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.003,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 109,
       "plate_sim_tick": 109,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": [
+        23.2,
+        40.0,
+        78.1
+      ]
     },
     {
       "subject": "splash_r2",
@@ -231,12 +263,17 @@
       "frame_area_m2": 332514.7,
       "effect_px": 2895,
       "effect_ground_m2": 1044.5,
-      "floor_frac": 0.001203,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.003,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 109,
       "plate_sim_tick": 109,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": [
+        23.2,
+        40.0,
+        78.1
+      ]
     },
     {
       "subject": "splash_r3",
@@ -245,12 +282,17 @@
       "frame_area_m2": 332514.7,
       "effect_px": 2895,
       "effect_ground_m2": 1044.5,
-      "floor_frac": 0.001203,
-      "floor_kind": "ground_footprint",
+      "floor_frac": 0.003,
+      "floor_kind": "spread_bar",
       "pose_error_m": 0.0,
       "sim_tick": 109,
       "plate_sim_tick": 109,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": [
+        23.2,
+        40.0,
+        78.1
+      ]
     },
     {
       "subject": "drop_r1",
@@ -264,7 +306,8 @@
       "pose_error_m": 0.0,
       "sim_tick": 490,
       "plate_sim_tick": 490,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "drop_r2",
@@ -278,7 +321,8 @@
       "pose_error_m": 0.0,
       "sim_tick": 490,
       "plate_sim_tick": 490,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "drop_r3",
@@ -292,7 +336,8 @@
       "pose_error_m": 0.0,
       "sim_tick": 490,
       "plate_sim_tick": 490,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "drop_r1",
@@ -306,7 +351,8 @@
       "pose_error_m": 0.0,
       "sim_tick": 242,
       "plate_sim_tick": 242,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "drop_r2",
@@ -320,7 +366,8 @@
       "pose_error_m": 0.0,
       "sim_tick": 242,
       "plate_sim_tick": 242,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     },
     {
       "subject": "drop_r3",
@@ -334,7 +381,8 @@
       "pose_error_m": 0.0,
       "sim_tick": 242,
       "plate_sim_tick": 242,
-      "tick_delta": 0
+      "tick_delta": 0,
+      "shift_rgb": null
     }
   ],
   "diff_threshold": 0.08,
@@ -345,6 +393,21 @@
     "T1": 0.1337,
     "O240": 0.0129
   },
+  "spread_bar": {
+    "smoke": {
+      "T1": 0.1621,
+      "O240": 0.0318
+    },
+    "barrage": {
+      "T1": 0.2126,
+      "O240": 0.0156
+    },
+    "splash": {
+      "T1": 0.0883,
+      "O240": 0.003
+    }
+  },
+  "splash_blue_factor": 2.0,
   "tick_tolerance": 2,
   "subject_ticks": {
     "smoke": {

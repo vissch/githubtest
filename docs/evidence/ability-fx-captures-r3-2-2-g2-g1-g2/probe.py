@@ -14,10 +14,29 @@ TWENTY-FOUR ROWS (g2-g1-g2, this lane, 2026-10-23; the owner: "repeat smoke, bar
 so the floor has no spread to sit outside."). Every subject - smoke, barrage, splash and the drop - is now shot
 THREE times a band, each rep its own editor run on its own sim tick, so this probe can also ask of smoke, barrage
 and splash what the g2-g1 probe already asked of the drop: that a build's own three captures land on one sim tick
-and do not drift against each other. The ground footprint floor (below) still decides smoke, barrage and splash -
-their drawing covers ground, so a share of the framed ground is a fair question to ask of each rep on its own. Only
-the drop keeps the fixed bar (g2, 2026-10-21): its own capture is a point event whose look is not a patch of
-churned ground.
+and do not drift against each other.
+
+EACH SUBJECT NOW HAS ITS OWN SPREAD BAR (g2-g1-g2, this lane, 2026-10-23). Smoke, barrage and splash used to be
+measured only against the ground footprint floor, a single still with no spread to sit outside. Now that each is
+three captures, every row is held against max(spread bar, ground footprint): the spread bar is 0.98 x the smallest
+of that subject and band's three captures of this lane's own tree, the same arithmetic and the same 2% margin the
+drop already used (g2-g1: a 0.03% spread, sixty times under the margin). `floor_kind` says which of the two bars
+was the stricter one for that row. Measured from this lane's own g2-g1-g2 probe.json:
+
+    smoke    T1   r1 0.165423  r2 0.165423  r3 0.165423   smallest 0.165423  x 0.98 -> 0.1621
+    smoke    O240 r1 0.032550  r2 0.032547  r3 0.032547   smallest 0.032547  x 0.98 -> 0.0318
+    barrage  T1   r1 0.216957  r2 0.219558  r3 0.217415   smallest 0.216957  x 0.98 -> 0.2126
+    barrage  O240 r1 0.015934  r2 0.015985  r3 0.015951   smallest 0.015934  x 0.98 -> 0.0156
+    splash   T1   r1 0.090132  r2 0.090132  r3 0.090132   smallest 0.090132  x 0.98 -> 0.0883
+    splash   O240 r1 0.003141  r2 0.003141  r3 0.003141   smallest 0.003141  x 0.98 -> 0.0030
+    drop     T1   r1 0.136472  r2 0.136510  r3 0.136480   smallest 0.136472  x 0.98 -> 0.1337
+    drop     O240 r1 0.013163  r2 0.013165  r3 0.013173   smallest 0.013163  x 0.98 -> 0.0129
+
+On these numbers the spread bar is the stricter one in all twelve footprint-subject cases (e.g. splash T1's spread
+bar 0.0883 against its 0.0709 footprint; splash O240's 0.0030 against its 0.0012), so the 400 m^2 footprint rule
+stays on the page without ever deciding - it is still computed and still checked, in case a future capture shrinks
+the frame enough to flip which bar wins. The drop keeps its own fixed bar, unchanged from g2-g1: its capture is a
+point event whose look is not a patch of churned ground, so the footprint question is never asked of it.
 
 The footprint floor (R0 C1, a measuring choice taken by the coordinator 2026-10-19, not the owner; the row in
 docs/reference/decisions.md): a fixed share of the frame is not a fair test of a point effect, because at the
@@ -29,16 +48,13 @@ old share of the frame:
 400 m^2 is about 20 x 20 m: a shell's crown of water and foam, honestly. The cap keeps the close bands as strict as
 they were. The pixel count stops a tiny frame passing on a share alone.
 
-THE DROP IS MEASURED AGAINST A FIXED BAR, NOT THE FOOTPRINT (g2, this lane, 2026-10-21; the row in
-docs/reference/decisions.md). The old drop stills measured the squad: drop_T1.png had 19 men and green tracer
-beams, its plate 6 men, so the diff counted soldiers, not the drop. The plate now stages the same drop with the
-drop's own look off and the beams off, so the same men stand in both frames; what the diff leaves is the biplane's
-wake, the canopies and the landing dust.
-
-Each band's bar is 0.98 x the smallest of its three captures of the g2-g1 tree:
-
-    T1    r1 0.136472  r2 0.136510  r3 0.136480   smallest 0.136472  x 0.98 -> 0.1337
-    O240  r1 0.013163  r2 0.013165  r3 0.013173   smallest 0.013163  x 0.98 -> 0.0129
+SPLASH MUST BE A BLUE COLUMN (g2-g1-g2, this lane, 2026-10-23; the owner: "splash_T1 is one blue column"). Of the
+pixels the diff counts as moved, this probe reports the mean RGB shift (`shift_rgb`) and fails a splash row whose
+mean blue shift is not more than twice its mean red shift. The factor is the gap between the subjects, not a number
+read back out of the code: measured on this lane's own captures, splash shifts R23.5 G37.7 B71.2 at T1 (B/R 3.0) and
+R23.2 G40.0 B78.1 at O240 (3.4), where the barrage shifts R71.2 G49.6 B42.1 (earth, B/R 0.6) and the smoke shifts
+R38.1 G36.5 B32.9 (0.9). The check passes the splash with room and would catch a splash that came back as dust or
+earth.
 
 HOW frame_area_m2 IS MEASURED, from the still's own sidecar (fov, aspect, cam_height_m, cam_pitch), no code read:
 
@@ -55,17 +71,25 @@ import math
 import os
 import sys
 
-from PIL import Image, ImageChops
+import numpy as np
+from PIL import Image
 
 FOOTPRINT_SUBJECTS = ["smoke", "barrage", "splash"]
 BANDS = ["T1", "O240"]
 REPS = ["r1", "r2", "r3"]
 DROP_BAR = {"T1": 0.1337, "O240": 0.0129}   # see the docstring: 0.98 x the smallest of three captures a band
+# the spread bar for the three footprint subjects: 0.98 x the smallest of that subject/band's three captures
+BAR = {
+    "smoke": {"T1": 0.1621, "O240": 0.0318},
+    "barrage": {"T1": 0.2126, "O240": 0.0156},
+    "splash": {"T1": 0.0883, "O240": 0.0030},
+}
 DIFF = 0.08             # how far a pixel's luma must move to count as the effect
 MIN_GROUND_M2 = 400.0   # the ground an effect must cover: about 20 x 20 m
 FRAC_CAP = 0.10         # never stricter than the old share-of-frame floor
 MIN_PX = 150            # and never fewer changed pixels than this
 MAX_POSE = 0.5
+SPLASH_BLUE_FACTOR = 2.0   # a splash row's mean blue shift must be more than this many times its mean red shift
 ROWS_WANTED = 24
 
 
@@ -92,18 +116,31 @@ def frame_area_m2(side):
 
 
 def luma(path):
-    """Rec.709 luma as an 8-bit image, and its size. The matrix is the one CaptureRig uses, not PIL's default."""
+    """Rec.709 luma as an int16 array and its size. The matrix is the one CaptureRig uses, not PIL's default."""
     im = Image.open(path).convert("RGB").convert("L", (0.2126, 0.7152, 0.0722, 0.0))
-    return im, im.size[0], im.size[1]
+    return np.asarray(im, dtype=np.int16), im.size[0], im.size[1]
 
 
-def moved(still, plate):
-    """How many pixels moved by more than DIFF between the plate and the still, and the share of the frame they are."""
-    diff = ImageChops.difference(still, plate)
+def rgb(path):
+    """The RGB pixels as an int16 array."""
+    return np.asarray(Image.open(path).convert("RGB"), dtype=np.int16)
+
+
+def moved(still_l, plate_l):
+    """How many pixels moved by more than DIFF between the plate and the still, their share of the frame, and the mask."""
     cut = int(round(DIFF * 255.0))
-    hist = diff.histogram()
-    px = sum(hist[cut + 1:])
-    return px, px / float(sum(hist))
+    mask = np.abs(still_l - plate_l) > cut
+    px = int(mask.sum())
+    return px, px / float(mask.size), mask
+
+
+def mean_shift_rgb(still_rgb, plate_rgb, mask):
+    """The mean per-channel absolute shift of the moved pixels, or (0, 0, 0) when none moved."""
+    if not mask.any():
+        return (0.0, 0.0, 0.0)
+    diff = np.abs(still_rgb - plate_rgb)
+    means = diff[mask].mean(axis=0)
+    return tuple(round(float(v), 1) for v in means)
 
 
 def sidecar(path):
@@ -148,7 +185,7 @@ def main():
         if (sw, sh) != (pw, ph):
             fails.append("%s: still is %dx%d, plate is %dx%d" % (who, sw, sh, pw, ph))
             continue
-        px, frac = moved(sv, pv)
+        px, frac, mask = moved(sv, pv)
 
         ss, sp = sidecar(still), sidecar(plate)
         tick, ptick = int(ss.get("sim_tick", -1)), int(sp.get("sim_tick", -1))
@@ -158,15 +195,25 @@ def main():
         area = frame_area_m2(ss)
         base, rep = subject.rsplit("_", 1)
         is_drop = base == "drop"
-        bar = DROP_BAR[band] if is_drop else (floor_for(area) if area > 0 else None)
+        footprint = floor_for(area) if area > 0 else None
+        if is_drop:
+            bar, floor_kind = DROP_BAR[band], "fixed_bar"
+        elif footprint is None:
+            bar, floor_kind = BAR[base][band], "spread_bar"
+        elif BAR[base][band] >= footprint:
+            bar, floor_kind = BAR[base][band], "spread_bar"
+        else:
+            bar, floor_kind = footprint, "ground_footprint"
+
+        shift_rgb = mean_shift_rgb(rgb(still), rgb(plate), mask) if base == "splash" else None
 
         rows.append({"subject": subject, "band": band, "effect_area_frac": round(frac, 6),
                      "frame_area_m2": round(area, 1), "effect_px": px,
                      "effect_ground_m2": round(frac * area, 1),
                      "floor_frac": round(bar, 6) if bar is not None else None,
-                     "floor_kind": "fixed_bar" if is_drop else "ground_footprint",
+                     "floor_kind": floor_kind,
                      "pose_error_m": round(max(pose, ppose), 4), "sim_tick": tick, "plate_sim_tick": ptick,
-                     "tick_delta": delta})
+                     "tick_delta": delta, "shift_rgb": list(shift_rgb) if shift_rgb is not None else None})
 
         subject_ticks.setdefault(base, {}).setdefault(band, {}).setdefault(tick, []).append(rep)
 
@@ -177,9 +224,9 @@ def main():
         elif area <= 0.0:
             fails.append("%s: the sidecar has no fov/aspect/cam_height_m, so the framed ground cannot be measured" % who)
         elif frac < bar:
-            fails.append("%s: effect_area_frac %.4f below %.4f (%.0f m^2 of ground framed; the effect covers "
-                         "%.0f m^2, under the %.0f m^2 asked for)"
-                         % (who, frac, bar, area, frac * area, MIN_GROUND_M2))
+            fails.append("%s: effect_area_frac %.4f below the %s %.4f (%.0f m^2 of ground framed; the effect covers "
+                         "%.0f m^2)"
+                         % (who, frac, floor_kind, bar, area, frac * area))
         if px < MIN_PX:
             fails.append("%s: only %d changed pixels, fewer than %d (nothing to see)" % (who, px, MIN_PX))
         if max(pose, ppose) >= MAX_POSE:
@@ -190,6 +237,9 @@ def main():
         elif delta > a.tick_tol:
             fails.append("%s: still is on tick %d, plate on %d (%d apart, tolerance %d)"
                          % (who, tick, ptick, delta, a.tick_tol))
+        if shift_rgb is not None and shift_rgb[2] <= SPLASH_BLUE_FACTOR * shift_rgb[0]:
+            fails.append("%s: mean blue shift %.1f is not more than %.0fx the mean red shift %.1f (not a blue column)"
+                         % (who, shift_rgb[2], SPLASH_BLUE_FACTOR, shift_rgb[0]))
 
     # The three reps of a band are three editor runs of the same script, so they stand on the same sim tick. More than
     # one tick means the reps were blocks of one run and are not three captures of one moment.
@@ -203,7 +253,8 @@ def main():
         fails.append("only %d rows: %d were asked for" % (len(rows), ROWS_WANTED))
 
     doc = {"rows": rows, "diff_threshold": DIFF, "min_ground_m2": MIN_GROUND_M2, "frac_cap": FRAC_CAP,
-           "min_effect_px": MIN_PX, "drop_bar": DROP_BAR, "tick_tolerance": a.tick_tol,
+           "min_effect_px": MIN_PX, "drop_bar": DROP_BAR, "spread_bar": BAR,
+           "splash_blue_factor": SPLASH_BLUE_FACTOR, "tick_tolerance": a.tick_tol,
            "subject_ticks": {b: {bd: sorted(seen) for bd, seen in bands.items()} for b, bands in subject_ticks.items()},
            "failures": fails}
     with open(out, "w", encoding="utf-8") as fh:
@@ -211,13 +262,13 @@ def main():
         fh.write("\n")
 
     for r in rows:
-        print("%-9s %-5s frac %.6f (bar %s, %-16s)  px %-7d  framed %9.0f m^2  effect %7.0f m^2  pose %.3f  ticks %d/%d"
-              % (r["subject"], r["band"], r["effect_area_frac"],
-                 "%.6f" % r["floor_frac"] if r["floor_frac"] is not None else "   ?    ", r["floor_kind"],
+        print("%-9s %-5s frac %.6f (bar %.6f, %-16s)  px %-7d  framed %9.0f m^2  effect %7.0f m^2  pose %.3f  ticks %d/%d  rgb %s"
+              % (r["subject"], r["band"], r["effect_area_frac"], r["floor_frac"], r["floor_kind"],
                  r["effect_px"], r["frame_area_m2"], r["effect_ground_m2"], r["pose_error_m"],
-                 r["sim_tick"], r["plate_sim_tick"]))
-    print("rows %d  footprint bar = min(%.2f, %.0f / frame_area_m2); drop bar T1 %.4f O240 %.4f; effect_px >= %d"
-          % (len(rows), FRAC_CAP, MIN_GROUND_M2, DROP_BAR["T1"], DROP_BAR["O240"], MIN_PX))
+                 r["sim_tick"], r["plate_sim_tick"], r["shift_rgb"]))
+    print("rows %d  footprint bar = min(%.2f, %.0f / frame_area_m2); drop bar T1 %.4f O240 %.4f; effect_px >= %d; "
+          "splash blue > %.0fx red" % (len(rows), FRAC_CAP, MIN_GROUND_M2, DROP_BAR["T1"], DROP_BAR["O240"], MIN_PX,
+                                        SPLASH_BLUE_FACTOR))
     for f in fails:
         print("FAIL " + f)
     return 1 if fails else 0

@@ -12,9 +12,13 @@
 // first was a faint haze. The spread is now 0.03%, so the bar is 0.98 x the smallest, not 0.8 x:
 // T1 0.136472 / 0.136510 / 0.136480 -> 0.1337, O240 0.013163 / 0.013165 / 0.013173 -> 0.0129.
 // g2-g1-g2: smoke, barrage and splash are now shot three times a band too, each rep its own editor run on its own
-// sim tick, so the same-tick check that guarded only the drop now guards all four subjects. Their floor stays the
-// ground footprint, unchanged, since each rep is checked on its own and their drawing covers ground; only the
-// drop keeps the fixed bar. 24 rows: 3 subjects x 3 reps x 2 bands, plus the drop's existing 6.
+// sim tick, so the same-tick check that guarded only the drop now guards all four subjects. Each of the three is
+// also held against its own spread bar (0.98 x the smallest of its three captures of this lane's tree, same
+// arithmetic as the drop's), alongside the unchanged ground footprint floor - whichever of the two is stricter
+// wins; on this lane's captures the spread bar wins every time. splash_T1 and splash_O240 must also read as a blue
+// column: the mean blue shift of the moved pixels must be more than twice the mean red shift (the owner's words;
+// probe.py's docstring has the measured gap to the barrage's earth-brown and the smoke's grey). 24 rows: 3 subjects
+// x 3 reps x 2 bands, plus the drop's existing 6.
 using System.Globalization;
 using System.IO;
 using NUnit.Framework;
@@ -37,6 +41,25 @@ namespace TW.Tests
         const float DropBarT1 = 0.1337f;
         const float DropBarO240 = 0.0129f;
 
+        /// <summary>Smoke, barrage and splash each get the same kind of bar as the drop, 0.98 x the smallest of their
+        /// own three captures a band, rounded down to four decimals. Measured, not derived - the probe's docstring
+        /// has all nine captures. Held alongside the unchanged ground footprint floor; whichever is stricter wins.</summary>
+        static float SpreadBar(string subject, string band)
+        {
+            switch (subject)
+            {
+                case "smoke": return band == "T1" ? 0.1621f : 0.0318f;
+                case "barrage": return band == "T1" ? 0.2126f : 0.0156f;
+                case "splash": return band == "T1" ? 0.0883f : 0.0030f;
+                default: throw new System.ArgumentException(subject);
+            }
+        }
+
+        /// <summary>A splash row's mean blue shift of its moved pixels must be more than this many times its mean red
+        /// shift to read as the owner's "one blue column" (probe.py's docstring has the measured gap to the barrage's
+        /// earth-brown and the smoke's grey).</summary>
+        const float SplashBlueFactor = 2.0f;
+
         // [ability-fx-captures-r3-2-2]
         [Test]
         public void AbilityFxReadAtEveryBand()
@@ -58,23 +81,40 @@ namespace TW.Tests
             Assert.That(doc.rows, Is.Not.Null.And.Length.EqualTo(24),
                 "24 rows were asked for: smoke, barrage, splash and the drop, each three reps at T1 and O240");
 
-            int drops = 0;
+            var subjectCounts = new System.Collections.Generic.Dictionary<string, int>();
             foreach (var r in doc.rows)
             {
                 string who = r.subject + " " + r.band;
                 Assert.That(r.frame_area_m2, Is.GreaterThan(0f), who + ": the framed ground was not measured");
-                bool isDrop = r.subject != null && r.subject.StartsWith("drop_r");
-                float floor = isDrop ? (r.band == "T1" ? DropBarT1 : DropBarO240) : Floor(r.frame_area_m2);
+                string baseSubject = r.subject != null && r.subject.Contains("_") ? r.subject.Substring(0, r.subject.LastIndexOf('_')) : r.subject;
+                bool isDrop = baseSubject == "drop";
+                float floor;
+                if (isDrop) floor = r.band == "T1" ? DropBarT1 : DropBarO240;
+                else floor = Mathf.Max(SpreadBar(baseSubject, r.band), Floor(r.frame_area_m2));
                 Assert.That(r.effect_area_frac, Is.GreaterThanOrEqualTo(floor - Tol),
                     string.Format(CultureInfo.InvariantCulture,
-                        "{0}: effect_area_frac {1:0.000000} is under the {2} {3:0.000000} ({4:0} m^2 of ground framed)",
-                        who, r.effect_area_frac, isDrop ? "fixed bar" : "footprint floor", floor, r.frame_area_m2));
-                if (isDrop) drops++;
+                        "{0}: effect_area_frac {1:0.000000} is under the bar {2:0.000000} ({3:0} m^2 of ground framed)",
+                        who, r.effect_area_frac, floor, r.frame_area_m2));
+                subjectCounts.TryGetValue(baseSubject, out int count);
+                subjectCounts[baseSubject] = count + 1;
                 Assert.That(r.effect_px, Is.GreaterThanOrEqualTo(150), who + ": too few changed pixels to see anything");
                 Assert.That(r.pose_error_m, Is.LessThan(0.5f), who + ": the camera was not where it was asked to be");
+
+                if (baseSubject == "splash")
+                {
+                    Assert.That(r.shift_rgb, Is.Not.Null.And.Length.EqualTo(3), who + ": no shift_rgb for the splash");
+                    Assert.That(r.shift_rgb[2], Is.GreaterThan(SplashBlueFactor * r.shift_rgb[0]),
+                        string.Format(CultureInfo.InvariantCulture,
+                            "{0}: mean blue shift {1:0.0} is not more than {2:0}x the mean red shift {3:0.0} (not a blue column)",
+                            who, r.shift_rgb[2], SplashBlueFactor, r.shift_rgb[0]));
+                }
             }
 
-            Assert.That(drops, Is.EqualTo(6), "the drop is three captures at T1 and three at O240");
+            foreach (var subject in new[] { "smoke", "barrage", "splash", "drop" })
+            {
+                subjectCounts.TryGetValue(subject, out int count);
+                Assert.That(count, Is.EqualTo(6), subject + ": three reps at T1 and three at O240");
+            }
         }
 
         [System.Serializable]
@@ -83,6 +123,7 @@ namespace TW.Tests
             public string subject, band;
             public float effect_area_frac, frame_area_m2, pose_error_m;
             public int effect_px;
+            public float[] shift_rgb;
         }
 
         [System.Serializable]
