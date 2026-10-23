@@ -37,6 +37,7 @@ WRITE_DAY_USD = 2.0     # what those legs may cost together in a day
 WRITE_TRIES = 2         # a reply that is no unit: tried again once on the same note, then said once and left
 REFUSALS = 3            # the API refused a unit leg more than this often (safety refusal): it is parked, never removed
 CHAIN_DEPTH = 4         # a fix unit chained past this many -gN segments is parked: each link is a new id, so TRIES never fires
+DEEP_PARKS = 20          # depth parks per round: each is a commit (and a push on the main board); the rest wait for the next round
 TRIES = 2               # FAIL or BLOCKED this often with nothing changed between: the unit is parked
 SINCE_DAYS = 3          # stop records older than this are not counted (the boards keep weeks of them)
 PARKED = found.PARKED
@@ -428,7 +429,7 @@ def attempts(w, opens, dones, running, idle, extras=None):
                 ok, said = w.add(u)
                 if ok:
                     code, psaid = w.prio(uid, old)
-                    rec.update(parked=None, fails=[], fp={}, refused=[], deep=False, kept=True)
+                    rec.update(parked=None, fails=[], fp={}, refused=[], deep=False)     # not kept: only his A (answered) excuses a unit from the depth rule
                     refused = f' (priority {old} was refused: {str(psaid)[:80]})' if code else ''
                     out.append(f'attempts: {uid} is back on the queue: {what}' + refused + (f' (its brief {rec["brief"]} stays: his B on it takes it off again)' if rec.get('brief') else ''))
                 else:
@@ -449,6 +450,8 @@ def attempts(w, opens, dones, running, idle, extras=None):
         rec['deep'] = deep and not refused and len(rec.get('fails') or []) < TRIES
         if refused or deep:
             rec['fp'] = dict(lane=w.lane_sha(u.get('lane', '')), base=w.int_sha())     # as it stands now: a unit never tried has no fingerprint, and {} reads as 'new commits' (back on the queue a round later)
+        if deep and not refused and sum(1 for line in out if ' parked: a chain of ' in line) >= DEEP_PARKS:
+            continue                                        # the rest of the chains are parked in the next rounds
         if not park(w, uid, rec, on, out):
             continue
         peer = next((r for k, r in sorted(st.items()) if rec['deep'] and k != uid and r.get('deep') and r.get('parked') and r.get('brief') and chain_family(k) == chain_family(uid)
@@ -558,18 +561,24 @@ def stuck_on_extras(w, st, opens, idle, extras):
 
 def answered(w, uid):
     """His A on a parked unit's brief queued it again: its count starts over, and a later park gets a brief of its own."""
-    st = load(w.home / 'attempts.json', {})
+    st, out = load(w.home / 'attempts.json', {}), []
     bid = (st.get(uid) or {}).get('brief')
     if uid in st:
         st[uid].update(parked=None, fails=[], fp={}, refused=[], brief='', dropped=False, drop=False, deep=False, kept=True)
         for k, r in sorted(st.items()):                      # the family brief: his A sends back every unit parked under it
             if k != uid and r.get('deep') and r.get('parked') and r.get('brief') and r.get('brief') == bid:
                 u = {a: b for a, b in r['parked'].items() if a not in ('fp', 'boards', 'old_priority', 'at', 'priority')}
-                ok, _ = w.add(u)
+                ok, said = w.add(u)
                 if ok:
-                    w.prio(k, r['parked'].get('old_priority', 50))
+                    code, psaid = w.prio(k, r['parked'].get('old_priority', 50))
                     r.update(parked=None, fails=[], fp={}, refused=[], dropped=False, drop=False, deep=False, kept=True)
+                    if code:
+                        out.append(f'attempts: {k} is back on the queue with his A, priority was refused: {str(psaid)[:80]}')
+                else:        # still parked: its record must not point at the answered brief (that reads as his B); a fresh brief is written next round
+                    r.update(brief='', dropped=False)
+                    out.append(f'attempts: {k} could not go back on the queue with his A ({str(said)[:120]}): it gets a fresh brief next round')
         save(w.home / 'attempts.json', st)
+    return out
 
 
 def dropped_by(w, bid):

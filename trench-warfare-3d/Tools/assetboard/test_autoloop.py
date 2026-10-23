@@ -626,6 +626,47 @@ def main():
          len(back) == 2 and st[first].get('kept') and not st[first].get('parked') and len(w.briefs_written) == 2
          and (st.get('fam-b-g1-g1-g1-g1-g1') or {}).get('parked'), (st, w.briefs_written))
 
+    # chain depth: review notes
+    dd = 'fam-c-g1-g1-g1-g1-g1'
+    w = wt('wt23')
+    put(w.extras[2], 'queue', dd, lane='lane/show/famc', goal='g')
+    autoloop.attempts(w)
+    w.shas['lane/show/famc'] = 'L9'                                     # the lane moved: it returns by itself
+    autoloop.attempts(w)
+    rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get(dd) or {}
+    back_alone = not rec.get('parked') and not rec.get('kept')
+    autoloop.attempts(w)
+    rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get(dd) or {}
+    case('chain depth: a deep unit that comes back by itself (new commits) is not kept: it is depth-parked again, with one more brief',
+         back_alone and rec.get('parked') and len(w.briefs_written) == 2, (back_alone, rec, w.briefs_written))
+    w = wt('wt24')
+    fb = ['fam-d-g1-g1-g1-g1-g1', 'fam-d-g2-g1-g1-g1-g1-g1']
+    for i, f in enumerate(fb):
+        put(w.extras[2], 'queue', f, lane='lane/show/famd%d' % i, goal='g')
+    autoloop.attempts(w)
+    autoloop.attempts(w)
+    n0 = len(w.briefs_written)
+    st = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8'))
+    one, two = fb
+    orig_add = w.add
+    w.add = lambda u: (False, 'no') if u['id'] == two else orig_add(u)
+    autoloop.loopsteps.answered(w, one)
+    w.answered_briefs = {st[one]['brief']}
+    autoloop.attempts(w)
+    autoloop.attempts(w)
+    rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get(two) or {}
+    case('chain depth: a family peer whose add fails stays parked, loses the answered brief and gets a fresh one, and is not marked dropped',
+         rec.get('parked') and not rec.get('dropped') and len(w.briefs_written) == n0 + 1, (rec, w.briefs_written))
+    w = wt('wt25')
+    many = ['fam-e%d-g1-g1-g1-g1-g1' % i for i in range(25)]
+    for i, f in enumerate(many):
+        put(w.extras[2], 'queue', f, lane='lane/show/fame%d' % i, goal='g')
+    autoloop.attempts(w)
+    n1 = len(json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')) and [f for f in (w.home / 'parked').glob('*.json')])
+    autoloop.attempts(w)
+    n2 = len([f for f in (w.home / 'parked').glob('*.json')])
+    case('chain depth: at most DEEP_PARKS units are parked per round, the rest in the next', n1 == autoloop.loopsteps.DEEP_PARKS and n2 == 25, (n1, n2))
+
     w = wt('wt16')
     put(w.extras[2], 'queue', 'gas', lane='lane/show/gas', goal='g')
     qf = type('Q', (), {'exists': staticmethod(lambda: any((b / 'relay' / 'queue' / 'gas.json').exists() for b in (w.main, w.extras[2])))})   # sent back, the fake queues it on the main board

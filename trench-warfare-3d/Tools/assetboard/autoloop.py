@@ -709,7 +709,7 @@ def take_answers(w):
                     out.append(f'answers: {a["id"]}: the relay refused {unit.get("id")}: {said}')
                     continue
                 w.take(a, queued=unit['id'])
-                loopsteps.answered(w, unit['id'])          # a parked unit he sent back: its tries start over
+                out += loopsteps.answered(w, unit['id']) or []          # a parked unit he sent back: its tries start over
                 w.log_decision(f'| {a["when"][:10]} | **Taken up by the loop.** **{a["title"]}: {a["option"]}: {a["text"]}** Queued as `{unit["id"]}`. (owner, Decide page, note {a["note"]}) |')
                 out.append(f'answers: {a["id"]}: his yes queued {unit["id"]} and the brief is closed')
             else:
