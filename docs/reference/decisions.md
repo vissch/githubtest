@@ -295,6 +295,20 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **The chlorine bank missing from the stills is a capture-path fault: (a).** To the open question "The chlorine bank is not in the picture at all" (four CaptureRig stills in GreyboxCorridor at night hold no bank, while the sim took every call and `CombatFx.gasCards` held up to 133 packed cards) the owner picked option (a): treat it as a capture-path fault and have SHOW find why the GasBank book (the only `Bank`/`Deep` sheet) misses `CaptureRig`'s own `Camera.Render()`. It is the default that changes no look: the bank is not grown, brightened or unsquashed (option (b)), and it is not left alone (option (c)). Pictures and numbers: `docs/evidence/ability-fx-captures-r2/`. Carried by the lane `lane/show/ability-fx-captures-r2-2`. (owner, 2026-10-19) **Closed by `ability-fx-captures-r2-2`:** the bank was never missing — it is drawn, reaches `CaptureRig`'s `Camera.Render()`, and covers 11% of the T1 frame; the fault was `probe.py`'s own hue test, which at night could read only 193 of the 101,253 pixels that actually changed from the plate. No look changed. `docs/evidence/ability-fx-captures-r2/probe.json` is green. |
 
 ## Open: waiting on the owner
+- **The gas puff's "flat fill": the 0.20 relief floor cannot be reached, and may be the wrong measure
+  (2026-10-23, lane/show/ability-fx-captures-r2-2-g2-g2-g2-g1-g2-g1-g2):** the close puff's `GasPuff` row now has
+  the smoke card's band (`High` 0.60 -> 0.31, the PNG's own) and the smoke card's `Lit` (0.75 -> 1): ink relief
+  0.1276 -> ~0.145 -> **0.1708 / 0.1671 / 0.1686**, and the second step cost no green (mean G - max(R, B) -17.3 ->
+  -15.8). Both levers the row has are spent, still under the 0.20 floor read off his "a smoke card at 0.32". Two
+  measured findings: no band setting buys more than about +15% (an offline fit, so ~0.20 at the very best, by
+  posterising the mound), and the 0.32 itself is mostly BACKGROUND seen through the faint translucent grey cards -
+  `cards-gas`, which draws nothing, reads the highest relief of all four (0.3290); on the whole changed area the
+  puff already beats the smoke card (CV 0.4408 against 0.3685). Options: (a) accept the puff as it stands and bar
+  `cards_gaspuff_ink_relief` at 0.16, the floor these three captures support - **the default taken here**, nothing
+  is barred and `probe.py` keeps exiting 1 until he answers; (b) bar it against the smoke card on a mask that is
+  the card's own drawing, not the plate difference (a probe change, no look change); (c) spend real look change on
+  it - a different `PuffFrame`, a narrower band, or a new sheet drawn with more shading. Numbers, the cel table and
+  the pictures: `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g2-g1-g2/README.md`.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
