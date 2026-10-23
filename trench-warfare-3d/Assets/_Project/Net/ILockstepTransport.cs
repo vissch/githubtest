@@ -8,7 +8,7 @@ namespace TW.Net
 {
     public struct CommandFrame
     {
-        public const uint NoHash = uint.MaxValue;   // HashTick when the sender had no hash for any tick
+        public const uint NoHash = uint.MaxValue;   // HashTick when the sender had no hash for the tick it just stepped
 
         public uint Tick;
         public byte Player;

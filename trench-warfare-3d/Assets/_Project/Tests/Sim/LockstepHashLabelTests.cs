@@ -82,8 +82,8 @@ namespace TW.Tests
                 Assert.That(f.Hash, Is.EqualTo(0UL), $"[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] a world with HashInterval = 0 must send Hash 0 on every frame, but the frame for tick {f.Tick} carries a hash");
                 Assert.That(f.HasHash, Is.False, $"[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] the frame for tick {f.Tick} claims a hash although HashInterval is 0");
                 Assert.That(f.HashTick, Is.EqualTo(CommandFrame.NoHash), $"[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] the frame for tick {f.Tick} is labelled as tick {f.HashTick} instead of NoHash, so a reader keying on HashTick would compare a missing hash against a real one");
-                Assert.DoesNotThrow(() => exchange.Observe(f, 0xABCDEF1234567890UL), $"[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] HashExchange.Observe must skip a frame with Hash == 0, not try to compare it");
-                Assert.That(exchange.DesyncDetected, Is.False, $"[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] a frame with Hash == 0 carries no hash and must never raise a desync");
+                Assert.DoesNotThrow(() => exchange.Observe(f, 0xABCDEF1234567890UL), $"[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] HashExchange.Observe must skip a frame with HasHash false, not try to compare it");
+                Assert.That(exchange.DesyncDetected, Is.False, $"[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] a frame with HasHash false carries no hash and must never raise a desync");
             }
         }
 
