@@ -277,18 +277,23 @@ namespace TW.Tests
         public void TheGasBankBandsMeetInDepthAtTheT1Pose()
         {
             // r2's critique again: at zoom 30 the stills were four or five yellow-green bands with bare mud between
-            // them. The bands are the field's rows: cells sit on a 4 m grid (MapData.FieldCellSize, a literal here as
-            // in the neighbouring test), so at the T1 pose (pitch 25, GasBankStills) a row of ground steps
-            // 4 * sin 25 on screen while a card's painted band only rises band * cos 25. Below 1 the gap is mud.
-            const float pitch = 25f * Mathf.Deg2Rad, rowPitch = 4f;
-            float rise = rowPitch * Mathf.Sin(pitch);
+            // them, and the close stills still had dark horizontal bands. The bands are the steps between card centres
+            // down a screen column: at the T1 pose (pitch 25, GasBankStills) a depth step rises step * sin 25 on screen
+            // while a card's painted band only reaches band * cos 25. This used to check the NOMINAL 4 m cell pitch and
+            // so never saw the jittered worst case - one card anywhere in its cell made steps of 2 to 6 m. Two cards per
+            // cell cap the step at GasBankWorstDepthStep(1) = 3 m.
+            const float pitch = 25f * Mathf.Deg2Rad;
+            float rise = CombatFx.GasBankWorstDepthStep(1) * Mathf.Sin(pitch);
+            float oldRise = 6f * Mathf.Sin(pitch);   // the old layout's worst step: 4 m cell + 2 m of jitter swing
             foreach (float thick in new[] { 0f, 1f })
             foreach (float hash in new[] { 0f, 1f })
             {
                 float width = CombatFx.GasBankWidth(thick, hash, 1);
                 float band = width * CombatFx.GasBankSquashFor(width) / 3f;
                 Assert.GreaterOrEqual(band * Mathf.Cos(pitch), 0.90f * rise,
-                    $"a card at thick {thick} hash {hash} must cover 90 % of the row behind it, so no mud shows between rows");
+                    $"a card at thick {thick} hash {hash} must cover 90 % of the worst depth step behind it, so no mud shows between rows");
+                Assert.Less(band * Mathf.Cos(pitch), 0.90f * oldRise,
+                    $"the old one-card-per-cell worst step of 6 m is what the bands were: a card at thick {thick} hash {hash} cannot cover it");
             }
         }
         [Test]
@@ -389,52 +394,58 @@ namespace TW.Tests
         [Test]
         public void TheGasBankCardsFillTheDepthEvenly()
         {
-            // the rows are real at a 1.2 m jitter: every card sits within +-0.6 m of its row line, so against a
-            // 4 m row pitch they never leave their own bin. GasBankJitterM (one full field cell) must let a card's
-            // centre land anywhere inside its own cell, so card centres fill the depth uniformly and there is no
-            // 4 m lattice left to read as rows.
-            const int cells = 32, bins = 8;
-            int[] counts = new int[bins];
+            // the dark bands: what matters is not that card centres fill the depth uniformly (the old premise - one
+            // card per cell, jittered over the whole cell - which they did on average) but that no two CONSECUTIVE
+            // centres down one screen column are further apart than a painted band reaches. With two cards per cell
+            // every gap is between the strata's own spread and GasBankWorstDepthStep(1) = 3 m.
+            const int cells = 32;
+            float worst = CombatFx.GasBankWorstDepthStep(1);
             for (int x = 0; x < cells; x++)
-            for (int z = 0; z < cells; z++)
             {
-                uint h = (uint)(x * 73856093 ^ z * 19349663);
-                float h2 = ((h >> 10) & 1023) / 1023f;
-                float wz = (z + 0.5f) * 4f + CombatFx.GasBankZOffset(x, 1, h2);
-                int bin = ((int)Mathf.Floor(Mathf.Repeat(wz, 4f) / 4f * bins)) % bins;
-                if (bin < 0) bin += bins;
-                counts[bin]++;
+                var zs = new System.Collections.Generic.List<float>();
+                for (int z = 0; z < cells; z++)
+                {
+                    uint h0 = (uint)(x * 73856093 ^ z * 19349663);
+                    for (int sub = 0; sub < CombatFx.GasBankSubRows; sub++)
+                    {
+                        uint h = h0 ^ (uint)sub * 0x9E3779B9u;
+                        float h2 = ((h >> 10) & 1023) / 1023f;
+                        zs.Add((z + 0.5f) * 4f + CombatFx.GasBankZOffset(sub, 1, h2));
+                    }
+                }
+                zs.Sort();
+                for (int i = 1; i < zs.Count; i++)
+                {
+                    float gap = zs[i] - zs[i - 1];
+                    Assert.LessOrEqual(gap, worst + 1e-3f, $"column {x}: a {gap} m step between card centres is a dark band");
+                    Assert.GreaterOrEqual(gap, 0.5f, $"column {x}: cards {gap} m apart are twins, not a second row");
+                }
             }
-            int total = cells * cells, uniform = total / bins;
-            foreach (int c in counts)
-                Assert.LessOrEqual(c, uniform * 1.5f, "no bin may hold more than 1.5x the uniform count, or the rows still read as bands");
         }
         [Test]
         public void TheGasBankColumnsStaggerInDepth()
         {
             // a random full-cell jitter fills the depth on average but by chance: a screen row can still fall where
-            // only the soft band edges land, and that worst row read a quarter under the bank's median. So the cell
-            // (4 m) is split into two strata: even card columns stand +-1 m around -1 m (the near half), odd columns
-            // around +1 m (the far half), each with +-1 m of jitter. A card is four to five columns wide, so every
-            // screen x has both halves covered by a card core.
+            // only the soft band edges land. So the cell (4 m) is split into two strata and EVERY cell stands a card
+            // in each: sub 0 in the near half, sub 1 in the far half. The old build staggered by column parity, so a
+            // cell covered one half only and its neighbour had to cover the other.
             const int cells = 32;
             int near = 0, far = 0;
             for (int z = 0; z < cells; z++)
+            for (int x = 0; x < cells; x++)
             {
-                int nearThisZ = 0, farThisZ = 0;
-                for (int x = 0; x < cells; x++)
+                uint h0 = (uint)(x * 73856093 ^ z * 19349663);
+                for (int sub = 0; sub < CombatFx.GasBankSubRows; sub++)
                 {
-                    uint h = (uint)(x * 73856093 ^ z * 19349663);
+                    uint h = h0 ^ (uint)sub * 0x9E3779B9u;
                     float h2 = ((h >> 10) & 1023) / 1023f;
-                    float off = CombatFx.GasBankZOffset(x, 1, h2);
-                    if ((x & 1) == 0) { Assert.That(off, Is.InRange(-2f, 0f), $"even column {x} stands in the near half of its cell"); nearThisZ++; }
-                    else { Assert.That(off, Is.InRange(0f, 2f), $"odd column {x} stands in the far half of its cell"); farThisZ++; }
+                    float off = CombatFx.GasBankZOffset(sub, 1, h2);
+                    if (sub == 0) { Assert.That(off, Is.InRange(-2f, 0f), $"sub-row 0 of cell {x},{z} stands in the near half"); near++; }
+                    else { Assert.That(off, Is.InRange(0f, 2f), $"sub-row 1 of cell {x},{z} stands in the far half"); far++; }
                 }
-                Assert.Greater(nearThisZ, 0, $"row {z} has cards in the near half of the cell");
-                Assert.Greater(farThisZ, 0, $"row {z} has cards in the far half of the cell");
-                near += nearThisZ; far += farThisZ;
             }
-            Assert.AreEqual(near, far, "the two strata carry the same number of columns, so the cell fills uniformly");
+            Assert.AreEqual(cells * cells, near, "every cell stands a card in the near half");
+            Assert.AreEqual(near, far, "the two strata carry the same number of cards, so the cell fills uniformly");
         }
     }
 }

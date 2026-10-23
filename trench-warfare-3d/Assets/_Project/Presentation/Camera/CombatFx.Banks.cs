@@ -40,22 +40,36 @@ namespace TW.Presentation.Tactical
         public const float GasBankBandM = 1.78f;
         /// <summary>How flat a card of this width is drawn, so its bottom third is <see cref="GasBankBandM"/> tall.</summary>
         public static float GasBankSquashFor(float width) => 3f * GasBankBandM / width;
-        /// <summary>The full DEPTH span a gas card's centre may fill (m): one full field cell (<see cref="MapData.FieldCellSize"/>),
-        /// filled in two strata by <see cref="GasBankZOffset"/> rather than at random - at the old 1.2 m jitter every card
-        /// sat within 0.6 m of its row line, so the 4 m row lattice still read as bands, and a random full-cell jitter
-        /// covered the depth only on average, so the worst screen row still read a quarter under the bank's median.</summary>
+        /// <summary>The DEPTH span of one field cell (m, <see cref="MapData.FieldCellSize"/>): the cell a card stands
+        /// in, NOT the pitch between card centres. The cell is split into <see cref="GasBankSubRows"/> half-cell strata
+        /// and a card stands in each (<see cref="GasBankZOffset"/>), so the depth is covered by OVERLAP and not by
+        /// scattering one card's centre uniformly over the whole cell. At the old one-card-per-cell layout consecutive
+        /// centres down a screen column were 4 + off(k+1) - off(k) apart, anywhere from 2 to 6 m: a 6 m step rises
+        /// 6 * sin 25 = 2.535 m at the T1 pose while a card's painted band only reaches 1.78 * cos 25 = 1.613 m, so the
+        /// widest pairs could not meet at any opacity and that is the dark horizontal band the owner saw. Two cards per
+        /// cell make the worst step <see cref="GasBankWorstDepthStep"/> = 3 m, under the 1.613 / sin 25 = 3.82 m a band
+        /// reaches, so every pair meets by construction.</summary>
         public const float GasBankJitterM = 4f;
+        /// <summary>How many cards stand per standing cell in depth, one per equal stratum of the cell.</summary>
+        public const int GasBankSubRows = 2;
+        /// <summary>How far off its stratum's centre a card may stand in depth (m): small, so a stratum's card cannot
+        /// wander into its neighbour's and reopen the wide steps the single-card layout had.</summary>
+        public const float GasBankSubJitterM = 1f;
         /// <summary>How far off its cell's centre a gas card may stand SIDEWAYS (m). Card widths, roll and mirror already
         /// break the X lattice, so a small amount is enough; a full-cell jitter in X pulled card centres apart and split
         /// the painted bank into separate patches.</summary>
         public const float GasBankJitterXM = 1.2f;
 
-        /// <summary>Where in its cell a card stands in depth (m off the cell centre): even card columns in the near half,
-        /// odd columns in the far half, each filling its own 2 m stratum. The union still fills the whole 4 m cell
-        /// uniformly, but never by chance: a neighbouring column always has a card core over the other's soft band edge.
-        /// A card is four to five columns wide, so every screen x sees both parities.</summary>
-        public static float GasBankZOffset(int x, int step, float h2)
-            => ((((x / step) & 1) == 0) ? -GasBankJitterM / 4f : GasBankJitterM / 4f) + (h2 - 0.5f) * GasBankJitterM / 2f;
+        /// <summary>Where in its cell a card stands in depth (m off the cell centre): sub-row 0 in the near half,
+        /// sub-row 1 in the far half, each jittered by <see cref="GasBankSubJitterM"/> inside its own stratum. Every
+        /// column now fills both halves, so the stagger is by construction and not by the hash's luck (the old build
+        /// staggered by column parity, which left the depth covered only on average).</summary>
+        public static float GasBankZOffset(int sub, int step, float h2)
+            => (sub == 0 ? -1f : 1f) * step * MapData.FieldCellSize / 4f + (h2 - 0.5f) * GasBankSubJitterM * step;
+
+        /// <summary>The widest gap (m) any two consecutive card centres down one screen column can have: a stratum's
+        /// pitch plus a full stratum jitter. 3 m at step 1, under the 3.82 m a painted band reaches at the T1 pose.</summary>
+        public static float GasBankWorstDepthStep(int step) => step * (MapData.FieldCellSize / GasBankSubRows + GasBankSubJitterM);
 
         /// <summary>How many field blocks a gas card's thickness is read from: its own and the eight around it.</summary>
         public const int GasBankNeighbourhood = 9;
@@ -146,11 +160,18 @@ namespace TW.Presentation.Tactical
                     c = GasBankLoad(c, ring);
                 }
                 if (c < floor) continue;
-                uint h = (uint)(x * p1 ^ z * p2);
-                float h1 = (h & 1023) / 1023f, h2 = ((h >> 10) & 1023) / 1023f;
-                float wx = (x + 0.5f * step) * cs + (h1 - 0.5f) * jitterX;
-                float wz = (z + 0.5f * step) * cs + (stratifyZ ? GasBankZOffset(x, step, h2) : (h2 - 0.5f) * jitterZ);
-                cache.Cells.Add(new BankCell { Hash = h, Thick = Mathf.Clamp01(c / full), X = wx, Z = wz, Ground = RenderGround.Sample(Host.Local.Map, wx, wz) });
+                uint h0 = (uint)(x * p1 ^ z * p2);
+                // stratified (gas): one card per half-cell in depth, each with its own hash so the pair differ in
+                // width, roll, mirror and frame boil and do not read as twins. Unstratified (smoke): one card a cell.
+                int subs = stratifyZ ? GasBankSubRows : 1;
+                for (int sub = 0; sub < subs; sub++)
+                {
+                    uint h = h0 ^ (uint)sub * 0x9E3779B9u;
+                    float h1 = (h & 1023) / 1023f, h2 = ((h >> 10) & 1023) / 1023f;
+                    float wx = (x + 0.5f * step) * cs + (h1 - 0.5f) * jitterX;
+                    float wz = (z + 0.5f * step) * cs + (stratifyZ ? GasBankZOffset(sub, step, h2) : (h2 - 0.5f) * jitterZ);
+                    cache.Cells.Add(new BankCell { Hash = h, Thick = Mathf.Clamp01(c / full), X = wx, Z = wz, Ground = RenderGround.Sample(Host.Local.Map, wx, wz) });
+                }
             }
         }
 
