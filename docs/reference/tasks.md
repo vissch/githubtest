@@ -139,15 +139,21 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, four stills at one pose, gas, smoke,
   puff and a plate - so a blank still accuses one book and not the sim, the field, the cache and the capture path at
   once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
-  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g2/probe.py` measures those stills: it COUNTS THE GREEN the
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g2-g1-g1/probe.py` measures those stills: it COUNTS THE GREEN the
   gas added over the plate (not a brightness test), in metres, bars the rise, and refuses two runs that
   photographed the same frame, barred against the SPREAD of three captures of one build at three different
   `TW_GAS_WAIT_FRAMES`. It counts only O240 clouds at or above `LARGE_MIN_PX` (300 px), not every green component
   (a 50 px floor let a tail of specks count as "clouds"). Its two T1 keys for the close bank's shape are
-  `green_knee_share` (gas under `KNEE_M` 0.5 m over all gas: the puddle bar) and `green_top_rough` (the stdev of
-  the per-column p45 heights over their median, an unbarred diagnostic), beside `t1_gas_cards` from the capture
+  `green_knee_share` (gas under `KNEE_M` 0.5 m over all gas: the puddle bar), `green_blob_share` (the largest
+  green component over all the green: THE CARPET BAR, `le`, since the carpet build's green hung together in one
+  sheet) and `green_rim_lift` (per green column, the median luma of its top 30% over the rest's: "with a rim" as
+  a number - it does NOT separate the carpet build, see that folder's README.md), with `green_top_rough` and
+  `green_height_frac` printed and not barred, beside `t1_gas_cards` from the capture
   frame's own manifest
-  (`--calibrate`, `--selftest`, `--pack`; `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2/probe.py`,
+  (`--calibrate`, `--selftest`, `--pack`, `--runs <dir>` to read another unit's captures;
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g2-g1/probe.py`,
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2-g2/probe.py`,
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2-g2/probe.py`,
   `docs/evidence/ability-fx-captures-r2-2-g2/probe.py` and

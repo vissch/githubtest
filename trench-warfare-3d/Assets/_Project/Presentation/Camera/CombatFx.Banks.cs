@@ -29,7 +29,7 @@ namespace TW.Presentation.Tactical
         public const float GasCloudInkTop = 0.87f;
         /// <summary>How wide a close gas card is for its height (width over height), with the cloud drawing: the card is sized
         /// from its HEIGHT under GasHeadRoom and then kept narrow, so the cell reads as a standing puff and not a 3:1 band.</summary>
-        public const float GasCloudAspect = 1.35f;
+        public const float GasCloudAspect = 1.6f;
         /// <summary>How far under the ground a gas card is anchored, so the ink's foot is not a hard line on the grass.</summary>
         public const float GasBankAnchorDrop = 0.35f;
         /// <summary>The highest the drawn gas may reach: under a 1.8 m man's head with 0.1 m to spare.</summary>
@@ -108,7 +108,7 @@ namespace TW.Presentation.Tactical
         }
 
         /// <summary>One gas cell's cards, and how many were added. Close up (step 1) the cell is drawn with the cloud drawing
-        /// (Book.GasCloud, which fills its cell), the cell's own hash jitters how flat it is and three cells in eight carry a
+        /// (Book.GasCloud, which fills its cell), the cell's own hash jitters how flat it is and five cells in eight carry a
         /// second, wider and brighter card: a rim around the body's silhouette, so the bank is a lumpy standing cloud and not
         /// one straight line of pale stripes; the drawn ink never tops GasHeadRoom. From the overview (step 2) it is the one
         /// flat GasBank card it always was.</summary>
@@ -135,12 +135,12 @@ namespace TW.Presentation.Tactical
                 width = height * GasCloudAspect * (0.85f + 0.3f * h2);
             }
             into.Add(FlipbookFx.Pack(new Vector3(x, ground - GasBankAnchorDrop, z), width, height, frame, 1f, 1f, 0f, kind, alpha));
-            if (step > 1 || ((hash >> 7) & 7) >= 3) return 1;
+            if (step > 1 || ((hash >> 7) & 7) >= 5) return 1;
             // the rim: the same cloud, a touch wider and brighter and nearly see-through, so a green edge stands out
             // around the body's silhouette (the crown card faked the volume the old drawing lacked; this drawing has it)
             float rw = width * 1.25f;
             float rh = Mathf.Min(height * 1.25f, (GasHeadRoom + GasBankAnchorDrop) / GasCloudInkTop);
-            into.Add(FlipbookFx.Pack(new Vector3(x, ground - GasBankAnchorDrop, z), rw, rh, frame, 1f, 1.6f, 0f, kind, 0.35f * alpha));
+            into.Add(FlipbookFx.Pack(new Vector3(x, ground - GasBankAnchorDrop, z), rw, rh, frame, 1f, 1.6f, 0f, kind, 0.55f * alpha));
             return 2;
         }
 

@@ -273,8 +273,8 @@ namespace TW.Tests
             // squashed. The close card is now sized from its HEIGHT and kept narrow. The numbers below are hand-worked
             // from the constants, never read back out of PackGasCell: the clamp is (GasHeadRoom 1.7 + GasBankAnchorDrop
             // 0.35) / GasCloudInkTop 0.87 = 2.356 m of card, so a cell stands 0.75 to 1 of that = 1.77 to 2.36 m, its
-            // ink tops out at 0.87 of that less the 0.35 m anchor = 1.19 to 1.70 m, and it is GasCloudAspect 1.35 *
-            // (0.85 to 1.15) = 1.15 to 1.55 times as wide as it is tall - a cloud, not the old ~3.2 band.
+            // ink tops out at 0.87 of that less the 0.35 m anchor = 1.19 to 1.70 m, and it is GasCloudAspect 1.6 *
+            // (0.85 to 1.15) = 1.36 to 1.84 times as wide as it is tall - a cloud, not the old ~3.2 band.
             var cards = new List<Matrix4x4>(256);
             var tops = new List<float>(64);
             int two = 0;
@@ -309,7 +309,7 @@ namespace TW.Tests
             foreach (float t in tops) { tallest = Mathf.Max(tallest, t); lowest = Mathf.Min(lowest, t); }
             Assert.GreaterOrEqual(tallest, 1.40f, "the tallest cell stands well over the sheet build's 0.93 m line: a cloud, not a sheet");
             Assert.GreaterOrEqual(tallest - lowest, 0.20f, "the cells' tops spread, so the bank has relief and not one line");
-            Assert.That(two / 64f, Is.InRange(0.25f, 0.45f), "about three cells in eight carry a rim, so the card budget holds (the T1 capture draws 1060-ish cards of FlipbookFx.MaxCards 1536)");
+            Assert.That(two / 64f, Is.InRange(0.55f, 0.72f), "about five cells in eight carry a rim, so the rim reads in the median column of the still and the card budget still holds (the T1 capture draws 1250-ish cards of FlipbookFx.MaxCards 1536)");
 
             // the overview (step 2) is byte-identical to today: one flat GasBank card, no jitter, no rim, no clamp
             cards.Clear();
