@@ -63,7 +63,7 @@ namespace TW.Presentation
             // KneelAimedIdle is baked as ONE held pose (InfantryClipTable slices 0.95-1.03 of "Fire Rifle"), so the table
             // has to agree with the bake that it is a one-shot; giving it motion means rebaking it from a breathing slice
             t[(int)Clip.KneelIdle] = L(1.7f, AnimRow.CrouchWalk, 0f, Stance.Crouch); t[(int)Clip.KneelAimedIdle] = O(0.08f, AnimRow.FireFireStep, Stance.Crouch);
-            t[(int)Clip.ProneIdle] = L(4.9f, AnimRow.PinnedLoop, 0f, Stance.Prone); t[(int)Clip.StoopIdle] = L(6.7f, AnimRow.CrouchWalk, 0f, Stance.Crouch);
+            t[(int)Clip.ProneIdle] = L(4.9f, AnimRow.FireProne, 0f, Stance.Prone); t[(int)Clip.StoopIdle] = L(6.7f, AnimRow.CrouchWalk, 0f, Stance.Crouch);
             t[(int)Clip.FidgetLookAround] = O(5.3f, AnimRow.Idle); t[(int)Clip.FidgetRubEyes] = O(1.8f, AnimRow.CrouchWalk, Stance.Crouch); t[(int)Clip.FidgetCheckShoe] = O(4.7f, AnimRow.Idle); t[(int)Clip.FidgetCollar] = O(5.9f, AnimRow.Idle);
             t[(int)Clip.FidgetInspect] = O(3.2f, AnimRow.Idle);
             t[(int)Clip.Walk] = L(1.07f, AnimRow.Walk, 1.4f); t[(int)Clip.WalkAimed] = L(1.1f, AnimRow.Walk, 1.3f); t[(int)Clip.WalkWary] = L(1.33f, AnimRow.Walk, 1.1f);
@@ -179,6 +179,7 @@ namespace TW.Presentation
         NativeArray<byte> shotThisTick, leftTrench, gasHere;
         NativeArray<byte> threw;        // he threw a bomb this tick (GrenadeThrown); shotAt holds whom at
         NativeArray<int> shotAt;        // whom the shot went to (the sim clears TargetSlot on a kill the same tick)
+        NativeArray<uint> pinnedAt;     // the tick the Pinned event named him, so the pinned block can start one go-to-ground per event (not cleared every tick like hitKind)
         float3[] prevPos;
 
         // ---- trace: one man followed through his fight
@@ -212,6 +213,7 @@ namespace TW.Presentation
             gasHere = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             threw = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             shotAt = new NativeArray<int>(maxSlots, Allocator.Persistent);
+            pinnedAt = new NativeArray<uint>(maxSlots, Allocator.Persistent);
             prevPos = new float3[maxSlots];
             AllocateDeaths(maxSlots);
         }
@@ -219,7 +221,7 @@ namespace TW.Presentation
         public void Dispose()
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
-            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); shotAt.Dispose();
+            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); shotAt.Dispose(); pinnedAt.Dispose();
             DisposeDeaths(); DisposePins();
         }
 
@@ -310,6 +312,9 @@ namespace TW.Presentation
                         break;
                     case SimEventType.Death:
                         LatchDeath(e);   // what killed him and how hard: Die reads it (AnimationController.Death.cs)
+                        break;
+                    case SimEventType.Pinned:
+                        if (e.A >= 0 && e.A < count) pinnedAt[e.A] = tick;
                         break;
                     case SimEventType.VehicleClawed:
                         if (e.B >= 0 && e.B < count) clawed[e.B] = 1;   // a claw closed on him: Die reads it beside the Death
@@ -654,6 +659,35 @@ namespace TW.Presentation
                 s.LastBlast = tick;
                 if (speed < 0.7f) { s.Down = true; Start(i, ref s, Clip.Trip, Rung.Reaction, wire ? "caught in the wire: falls" : "stuck in the mud: falls"); return; }
                 if (speed > 1.5f) { Start(i, ref s, Clip.Stumble, Rung.Reaction, wire ? "catches a foot in the wire: stumbles" : "stumbles in the mud", math.clamp(speed / 3f, 1f, 2f)); return; }
+            }
+
+            // ---- pinned: suppression above StanceRules.PinnedSuppression. He goes flat and stays there, never aimed
+            // or reloading, with an occasional twitch at a near miss; a fresh Pinned event plays a short dive to the
+            // ground first (unless he was already flat, which goes straight to the cower). Below the reaction rung,
+            // so a hit, a blast or a near miss still interrupts and plays on top; above the fire and action rungs, so
+            // he never reaches the aim-up, the reload or the idle rung (SimPresenter reads AnimState.Aimed for the row).
+            if (simStance == Stance.Pinned)
+            {
+                bool wasFlat = s.Stance == (byte)Stance.Prone || s.Stance == (byte)Stance.Pinned;
+                s.Aimed = false; s.Routine = 0; s.Stance = (byte)Stance.Prone; s.WantStance = (byte)Stance.Prone;
+                bool freshPin = pinnedAt[i] != 0 && tick - pinnedAt[i] <= 4;
+                if (freshPin) pinnedAt[i] = 0;   // one event is one go-to-ground
+                if (freshPin && !wasFlat && !(s.Rung == Rung.Reaction && Playing(s)))
+                {
+                    s.LastDive = tick;
+                    Start(i, ref s, Clip.DiveAway, Rung.Reaction, "pinned: goes to ground", 1f, 0.1f);
+                    return;
+                }
+                if (s.Rung == Rung.Reaction && Playing(s)) return;   // the dive, the flinch or the hit plays out
+                if (hitKind[i] == 3 || tick - s.LastDuck > 40 + (uint)(Hash(s.Seed, tick) * 60f))
+                {
+                    s.LastDuck = tick;
+                    Start(i, ref s, Clip.ProneFlinch, Rung.Reaction, "pinned: twitches at a near miss");
+                    return;
+                }
+                if (cur == Clip.ProneFlinch) { s.Rung = Rung.Reaction; return; }   // the one-shot holds its last frame
+                Start(i, ref s, Clip.ProneFlinch, Rung.Reaction, "pinned: cowers", 1f, 0.3f);
+                return;
             }
 
             // ---- rung 4: actions (the shot first: it cuts an aim-up, a flinch or a duck, never a hit)
