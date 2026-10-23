@@ -1,0 +1,219 @@
+atrifle-look-r3-g1-g1-g1-g1 — the frame in which the rifle reads
+================================================================
+
+Why there is a round g1-g1-g1-g1
+-------------------------------
+The owner sent back atrifle-look-r3-g1-g1-g1, which passed its own bar: "Frame the prone AT
+rifleman so the rifle reads at zoom 30. The mask is 428, 446 and 443 pixels, and the three pair
+frames are the night field with a speck behind the bags. Bar outside the spread of three captures
+of the current build."
+
+That set's own frames.txt admits the fault in one line: "At zoom 30 the 1.65 m anti-tank rifle is a
+few dark pixels. No number here isolates it." It was shot 1600x900, its AT masks were 428-446 px,
+and its capture recorded no gun at all — so nothing in it could have isolated the rifle even in
+principle. This round changes the frame and adds the two numbers that measure the gun.
+
+The arithmetic the frame rests on
+---------------------------------
+At zoom 30 the rig's framing is FIXED. `CaptureRig` sets `distance = Zoom*tan30/tan(fov/2)` with
+fov 25 (CloseZoom is 15), so the half-height it frames on the ground is always `Zoom*tan30` =
+17.32 m and
+
+    px_per_m (on the ground) = HPX / 34.64
+
+whatever the pitch, the yaw or the focus. H 900 gave the old set 25.0 px/m and a 41 px rifle. Pitch,
+yaw and focus change only WHERE the camera looks, never the scale. So the frame is the only lever.
+
+The gun is our own prop, not part of the baked figure: `CombatFx.AtRifle.cs`, `AtRifleLength`
+1.65 m, laid by `CombatFx.Lay`. Its barrel box is 0.035 half-extent — 0.07 m thick, which is 0.042
+of the gun's length, a scale-free ratio. A gun drawn 100 px long therefore has a 4.2 px barrel, and
+that is where the probe's `MIN_GUN_LEN_PX` 100 comes from.
+
+    frame            1100 x 2340       67.6 px per ground metre      ~2.6 MB a still, 39 MB the set
+    the rifle        123.5 px          its barrel 5.2 px             three times the old set's 41
+
+A taller frame cannot be bought. `men_in_frame` skips a man nearer an edge than his own `tall_px`
+(CaptureRig ~334) and the two men stand 4.5 m either side of the focus, so the width has to grow
+with the height: `W >= 2*(tall_px + 5.5 m * px_per_m)`. At 1100x2340 that is 2*(133 + 5.5*67.6) =
+1010 against W 1100 — already at the limit. H 3280, the height a 150 px gun would need, would want
+W 1424, ~6.5 MB a still and ~98 MB for the set, in a repo with no LFS. H could not be shrunk below
+2340 either: at 1800 the gun falls to ~95 px, under the gate.
+
+(`px_per_m` in probe.json is 50.9, a different number for a different thing: it is `tall_px / 2.6 m`,
+so it measures a man standing UP, and at pitch 45 a vertical metre projects to fewer pixels than a
+metre laid flat. The gun lies flat, so the ground scale is the one that governs it.)
+
+The pitch, measured and not guessed
+-----------------------------------
+Four pitches at yaw 180, the same staging, each an AT-only still against its own plate, the gun
+segment the capture itself recorded sampled against his silhouette (200 points):
+
+    pitch   gun_len_px   gun_on_mask   contrast_median   the capture's own warning
+      22      117.7         0.405         0.827          —
+      35      120.9         0.620         0.111          men barely separate from the ground
+      45      123.5         0.680         0.986          —
+      55      126.1         0.615         0.422          —
+
+Pitch 22 — the previous set's pitch — is the one that fails: from there the sandbags cut the gun and
+only 40 % of it lands on the man. Pitch 35 clears the gun gates and fails the picture; the capture
+calls the man unreadable against the ground at contrast 0.111, under its own 0.12 bar. Pitch 55
+clears everything but reads less of the gun than 45. **Pitch 45 is the smallest pitch that clears
+every rule**, and it is the best of the four on both the gun and the contrast. The gun grows with
+the pitch because the rifle lies flat beside a prone man: the steeper the camera, the less of its
+length is foreshortened.
+
+One number in the plan could not be met and was not faked: it asked the scout to pick the smallest
+pitch with a gun **150 px** long. At 1100x2340 the ceiling is ~126 px and a 150 px gun needs H 3280,
+which breaks the width rule above and triples the git weight. The plan's own probe gate is 100 px,
+the measured gun is 123.5, and that is what is claimed here.
+
+The staging
+-----------
+Unchanged from r3-g1-g1-g1 except the camera. One camera for all fifteen stills: focus (47.5, 25),
+zoom 30 (T1, the owner's number), yaw 180 with `CaptureRig.Rig.YawPin = 0`, **pitch 45**,
+**1100x2340**. Rain 0. Seed 12648430, battlefield seed 1917, ground ShelledForest, bombardment
+0/min.
+
+    who          archetype   staged at        what he does
+    AT rifleman  27          (50.0, 25.0)     prone on the surface, behind the parapet
+    Sniper        3          (43.0, 26.0)     a trench post, kneeling (one post off the brazier)
+    everyone else —          (-5000, -5000)   cleared before every round, and again before a still
+                                              the capture counted the wrong number of men in
+
+Each round: clear the field, park both, shoot `empty`; stage both, settle out the JumpDown that a
+staging write plays, shoot `pair`; park the Sniper, drift the AT man to his phase, shoot `at`; park
+the AT man, stage the Sniper back, settle, wait out `TrenchRoutine` until it plays this round's
+kneel, shoot `sniper`; park him and shoot `floor`. Nothing is written to the world during a drift.
+`empty` and `floor` are the two man-less plates of the same frame; what differs between them is
+weather, and the probe subtracts it before it labels a blob.
+
+Which three kneels, and why these three
+---------------------------------------
+    round 1   KneelIdle         his base kneel at the post (1.7 s loop)
+    round 2   FidgetRubEyes     the third fidget of the routine's beat (1.8 s once-clip, Crouch)
+    round 3   KneelLookAround   the kneeling fidget: same legs, different arms (5.3 s once-clip)
+
+Round 2 was `StoopIdle` last round and the new pitch killed it: looking down at 45 degrees the squat
+and the kneel read almost alike, and the pair spread **0.2444** and then **0.2331** at two different
+phases — under the 0.25 bar both times, so it is the angle and not the moment. `KneelInspect`, the
+plan's named fallback, went too far the other way: **0.6345** against KneelIdle and **0.6965**
+against KneelLookAround, which would have put the Sniper's own self-spread OVER the 0.6 bar and made
+the reading meaningless. `FidgetRubEyes` (`AnimationController` ~880, the same `pick >= 0.84` beat
+that gives KneelInspect and KneelLookAround) sits between them. **No bar was moved to get there.**
+
+The driver's own lines, verbatim
+--------------------------------
+    --- round 1 (KneelIdle) ---
+      empty-1 / settle: hit / pair-1
+      at round 1 landed on ProneIdle 0.080 (0.45s drift, 0.00s waiting out other beats)
+      at-1 / sniper settle: hit
+      sniper round 1 (KneelIdle) -> hit, KneelIdle 0.41 yaw 0.00
+      sniper-1 / floor-1
+    --- round 2 (FidgetRubEyes) ---
+      empty-2 / settle: hit / pair-2
+      at round 2 landed on ProneIdle 0.310 (0.15s drift, 0.00s waiting out other beats)
+      at-2 / sniper settle: hit
+      sniper round 2 (FidgetRubEyes) -> hit, FidgetRubEyes 0.33 yaw 0.00
+      sniper-2 / floor-2
+    --- round 3 (KneelLookAround) ---
+      empty-3 / settle: hit / pair-3
+      at round 3 landed on ProneIdle 0.570 (0.00s drift, 0.00s waiting out other beats)
+      at-3 / sniper settle: hit
+      sniper round 3 (KneelLookAround) -> hit, KneelLookAround 0.23 yaw 0.00
+      sniper-3 / floor-3
+
+Rounds 1 and 2 were each re-shot. Round 1's first take caught a weather event between its two
+plates — `noise_px` 578112 against 8162 in round 3 — which ate the man's own mask (663 px of him
+left, 9628 px dropped as weather). Round 2 was re-shot twice, once for KneelInspect and once for
+FidgetRubEyes, for the reason above. Everything a reading compares — camera, position, archetype,
+the man's own box — is identical across the three rounds, and each round carries its own plates.
+
+The fifteen stills, as the capture reported them
+------------------------------------------------
+    still       men_in_frame   what is in it
+    empty-1/2/3       0        the ground alone, both men parked out of frame
+    pair-1/2/3        2        both men, one frame
+    at-1/2/3          1        the AT rifleman alone
+    sniper-1/2/3      1        the Sniper alone
+    floor-1/2/3       0        the ground again, seconds of world time later
+
+No still carries a capture warning, and `pose_error_m` and `rain` are 0 in all fifteen. The fifteen
+sidecars agree on zoom, yaw, pitch, focus and size, and the stills disagree about the frame's scale
+by 0.88 %, so this is one camera on one set of men.
+
+What each man was doing at the shutter
+--------------------------------------
+    still       clip              stance   phase   heading offset from his pair still
+    at-1        ProneIdle         Prone    0.08    0.00 rad
+    at-2        ProneIdle         Prone    0.31    0.00 rad
+    at-3        ProneIdle         Prone    0.57    0.00 rad
+    sniper-1    KneelIdle         Crouch   0.41    0.00 rad
+    sniper-2    FidgetRubEyes     Crouch   0.33    0.00 rad
+    sniper-3    KneelLookAround   Crouch   0.23    0.00 rad
+
+Three clips, three distinct ones, every one `Crouch`, every phase inside the probe's 0.10-0.80 band,
+so none is a once-clip caught on its held last frame. The AT man's smallest phase gap is 0.23
+against the 0.2 gate, and neither man turned between his own still and his pair still.
+
+The readings
+------------
+    the gun, per round        gun_len_px 123.5 in all three (the staging and the camera are fixed)
+                              gun_on_mask 0.73 / 0.62 / 0.74   (the gate is 0.60)
+                              gun_px  (296.5, 1052.9) -> (413.6, 1013.5), muzzle to butt
+    mask, px                  at 5052 / 4499 / 5036      sniper 6362 / 7127 / 7165
+    mask, m2 of frame         at 1.953 / 1.739 / 1.947   sniper 2.459 / 2.755 / 2.770
+    weather in his box, px    at 0 / 6611 / 0            sniper 39 / 24 / 0
+    second blob, px           at 19 / 391 / 155          sniper 712 / 1087 / 143  (gate 1.5x, met)
+
+    the Sniper's three kneels against each other (1 - IoU, centroids aligned):
+        KneelIdle     vs FidgetRubEyes     0.3221   (2589 px of moved man, 39 px of weather,  66x)
+        KneelIdle     vs KneelLookAround   0.4389   (3803 px,              39 px,             98x)
+        FidgetRubEyes vs KneelLookAround   0.4063   (3644 px,              24 px,            152x)
+      all three over MIN_POSE_SPREAD 0.25 and under PASS_DIFF 0.6: three poses, not three phases,
+      and not the weather.
+
+    the reading, AT against Sniper, per round:  0.6431  0.6334  0.6305
+    spread_readings  0.0126    spread_at  0.3665    spread_sniper  0.4389
+    silhouette_diff (the worst round)  0.6305      bar_headroom  0.1611
+
+PASS_DIFF 0.6, unchanged since 13d1158177, as are MIN_POSE_SPREAD 0.25, MIN_NOISE_RATIO 10,
+PHASE_BAND, AT_CLIP, MIN_PHASE_GAP 0.2, HEADING_TOL, DOMINANCE, MIN_AREA_M2 and MAX_BOX_SHARE. The
+claim is made on the WORST round: 0.6305 against a self-spread of 0.4389, so the bar sits outside
+the worse self-spread of three captures of the current build, which is what the owner asked for.
+
+`BOX_DOWN` was raised from 0.2 to 0.6 of `tall_px`, and that is the one probe constant that moved.
+A prone man's gun lies on the ground BELOW the point the capture calls his feet — the box is
+projected from his drawn position, and 2.6 m of man laid flat reaches well under it — so at 0.2 the
+lower third of the rifle fell outside his own box and was dropped from his mask. 0.6 was measured:
+it is what it takes for the whole laid gun to sit inside the box at pitch 45.
+
+The honest limits
+-----------------
+* The gun measure says the rifle was DRAWN 123.5 px long and that 62-74 % of it falls on the man's
+  own silhouette. It does not say a player picks it out. Nobody has looked at these crops yet.
+* The parapet still halves the prone man, and the two men face different ways: one camera yaw cannot
+  be side-on to both, so `heading_diff_rad` is 1.11 in all three rounds. It is reported and NOT
+  gated — one frame was the owner's call. What IS gated is each man against himself across the
+  stills of a round, and that is 0.00 rad everywhere.
+* One seed, one night, one ground, one camera, and now one pitch as well. Nothing here says the
+  rifle reads from another angle, at another time of day, or in rain.
+* Round 2's `at` still has 6611 px of weather inside the AT man's box, the most of any still here.
+  It is subtracted before the mask is labelled, and his mask still comes out 4499 px with a 391 px
+  second blob, but round 2 is the noisiest of the three and its reading (0.6334) is the middle one.
+* Two figures, not two models: `VATRenderer.FigureOfArchetype` draws the AT rifleman as Soldier and
+  the Sniper as Sniper. This measures the poses those two figures are in, not a new model.
+* The set costs 39 MB of git history, and that is the price of the frame that makes the gun
+  measurable. Shrinking the frame puts the gun back under the gate.
+
+The negative control
+--------------------
+    python docs/evidence/atrifle-look-r3-g1-g1-g1-g1/probe.py docs/evidence/atrifle-look-r3-g1-g1-g1
+    -> exit 2, naming the gun gates on the set the owner sent back:
+       "at-1: the capture recorded no gun for the archetype-27 man (no manN_gun_x0 key) - this set
+        was shot before CombatFx.GunEnds, so nothing in it measures the rifle"
+       and the same for at-2 and at-3.
+    That set drew the rifle ~41 px long at 25.0 px/m and kept no record of it; the new gate bites on
+    exactly the thing the owner's complaint pointed at.
+
+    python docs/evidence/atrifle-look-r3-g1-g1-g1-g1/probe.py
+    -> exit 0, problems [], "the prone AT rifleman reads as his own man".
