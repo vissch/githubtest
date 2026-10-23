@@ -206,7 +206,9 @@ namespace TW.Tests
                 for (int i = 0; i < field.Length; i++)
                 {
                     float c = field[i];
-                    if (c >= 0.8f) cells++;                 // the floor DrawGasBank's Refresh uses
+                    if (c >= CombatFx.GasBankStandFloor) cells++;  // the per-cell stand floor; Refresh feeds it
+                                                                  // GasBankLoad's neighbourhood mean, so gas_cells is
+                                                                  // an UPPER BOUND on the standing cards
                     if (c > fieldMax) fieldMax = c;
                 }
             yield return null;                               // one frame on, so gasCards holds the list of a drawn frame
