@@ -168,6 +168,7 @@ namespace TW.Presentation.Tactical
         DebrisRenderer debris;   // what a blast breaks off: clods, splinters, a tree's crown, a man's limbs and kit (GPU-side arcs)
         Vector3 lastBlast; float lastBlastAt = -10f;   // the newest burst: what broke this tick fell away from it
         static readonly Color Mud = new Color(0.38f, 0.33f, 0.27f), Bark = new Color(0.36f, 0.30f, 0.24f), Charred = new Color(0.20f, 0.17f, 0.14f);
+        static readonly Color Sacking = new Color(0.56f, 0.48f, 0.34f);   // a sandbag's hessian, the lip's sandbag puff (fire-trench-miss-strikes)
         static readonly Color ClothA = new Color(0.60f, 0.53f, 0.33f), ClothB = new Color(0.26f, 0.30f, 0.33f), Steel = new Color(0.27f, 0.30f, 0.26f), Skin = new Color(0.72f, 0.54f, 0.42f), Gore = new Color(0.30f, 0.06f, 0.05f);
         int hitsThisFrame;
         TW.Presentation.Units.VATRenderer units;
@@ -645,9 +646,21 @@ namespace TW.Presentation.Tactical
                     if (e.Scalar < 0.5f && impactsThisFrame < (nearHit < 45f ? q.ImpactsNear : q.ImpactsFar) && chunks.Count < q.Cap(700))
                     {
                         impactsThisFrame++;
-                        float angle = UnityEngine.Random.value * 6.2832f, off = UnityEngine.Random.Range(0.35f, 1.7f);
-                        Vector3 hit = new Vector3(to.x + Mathf.Cos(angle) * off, 0f, to.z + Mathf.Sin(angle) * off);
-                        hit.y = RenderGround.Sample(Host.Local.Map, hit.x, hit.z);
+                        // InTrench / on the FireStep: the round strikes the parapet lip between him and the shooter, not
+                        // the ring round his feet (the ring there put dirt on the trench floor; the sim already counts
+                        // the cover that stopped the round, DirectFire.cs)
+                        bool covered = e.B >= 0 && e.B < w.Flags.Length && (((w.Flags[e.B] & (uint)UnitFlags.InTrench) != 0) || (e.B < w.StanceOf.Length && (Stance)w.StanceOf[e.B] == Stance.FireStep));
+                        Vector3 hit;
+                        Vector3 lipAt = default;
+                        bool onLip = covered && TrenchMiss.Lip(to, from, (x, z) => RenderGround.Sample(Host.Local.Map, x, z), out lipAt);
+                        if (onLip)
+                            hit = TrenchMiss.Strike(lipAt, from - to, UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-0.2f, 0.2f));
+                        else
+                        {
+                            float angle = UnityEngine.Random.value * 6.2832f, off = UnityEngine.Random.Range(0.35f, 1.7f);
+                            hit = new Vector3(to.x + Mathf.Cos(angle) * off, 0f, to.z + Mathf.Sin(angle) * off);
+                            hit.y = RenderGround.Sample(Host.Local.Map, hit.x, hit.z);
+                        }
                         bool mirror = UnityEngine.Random.value < 0.5f;
                         if (SceneHooks.IsWater != null && SceneHooks.IsWater(hit.x, hit.z))
                         {
@@ -658,10 +671,14 @@ namespace TW.Presentation.Tactical
                         }
                         else
                         {
-                            Throw(hit, drawn ? 5 : 7, 0, 5.5f, 0.09f);
+                            // on the lip the dirt comes off toward the shooter, not away (bias is zero everywhere else)
+                            Throw(hit, drawn ? 5 : 7, 0, 5.5f, 0.09f, onLip ? -direction * 0.6f : default);
                             if (SceneMood.Night && UnityEngine.Random.value < 0.35f) Throw(hit, 3, 3, 11f, 0.035f);
                             // and in the mud a spurt of dust that leans away from the shooter
                             if (drawn) books.Add(FlipbookFx.Book.Spurt, hit, (1.3f + UnityEngine.Random.value * 0.6f) * scale * arms.Spurt, 0.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (Vector3.Dot(direction, cam != null ? cam.transform.right : Vector3.right) < 0f ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f, pop: 0.3f, delay: delay);
+                            // the parapet sandbags puff where the round actually struck them, only when there is room
+                            if (onLip && debris != null && debris.Ready)
+                                debris.Burst(DebrisRenderer.Piece.Sandbag, hit + Vector3.up * 0.15f, 2, 3.5f, 0.09f, Sacking, 12f, 0f, 1.4f, -direction * 0.4f, e.Tick + (uint)e.A);
                         }
                     }
                     if (e.Scalar < 0.5f && chunks.Count < q.Cap(420))
