@@ -1,7 +1,7 @@
 // Phase: SHOW (act-officer-rally, 2026-10-23) — the officer's rally photographed, the way InfantryFiringStills
 // photographs a squad firing (read its header for why this is an [Explicit] EditMode test that enters Play itself):
 // six riflemen on open ground are pinned down (SimHost.WriteWorlds forces their suppression, the only way SHOW may
-// write the world) until they cower, then an officer walks in from outside his aura radius. TW_RALLY_DRAW=0 sets
+// write the world) until they cower, then an officer is held beside them. TW_RALLY_DRAW=0 sets
 // AnimationController.DrawRally false for the "before" pass (the reader exists but nothing draws it); the default
 // is the "after" pass. Prints `rallies=N gestures=M` from the real AnimationController's RallyWatch — the probe
 // log the act-officer-rally done-when compares against the gesture captured on screen.
@@ -36,11 +36,10 @@ namespace TW.Tests
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
         const int Men = 6;
         const float Spacing = 1.6f;
-        const float OfficerStandoff = 20f;  // m behind the squad, outside the 15 m aura radius, to film the arrival
-        const float OfficerPace = 2f;       // m/s walk-in
+        const float OfficerStandoff = 20f;  // m behind the squad, outside the 15 m aura radius, for the "before" shot
         const int PinTicks = 180;           // ticks of forced suppression before the officer is let in
         const int Frames = 10;
-        const float Seconds = 8f;           // of film the officer's walk-in and rally
+        const float Seconds = 8f;           // of film the officer's rally
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
@@ -52,7 +51,7 @@ namespace TW.Tests
             for (int f = 0; f < 300 && !File.Exists(path); f++) yield return null;
         }
 
-        /// <summary>A patch of open ground for the squad and the officer's approach: no trench, ladder, wire, bunker
+        /// <summary>A patch of open ground for the squad and the officer's standoff: no trench, ladder, wire, bunker
         /// or blocked cell, and no prop on it (DeathStills.Open / InfantryFiringStills.Open, the same test).</summary>
         static bool Open(MapData map, float x, float z, float w, float back, float ahead)
         {
@@ -74,6 +73,11 @@ namespace TW.Tests
 
         static bool Cowering(Clip c) => c == Clip.ProneIdle || c == Clip.Shield || c == Clip.HitProne || c == Clip.ProneFlinch;
 
+        // The coroutine body is a separate IEnumerator, driven by hand below: a plain try/catch around a long
+        // [UnityTest] coroutine (one big state machine with several locals live across many yields and a nested
+        // local function) lost its continuation under /optimize+ and threw a bare NullReferenceException with no
+        // useful site; splitting the body out and pumping it through MoveNext from a small try/catch fixed it and
+        // lets a failure still close Play cleanly instead of leaving the editor stuck in Play.
         [UnityTest, Explicit("The officer's rally photographed; run by name, with a graphics device.")]
         public IEnumerator TheOfficerRallyIsPhotographed()
         {
@@ -86,6 +90,26 @@ namespace TW.Tests
             foreach (var g in Object.FindObjectsByType<GreyboxTerrainView>(FindObjectsSortMode.None)) g.Field = field;
             foreach (var at in Object.FindObjectsByType<Atmosphere>(FindObjectsSortMode.None)) at.Field = field;
             yield return new EnterPlayMode();
+
+            System.Exception caught = null;
+            var body = Body();
+            while (true)
+            {
+                bool moved;
+                try { moved = body.MoveNext(); }
+                catch (System.Exception e) { caught = e; break; }
+                if (!moved) break;
+                yield return body.Current;
+            }
+            if (caught != null)
+            {
+                yield return new ExitPlayMode();
+                throw caught;
+            }
+        }
+
+        IEnumerator Body()
+        {
             for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
             Assert.That(Host?.Local, Is.Not.Null, "no match");
 
@@ -109,8 +133,8 @@ namespace TW.Tests
             float x = -1f, z = -1f;
             for (float zz = 40f; zz < size.y - 40f && x < 0f; zz += 6f)
                 for (float xx = 8f; xx < size.x - 24f && x < 0f; xx += 6f)
-                    if (Open(map, xx, zz, Men * Spacing, OfficerStandoff + 4f, 4f)) { x = xx; z = zz; }
-            Assert.That(x, Is.GreaterThanOrEqualTo(0f), "no open ground for the squad and the officer's approach");
+                    if (Open(map, xx, zz, Men * Spacing, 8f, 4f)) { x = xx; z = zz; }
+            Assert.That(x, Is.GreaterThanOrEqualTo(0f), "no open ground for the squad and the officer's standoff");
 
             var men = new int[Men];
             for (int k = 0; k < Men; k++)
@@ -146,29 +170,26 @@ namespace TW.Tests
             Assert.IsTrue(AllFlat(), "setup: the squad must be cowering before the officer arrives");
             string flatShot = Path.Combine(dir, "rally_00_flat.png");
             if (tc != null) tc.BaseYaw = -90f;
-            CaptureRig.Shot(flatShot, x + Men * Spacing * 0.5f, z, 16f, 40f, 20f, 1600, 900);
+            CaptureRig.Shot(flatShot, x + Men * Spacing * 0.5f, z, 10f, 40f, 20f, 1600, 900);
             yield return Drain(flatShot);
 
-            // the officer's arrival: walked in by hand at his own pace, the way InfantryFiringStills walks a squad
+            // the officer's rally: held at a fixed spot beside the squad every frame (SimHost.WriteWorlds), to
+            // beat whatever order or formation logic would otherwise walk him off; nobody but the officer caps
+            // the squad's suppression from here, so a rally proves the aura, not our own forcing
+            var besideSquad = new float3(x + Men * Spacing * 0.5f, 0f, z + 2f);
             float start = Time.time;
             int next = 0;
             while (next < Frames)
             {
-                float dt = Time.deltaTime;
                 Host.WriteWorlds(w2 =>
                 {
-                    if (officer >= 0 && (w2.World.Flags[officer] & (uint)UnitFlags.Alive) != 0)
-                    {
-                        var p = w2.World.Position[officer];
-                        if (p.z < z - 1f) { p.z += OfficerPace * dt; w2.World.Position[officer] = p; }
-                    }
-                    foreach (var m in men) if (m >= 0) w2.World.Suppression[m] = 100f;
+                    if (officer >= 0 && (w2.World.Flags[officer] & (uint)UnitFlags.Alive) != 0) w2.World.Position[officer] = besideSquad;
                 });
                 float due = start + Seconds * next / Mathf.Max(1, Frames - 1);
                 if (Time.time < due) { yield return null; continue; }
                 string path = Path.Combine(dir, $"rally_{next + 1:00}.png");
                 if (tc != null) tc.BaseYaw = -90f;
-                CaptureRig.Shot(path, x + Men * Spacing * 0.5f, z, 16f, 40f, 20f, 1600, 900);
+                CaptureRig.Shot(path, x + Men * Spacing * 0.5f, z + 1f, 10f, 40f, 20f, 1600, 900);
                 yield return Drain(path);
                 next++;
             }
