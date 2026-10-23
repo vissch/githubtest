@@ -527,7 +527,7 @@ class World:
         homes = getattr(self, 'relay_homes', None) or sorted(p for p in base.glob('relay*') if (p / 'runs').is_dir())
         out = set()
         for home in homes:
-            for f in Path(home).glob('runs/*/legs/*/out.jsonl'):
+            for f in (f for d in Path(home).glob('runs/*') if d.name[:8] >= since for f in d.glob('legs/*/out.jsonl')):     # old runs' legs are not listed
                 run = f.parent.parent.parent.name
                 if run[:8] < since:
                     continue

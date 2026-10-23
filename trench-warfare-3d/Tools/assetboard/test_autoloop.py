@@ -552,6 +552,30 @@ def main():
     case('refusal_runs reads the result record\'s stop_reason "refusal" (relay 6 run 20261023-103331-101432) and its leg\'s unit; a PASS run with "refusals": 5 in its stop record (command-guard refusals) is not one',
          got == [(real, 'ability-fx-captures-r2-3-g2-g2-g1-g1-g1-g2')], got)
 
+    w = wt('wt18')
+    put(w.extras[2], 'queue', 'gas', lane='lane/show/gas', goal='g')
+    w.refusal_records = [('q1', 'gas'), ('q2', 'gas'), ('q3', 'gas'), ('q4', 'gas')]
+    autoloop.attempts(w)
+    autoloop.attempts(w)                                                # the round after the park: it must still be parked
+    rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get('gas') or {}
+    on_q = [b.name for b in (w.main, *w.extras.values()) if (b / 'relay' / 'queue' / 'gas.json').exists()]
+    case('a unit parked for refusals is still parked the round after (not brought back as "new commits" for want of a fingerprint) and is on no queue',
+         rec.get('parked') and on_q == [] and len(w.briefs_written) == 1 and rec.get('fp'), (rec, on_q, w.briefs_written))
+    autoloop.loopsteps.answered(w, 'gas')                                        # his A: queued again, its count starts over
+    put(w.main, 'queue', 'gas', lane='lane/show/gas', goal='g')
+    autoloop.attempts(w)
+    autoloop.attempts(w)
+    rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get('gas') or {}
+    case('after his A (answered) the refusal count restarts: the next idle rounds do not park it again and write no second brief',
+         rec.get('refused') == [] and not rec.get('parked') and (w.main / 'relay' / 'queue' / 'gas.json').exists() and len(w.briefs_written) == 1, (rec, w.briefs_written))
+
+    w = wt('wt19')
+    (w.home / 'attempts.json').write_text(json.dumps({'gas': dict(seen=[], fails=[], rseen=['q1', 'q2', 'q3', 'q4'], refused=['q1', 'q2', 'q3', 'q4'], parked={'id': 'gas'}, fp={'lane': 'L0'}, brief='b')}), encoding='utf-8')
+    autoloop.loopsteps.answered(w, 'gas')
+    rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8'))['gas']
+    case('his A on a refusal-parked unit (answered) clears its refusals as well as its fails, so the next idle round does not park it again',
+         rec['refused'] == [] and not rec['parked'] and rec['brief'] == '', rec)
+
     w = wt('wt16')
     put(w.extras[2], 'queue', 'gas', lane='lane/show/gas', goal='g')
     qf = type('Q', (), {'exists': staticmethod(lambda: any((b / 'relay' / 'queue' / 'gas.json').exists() for b in (w.main, w.extras[2])))})   # sent back, the fake queues it on the main board
