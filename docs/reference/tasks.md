@@ -661,7 +661,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   cell that keeps burning past its one event, retirement and the scorch the frame the sim drops it, the cap keeping
   the nearer fire).
 - **See it:** `Tools/flameshots <prefix>` captures the four reference shots deterministically, and
-  `Tools/flamecheck.py` rejects a shot with no fire in it.
+  `Tools/flamecheck.py` rejects a shot with no fire in it. The burning GROUND needs a real jet, so it is staged with
+  `TW.Perf.GymDirector` (`Spawn` + `Hold`, the victims given hp and teleported back to six metres every couple of
+  seconds, or they close to melee and nobody fires) and the still taken 1.5 s after the flamethrowers are despawned:
+  `docs/evidence/fire-flame-burning-ground/README.md` is the worked recipe with before/after stills day and night.
+  `flamecheck.py` does NOT tell that pair apart (it counts any warm pixel in the frame, snow included);
+  `CombatFx.BurnReport()` and BurningGroundTests do.
 - **Trap:** `FlipbookFx` indexes its sheets by the `Book` enum's ordinal and is only `Ready` when every sheet loads.
   A missing PNG or a row out of order silently disables every flipbook in the game. Add the enum entry, the row and
   the PNG together, and check `books.Ready`.
