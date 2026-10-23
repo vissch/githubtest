@@ -558,6 +558,11 @@ namespace TW.Presentation.Tactical
                     if (bundle) ThrowBundle(from, to, delay, scale, e.Tick * 31u + (uint)e.A);
                     else tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0, Width = arms.Tracer == 1f ? 0f : arms.Tracer,
                         Life = TracerSeconds * arms.TracerLife, Streak = arms.Streak });   // the class's round: its weight, its time on screen, its length
+                    // an AT rifle's round at a hull (CombatFx.AtRifle.cs): the hit side is already drawn by TankRenderer off
+                    // VehicleArmourHit; a miss emits no event, so this remembers the shot until the tick settles it
+                    if (!bundle && classArms > 0f && books != null && books.Ready && e.B >= 0 && e.B < w.Flags.Length && (w.Flags[e.B] & (uint)UnitFlags.Vehicle) != 0
+                        && e.A >= 0 && e.A < w.Archetype.Length && KindOf(w.Archetype[e.A]) == ArmsKind.AtRifle)
+                        NoteHullShot(w, e, from, to, scale, delay);
                     // AOSA C72: an image run logs the shot as drawn (read-only; off, this is one static bool)
                     if (ShotLog.On)
                     {
@@ -773,6 +778,9 @@ namespace TW.Presentation.Tactical
                     if (!vehicle && e.Scalar > 0f) HitBlood(e, p, toward.normalized, scale);   // and he bleeds (CombatFx.HitBlood)
                     break;
                 }
+                case SimEventType.VehicleArmourHit:
+                    NoteHullHit(e);   // CombatFx.AtRifle.cs: settles an AT rifle's shot at this hull; TankRenderer draws the strike itself
+                    break;
                 case SimEventType.Death:
                     OnDeath(e);   // CombatFx.Deaths.cs: the body, by the controller's record of the death
                     break;
@@ -1095,6 +1103,7 @@ namespace TW.Presentation.Tactical
             using var perf = TW.Sim.PerfMarkers.FxUpdate.Auto();
             if (Host == null || Host.Local == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
+            ResolveHullShots(Host.Local.World.Tick);   // CombatFx.AtRifle.cs: an AT rifle's shot whose tick has passed with no VehicleArmourHit
             var size = Host.Local.Map.SizeMeters;
             var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f), new Vector3(size.x + 20f, 60f, size.y + 20f));
 
