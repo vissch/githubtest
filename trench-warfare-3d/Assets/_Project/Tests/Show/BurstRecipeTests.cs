@@ -291,5 +291,21 @@ namespace TW.Tests
             Assert.Greater(CombatFx.GasCloudWiden, CombatFx.BankStep(CombatFx.BankMergeZoom),
                 "an overview card is drawn wider than the zoom step made it: at the step itself (2) each cloud was a speck inside its 48 m block, at most 119 px");
         }
+        [Test]
+        public void TheGasCreepFillsTheBlockAndStaysUnderAMansHead()
+        {
+            // The owner, 2026-10-23: at the game camera the close stills are "separate lime bush-puffs with bare
+            // ground between them". So each close puff also draws a creep card out of the same GasPuff book: wide
+            // enough to meet its neighbours, and low enough that every pixel of it counts as gas ON the ground
+            // (probe.py's HEAD_M is 1.8 m; the sheet's ink reaches 0.87 of the card).
+            float creepTop = CombatFx.GasCreepCardM * 0.87f;
+            Assert.Less(creepTop, 1.5f, "the creep's drawing tops out at 1.5 m, well under a 1.8 m man's head: it lies on the ground");
+            // the THINNEST creep: the thinnest puff (5 m at thick 0, times the hash's 0.9 floor) widened
+            float thinnestCreep = 5f * 0.9f * CombatFx.GasCreepWiden;
+            float spacing = CombatFx.GasPuffBlock * TW.Sim.Terrain.MapData.FieldCellSize;
+            Assert.AreEqual(12f, spacing, 1e-4f, "the close cards stand a 3 x 3 block apart");
+            Assert.GreaterOrEqual(thinnestCreep, spacing,
+                "even the thinnest creep reaches its neighbour's cell, so no gap of bare ground survives between two standing cells");
+        }
     }
 }

@@ -398,6 +398,31 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   ref; (3) land directly from this checkout without pushing first (if `land.py` allows it). Default taken: none
   acted on; the rebase stays local on this checkout pending the owner's push.
 
+### The gas low-band bar 0.30 cannot be reached by filling the low band (2026-10-23)
+The owner asked for `green_low_share` back at 0.30 with the low band of the bank filled, so the three captures
+0.2317 / 0.3473 / 0.3042 all clear it. A low creep card under each close puff (a second card out of the same
+`GasPuff` book, `GasCreepWiden`) was drawn and swept by capture at wait 210, against that build's own 0.3473:
+
+| creep | green_low_share | blob_px | green_height_frac | green_rise_m |
+|---|---|---|---|---|
+| none (the puff-only build) | 0.3473 | 12537 | 0.0933 | 2.529 |
+| widen 2.0, card 1.7 m | 0.2046 | 18749 | 0.1006 | 3.184 |
+| widen 2.0, card 1.2 m | 0.2112 | 17790 | 0.1008 | 3.183 |
+| widen 2.6, card 1.7 m | 0.1994 | 62856 | 0.1440 | 3.934 |
+| widen 3.2, card 1.7 m | 0.1992 | 75733 | 0.1467 | 4.028 |
+
+Filling the low band **lowers** the measure, at every width tried. `green_low_share` is read inside
+`largest_blob`, one connected puff: the creep bridges the puffs into one bank, so the blob grows five-fold and
+takes in far gas whose column-measured height is well over 1.8 m. The low pixels the creep adds never outweigh
+them, and the gain saturates once creeps overlap each other (2.6 and 3.2 read the same). To clear 0.30 by the
+three runs' own spread (0.1156) the build would have to read about 0.45, which no creep reaches.
+Options: (1) measure the low share over **all** the T1 green, not `largest_blob`'s one puff - the merged bank is
+then measured as the bank it is (the measure changes, not the bar); (2) shrink the puff (`GasPuffStand` below
+1.2, or a shorter frame window) so the low band dominates its own blob - the owner's "bush-puffs" get smaller,
+not lower; (3) keep 0.11 from `-g1-g2` and keep the creep for the look alone.
+Default taken: none of the three. The creep, its sweep and its captures are committed with
+`green_low_share` back at the owner's 0.30, so this unit's probe is **RED** and the lane does not land.
+
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
 summarised in the docs named; the files themselves are not readable from another machine or lane.

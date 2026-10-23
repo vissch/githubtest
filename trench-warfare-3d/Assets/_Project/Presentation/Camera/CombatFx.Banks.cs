@@ -80,6 +80,31 @@ namespace TW.Presentation.Tactical
         /// sparse, gapped field, so which puff it keeps - and that puff's own screen-space height - can jump
         /// between nearby stands; re-measure after any further change here, do not interpolate).</summary>
         public const float GasPuffStand = 1.2f;
+        /// <summary>How much wider the CREEP card under a close puff is drawn than the puff itself (the owner,
+        /// 2026-10-23: at the game camera the three close stills are "separate lime bush-puffs with bare ground
+        /// between them"). GasPuffBlock put the puffs GasPuffBlock * MapData.FieldCellSize = 12 m apart while a
+        /// puff is only 5-7 m wide, so the ground between two puffs is bare: the low creep is a second card out of
+        /// the SAME GasPuff book (one DrawPacked, no new draw call) that fills that gap, so gas LIES on the ground
+        /// between the puffs instead of hovering in bushes. Swept by capture, one GasBankStills gas + plate pass
+        /// each at TW_GAS_WAIT_FRAMES 210:
+        ///   none (the puff-only build) -> green_low_share 0.3473, blob_px 12537, green_height_frac 0.0933
+        ///   2.0 -> 0.2046, blob_px 18749, height_frac 0.1006: the creeps barely meet, the blob grows by half
+        ///   2.0 with GasCreepCardM 1.2 -> 0.2112, blob_px 17790
+        ///   2.6 -> 0.1994, blob_px 62856, height_frac 0.1440: the creeps bridge the puffs into ONE bank
+        ///   3.2 -> 0.1992, blob_px 75733, height_frac 0.1467: kept of the sweep, but no row clears 0.30
+        /// Every creep LOWERS green_low_share, because that measure reads one connected blob: the bridge takes in
+        /// far gas whose column height is well over HEAD_M, and the gain saturates once creeps overlap (2.6 = 3.2).
+        /// The look is the one the owner asked for - gas lies on the ground between the puffs - but the 0.30 bar
+        /// it was meant to clear stays red: see docs/reference/decisions.md, "The gas low-band bar 0.30".
+        /// (the creep can bridge two puffs into one connected blob, so largest_blob starts measuring the bank and
+        /// not one puff: re-measure green_low_share, blob_px and green_top_m after any change here.)</summary>
+        public const float GasCreepWiden = 3.2f;
+        /// <summary>The creep card's height in METRES, not a ratio of its width, so every creep tops at the same
+        /// height however wide it is drawn. The GasPuff sheet's ink runs 0.03-0.87 of the card, so the drawing
+        /// reaches 1.7 * 0.87 = 1.48 m: under HEAD_M 1.8, the height probe.py counts as "low".</summary>
+        public const float GasCreepCardM = 1.7f;
+        /// <summary>The creep's share of its cell's GasBankAlpha, so the puff still reads on top of the creep.</summary>
+        public const float GasCreepAlpha = 0.7f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -163,7 +188,14 @@ namespace TW.Presentation.Tactical
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                 // close (step 1): the standing puff, its drawing reaching the cell's floor, so the card sits at the
                 // smoke bank's anchor and not GasBankSquash's sunk one. From the overview out: today's squashed blanket.
-                if (step == 1) gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width * GasPuffStand, BankFrame(GasPuffFirst, GasPuffLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                if (step == 1)
+                {
+                    gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width * GasPuffStand, BankFrame(GasPuffFirst, GasPuffLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                    // and the creep under it, out of the same book: a wide, man-high-at-most card that reaches
+                    // across to its neighbours, so the bare ground between two puffs has gas lying on it. It boils
+                    // half a cycle out of phase with its own puff, so the two do not pulse as one card.
+                    gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.1f, b.Z), width * GasCreepWiden, GasCreepCardM, BankFrame(GasPuffFirst, GasPuffLast, slow + 3.1416f), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick) * GasCreepAlpha));
+                }
                 else gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
             }
             books.DrawPacked(step == 1 ? FlipbookFx.Book.GasPuff : FlipbookFx.Book.GasBank, gasCards, bounds);
