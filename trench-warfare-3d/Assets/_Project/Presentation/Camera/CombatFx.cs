@@ -921,10 +921,12 @@ namespace TW.Presentation.Tactical
                             {
                                 // ability-fx-captures-r3-2-2: the crown alone read 0.0239 of a T1 frame against a 0.0709 floor. A shell in
                                 // water also leaves foam spreading flat on the surface, so two flat cards of the same Splash book lie on the
-                                // water and widen after it: at 6.0/8.2 r the splash covers 508 m^2 against the 400 m^2 asked for (3.2/4.4 r
+                                // water and widen after it: at 6.0/8.2 r the splash covered 508 m^2 against the 400 m^2 asked for (3.2/4.4 r
                                 // read 246, 4.8/6.6 r 386). No new book, no new sheet, no new draw call - the barrage frame has none to spare.
-                                books.Add(FlipbookFx.Book.Splash, p + Vector3.up * 0.15f, r * 6.0f * far, 1.8f, FlipbookFx.Kind.Flat, grow: 0.6f, alpha: 0.5f, delay: 0.1f);
-                                books.Add(FlipbookFx.Book.Splash, p + Vector3.up * 0.15f, r * 8.2f * far, 2.4f, FlipbookFx.Kind.Flat, grow: 0.9f, alpha: 0.45f, delay: 0.35f);
+                                // g1: the crown came down to a low one (the Crown* constants), so the churned water, not the height, carries
+                                // the footprint now: 7.5/10.0 r.
+                                books.Add(FlipbookFx.Book.Splash, p + Vector3.up * 0.15f, r * 7.5f * far, 1.8f, FlipbookFx.Kind.Flat, grow: 0.6f, alpha: 0.5f, delay: 0.1f);
+                                books.Add(FlipbookFx.Book.Splash, p + Vector3.up * 0.15f, r * 10.0f * far, 2.4f, FlipbookFx.Kind.Flat, grow: 0.9f, alpha: 0.45f, delay: 0.35f);
                                 // and the crown's rim: CrownJets narrow upright cards of the same Splash book around the centre mass,
                                 // each thrown outward and up, born a beat after the one before, every other one mirrored so the
                                 // fingers are not six copies. Same book, so no new draw call (CombatFx.ShellFire.cs).
@@ -932,7 +934,8 @@ namespace TW.Presentation.Tactical
                                 {
                                     Vector3 off = CrownJet(i, CrownJets, columnWidth, turn);
                                     books.Add(FlipbookFx.Book.Splash, p + off, columnWidth * CrownJetWidth, 1.1f, ground | ((i & 1) == 1 ? FlipbookFx.Kind.Mirror : 0), grow: 0.5f, alpha: 0.7f,
-                                        velocity: off.normalized * CrownOut + Vector3.up * CrownUp, delay: 0.035f * i);
+                                        velocity: off.normalized * CrownOut + Vector3.up * CrownUp, delay: 0.035f * i,
+                                        height: columnWidth * CrownJetWidth * 0.6f);   // g1: a finger is wider than tall by construction, so the ring cannot stand up as a thicket
                                 }
                             }
                         }

@@ -52,16 +52,21 @@ namespace TW.Presentation.Tactical
         // it - one instanced draw a book, so no new draw call, no new sheet and no new Book row. The concepts rule is not
         // followed here on purpose: the owner named the look himself.
         public const int CrownJets = 6;              // the fingers around the rim; every other one mirrored, so they are not six copies
-        // The first crown shot (splash_T1_r1..r3, this folder's captures) covered 165-221 m^2 of ground against the
-        // 400 m^2 the probe asks of a splash, where the old blue shaft covered 508: the squat mass and six narrow
-        // fingers simply fill fewer pixels than one tall card did. The bar is never lowered to fit an effect
-        // (decisions.md, 2026-10-19), so the crown was made bigger instead: a wider rim, fatter fingers thrown a
-        // little higher, and a centre mass just under its own width. It is still a crown - the spray is thrown
-        // outward, not stacked into a shaft.
-        public const float CrownRim = 0.58f;         // the rim, as a share of columnWidth
-        public const float CrownJetWidth = 0.95f;    // a finger's width, as a share of columnWidth
-        public const float CrownHeight = 0.95f;      // the centre card's height over its width: wider than tall, a low mass
-        public const float CrownOut = 3.0f, CrownUp = 3.0f;   // m/s: thrown outward and up
+        // The first crown shot covered only 165-221 m^2 of ground against the 400 m^2 the probe asks of a splash, so the
+        // crown was grown until it covered 617-695 - and it was grown UPWARD: rim 0.58, fingers 0.95 of the column width
+        // and a centre 0.95 as tall as it is wide left six near-full-width upright cards standing in a ring. The owner
+        // (ability-fx-captures-r3-2-2-g2-g2-g2-g1, in the goal) called that what it is: "the thicket of tall blue columns
+        // in splash_T1_r1, splash_T1_r2 and splash_T1_r3", and asked for a LOW crown, "a squat centre of water with spray
+        // thrown outward". Measured on the pixels, the thicket stood at height/width 0.74-0.78 at T1 and 1.10-1.11 at
+        // O240 (the g1 probe's crown_ratio).
+        // So the spray now goes OUT, not up: a squat centre (CrownHeight), slim fingers (CrownJetWidth) on a wider rim
+        // (CrownRim), and CrownUp well under CrownOut. The 400 m^2 footprint is carried by the two flat foam cards on the
+        // water instead of by the crown's height (CombatFx.cs, the wet branch) - the bar itself is never lowered to fit
+        // an effect (decisions.md, 2026-10-19).
+        public const float CrownRim = 0.85f;         // the rim, as a share of columnWidth: the spray goes out, so the ground stays covered
+        public const float CrownJetWidth = 0.45f;    // a finger's width, as a share of columnWidth: fingers, not columns
+        public const float CrownHeight = 0.40f;      // the centre card's height over its width: a squat mass, well under half as tall as wide
+        public const float CrownOut = 5.0f, CrownUp = 1.0f;   // m/s: thrown outward, barely up (CrownUp < CrownOut: spray, not a shaft)
 
         /// <summary>Where jet <paramref name="i"/> of a crown of <paramref name="count"/> sits, as an offset from the splash
         /// point: on a circle of CrownRim * columnWidth, flat on the water (y = 0), the ring turned by <paramref name="turn"/>
