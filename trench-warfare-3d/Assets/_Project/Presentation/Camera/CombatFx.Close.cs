@@ -25,6 +25,8 @@ namespace TW.Presentation.Tactical
             {
                 case InfantryArchetype.Assault: return ArmsKind.Smg;
                 case InfantryArchetype.Machinegunner: return ArmsKind.Mg;
+                case InfantryArchetype.Sentry: return ArmsKind.Mg;             // a machine gun behind a plate is still a machine gun
+                case InfantryArchetype.AtRifle: return ArmsKind.Sniper;         // 20 mm with a brake: the side jets and the crack, not a rifle's pop
                 case InfantryArchetype.Sniper: return ArmsKind.Sniper;
                 case InfantryArchetype.Officer: return ArmsKind.Carbine;
                 case InfantryArchetype.Shield: return ArmsKind.Pistol;
