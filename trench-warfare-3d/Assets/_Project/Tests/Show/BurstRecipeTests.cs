@@ -285,9 +285,9 @@ namespace TW.Tests
             Assert.Less(stands, 10f, "and is still a cloud, not a column");
 
             // The overview's mirror (the owner, 2026-10-22: the overview is "still the old squash blanket"). An
-            // overview card's width multiplies by the local step 2, so the widest is (6 + 2) * 1.1 * 2 = 17.6 m,
+            // overview card's width multiplies by GasCloudWide, so the widest is (6 + 2) * 1.1 * GasCloudWide m,
             // while cards stand GasCloudBlock * FieldCellSize m apart: a gap at the widest card, not a blanket.
-            float widestOverviewCard = (6f + 2f) * 1.1f * 2f;
+            float widestOverviewCard = (6f + 2f) * 1.1f * CombatFx.GasCloudWide;
             Assert.Greater(CombatFx.GasCloudBlock * TW.Sim.Terrain.MapData.FieldCellSize, widestOverviewCard,
                 "the overview's cards stand further apart than the widest card is wide: clouds with gaps, not one sheet");
             Assert.Greater(CombatFx.GasCloudBlock, CombatFx.BankStep(CombatFx.BankMergeZoom),

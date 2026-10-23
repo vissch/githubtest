@@ -74,6 +74,25 @@ namespace TW.Presentation.Tactical
         ///         asked for clouds with gaps, not for coverage.
         /// (connected-component counts do not interpolate: re-measure after any change here.)</summary>
         public const int GasCloudBlock = 12;
+        /// <summary>How much wider than its own 5-7 m an OVERVIEW card is drawn, in place of the bare zoom step
+        /// (the owner, 2026-10-23: the overview pass "still counts specks"). At the step itself (2) a card is
+        /// 11.8-16.8 m, about 31-44 px at the overview's 2.6 px/m, and the green mask kept at most 119 px of it
+        /// against a 323 px tank-square: every "cloud" the count saw was a speck. Blob area grows as the square of
+        /// this, so the bar can be a tank-square count. Cards still stand GasCloudBlock 12 x FieldCellSize 4 = 48 m
+        /// apart, so the widest card (5+2) * 1.1 * this must stay under 48 m, which caps the sweep near 6.
+        /// Swept by capture, one GasBankStills gas pass each at TW_GAS_WAIT_FRAMES 240 against one shared plate
+        /// (each row one gas pass):
+        ///   3.0 -> o240_visible_clouds 0, cloud_count 14, cloud_share 0.6937, area 0.0023, top blob 302 px:
+        ///         four times the area and still not one cloud a tank's square (324 px) wide
+        ///   4.0 -> 6 visible, count 13, share 0.8578, area 0.0045, blob_top 617/580/548/416/393/379:
+        ///         KEPT - the lowest row with a visible cloud at all, and every carried O240 bar still passes
+        ///         (count 13 under the ceiling of 15, share over 0.25, area over 0.0001)
+        ///   5.0 -> 10 visible, count 13, share 0.9125, area 0.0074, top blob 1046 px: more, but the share is
+        ///         climbing back towards the old blanket's 0.87 and 4.0 already clears the bar
+        /// T1 is untouched by this knob and reads the same at every row (green_height_frac 0.0747, low_share
+        /// 0.3363, rise 2.368, t1_top_share 0.2577, t1_visible_clouds 24 at wait 240 on all three).
+        /// (connected-component counts do not interpolate: re-measure after any change here.)</summary>
+        public const float GasCloudWide = 4.0f;
         /// <summary>How tall a close gas card is drawn against its width (the owner, 2026-10-21: a puff with a rim and a
         /// height, like cards-smoke.jpg). -g1's 0.32 was fitted to 774 cards 4 m apart (GasBankCards' close sheet)
         /// and does not carry over to GasPuffBlock's ~86 cards 12 m apart: measured here, not guessed
@@ -190,7 +209,7 @@ namespace TW.Presentation.Tactical
                 float slow = now * 0.22f + h3 * 6.2832f;
                 // the block widens the GAP between cards (GasPuffBlock below); GasPuffWide widens the close card
                 // itself over that gap, so the cards overlap into one cloud instead of standing as separate trees.
-                float width = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2) * (step == 1 ? GasPuffWide : step);
+                float width = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2) * (step == 1 ? GasPuffWide : GasCloudWide);
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                 // close (step 1): the standing puff, its drawing reaching the cell's floor, so the card sits at the
                 // smoke bank's anchor and not GasBankSquash's sunk one. From the overview out: today's squashed blanket.
