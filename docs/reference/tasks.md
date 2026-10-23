@@ -141,8 +141,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `TW_ABILITYFX_DROP_PEAK` (move the drop's shot frame; a comma list sweeps one frame a rep);
   the drop's plate stages the same drop with `CombatFx.DropFx` off, so its men are in both frames and only the drop's
   own drawing is measured, and the beams are off in both; the pixels are measured by
-  `docs/evidence/ability-fx-captures-r3-2-2-g2-g1/probe.py` (12 rows: the drop is three captures a band, all three on
-  one sim tick), whose floor is
+  `docs/evidence/ability-fx-captures-r3-2-2-g2-g1-g2/probe.py` (24 rows: every subject - smoke, barrage, splash and
+  the drop - is three captures a band, all three reps of a subject and band on one sim tick), whose floor is
   a ground footprint for smoke, barrage and splash and a fixed bar a band for the drop, and is guarded by
   `AbilityFxReadAtEveryBand`).
 - **Tests:** VfxStills (Explicit: run by name with a graphics device; it only checks that stills were written),

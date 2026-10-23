@@ -1,4 +1,4 @@
-// Phase: ability-fx-captures-r3-2-2-g2-g1 - how big an ability's effect must read at each zoom band.
+// Phase: ability-fx-captures-r3-2-2-g2-g1-g2 - how big an ability's effect must read at each zoom band.
 // ability-fx-captures-r3-2-2: how big an ability's effect must read. A fixed share of the frame is not a fair test of
 // a point effect: 3% of an O240 frame is a feature about 85 m across, which no shell burst honestly is. So the floor
 // is a ground footprint, capped at the old share of the frame (R0 C1, a measuring choice taken by the coordinator
@@ -11,6 +11,10 @@
 // dust at its fullest, a cloud a player can see - instead of three blocks of one run at three ticks, of which the
 // first was a faint haze. The spread is now 0.03%, so the bar is 0.98 x the smallest, not 0.8 x:
 // T1 0.136472 / 0.136510 / 0.136480 -> 0.1337, O240 0.013163 / 0.013165 / 0.013173 -> 0.0129.
+// g2-g1-g2: smoke, barrage and splash are now shot three times a band too, each rep its own editor run on its own
+// sim tick, so the same-tick check that guarded only the drop now guards all four subjects. Their floor stays the
+// ground footprint, unchanged, since each rep is checked on its own and their drawing covers ground; only the
+// drop keeps the fixed bar. 24 rows: 3 subjects x 3 reps x 2 bands, plus the drop's existing 6.
 using System.Globalization;
 using System.IO;
 using NUnit.Framework;
@@ -21,8 +25,8 @@ namespace TW.Tests
     public class AbilityFxReadTests
     {
         /// <summary>The floor from the goal's rule: at least 400 m^2 of ground (about 20 x 20 m), never stricter than
-        /// 0.10 of the frame. docs/evidence/ability-fx-captures-r3-2-2-g2-g1/probe.py is the authority - it measures the
-        /// pixels and writes probe.json; this is the same arithmetic, held against hand sums below.</summary>
+        /// 0.10 of the frame. docs/evidence/ability-fx-captures-r3-2-2-g2-g1-g2/probe.py is the authority - it measures
+        /// the pixels and writes probe.json; this is the same arithmetic, held against hand sums below.</summary>
         static float Floor(float frameAreaM2) => Mathf.Min(0.10f, 400f / frameAreaM2);
 
         const float Tol = 1e-5f;
@@ -45,21 +49,21 @@ namespace TW.Tests
             Assert.That(Floor(8000f), Is.EqualTo(0.05f).Within(Tol), "8000 m^2 framed: 400 m^2 is a twentieth of it");
             Assert.That(Floor(40000f), Is.EqualTo(0.01f).Within(Tol), "40000 m^2 framed: 400 m^2 is a hundredth of it");
 
-            string dir = Path.GetFullPath(Application.dataPath + "/../../docs/evidence/ability-fx-captures-r3-2-2-g2-g1");
+            string dir = Path.GetFullPath(Application.dataPath + "/../../docs/evidence/ability-fx-captures-r3-2-2-g2-g1-g2");
             string json = Path.Combine(dir, "probe.json");
             Assert.That(File.Exists(json), "probe.json is missing: run probe.py over " + dir);
 
             var doc = JsonUtility.FromJson<Doc>(File.ReadAllText(json));
             Assert.That(doc, Is.Not.Null, "probe.json did not parse");
-            Assert.That(doc.rows, Is.Not.Null.And.Length.EqualTo(12),
-                "12 rows were asked for: smoke, barrage and splash at T1 and O240, and the drop three times a band");
+            Assert.That(doc.rows, Is.Not.Null.And.Length.EqualTo(24),
+                "24 rows were asked for: smoke, barrage, splash and the drop, each three reps at T1 and O240");
 
             int drops = 0;
             foreach (var r in doc.rows)
             {
                 string who = r.subject + " " + r.band;
                 Assert.That(r.frame_area_m2, Is.GreaterThan(0f), who + ": the framed ground was not measured");
-                bool isDrop = r.subject != null && r.subject.StartsWith("drop");
+                bool isDrop = r.subject != null && r.subject.StartsWith("drop_r");
                 float floor = isDrop ? (r.band == "T1" ? DropBarT1 : DropBarO240) : Floor(r.frame_area_m2);
                 Assert.That(r.effect_area_frac, Is.GreaterThanOrEqualTo(floor - Tol),
                     string.Format(CultureInfo.InvariantCulture,
