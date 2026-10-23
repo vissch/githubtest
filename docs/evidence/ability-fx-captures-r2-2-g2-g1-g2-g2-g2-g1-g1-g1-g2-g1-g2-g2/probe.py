@@ -42,16 +42,20 @@ through the same `green_share` the frame goes through, and this probe REFUSES to
 below `BAR_VALUES['gas_green_share']` by at least the three runs' own spread (or if `CARDS_DIR` is gone). One
 function measures the frame and the cards, so the two can never drift apart.
 
-THE FRAME. A RESHOOT: `run1`/`run2`/`run3` are three fresh captures of the HALVED-FULL-THICKNESS build
-(`CombatFx.Banks.cs` at `443bc51419`: `GasBankFullThick` halved 8 -> 4, so every cell at load 4 or more draws
-`GasBankFull` instead of a pale fringe lift that never read as green). The lever is aimed at the owner's key,
-`gas_green_share`, which had dropped from a 0.44 floor to 0.32 because the previous round's run3 read 0.6139
-against 0.4726/0.4688. This round's three runs read 0.5947/0.5739/0.7019: the spread (0.1280) is WIDER, not
-narrower, but the floor `min - spread = 0.4459` still clears 0.44, so the owner's bar holds without loosening.
-README.md says so plainly. Every other bar below is re-set from these three runs, including a new one:
-`row_gap_deepest` is barred for the first time (the previous round left it unbarred for lack of an honest bar;
-this round's own three runs give one under the same rule). `one_frame_fault` still refuses two runs sharing a
-t1 tick or any two byte-identical stills.
+THE FRAME. A RESHOOT: `run1`/`run2`/`run3` are three fresh captures of the BAND-SCALES-WITH-THE-STEP build
+(`CombatFx.Banks.cs` at `bfa6ac75f4`: `GasBankBandFor(step)` scales the painted band with the merge step, and
+`GasBankStandFloor = GasBankFullThick / 2` lifts the thinnest standing card off the probe's visibility bar). The
+lever is aimed at the owner's key for this round, `bank_patch_count`: the 240 m bank read as a striped lime patch
+at 13/19/21 patches, and he asked for one cloud, barred at or under 12. It worked as a look: these three runs read
+**8 / 7 / 12**, o240 frames 342/417/492 (75 apart) and t1 ticks 557/657/757, three poses, `pose_error_m` 0.0000
+everywhere. It does NOT give an honest bar at 12: the spread is 5, so the unchanged rule (max + spread) wants
+`le 17`, and 17 breaks the owner's ceiling. `gas_green_share` has the same shape against his 0.44 floor:
+`min - spread = 0.5363 - 0.1096 = 0.4267`, under 0.44 for the first time. Neither bar is loosened, re-tuned or
+fitted by dropping a run, so **BAR_VALUES below is still the previous round's** and this probe exits 1 on its own
+evidence. README.md says so plainly and names the next lever. The one thing that did change here:
+`one_frame_fault` now also refuses two runs whose `gas-o240` frames are less than `FRAME_GAP_MIN` = 60 apart, so
+the owner's "at least 60 frames apart" is checked by the probe instead of eyeballed on `--calibrate`. It still
+refuses two runs sharing a t1 tick or any two byte-identical stills.
 
 THE MASK. The metre mask (`bank_mask`, used by `bank_low_share`/`bank_height_frac`/`bank_rise_m`) is untouched:
 plate difference >= `T1_DIFF_BAR`, inside the one largest coherent patch, and brighter than the plate. The PAINT
@@ -82,7 +86,8 @@ USAGE
 
 Exit 0 only when three runs are loaded and every bar clears its run values by at least their spread.
 Exit 1 with 'three runs needed' if fewer than three run*/ directories hold a full set of stills.
-Exit 1 with 'three captures, one frame' if two runs stand on one frame, or two stills are the same file.
+Exit 1 with 'three captures, one frame' if two runs stand on one t1 tick, two runs' gas-o240 frames are
+    less than 60 apart, or two stills are the same file.
 Exit 1 with FAILED if a bar does not clear the run values by at least their spread, or if the smoke or puff
     isolation card is not below the `gas_green_share` bar by at least that spread.
 """
@@ -108,6 +113,8 @@ STILLS = ['gas-t1', 'gas-t1-plate', 'gas-o240', 'gas-o240-plate']
 CARDS = ['cards-gas', 'cards-smoke', 'cards-puff', 'cards-plate']
 BARS = {'bank_low_share': 'ge', 'bank_height_frac': 'le', 'o240_area_frac': 'ge', 'pose_error_max': 'lt'}
 PATCH_MIN_PX = 200            # a paint patch this big or bigger counts as its own patch (a card)
+FRAME_GAP_MIN = 60            # the owner's "at least 60 frames apart": two runs' gas-o240 frames,
+                              # checked by one_frame_fault from the manifests' own `frame`
 BARS['gas_paint_frac'] = 'ge'       # the gas-direction paint in the frame: how much of 1280x720 it actually covers
 BARS['gas_green_share'] = 'ge'      # the chlorine tint: how much of that paint leans GREEN over RED in its own lift
 BARS['bank_paint_share'] = 'ge'     # one bank: most of the frame's PAINT sits in ONE patch
@@ -763,7 +770,11 @@ def look_report():
 
 
 def frames_of(run_dir):
-    """Every still's `sim_tick` in this run, from manifest.json and manifest-plate.json."""
+    """Every still's `sim_tick` AND render `frame` in this run, from manifest.json and manifest-plate.json.
+
+    The value is a dict `{'sim_tick': N, 'frame': N}`: the sim tick is what `one_frame_fault` uses to refuse two
+    runs standing on one pose, and the frame is what it uses to hold the owner's "at least 60 frames apart".
+    """
     ticks = {}
     for name in ('manifest.json', 'manifest-plate.json'):
         path = os.path.join(run_dir, name)
@@ -773,20 +784,47 @@ def frames_of(run_dir):
             for row in json.load(f).get('stills', []):
                 stem = os.path.splitext(row.get('still', ''))[0]
                 if stem:
-                    ticks[stem] = row.get('sim_tick')
+                    ticks[stem] = {'sim_tick': row.get('sim_tick'), 'frame': row.get('frame')}
     return ticks
 
 
+def tick_of(run_frames, stem):
+    """The `sim_tick` of one still, or None."""
+    return (run_frames.get(stem) or {}).get('sim_tick')
+
+
+def frame_of(run_frames, stem):
+    """The render `frame` of one still, or None."""
+    return (run_frames.get(stem) or {}).get('frame')
+
+
 def one_frame_fault(runs, ticks):
-    """'three captures, one frame' if two runs stand on the same t1 tick, or two stills are byte-identical.
+    """'three captures, one frame' if two runs stand on one t1 tick, two `gas-o240` frames are less than 60
+    apart, or two stills are byte-identical.
+
+    The owner, on this round's evidence: "the three overview stills are one pose (sim ticks 248, 268 and 328)
+    ... reshoot the three captures at least 60 frames apart". So the 60 frames are checked here, from the
+    manifests' own `frame`, instead of being eyeballed on `--calibrate`.
 
     g1 shot its three runs on ONE frame (all t1 `sim_tick` 557) and `run2/gas-o240.jpg` and `run3/gas-o240.jpg`
     were literally the same file, so its 0.0001 spread measured JPEG jitter, not the capture. A spread that small
     makes any bar look safe. This refuses the evidence before a single bar is read.
     """
+    o240 = [(os.path.basename(d), frame_of(ticks[os.path.basename(d)], 'gas-o240')) for d in runs]
+    for i in range(len(o240)):
+        for j in range(i + 1, len(o240)):
+            (an, af), (bn, bf) = o240[i], o240[j]
+            if af is None or bf is None:
+                print('three captures, one frame: %s has no gas-o240 frame in its manifest'
+                      % (an if af is None else bn))
+                return True
+            if abs(af - bf) < FRAME_GAP_MIN:
+                print('three captures, one frame: %s (frame %d) and %s (frame %d) are %d frames apart, under %d'
+                      % (an, af, bn, bf, abs(af - bf), FRAME_GAP_MIN))
+                return True
     seen = {}
     for d in runs:
-        t = ticks[os.path.basename(d)].get('gas-t1')
+        t = tick_of(ticks[os.path.basename(d)], 'gas-t1')
         if t in seen:
             print('three captures, one frame: %s and %s are both t1 sim_tick %s'
                   % (seen[t], os.path.basename(d), t))
@@ -872,7 +910,7 @@ def main():
                   % (os.path.basename(d), out['gas_paint_frac'], out['gas_green_share'], out['bank_paint_share'],
                      out['bank_patch_count'], out['gas_paint_px'], out['bank_low_share'],
                      out['row_dark_frac'], out['row_gap_deepest'],
-                     frames_of(d).get('gas-t1')))
+                     tick_of(frames_of(d), 'gas-t1')))
         return 1
 
     runs = find_runs()
@@ -883,7 +921,9 @@ def main():
 
     ticks = {os.path.basename(d): frames_of(d) for d in runs}
     for name in sorted(ticks):
-        print('%s: sim_tick %s' % (name, ', '.join('%s %s' % (k, ticks[name][k]) for k in sorted(ticks[name]))))
+        print('%s: %s' % (name, ', '.join('%s sim_tick %s frame %s'
+                                          % (k, tick_of(ticks[name], k), frame_of(ticks[name], k))
+                                          for k in sorted(ticks[name]))))
     if not calibrate and one_frame_fault(runs, ticks):
         return 1
 
@@ -937,6 +977,12 @@ def main():
 # sim_tick 556 / 617 / 716, GasBankFullThick halved 8 -> 4, commit 443bc51419). A bar must clear the nearest run
 # by at least the three runs' own spread (max - min). See README.md, "The bars", for the table these came out
 # of, and which keys moved the wrong way against the previous round's captures.
+# EVERY VALUE BELOW IS THE PREVIOUS ROUND'S (the g2-g1-g2 folder), unchanged on purpose. The re-bar this round
+# asked for cannot be made honestly: `bank_patch_count` reads 8/7/12 on these three captures, spread 5, so the
+# rule (a `le` bar is max + spread) gives `le 17`, over the owner's ceiling of 12; and `gas_green_share` reads
+# 0.5743/0.5363/0.6459, so `min - spread` is 0.4267, under his 0.44 floor. Loosening either, re-tuning the
+# measure or dropping a run would fit the bar to the evidence, which the goal forbids, so nothing moved and this
+# probe exits 1 on its own runs. README.md, "The re-bar this round refuses", carries the numbers and the lever.
 BAR_VALUES = {
     # runs 0.0682/0.0697/0.0804, spread 0.0122 -> bar <= 0.0682 - 0.0122 = 0.0560; 0.055 rounded away from runs.
     'bank_low_share': 0.055,
@@ -953,7 +999,11 @@ BAR_VALUES = {
     'gas_green_share': 0.44,
     # runs 0.9528/0.9351/0.9005, spread 0.0523 -> bar <= 0.9005 - 0.0523 = 0.8482; 0.84 rounded away from runs.
     'bank_paint_share': 0.84,
-    # runs 13/19/21, spread 8 -> bar >= 21 + 8 = 29.
+    # THE OWNER'S KEY THIS ROUND, and the one that blocks the re-bar. Previous round's runs 13/19/21,
+    # spread 8 -> bar <= 21 + 8 = 29, which is what still stands here. This round's own runs are 8/7/12
+    # (the stripes DID join), but their spread of 5 makes the honest ceiling 12 + 5 = 17, over the
+    # owner's "at or under 12". Not set to 12 (inside the runs' own scatter) and not set to 17
+    # (breaks his ceiling): the next lever has to shrink the scatter first. See README.md.
     'bank_patch_count': 29,
     # runs 0.2245/0.1944/0.1916, spread 0.0329 -> bar >= 0.2245 + 0.0329 = 0.2574; 0.26 rounded away from runs.
     'row_dark_frac': 0.26,

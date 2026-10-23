@@ -130,22 +130,58 @@
  },
  "sim_ticks": {
   "run1": {
-   "gas-o240": 249,
-   "gas-o240-plate": 222,
-   "gas-t1": 557,
-   "gas-t1-plate": 552
+   "gas-o240": {
+    "frame": 342,
+    "sim_tick": 249
+   },
+   "gas-o240-plate": {
+    "frame": 302,
+    "sim_tick": 222
+   },
+   "gas-t1": {
+    "frame": 805,
+    "sim_tick": 557
+   },
+   "gas-t1-plate": {
+    "frame": 797,
+    "sim_tick": 552
+   }
   },
   "run2": {
-   "gas-o240": 299,
-   "gas-o240-plate": 279,
-   "gas-t1": 657,
-   "gas-t1-plate": 659
+   "gas-o240": {
+    "frame": 417,
+    "sim_tick": 299
+   },
+   "gas-o240-plate": {
+    "frame": 388,
+    "sim_tick": 279
+   },
+   "gas-t1": {
+    "frame": 955,
+    "sim_tick": 657
+   },
+   "gas-t1-plate": {
+    "frame": 958,
+    "sim_tick": 659
+   }
   },
   "run3": {
-   "gas-o240": 349,
-   "gas-o240-plate": 322,
-   "gas-t1": 757,
-   "gas-t1-plate": 752
+   "gas-o240": {
+    "frame": 492,
+    "sim_tick": 349
+   },
+   "gas-o240-plate": {
+    "frame": 452,
+    "sim_tick": 322
+   },
+   "gas-t1": {
+    "frame": 1105,
+    "sim_tick": 757
+   },
+   "gas-t1-plate": {
+    "frame": 1097,
+    "sim_tick": 752
+   }
   }
  }
 }
