@@ -129,6 +129,7 @@ BARS['gas_paint_frac'] = 'ge'       # the gas-direction paint in the frame: how 
 BARS['gas_green_share'] = 'ge'      # the chlorine tint: how much of that paint leans GREEN over RED in its own lift
 BARS['bank_paint_share'] = 'ge'     # one bank: most of the frame's PAINT sits in ONE patch
 BARS['bank_patch_count'] = 'le'     # one bank: few paint patches at all (the zebra is many separate cards)
+BARS['o240_dark_frac'] = 'le'      # the owner's stripes AT THE OVERVIEW: dark mud rows across the merged bank
 BARS['row_dark_frac'] = 'le'        # the dark mud lines, as a share of the bank's own on-screen height
 # row_gap_deepest is NOT in BARS, a fourth round running: on this build the three runs read
 # 0.2807/0.2911/0.2830 (spread 0.0104), so an `le` bar at 0.31 would clear them AND fail the previous round's
@@ -963,30 +964,39 @@ def main():
     return 0 if ok else 1
 
 
-# Bar values. Re-set in THIS round from the raised-stand-floor build's own three runs (`probe.json`, t1 sim_tick
-# 557 / 597 / 637, DrawGasBank Refresh cell floor GasBankStandFloor = 2.4 m, commit see README.md). A bar must
-# clear the nearest run by at least the three runs' own spread. See README.md, "The bars", for the table these
-# came out of, and which keys moved the wrong way against the previous round's captures.
+# Bar values. Re-set in THIS round from the full-width reshoot's own three runs (`probe.json`, t1 sim_tick
+# 557 / 597 / 637, GasBankStandFloor 2.4 m, the step-scaled band and the 26+4*thick card width). A bar must clear
+# the nearest run by at least the three runs' own spread. `gas_green_share` is the OWNER's floor, 0.44, and it is
+# NOT fitted to the runs: all three runs are above it (0.4828 / 0.4431 / 0.4478) but the nearest clears it by only
+# 0.0031 against a spread of 0.0397, so the bar reads FAILED and this probe exits 1. See README.md, "The bars".
 BAR_VALUES = {
-    'bank_low_share': 0.065,     # runs 0.0738/0.0818/0.0804, spread 0.0080 -> 0.0738 - 0.0080 = 0.0658 is the roof
-    'bank_height_frac': 0.33,    # runs 0.3007/0.2747/0.2716, spread 0.0291 -> 0.3007 + 0.0291 = 0.3298 is the floor
-    'o240_area_frac': 0.016,     # runs 0.0194/0.0215/0.0220, spread 0.0026 -> 0.0194 - 0.0026 = 0.0168 is the roof
+    'bank_low_share': 0.05,      # runs 0.0611/0.0643/0.0715, spread 0.0104 -> 0.0611 - 0.0104 = 0.0507 is the roof
+    'bank_height_frac': 0.43,    # runs 0.3614/0.3082/0.2996, spread 0.0618 -> 0.3614 + 0.0618 = 0.4232 is the floor
+    'o240_area_frac': 0.027,     # runs 0.0309/0.0337/0.0343, spread 0.0034 -> 0.0309 - 0.0034 = 0.0275 is the roof
     'pose_error_max': 0.5,       # GasBankStills.PoseBar; runs 0.0000, spread 0.0000
-    'gas_paint_frac': 0.012,     # runs 0.0195/0.0183/0.0161, spread 0.0034 -> 0.0161 - 0.0034 = 0.0127 is the roof
-    # runs 0.4357/0.4102/0.4193, spread 0.0255 -> bar <= 0.4102 - 0.0255 = 0.3847. Tighter than last round's 0.28.
-    'gas_green_share': 0.38,
-    # runs 0.8431/0.8497/0.9188, spread 0.0757 -> bar <= 0.8431 - 0.0757 = 0.7674.
-    'bank_paint_share': 0.76,
-    # THE OWNER'S KEY, and the raised stand floor DID close it: runs 19/13/6 against the max-blend round's
-    # 35/30/24. The worst count is 19 and the spread is 13, so the rule gives bar >= 19 + 13 = 32 -- inside the
-    # owner's cap of 38, and tighter than any earlier round (38 / 40 / 46). No bar was loosened to reach it;
-    # README.md reports the keys that moved the wrong way (the bank is narrower and paints less).
-    'bank_patch_count': 32,
-    # runs 0.0331/0.0733/0.0608, spread 0.0402 -> bar >= 0.0733 + 0.0402 = 0.1135, so 0.12 rounded away from runs.
-    'row_dark_frac': 0.12,
+    'gas_paint_frac': 0.011,     # runs 0.0205/0.0189/0.0162, spread 0.0043 -> 0.0162 - 0.0043 = 0.0119 is the roof
+    # THE OWNER'S FLOOR, kept at 0.44 and not fitted: runs 0.4828/0.4431/0.4478, spread 0.0397, so the rule would
+    # allow only a bar at or under 0.4034. Raising GasBankThin 0.19 -> 0.26 (the plan's named fallback) was shot and
+    # measured: the extra=30 pose moved 0.4431 -> 0.4535, a tenth of what the margin needs, so the fallback cannot
+    # close it either and the build was left at 0.19. The bar stays at the owner's number and FAILS; it is not
+    # lowered. README.md carries the numbers.
+    'gas_green_share': 0.44,
+    # runs 0.8750/0.8574/0.9296, spread 0.0722 -> bar <= 0.8574 - 0.0722 = 0.7852.
+    'bank_paint_share': 0.78,
+    # runs 15/14/5, spread 10 -> bar >= 15 + 10 = 25. Well inside the owner's cap of 38, and tighter than every
+    # earlier round (32 / 38 / 40 / 46): the wider cards overlap more, so the islands did not come back with the
+    # skirt.
+    'bank_patch_count': 25,
+    # runs 0.0000/0.0000/0.0000, spread 0.0000 -> any bar over 0 holds; 0.02 is rounded away from the runs.
+    'row_dark_frac': 0.02,
+    # THE OWNER'S COMPLAINT, at the frame he complained about: runs 0.0093/0.0000/0.0000, spread 0.0093 ->
+    # bar >= 0.0093 + 0.0093 = 0.0186, so 0.02. The striped round reads 0.1415/0.1204/0.1122 on this same probe,
+    # five times the bar, so the key discriminates the build the owner rejected from this one.
+    'o240_dark_frac': 0.02,
 }
-
-
+# bank_width_m is NOT barred. The owner asked for the sheet to stay as wide as the previous round (31 m, its
+# narrowest), and it does: 31.248 / 35.778 / 35.911 m. But the spread is 4.663 m, so the rule allows only a bar at
+# or under 26.585 m -- under the 31 m the plan requires of a width bar. Reported, not barred.
 
 
 if __name__ == '__main__':
