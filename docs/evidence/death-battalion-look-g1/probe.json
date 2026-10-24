@@ -1,0 +1,54 @@
+{
+ "after": {
+  "coat_width_gap": 0.5261,
+  "luma_gap": 0.0637,
+  "silhouette_diff": 1.0,
+  "head_bright_px_death": 16,
+  "head_bright_px_rifle": 200,
+  "pixels_death": 10445,
+  "pixels_rifle": 8398,
+  "coat_ratio_death": 1.7071,
+  "coat_ratio_rifle": 1.181
+ },
+ "bars": {
+  "coat_width_gap": {
+   "values": [
+    -0.125,
+    -0.1122,
+    -0.2453
+   ],
+   "bar": 0.0209
+  },
+  "luma_gap": {
+   "values": [
+    0.035,
+    0.035,
+    0.0314
+   ],
+   "bar": 0.0386
+  }
+ },
+ "verdict": {
+  "coat_width_gap": {
+   "value": 0.5261,
+   "bar": 0.0209,
+   "baseline": [
+    -0.125,
+    -0.1122,
+    -0.2453
+   ],
+   "cleared": true
+  },
+  "luma_gap": {
+   "value": 0.0637,
+   "bar": 0.0386,
+   "baseline": [
+    0.035,
+    0.035,
+    0.0314
+   ],
+   "cleared": true
+  }
+ },
+ "pass": true
+}

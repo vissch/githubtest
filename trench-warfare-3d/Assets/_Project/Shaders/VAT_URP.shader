@@ -16,8 +16,9 @@ Shader "TW/VAT Infantry (URP)"
         _VertexCount ("Vertex Count", Float) = 264
         _TotalFrames ("Total Frames", Float) = 288
         _Lerp ("Frame Lerp (1 near, 0 far)", Range(0,1)) = 1
-        _Coat ("Greatcoat flare (m)", Range(0,0.25)) = 0
+        _Coat ("Greatcoat flare (m)", Range(0,0.6)) = 0
         _Kit ("Cloth multiply", Color) = (1,1,1,1)
+        _Skull ("Skull mark", Range(0,1)) = 0
         _TeamColorA ("Team 0 cloth", Color) = (0.64, 0.56, 0.34, 1)
         _TeamColorB ("Team 1 cloth", Color) = (0.25, 0.29, 0.32, 1)
         _OutlineColor ("Outline", Color) = (0.13, 0.10, 0.08, 1)
@@ -53,6 +54,7 @@ Shader "TW/VAT Infantry (URP)"
             float _VertexCount, _TotalFrames, _Lerp;
             float _Coat;    // a skirt pushed out over the lower torso and thighs: the Death Battalion greatcoat (VATRenderer sets it per figure; 0 on everyone else)
             float4 _Kit;    // the figure's cloth multiply, (1,1,1,1) on everyone else
+            float _Skull;   // the Death Battalion's death's head: a pale mark on the front of the helmet and the chest, 0 on everyone else
             float4 _PosMin, _PosSize;
             float4 _TeamColorA, _TeamColorB;
             float4 _WoundCenter, _WoundRadii;
@@ -142,7 +144,10 @@ Shader "TW/VAT Infantry (URP)"
             // the greatcoat: the skirt widens from the hip down and closes again above the boots, so the man keeps his
             // head, shoulders and feet. Done here, in the shared Animate, so the outline, shadow and depth passes agree
             // and the silhouette really changes.
-            float coat = _Coat * saturate((0.95 - p.y) / 0.6) * step(0.33, p.y);
+            // from the hip down to the boot tops, fullest at the knee: a skirt, not a bell on the belt. The first
+            // window faded from the hip upwards and was all but shut by the knee, so at T1 the flare was under a
+            // pixel a side and the man kept a rifleman's outline.
+            float coat = _Coat * smoothstep(0.22, 0.52, p.y) * (1.0 - smoothstep(0.62, 1.05, p.y));
             p.xz += normalize(float2(p.x, p.z) + 1e-4) * coat;
             float s = sin(inst.yaw), c = cos(inst.yaw);   // yaw turns +Z towards +X, as Quaternion.Euler(0, yaw, 0)
             Animated o;
@@ -247,11 +252,26 @@ Shader "TW/VAT Infantry (URP)"
             #endif
                 half3 team = lerp(_TeamColorA.rgb, _TeamColorB.rgb, i.tint);
                 half3 albedo = lerp(i.color.rgb, i.color.rgb * team, i.color.a);
-                albedo *= _Kit.rgb;   // the figure's own cloth: darker and greyer on the Death Battalion, (1,1,1) on everyone else
                 // webbing, pack and puttees were baked near white, so from the gameplay pitch a man read as a stack of pale
                 // boxes with his kit brighter than his helmet: the brightest cloth is brought back towards the uniform
                 half kit = dot(albedo, half3(0.3, 0.59, 0.11));
                 albedo *= lerp(1.0, 0.52 / max(kit, 0.001), saturate((kit - 0.52) * 4.0));
+                // AFTER the clamp, not before it: the clamp pins anything brighter than 0.52 luma back ONTO 0.52, so a
+                // kit multiply applied first was undone on exactly the pale webbing, pack and puttees it was meant to
+                // darken - which is why the Death Battalion man came back as a pale coat in a crowd of blue riflemen.
+                albedo *= _Kit.rgb;   // the figure's own cloth: darker and greyer on the Death Battalion, (1,1,1) on everyone else
+                // the death's head: a pale mark on the FRONT of the helmet and the upper chest. positionOS is pre-yaw,
+                // so +z is his front and the mark turns with him. At the gameplay zoom his head is a few pixels across
+                // and a bright speck on a dark man is the whole of what reads.
+                if (_Skull > 0.0)
+                {
+                    float3 q = i.positionOS;
+                    half face = saturate(q.z * 4.0);                                          // front half only
+                    // y in the bake's own units: the man stands with his feet at 0 and his helmet near 1.65
+                    half skull = (1.0 - smoothstep(0.0, 0.10, length(q.xy - float2(0.0, 1.50))))          // the helmet's brow
+                               + (1.0 - smoothstep(0.0, 0.09, length(q.xy - float2(0.0, 1.16)))) * 0.8;   // and the upper chest
+                    albedo = lerp(albedo, 0.86, saturate(skull) * face * _Skull);
+                }
                 // the trench is on every man: boots and shins are caked with mud (a ragged line, higher when the ground is
                 // soaked), and a man who crawls is muddy all over
                 half ragged = frac(sin(dot(floor(i.positionOS.xz * 38.0 + i.positionOS.y * 11.0), float2(12.9898, 78.233))) * 43758.5453);

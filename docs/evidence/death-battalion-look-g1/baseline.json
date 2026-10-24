@@ -1,0 +1,57 @@
+{
+ "what": "three captures of the build as it stood (5ba0fafb5a): the bar is one spread-width above the top of the spread, so a measure that clears it is outside what pose, rain and wind do on their own",
+ "commit": "5ba0fafb5a",
+ "sets": {
+  "base1": {
+   "coat_width_gap": -0.125,
+   "luma_gap": 0.035,
+   "silhouette_diff": 1.0,
+   "head_bright_px_death": 0,
+   "head_bright_px_rifle": 85,
+   "pixels_death": 8644,
+   "pixels_rifle": 7626,
+   "coat_ratio_death": 1.3314,
+   "coat_ratio_rifle": 1.4564
+  },
+  "base2": {
+   "coat_width_gap": -0.1122,
+   "luma_gap": 0.035,
+   "silhouette_diff": 1.0,
+   "head_bright_px_death": 2,
+   "head_bright_px_rifle": 82,
+   "pixels_death": 8643,
+   "pixels_rifle": 7635,
+   "coat_ratio_death": 1.3308,
+   "coat_ratio_rifle": 1.443
+  },
+  "base3": {
+   "coat_width_gap": -0.2453,
+   "luma_gap": 0.0314,
+   "silhouette_diff": 1.0,
+   "head_bright_px_death": 0,
+   "head_bright_px_rifle": 78,
+   "pixels_death": 8398,
+   "pixels_rifle": 7635,
+   "coat_ratio_death": 1.3009,
+   "coat_ratio_rifle": 1.5463
+  }
+ },
+ "bars": {
+  "coat_width_gap": {
+   "values": [
+    -0.125,
+    -0.1122,
+    -0.2453
+   ],
+   "bar": 0.0209
+  },
+  "luma_gap": {
+   "values": [
+    0.035,
+    0.035,
+    0.0314
+   ],
+   "bar": 0.0386
+  }
+ }
+}

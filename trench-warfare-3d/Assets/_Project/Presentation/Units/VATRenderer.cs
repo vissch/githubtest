@@ -148,17 +148,21 @@ namespace TW.Presentation.Units
         public VatAsset NearAsset => figures != null && figures.Length > 0 ? figures[0].Asset : null;
         public bool ClipAtlas => clipAtlas;
 
-        /// <summary>The Death Battalion's kit, set on its figure slot's materials: a coat skirt pushed out 10 cm at the
-        /// hip (VAT_URP's _Coat, in the shared Animate, so the outline and shadow agree) and a darker, greyer cloth.</summary>
-        public const float DeathBnCoat = 0.10f;
-        public static readonly Color DeathBnKit = new Color(0.62f, 0.64f, 0.68f, 1f);
-        static readonly int CoatId = Shader.PropertyToID("_Coat"), KitId = Shader.PropertyToID("_Kit");
+        /// <summary>The Death Battalion's kit, set on its figure slot's materials: a coat skirt pushed out at the
+        /// knee (VAT_URP's _Coat, in the shared Animate, so the outline and shadow agree), a dark grey-blue cloth and
+        /// the death's head on helmet and chest (_Skull). At 10 cm the skirt was under a pixel a side at the gameplay
+        /// zoom and the kit multiply was being undone by the shader's bright-cloth clamp, so beside a rifleman he read
+        /// as a paler rifleman; measured against three captures of that build in docs/evidence/death-battalion-look-g1.</summary>
+        public const float DeathBnCoat = 0.45f;
+        public static readonly Color DeathBnKit = new Color(0.38f, 0.40f, 0.46f, 1f);
+        public const float DeathBnSkull = 1f;
+        static readonly int CoatId = Shader.PropertyToID("_Coat"), KitId = Shader.PropertyToID("_Kit"), SkullId = Shader.PropertyToID("_Skull");
 
         /// <summary>A figure's own look, on the living and the fallen alike: a corpse must wear what the man wore.</summary>
-        static void SetKit(Figure f, float coat, Color kit)
+        static void SetKit(Figure f, float coat, Color kit, float skull = 0f)
         {
-            f.Material.SetFloat(CoatId, coat); f.Material.SetColor(KitId, kit);
-            f.Fallen.SetFloat(CoatId, coat); f.Fallen.SetColor(KitId, kit);
+            f.Material.SetFloat(CoatId, coat); f.Material.SetColor(KitId, kit); f.Material.SetFloat(SkullId, skull);
+            f.Fallen.SetFloat(CoatId, coat); f.Fallen.SetColor(KitId, kit); f.Fallen.SetFloat(SkullId, skull);
         }
 
         static Figure Make(Shader shader, VatAsset a)
@@ -217,7 +221,7 @@ namespace TW.Presentation.Units
                 for (int k = 0; k < src.Length; k++) asset[src[k]] ??= data[src[k]].ToAsset();   // decode only the distinct sources used
                 figures = new Figure[FigureNames.Length];
                 for (int k = 0; k < figures.Length; k++) figures[k] = Make(shader, asset[src[k]]);
-                SetKit(figures[3], DeathBnCoat, DeathBnKit);   // the Death Battalion's greatcoat and darker cloth, on the living and on their corpses
+                SetKit(figures[3], DeathBnCoat, DeathBnKit, DeathBnSkull);   // the Death Battalion's greatcoat and darker cloth, on the living and on their corpses
                 clipAtlas = asset[0].ClipAtlas;
                 far = Make(shader, ProceduralSoldier.Build());
                 far.Material.SetFloat(LerpId, 0f); far.Fallen.SetFloat(LerpId, 0f);

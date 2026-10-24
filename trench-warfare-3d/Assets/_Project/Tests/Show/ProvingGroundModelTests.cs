@@ -296,7 +296,16 @@ namespace TW.Tests
             var has = new bool[TW.Presentation.Units.VATRenderer.FigureNames.Length];
             has[0] = true;
             Assert.AreEqual(0, TW.Presentation.Units.VATRenderer.FigureSources(has)[own]);
-            Assert.Greater(TW.Presentation.Units.VATRenderer.DeathBnCoat, 0f, "a greatcoat with no flare is a rifleman");
+            // Rules, not measured numbers: a flare a player can see at the gameplay zoom, a cloth darker than the
+            // rifleman's (whose kit multiply is (1,1,1)), a death's head, and a shader that has somewhere to put it.
+            Assert.GreaterOrEqual(TW.Presentation.Units.VATRenderer.DeathBnCoat, 0.18f, "a greatcoat with no flare is a rifleman");
+            Assert.Greater(TW.Presentation.Units.VATRenderer.DeathBnSkull, 0f, "no skull mark: the kit's one badge");
+            var kit = TW.Presentation.Units.VATRenderer.DeathBnKit;
+            float luma = 0.2126f * kit.r + 0.7152f * kit.g + 0.0722f * kit.b;
+            Assert.LessOrEqual(luma, 0.65f, "the Death Battalion's cloth is no darker than a rifleman's: " + kit);
+            var vat = Shader.Find("TW/VAT Infantry (URP)");
+            Assert.IsNotNull(vat, "TW/VAT Infantry (URP) is missing");
+            Assert.GreaterOrEqual(vat.FindPropertyIndex("_Skull"), 0, "the VAT shader has no _Skull to set");
 
             string tip = UnitLook.Tip(InfantryArchetype.DeathBattalion);
             StringAssert.Contains("Death Battalion", tip);
