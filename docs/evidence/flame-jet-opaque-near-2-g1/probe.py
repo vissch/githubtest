@@ -47,7 +47,14 @@ plate): GreyboxCorridor at night, T2 (zoom 16), yaw 0, pitch 25, focus (100, 104
 (100, ground + 1.1, 104) aimed along screen-right under `Random.InitState(20250925)`, the world held
 (`CaptureRig.Hold(120)`) and the jet's clock pinned with `Flamethrower.PinnedNow`: born at 100 s, photographed at
 101.3 / 101.5 / 101.7 s. The aim points screen-right by construction, so the nozzle is the fire mask's left edge
-and the tip its right. The fire mask is flamecheck.py's own rule, so the two tools agree about what is fire.
+and the tip its right.
+
+The fire mask (round 7, "the mask comes from the renderer") is flamecheck.py's warm-and-bright rule, narrowed to
+the pixels the renderer itself drew from the stream's own books: `FlameJetStills.cs` lists JetCore and Fire in
+TW_FLAME_SPY, `FlipbookFx.SpiedCards` records every card drawn from those books that frame, and `CaptureRig.Shot`
+projects them through the still's own camera into a `.mask.png` written beside it. A frame with no mask beside it
+is refused, like `distinct` refuses identical frames: a number measured without the stencil and one measured with
+it must never be compared.
 
 Writes probe.json beside itself; nothing in that file is typed by hand. Every number is printed.
   usage: python docs/evidence/flame-jet-opaque-near-2-g1/probe.py [--baseline]
@@ -79,17 +86,30 @@ def luma(x):
     return 0.299 * x[..., 0] + 0.587 * x[..., 1] + 0.114 * x[..., 2]
 
 
-def firemask(x):
-    """flamecheck.py's rule: warm and bright, opened and closed, largest connected piece only - the stream, not
-    the pool of burning fuel on the ground nor a lick thrown clear of the head."""
+def firemask(x, stencil):
+    """flamecheck.py's warm-and-bright rule, AND the renderer's own stencil of its spied cards (the still's
+    `.mask.png`, FlipbookFx.SpiedCards projected by CaptureRig.CardMask), then the largest connected piece as
+    before. The colour rule alone cannot tell the stream from the burning ground pool - both are warm and bright
+    - but the pool is drawn by books never listed in TW_FLAME_SPY, so it is never in the stencil. `stencil` is a
+    bool array, True where a spied card covers that pixel."""
     lum, rb = luma(x), x[..., 0] - x[..., 2]
     m = ((rb >= 60) & (lum >= 70)) | ((lum >= 190) & (rb >= 15))
+    m = m & stencil
     m = ndimage.binary_closing(ndimage.binary_opening(m, np.ones((3, 3))), np.ones((5, 5)))
     lab, n = ndimage.label(m)
     if n == 0:
         return m
     sizes = ndimage.sum(m, lab, range(1, n + 1))
     return lab == (int(np.argmax(sizes)) + 1)
+
+
+def mask_for(path):
+    """The still's own `.mask.png`, as a bool array; None (and a reason) if it is missing or the wrong size."""
+    mask_path = os.path.splitext(path)[0] + ".mask.png"
+    if not os.path.exists(mask_path):
+        return None, "missing %s - a frame measured without the renderer's own stencil must never be compared " \
+                      "against one measured with it" % os.path.basename(mask_path)
+    return np.asarray(Image.open(mask_path).convert("L")) > 0, None
 
 
 def edges(lum):
@@ -195,7 +215,14 @@ def measure(root, label):
         if jet.shape != plate.shape:
             print("%s and the plate are different sizes" % os.path.basename(path), file=sys.stderr)
             return None
-        m = firemask(jet)
+        stencil, reason = mask_for(path)
+        if stencil is None:
+            print("%s: %s" % (os.path.basename(path), reason), file=sys.stderr)
+            return None
+        if stencil.shape != jet.shape[:2]:
+            print("%s and its mask are different sizes" % os.path.basename(path), file=sys.stderr)
+            return None
+        m = firemask(jet, stencil)
         if m.sum() < 15000:
             print("no fire in %s - do not measure this capture" % os.path.basename(path), file=sys.stderr)
             return None

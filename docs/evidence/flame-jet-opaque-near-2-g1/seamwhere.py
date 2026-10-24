@@ -22,6 +22,11 @@ buckets, so a flat-bottomed ground band shows up as a constant bottom.
 Given a folder it reads that folder's stills instead, skipping the ones it does not have, so a single fresh capture
 outside the checkout can be read without touching committed evidence (round 6, 2026-10-24).
 
+Round 7 ("the mask comes from the renderer") changed `probe.firemask` to take the still's own `.mask.png` stencil
+and refuse without one; this script follows through `probe.mask_for`, skipping a still with no mask beside it.
+`raw_components` still reimplements the bare warm-and-bright rule on purpose: it is what the stencil is meant to
+narrow, and showing it unnarrowed is the point of this diagnostic.
+
   usage: python docs/evidence/flame-jet-opaque-near-2-g1/seamwhere.py [stills dir]
 """
 import os, sys
@@ -113,7 +118,11 @@ def report(root, label):
         for i, (size, bb) in enumerate(comps[:3]):
             print("    #%d %7d px  x %4d..%-4d  y %4d..%-4d%s"
                   % (i + 1, size, bb[0], bb[1], bb[2], bb[3], "   <- firemask picks this" if i == 0 else ""))
-        m = probe.firemask(x)
+        stencil, reason = probe.mask_for(path)
+        if stencil is None:
+            print("  %s - skipping" % reason)
+            continue
+        m = probe.firemask(x, stencil)
         near, tip, mx0, mx1, span = probe.near_and_tip(m)
         inner = ndimage.binary_erosion(near, np.ones((13, 13)))
         nxs = np.where(near.any(axis=0))[0]
