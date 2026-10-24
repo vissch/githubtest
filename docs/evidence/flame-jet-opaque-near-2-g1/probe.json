@@ -29,5 +29,30 @@
     "SEAM_BAR": 0.94,
     "LUMA_BAR": 1.6
   },
-  "bars_outside_baseline_spread": true
+  "bars_outside_baseline_spread": true,
+  "new": {
+    "near_edge_corr_each": [
+      0.0318,
+      -0.0196,
+      0.0221
+    ],
+    "seam_score_each": [
+      6.9576,
+      5.1226,
+      5.1093
+    ],
+    "core_over_tip_luma_each": [
+      2.2062,
+      2.0693,
+      1.936
+    ],
+    "near_edge_corr_max": 0.0318,
+    "seam_score_max": 6.9576,
+    "core_over_tip_luma_min": 1.936,
+    "shas": [
+      "d7b0fda40484cae46970d070a5cc873c7eff444a2dad65d83cafcf272b14a468",
+      "97a604a1599736cbe804f4cc0ba8cea5631a16d29693448a2936d63a51c0ede1",
+      "55e3e1caf74a5c90589e1729c77af541fe595721a162e397affdb05ece4c50eb"
+    ]
+  }
 }

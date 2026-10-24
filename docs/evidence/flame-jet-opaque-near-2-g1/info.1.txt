@@ -1,0 +1,6 @@
+capture 1 (age 1.3 s): settled at tick 301, seed 12648430, battlefield seed 1917
+held at weather clock 120
+burst born at pinned 100 s from 100.00,2.46,104.00 aim 0.358,0.000,0.934 for 3 s, jets 1
+sampled at pinned 101.3 s: age 1.3 s, left 1.7 s, valve 1, jets 1
+queued C:/Users/PC/Documents/GitHub/githubtest-relay-work/docs/evidence/flame-jet-opaque-near-2-g1\jet-t2-1.png
+wrote jet-t2-1.png
