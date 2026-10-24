@@ -47,11 +47,16 @@ namespace TW.Presentation.Tactical
         //                      (FlipbookFx.DayBanks -> PaintNight), so the sun cannot bleach it into the snow.
         //                      0 = the old look (the biome's dust tint, lit by the sun).
         // Today ApplyTints paints the bank with the biome's t.Dust, which on snow is near-white, and the sun then lights
-        // it, so the cloud lands at the ground's own luma. SmokeBankDay is the mid grey the screen is painted at: a
-        // modelled luma of 0.591, which is contrast 0.138 against the dimmest measured day ground (0.78017,
-        // docs/evidence/gas-smoke-night-g1/probe.json smoke_winter_0.ground_median).
+        // it, so the cloud lands at the ground's own luma. SmokeBankDay is the grey the screen is painted at, found by
+        // shooting and correcting, not by the model: by day the measured cloud is far brighter than the knob asks for
+        // (the sun and the snow's bounce sit on top of the flat paint), and the frame's ground dims with the knob too,
+        // so the knob had to be found on the pixels. Two day shoots gave (knob -> measured contrast) 0.591 -> 0.039
+        // and 0.428 -> 0.084; fitting the measured cloud and ground lumas against the knob as straight lines and
+        // solving for contrast 0.20 lands 0.110, which the third shoot measured at 0.17-0.18. Its hue ratios are the
+        // ones it was painted with (1 : 0.967 : 0.902), and only its luma matters, because DayBanks paints through
+        // NightTint at warm 0, a neutral grey. Measured by docs/evidence/gas-smoke-night-g1-g1/probe.py.
         public const string SmokeScreenDayKnob = "fx.smokeScreenDay";
-        public static readonly Color SmokeBankDay = new Color(0.61f, 0.59f, 0.55f);
+        public static readonly Color SmokeBankDay = new Color(0.1135f, 0.1097f, 0.1023f);
         public const float OldSmokeScreenDay = 0f;
         public static readonly float DefaultSmokeScreenDay = BankLuma(SmokeBankDay);
 

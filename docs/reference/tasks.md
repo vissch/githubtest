@@ -137,7 +137,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `Tests/Stills/GasNightStills.cs` (the gas bank and the smoke bank alone, three stills each at play zoom from one
   locked camera (CameraShake off, `CaptureRig.Rig.YawPin` pinned), 0.5 s apart starting at 10 s, for the night
   readability question; `TW_STILLS_DIR`, `TW_STILLS_FIELD`; measured by
-  `docs/evidence/gas-smoke-night-g1/probe.py`).
+  `docs/evidence/gas-smoke-night-g1-g1/probe.py`).
 - **Tests:** VfxStills (Explicit: run by name with a graphics device; it only checks that stills were written),
   GasNightStills (Explicit, a graphics device, about four minutes a look: it only checks that all six stills were written),
   EffectFilmStills (Explicit, a graphics device, about ten minutes a look: it only checks that stills were written).

@@ -34,6 +34,12 @@ namespace TW.Tests
         {
             for (int f = 0; f < 900 && CaptureRig.Pending() != "0"; f++) yield return null;
             for (int f = 0; f < 300 && !File.Exists(path); f++) yield return null;
+            // and a few frames past the PNG, before the next capture is queued. CaptureRig writes the file inside its
+            // run and only then, in its finally, puts the camera back where it found it and switches the tactical
+            // camera on again. A Shot queued in that window joined the run that was tearing down and was rendered from
+            // the restored pose: the third day capture came back 1.1 m off (2026-10-24), and 23 m off once. Waiting
+            // here lets the teardown finish, so every capture is posed from scratch and the three share one pose.
+            for (int f = 0; f < 10; f++) yield return null;
         }
 
         /// <summary>Open ground for a cloud centred on (x, z): VfxStills' own test, so the two instruments stage alike.</summary>
