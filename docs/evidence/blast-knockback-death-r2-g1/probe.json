@@ -1,32 +1,32 @@
 {
   "tag": "g1",
-  "throw_m": 1.865,
+  "throw_m": 1.851,
   "per_body_m": [
-    0.022,
+    0.021,
     0.55,
-    1.309,
-    2.181,
-    2.314,
-    4.079,
-    1.42,
-    1.742,
-    2.389,
-    2.526,
-    4.356,
+    1.307,
+    2.172,
+    2.317,
+    4.088,
+    1.427,
+    1.713,
+    2.527,
+    2.739,
+    3.278,
     0.0,
     0.45,
     1.638,
-    1.989,
-    2.651
+    1.988,
+    2.648
   ],
   "noise_floor_m": [
-    0.375,
-    0.066,
-    0.219
+    0.369,
+    0.06,
+    0.201
   ],
   "blast_median_m": [
-    1.745,
-    2.389,
+    1.739,
+    2.527,
     1.638
   ],
   "calm_spread_m": 1.678,
@@ -46,33 +46,33 @@
   ],
   "contrast_median_after": [
     -1,
-    0.00275,
+    0.00312,
     -1
   ],
   "runs": [
     {
       "run": "blast1",
       "n_standing": 6,
-      "n_candidates": 51,
+      "n_candidates": 50,
       "standing_area_px": [
-        941,
-        671,
-        487,
+        817,
+        677,
+        486,
         288,
-        170,
+        172,
         336
       ],
       "per_man_m": [
-        0.022,
+        0.021,
         0.55,
-        1.309,
-        2.181,
-        2.314,
-        4.079
+        1.307,
+        2.172,
+        2.317,
+        4.088
       ],
-      "median_m": 1.745,
+      "median_m": 1.739,
       "px_per_m": 31.18,
-      "row_px_per_m": 31.93,
+      "row_px_per_m": 31.75,
       "frame_gap": 94,
       "fallen_after": 14,
       "contrast_median_after": -1
@@ -80,27 +80,27 @@
     {
       "run": "blast2",
       "n_standing": 5,
-      "n_candidates": 38,
+      "n_candidates": 39,
       "standing_area_px": [
-        1479,
-        1758,
-        1550,
-        1188,
-        1690
+        1054,
+        1448,
+        1741,
+        260,
+        1197
       ],
       "per_man_m": [
-        1.42,
-        1.742,
-        2.389,
-        2.526,
-        4.356
+        1.427,
+        1.713,
+        2.527,
+        2.739,
+        3.278
       ],
-      "median_m": 2.389,
+      "median_m": 2.527,
       "px_per_m": 31.18,
-      "row_px_per_m": 32.23,
+      "row_px_per_m": 33.21,
       "frame_gap": 94,
       "fallen_after": 7,
-      "contrast_median_after": 0.00275
+      "contrast_median_after": 0.00312
     },
     {
       "run": "blast3",
@@ -109,7 +109,7 @@
       "standing_area_px": [
         242,
         534,
-        174,
+        168,
         150,
         141
       ],
@@ -117,8 +117,8 @@
         0.0,
         0.45,
         1.638,
-        1.989,
-        2.651
+        1.988,
+        2.648
       ],
       "median_m": 1.638,
       "px_per_m": 31.18,
@@ -132,79 +132,79 @@
       "n_standing": 6,
       "n_candidates": 43,
       "standing_area_px": [
-        620,
-        556,
-        471,
-        770,
+        622,
+        568,
+        472,
+        788,
         125,
-        337
+        338
       ],
       "per_man_m": [
-        0.001,
-        0.311,
-        0.321,
-        0.43,
+        0.0,
+        0.258,
+        0.326,
+        0.412,
         0.518,
-        0.985
+        0.983
       ],
-      "median_m": 0.375,
+      "median_m": 0.369,
       "px_per_m": 31.18,
-      "row_px_per_m": 31.95,
+      "row_px_per_m": 31.96,
       "frame_gap": 94,
       "fallen_after": 1,
-      "contrast_median_after": 0.11218
+      "contrast_median_after": 0.12242
     },
     {
       "run": "calm2",
       "n_standing": 5,
       "n_candidates": 41,
       "standing_area_px": [
-        1846,
-        1821,
-        1673,
-        1095,
-        710
+        1840,
+        1814,
+        1670,
+        1107,
+        708
       ],
       "per_man_m": [
-        0.034,
-        0.037,
-        0.066,
+        0.033,
+        0.038,
+        0.06,
         0.079,
         0.483
       ],
-      "median_m": 0.066,
+      "median_m": 0.06,
       "px_per_m": 31.18,
-      "row_px_per_m": 31.01,
+      "row_px_per_m": 31.03,
       "frame_gap": 94,
       "fallen_after": 6,
-      "contrast_median_after": 0.42216
+      "contrast_median_after": 0.42596
     },
     {
       "run": "calm3",
       "n_standing": 6,
       "n_candidates": 43,
       "standing_area_px": [
-        590,
-        1274,
+        597,
+        1272,
         136,
-        417,
-        630,
-        404
+        382,
+        571,
+        405
       ],
       "per_man_m": [
         0.035,
-        0.092,
-        0.188,
+        0.094,
+        0.151,
         0.251,
-        1.161,
+        1.114,
         1.678
       ],
-      "median_m": 0.219,
+      "median_m": 0.201,
       "px_per_m": 31.18,
-      "row_px_per_m": 31.26,
+      "row_px_per_m": 31.27,
       "frame_gap": 94,
       "fallen_after": 0,
-      "contrast_median_after": 0.24725
+      "contrast_median_after": 0.25494
     }
   ]
 }

@@ -476,10 +476,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   InfantryFiringStills (the same, for the firing: a squad of one type walks into its own fire; `TW_FIRING_UNITS`
   the archetypes, `TW_STILLS_DIR`, `TW_STILLS_FIELD`).
   BlastThrowStills (the same, for how far a blast throws a body: six runs of a row of six men 2.5 m apart shot straight
-  down at zoom 20 at -1 s, +0.5 s and +3 s around a shell, three of them with no shell at all for the noise floor;
+  down at zoom 20 at -1 s, +0.5 s and +3 s around a shell, plus a fourth still of the run's own bare patch with
+  nobody on it (`b0_0`, the control: a blob that is in it is ground, not a body), three of them with no shell at
+  all for the noise floor;
   `TW_STILLS_DIR`, `TW_BLAST_TAG` (`pre`/`post`), `TW_STILLS_FIELD` (`Winter` by default: the men must read from
-  above)). `docs/evidence/blast-knockback-death-r2/probe.py` matches the bodies one to one and reports the median
-  distance per body.
+  above)). `docs/evidence/blast-knockback-death-r2-g1/probe.py` measures each standing man's distance to the
+  nearest candidate body at +3 s and reports the median per run.
 - **Trap:** read a dead man through `Animation.TryDeath(slot, eventTick)`, never `State[slot]`: events are
   dispatched once per frame after every tick ran, and the slot may hold another man by then.
 

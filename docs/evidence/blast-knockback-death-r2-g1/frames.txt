@@ -113,3 +113,37 @@ the `d_i` of a MISSING candidate and of a body ON its spot are the same number t
 
 Nothing here was tuned to move a verdict: both sides of the bar are measured from the pixels of the runs being
 judged, which is what the owner asked for -- "outside the spread of three captures of the current build".
+
+The bare-ground control (added 2026-10-24, leg g1-02, with a fresh 24-still set)
+-------------------------------------------------------------------------------
+Every run now carries a fourth still, `g1_<run>_b0_0.png`: the run's own patch, from the run's own pose, with
+nobody standing on it. It is shot after ClearFallen() and the off-map sweep have settled and before the row is
+spawned, and the harness fails the run unless its sidecar reads drawn_infantry 0 (all six read 0 on this set; one
+pinned camera throughout, zoom 20, pitch 89.00005, yaw 0, cam_y 52.077, pose_error_m 0).
+
+Why: the clutter the probe cannot tell from a body is terrain, not blast churn -- the calm -1 s frames hold 36-48
+man-sized blobs with no shell fired at all, and at that density the nearest blob to any point sits 1-2 m away,
+which is the size of the throw being measured. No area window, merge radius or constant separates a clod from a
+corpse. A still of the same ground with nobody on it does: a blob that is already in the control is ground.
+Dead end, not to be retried: "candidates = blobs at +3 s that were not at -1 s" deletes the calm standing men too,
+because the calm signal IS that the man is still where he stood.
+
+What the control removes, counted on this set (probe.py's own mask and merge, a +3 s blob dropped when a control
+blob sits within 0.6 m of it):
+    run      control blobs   +3 s candidates   left after subtraction
+    blast1        15               50                  40
+    blast2        24               39                  25
+    blast3        29               57                  39
+    calm1         25               43                  28
+    calm2         25               41                  20
+    calm3         40               43                   8
+Two cautions for whoever rewrites the bar on it. Three control stills carry fallen 2, 2 and 3 in their sidecars
+(blast1, blast3, calm2): ClearFallen() does not empty every body before the control is shot, so a corpse from an
+earlier attempt can be IN the control and would then be subtracted away -- they are not on the row's spots here,
+but check. And calm1's +3 s sidecar reads drawn_infantry 7 for a row of six: one wanderer walked into that frame
+after the -1 s guard had passed.
+
+The fresh set measures the same build as the one before it: probe.py (unchanged this leg) gives blast medians
+1.739 / 2.527 / 1.638 m against calm 0.369 / 0.060 / 0.201 m, calm_spread_m 1.678, worst_throw_m 0.0 -- within
+0.14 m of the previous capture everywhere. The instrument is repeatable; it is still RED for the two reasons in
+the section above, and the control is the material for fixing it.

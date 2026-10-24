@@ -204,6 +204,22 @@ namespace TW.Tests
                 {
                     var patch = patches[(turn + attempt) % patches.Count];
                     float x = patch.x, z = patch.y;
+                    float cx = x, cz = z + rowLength * 0.5f;   // the camera's focus: the row's own middle, so every body stays inside the frame
+                    // one posed shot, frozen for the shot only (GoreZoomStills' trick): the tactical camera eases
+                    // towards a pose and the rig puts it back when the queue drains, so a shot taken while it is still
+                    // moving comes out from the wrong place. Queueing the same shot three times did not cure it -
+                    // blast3's +3 s still landed at pitch 85.1, yaw 327 and 1.37 m off, which tilts every body in the
+                    // frame at once. Hold stops the clock dead, so the camera cannot move between pose and render.
+                    IEnumerator Take(string file)
+                    {
+                        Forget(file);
+                        CaptureRig.Hold(30f);
+                        CaptureRig.Shot(file, cx, cz, 20f, 0f, 89f, 1280, 720);
+                        yield return Drain(file);
+                        CaptureRig.Release();
+                        TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;   // Release gives the sky its own clock back
+                    }
+
                     // clean ground first: from straight above an old corpse reads as a standing man and never moves,
                     // so one left lying in the frame is a body the probe measures as thrown nowhere (leg g1).
                     var vat = Object.FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
@@ -226,6 +242,26 @@ namespace TW.Tests
                         }
                     });
                     for (int f = 0; f < 30; f++) yield return null;
+
+                    // the control: this very patch with nobody on it, from the same pose as the run's other three.
+                    // A blob that is already here is ground, not a body — the frames hold 36-48 man-sized terrain
+                    // blobs with no shell fired, so no area window or merge radius can tell a clod from a corpse,
+                    // and subtracting the bare ground is the only honest discriminator left (leg g1-02's reading of
+                    // the 18 stills). Taken after ClearFallen and the off-map sweep have settled, before the row
+                    // exists, so drawn_infantry must read 0; a non-zero read is the stale presenter that cost leg g1
+                    // seven runs, and it is given one more settle and one retake before the run fails on it.
+                    string bare = Path.Combine(dir, $"{tag}_{run}_b0_0.png");
+                    float empty = float.NaN;
+                    for (int take = 0; take < 2; take++)
+                    {
+                        if (take > 0) for (int f = 0; f < 30; f++) yield return null;
+                        yield return Take(bare);
+                        empty = Side(Path.ChangeExtension(bare, ".json"), "drawn_infantry");
+                        if (Mathf.Abs(empty) < 0.5f) break;
+                        TestContext.Out.WriteLine($"  {run} attempt {attempt + 1}: control take {take + 1} drew {empty} men on bare ground");
+                    }
+                    Assert.That(empty, Is.EqualTo(0f).Within(0.5f),
+                                run + ": the control still is not bare ground (drawn_infantry " + empty + ", " + bare + ")");
 
                     string slots = DeathLab.Row(Men, x, z, 0, Spacing, 100f, -1f, alongZ: true);
                     TestContext.Out.WriteLine($"{run} attempt {attempt + 1} at {x}, {z}: {slots} (swept {swept} men off the field)");
@@ -255,7 +291,6 @@ namespace TW.Tests
                     // two seconds to stand and settle before the row is first photographed
                     float t0 = Time.time + 2f;
                     while (Time.time < t0) yield return null;
-                    float cx = x, cz = z + rowLength * 0.5f;   // the camera's focus: the row's own middle, so every body stays inside the frame
                     // the shell to the -x side of the row, never on it. On the row line Explosion.Dir is zero and
                     // AnimationController.Death throws each man straight away from the burst, which is along the row
                     // itself; and the crater then lands on exactly the ground the measurement needs. Offset 5 m: the
@@ -263,21 +298,6 @@ namespace TW.Tests
                     // (closeness = 1.15 - dist/(0.8*Radius) = 0.15 > 0 at Radius 10), and his throw carries an x
                     // fraction of 5/8; the middle men's is 1.0.
                     float sx = x - ShellOffsetX;
-
-                    // one posed shot, frozen for the shot only (GoreZoomStills' trick): the tactical camera eases
-                    // towards a pose and the rig puts it back when the queue drains, so a shot taken while it is still
-                    // moving comes out from the wrong place. Queueing the same shot three times did not cure it -
-                    // blast3's +3 s still landed at pitch 85.1, yaw 327 and 1.37 m off, which tilts every body in the
-                    // frame at once. Hold stops the clock dead, so the camera cannot move between pose and render.
-                    IEnumerator Take(string file)
-                    {
-                        Forget(file);
-                        CaptureRig.Hold(30f);
-                        CaptureRig.Shot(file, cx, cz, 20f, 0f, 89f, 1280, 720);
-                        yield return Drain(file);
-                        CaptureRig.Release();
-                        TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;   // Release gives the sky its own clock back
-                    }
 
                     bool dirty = false;
                     float burstAt = 0f;
@@ -348,6 +368,7 @@ namespace TW.Tests
                     turn++;
                     // counted here, not per shot: a retaken run overwrites its own stills, and each must count once
                     foreach (string moment in MomentNames) if (File.Exists(Path.Combine(dir, $"{tag}_{run}_{moment}.png"))) written++;
+                    if (File.Exists(bare)) written++;   // the control counts with them: 4 stills a run, not 3
 
                     // the throws, as the controller recorded them: scanned back over the ticks the burst could have fallen on
                     if (blast && Host.Animation != null)
@@ -385,7 +406,7 @@ namespace TW.Tests
             Time.captureDeltaTime = 0f;
             yield return new ExitPlayMode();
             TestContext.Out.WriteLine($"wrote {written} stills to {dir}");
-            Assert.That(written, Is.EqualTo(Runs.Length * Moments.Length), "not every moment of every run was photographed");
+            Assert.That(written, Is.EqualTo(Runs.Length * (Moments.Length + 1)), "not every moment of every run was photographed (three moments and the bare-ground control)");
             Assert.That(offRow, Is.Empty, "the shell threw men along the row instead of across it: " + string.Join("; ", offRow));
 
             // the one number read back out of the stills here: the bodies the +3 s blast frames drew
