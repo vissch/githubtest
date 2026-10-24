@@ -31,5 +31,12 @@
   "vertices": 9170,
   "shadows": 1,
   "fallen": 5,
-  "warnings": []
+  "warnings": [],
+  "whole_frame": "Captures/g2/deathbn_t1_1.png",
+  "crop_box_in_whole_frame": [
+    1600,
+    840,
+    2240,
+    1320
+  ]
 }
