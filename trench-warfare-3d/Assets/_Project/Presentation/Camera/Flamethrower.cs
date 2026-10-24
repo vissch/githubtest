@@ -493,6 +493,18 @@ namespace TW.Presentation.Tactical
         public static FlipbookFx.Book CoreLink(float u)
             => u < HotThird ? FlipbookFx.Book.JetCore : FlipbookFx.Book.Core;
 
+        /// <summary>
+        /// How bright the core chain burns at u along the run. The other half of the owner's 2026-10-19 reversal
+        /// (white-hot at the mouth, orange to the tip, soot past it): it was applied to the envelope's alpha, to
+        /// the boil and to the ground light, but the core chain kept a flat full alpha and glow all the way out,
+        /// and Book.Core's signature is a cream crescent - the brightest value in the picture. Measured on
+        /// `docs/evidence/flame-jet-opaque-near-2-g2/before-1.png`, that left 1 217 px (4.76% of the last third's
+        /// fire) bright-and-not-warm inside the orange band, reading as a white card stroke rather than as soot.
+        /// So the chain cools past the hot third: 1 while the core is white-hot, falling to a quarter by the tip.
+        /// </summary>
+        public static float CoreCool(float u)
+            => u < HotThird ? 1f : Mathf.Lerp(1f, 0.25f, (u - HotThird) / (1f - HotThird));
+
         /// <summary>How much of the run burns as the white-hot core: the owner's "first third".</summary>
         public const float HotThird = 0.34f;
 
@@ -789,8 +801,10 @@ namespace TW.Presentation.Tactical
                                   RootEvery * 1.15f,
                                   lmir ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                   roll: roll + wob * 0.9f, height: lh,
-                                  // dimmer than they were (1.35): these are the scraps coming adrift PAST the head,
-                                  // and the owner's 2026-10-19 reversal puts the heat at the mouth, not out here
+                                  // dimmer than they were (1.35, then 0.26): these are the scraps coming adrift PAST
+                                  // the head, where the owner's 2026-10-19 reversal asks for soot, and they were the
+                                  // brightest hook left in the orange band - Book.Core's cream crescent at full alpha,
+                                  // past the tip of the stream. Faint smouldering pieces, not lit ones.
                                   alpha: valve * drawnWeight, glow: glow * 0.26f,
                                   velocity: j.ManVel + Vector3.up * 0.7f,
                                   startFrame: 8f + Mathf.Repeat(now * 12f + i * 3f, 10f));
@@ -847,8 +861,11 @@ namespace TW.Presentation.Tactical
                                       + (Mathf.PerlinNoise(j.Seed + i * 3.7f, 2.5f) - 0.5f) * 0.40f,
                                   height: cH,
                                   // the hot third burns harder than the rest of the chain: the owner's white-yellow
-                                  // core has to be the brightest thing in the picture, not merely a different hue
-                                  alpha: valve * drawnWeight, glow: glow * (hot ? 2.3f : 1f), velocity: j.ManVel,
+                                  // core has to be the brightest thing in the picture, not merely a different hue.
+                                  // Past it CoreCool cools the chain towards soot, so the cream crescent stops
+                                  // drawing a white stroke through the orange band (see CoreCool).
+                                  alpha: valve * drawnWeight * CoreCool(u),
+                                  glow: glow * (hot ? 2.3f : 1f) * CoreCool(u), velocity: j.ManVel,
                                   startFrame: Mathf.Max(3f, 16f - (CoreLinks - 1 - i) * 2.2f));
                         // Two extra hot cards, laid half a step along from the first and third links and turned the
                         // other way, so the near third is covered TWICE over. One chain of curls still left the

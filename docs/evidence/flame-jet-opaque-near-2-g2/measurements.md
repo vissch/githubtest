@@ -68,3 +68,67 @@ The three guards against faking it:
 
 Exit 1 is correct here: there are no after stills yet. Part 2 changes the drawing, recaptures the three stills into
 this folder as `jet-t2-1/2/3.png` and writes the result below.
+
+# Part 2: the change is made, and it cannot be judged here (2026-10-24)
+
+Steps 4-6 of the plan are built and green. Step 7's captures then showed two things that stop this unit, both
+measured in this checkout today, with the three after stills byte identical as the pinned clock promises
+(md5 `ae11fd4b166c1a7f7d93dd5fe98ca545`, one per batch editor session).
+
+## 1. The committed baseline does not reproduce on this build
+
+`recapture-unchanged.png` is a capture of the **unchanged** tree (`git checkout --` on `Flamethrower.cs`, nothing
+else in the working tree, same harness, same session recipe). Against `before-1.png`, which part 1 took from the
+previous round's folder on the strength of `git log` alone:
+
+| | fire span | last-third px | white px | `tip_white_frac` |
+|---|---|---|---|---|
+| `before-1/2/3.png` (previous round) | x 631..1218, 588 px | 25 591 | 1 217 | 0.0476 |
+| `recapture-unchanged.png` (today, same code) | x 631..1139, 509 px | 34 948 | 3 032 | 0.0868 |
+
+The sidecars agree on the pose to the metre and on `luma_mean` to 0.002, so this is not a different shot: the
+stream itself is 79 px shorter and the last third is a fatter, brighter part of it. Nothing under
+`Assets/_Project/Presentation`, `Tests/Stills` or `Resources` changed between `ee49e7ee4b` and this commit
+(`git log ee49e7ee4b..HEAD -- ...` is empty), so part 1's "the before stills **are** three captures of the current
+build" is false for a reason this leg has not found.
+
+That makes both numbers part 1 derived from those stills invalid: `WHITE_BAR` 0.0238 is half a baseline that this
+build does not produce, and `TIP_PX_REF` 25 591 puts `tip_px_ratio` at **1.366** for the **unchanged** build, which
+is outside 0.85..1.15. So `probe.py` cannot exit 0 for any change to the drawing, and the bar may not be moved
+after the fact (the plan's own rule). The unit is blocked on it; the question is in
+`docs/reference/decisions.md` under "Open: waiting on the owner".
+
+## 2. Steps 4 and 5 move nothing the probe can see
+
+With `CoreCool` in and the scraps dimmed, the three after stills measure **exactly** the unchanged build's numbers:
+
+    jet-t2-1/2/3.png   x 631..1139 (509 px)   last-third 34 948 px   white 3 032 px (0.0868)
+    tip_white_frac_max 0.0868   tip_white_spread 0.0000   tip_px_ratio 1.366   near_edge_corr_max +0.0176
+
+The harness is not blind: a deliberate gross version of the same rule (`CoreCool` returning **0** past the hot
+third) produced a different image (md5 `d2293a20…`), so the capture does see this code. The cut as planned is
+simply below what the fire mask and the white rule register.
+
+Where the white actually is, binned along the stream (both builds, tenths of the fire span):
+
+    before-1.png    0.059 0.132 0.087 0.066 0.082 0.152 0.085 0.085 0.000 0.000
+    after (today)   0.050 0.111 0.115 0.062 0.074 0.097 0.152 0.089 0.100 0.004
+
+White is 5-15% of the fire in **every** tenth of the stream, with its peak in the sixth or seventh - past the hot
+third but well short of the tip. Part 1 attributed the loop to the core chain's flat alpha past the hot third; on
+these numbers that chain is at most a part of it, and the plan's own next suspects (`Book.Bloom` at the terminus,
+then the `Book.Fire` chain) are untested.
+
+## Honesty note
+
+`tip_white_spread` is 0.0000 by construction, not by luck: the clock is pinned, so three sessions render the same
+frame and this number can only ever say "the pin held". It is not evidence that the look is stable in play.
+
+## State after part 2
+
+    python docs/evidence/flame-jet-opaque-near-2-g2/probe.py           -> exit 1 (tip_white_frac and tip_px_ratio)
+    unity test . --mode EditMode --filter FlameJetCoreTests            -> 4 passed, 0 failed
+
+`CoreCool` and the dimmed scraps are committed: they are the half of the owner's 2026-10-19 reversal the core chain
+never got, they are guarded by `FlameJetTipCoolsToSoot`, and they make the picture no worse by any number here.
+They are **not** proven to remove the loop the owner saw.

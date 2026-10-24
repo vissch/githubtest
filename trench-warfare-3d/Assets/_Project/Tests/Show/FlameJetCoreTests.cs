@@ -42,6 +42,35 @@ namespace TW.Tests
                           "Book.JetCore must be _Solid, or the keyed fringe and the depth soften let the ground through the near third");
         }
 
+        // Third try (flame-jet-opaque-near-2-g2, 2026-10-24). The owner looked at the previous round's stills and
+        // said the orange tip carries a white loop reading as a card stroke, not soot. The core chain had never got
+        // the other half of his 2026-10-19 reversal - "white-hot mouth, orange to the tip, soot past it"
+        // (docs/reference/decisions.md): it drew Book.Core's cream crescent at a flat full alpha and glow all the
+        // way to the tip. Flamethrower.CoreCool is that half. The numbers here come from the owner's wording and
+        // from this unit's goal, not from re-running the formula.
+        [Test]
+        public void FlameJetTipCoolsToSoot()
+        {
+            // across the hot third the core is the white-hot mouth, undimmed
+            foreach (float u in new[] { 0f, 0.1f, 0.2f, 0.33f })
+                Assert.AreEqual(1f, Flamethrower.CoreCool(u), 1e-6f,
+                                $"at u={u} the core is still the owner's white-hot mouth, so nothing dims it");
+
+            // and past it it only ever cools: never a bright patch downstream of a darker one
+            float prev = 1f;
+            for (int i = 0; i <= 50; i++)
+            {
+                float u = i / 50f;
+                float c = Flamethrower.CoreCool(u);
+                Assert.LessOrEqual(c, prev + 1e-6f, $"the core must not brighten again at u={u}");
+                Assert.Greater(c, 0f, $"the tip is soot, not a hole in the stream, at u={u}");
+                prev = c;
+            }
+
+            // by the tip it is soot: at most a bit over a third of the mouth's brightness
+            Assert.LessOrEqual(Flamethrower.CoreCool(1f), 0.4f, "at the tip the core chain reads as soot, not as a white stroke");
+        }
+
         [Test]
         public void OnlyTheJetCoreIsSolid()
         {

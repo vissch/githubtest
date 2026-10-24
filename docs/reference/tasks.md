@@ -654,8 +654,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `HotThird`, that book alone sets `Solid` in `FlipbookFx.Sheets`, and the shader's `_Solid` keeps its keyed fringe
   opaque, skips the depth soften against what it flies over, and leaves the soot thin off. Every other book draws
   with `_Solid` 0 and so renders bit for bit.
-- **Tests:** FlameJetCoreTests (the near third draws the solid book, no other book is solid, and the pinned clock
-  lays the same stream twice).
+- **Tests:** FlameJetCoreTests (the near third draws the solid book, no other book is solid, the pinned clock
+  lays the same stream twice, and `Flamethrower.CoreCool` cools the core chain towards soot past the hot third
+  instead of carrying its cream crescent at full alpha to the tip).
 - **See it:** `Tools/flameshots <prefix>` captures the four reference shots deterministically, and
   `Tools/flamecheck.py` rejects a shot with no fire in it. `python docs/evidence/flame-jet-core/probe.py` measures
   the jet's hot core off the T2 night stills beside it (`core_over_tip_luma`, how much harder the first third of the
@@ -672,6 +673,13 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   has age 1.5 s and left 1.5 s in every capture, so the valve is 1 and every Perlin and `Mathf.Repeat` phase in the
   drawing is a function of 101.5 alone. Without it the three captures of one build spread wider than the bars
   themselves and nothing measured through them meant anything.
+  `python docs/evidence/flame-jet-opaque-near-2-g2/probe.py` is the third try, after the owner said the orange tip
+  carries a white loop that reads as a card stroke: it measures `tip_white_frac` (bright-and-not-warm px over the
+  fire's last third, at the worst of three captures), with `tip_px_ratio` and the carried-over `near_edge_corr`
+  as the guards against faking it. It exits **1** on this tree and the folder's `measurements.md` says why: the
+  baseline it took from the previous round does not reproduce on this build (the stream measures 509 px, not
+  588 px), so its bar and its `TIP_PX_REF` are not this build's, and the question is open for the owner
+  (2026-10-24).
 - **Trap:** `FlipbookFx` indexes its sheets by the `Book` enum's ordinal and is only `Ready` when every sheet loads.
   A missing PNG or a row out of order silently disables every flipbook in the game. Add the enum entry, the row and
   the PNG together, and check `books.Ready`.
