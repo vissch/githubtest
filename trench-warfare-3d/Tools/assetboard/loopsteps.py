@@ -610,7 +610,7 @@ def park_text(uid, rec, nxt):
         return (f'{chain_family(uid)}: chain of fix units {depth(uid)} deep' + (f', {len(ids)} units' if len(ids) > 1 else ''), words(say, SAY_MOST - 1),
                 'R0 C0. ' + (f'{len(ids)} units of {chain_family(uid)} went over {CHAIN_DEPTH} fix rounds without a pass; parked, data kept. A puts them all back.' if len(ids) > 1
                              else f'It went over {CHAIN_DEPTH} fix rounds without a pass; parked, data kept. A puts it back.'))
-    if rec.get('refused'):
+    if len(rec.get('refused') or []) > REFUSALS:
         n = len(rec['refused'])
         return (f'{uid}: refused by the API safety filter {n} times',
                 words(f'The API safety filter refused {uid} {n} times, so the loop took it off the queue; parked, data kept. '
