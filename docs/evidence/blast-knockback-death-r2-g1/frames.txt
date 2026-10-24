@@ -1,0 +1,75 @@
+Blast knockback death, round 2, leg g1 — a genuine reshoot replacing r2's circular set.
+
+Why this set exists: `git show --stat 19f946794d` shows r2's "post" stills were r2's own "pre" stills renamed
+(Bin unchanged for blast1, blast2, calm1, calm2, calm3 and five of six of calm1's/calm2's/calm3's three moments) --
+only 3 of 18 blast/calm stills in r2 were ever actually reshot after the throw floor landed (AnimationController.
+Death.cs:224, MinThrowOut/MinThrowUp). That is why r2's `blast_median_m` equalled its own `BASELINE_THROW_M`
+to the millimetre, and why r2's reported blast3 nearest-body distance (0.124 m) proved nothing about the current
+build. This set (`g1`) is 18 fresh stills shot on this tree, tag `g1`, one pinned camera, six patches of ground.
+
+Camera, pinned across all 18 stills (checked by probe.py, not assumed): zoom 20, pitch 89.0 (cam_pitch 89.00005),
+yaw 0, cam_y 52.07724, pose_error_m 0 on every still. Only cam_x/cam_z vary, one pair per run, because each run
+stands on its own patch of open ground (BlastThrowStills' 34 m x 22 m spacing). 1280x720, Winter day field, rain
+and squalls off, weather clock pinned at 30, game clock frozen for the shot (CaptureRig.Hold), Time.captureDeltaTime
+1/30 (the sidecars' frame gap is 30x the seconds: 124 frames for the -1 s to +3 s, 4 s pair -> 31 fps implied).
+
+view: one row of six men 2.5 m apart, the shot centred on the row's middle, which is where the shell bursts.
+band: T1-ish standoff (zoom 20, ~41 m x 23 m of ground in frame). px_per_m is read from the camera's own pose
+(zoom * tan(30deg), not re-derived per run from the row's own pixel spacing -- see probe.py's docstring for why):
+31.18 px/m for the whole set.
+
+g1_blast1_m1_0.png | -1 s from the burst | the row standing, before the shell
+g1_blast1_p0_5.png | +0.5 s from the burst | the burst, the men in the air
+g1_blast1_p3_0.png | +3 s from the burst | where they came to rest: 7 bodies matched one to one, median 1.102 m,
+                     nearest two bodies 0.357 m and 0.524 m -- both inside this build's own calm spread (0.906 m)
+g1_blast2_m1_0.png | -1 s from the burst | the row standing, before the shell
+g1_blast2_p0_5.png | +0.5 s from the burst | the burst, the men in the air
+g1_blast2_p3_0.png | +3 s from the burst | where they came to rest: 6 bodies matched one to one, median 2.267 m,
+                     nearest body 1.468 m, clear of the calm spread
+g1_blast3_m1_0.png | -1 s from the burst | the row standing, before the shell
+g1_blast3_p0_5.png | +0.5 s from the burst | the burst, the men in the air
+g1_blast3_p3_0.png | +3 s from the burst | where they came to rest: 4 bodies matched one to one, median 1.45 m,
+                     nearest body 0.118 m -- inside the calm spread, the same symptom r2 reported (0.124 m) on
+                     an unrelated capture: a shell still leaves a man near where he stood, on THIS build
+g1_calm1_m1_0.png / _p0_5.png / _p3_0.png | the row standing, nothing fired: the noise floor. 5 bodies matched,
+                     median 0.285 m, max 0.515 m
+g1_calm2_m1_0.png / _p0_5.png / _p3_0.png | the row standing, nothing fired: the noise floor. 5 bodies matched,
+                     median 0.047 m, max 0.257 m
+g1_calm3_m1_0.png / _p0_5.png / _p3_0.png | the row standing, nothing fired: the noise floor. 7 bodies matched,
+                     median 0.12 m, max 0.906 m -- the set's calm_spread_m
+
+Measured by probe.py into probe.json: throw_m 1.741 m (median of the three blast runs' per-body distances,
+pooled), per-run medians [1.102, 2.267, 1.45], noise floor (per-run median) [0.285, 0.047, 0.12] m,
+calm_spread_m 0.906 m (the largest single body move across all three calm runs -- the bar), worst_body_m 0.118 m
+(the smallest single body move across all three blast runs). px_per_m 31.18, read from the camera's pose, checked
+against each run's own row spacing (29.8-33.3 px/m, within the 12% tolerance). contrast_median is -1 in every
+sidecar, same as r2: straight down, a man's head and foot are the same pixel, so CaptureRig cannot read it from
+this view; the readability the critic asked for is plain in the stills (a lit, fog-free field) and in the probe
+finding six men as an evenly spaced row.
+
+Tuning changed from r2's probe.py, against THIS set's own pixels (not against a target result -- see probe.py's
+module docstring and its two tuning comments for the full account):
+  - MAX_BLOB 1600 -> 2000: a standing man's idle pose can read up to ~1900 px in the mask on this build (measured
+    on calm2's third man), and excluding that blob left the matcher no honest candidate near his own spot.
+  - AREA_W 40 -> 10: every real match on this set has an area ratio of 0.13-1.2 (a lying body reads far smaller
+    than a standing one, seen almost end-on at pitch 89 vs full-length from above); a weight of 40 made matching a
+    man to his own true landing spot cost MORE than matching him to a same-sized blob metres away, which is what
+    produced r2's and this set's own calm2 "2.6 m move" before the retune (below).
+  - The leg card's area-ratio hard filter (drop a match outside 0.5..2.0) could not be implemented at that bound:
+    real blast throws measured on this build have ratios as low as 0.129 (a lying man reads an eighth the area of
+    a standing one), which overlaps completely with the one bad calm2 pairing it was meant to catch (ratio 0.452).
+    No area-ratio bound can separate them -- the calm2 defect is fixed by AREA_W and MAX_BLOB instead (above), and
+    the filter is kept at 0.1..3.0 as a backstop that catches nothing seen in this data, not as a working
+    discriminator. Before the AREA_W/MAX_BLOB retune, g1's own calm2 showed the same symptom r2 named ("2.433 m",
+    cf. git log): a standing man's area, not the row's position, had changed in the +3 s still, and the old weight
+    read that as a 2.6 m move.
+
+What the set says: this build's blast3 (0.118 m) and two of blast1's seven bodies (0.357 m, 0.524 m) do not clear
+this build's own calm spread (0.906 m). r2's claim that the floor change fixed the near-zero-move body was
+unverifiable (its "post" stills were its own "pre" stills); on a genuine reshoot of the same scenario, the same
+symptom is there. The probe exits 1 and names the three failing (run, body, distance) pairs; `note.md` in this
+leg's folder hands the finding and the measured numbers to the leg that changes the code (plan step 7 / round 3).
+
+What it does NOT say: why. BlastThrowStills.cs (unchanged) logs each dying slot's recorded ThrowX/ThrowZ/ThrowUp
+and the controller's own death record per slot to the test log; the next leg should start there, in
+VATRenderer.ThrowPath / CombatFx.Deaths (the arc's horizontal reach), same as r2 pointed at.
