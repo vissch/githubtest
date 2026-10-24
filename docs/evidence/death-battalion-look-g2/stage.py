@@ -26,12 +26,17 @@ Twelve stills and their twelve JSON sidecars land beside this file:
 
     rifle_t1_0..2.png   rifle2_t1_0..2.png   deathbn_t1_0..2.png   bg_0..2.png
 
+Beside this file they are CROPS: 640x480 cut from the middle of each 3840x2160 frame, which is the aim point and
+so the man (he is about 70 px tall). The whole frames stay in `trench-warfare-3d/Captures/g2/`, which git ignores --
+twelve 10 MB PNGs do not belong in the repo. The crop is the same window in every one of the twelve, so a mask made
+from a crop pair is the same mask the whole frames would give.
+
     python docs/evidence/death-battalion-look-g2/stage.py            capture (needs this checkout's editor)
+    python docs/evidence/death-battalion-look-g2/stage.py --crop     re-cut the twelve crops from Captures/g2
     python docs/evidence/death-battalion-look-g2/stage.py --verify   check the twelve pairs on disk, exit 0/1
 """
 import json
 import re
-import shutil
 import subprocess
 import sys
 import time
@@ -53,6 +58,7 @@ TEAM = 1                    # the side still holding GreyboxCorridor by the time
 MEN = [('rifle', 0), ('rifle2', 0), ('deathbn', 28)]     # archetype 0 rifleman, 28 Death Battalion (Sim/Core/RosterEntry.cs)
 STEMS = [m[0] for m in MEN]
 MAX_TRIES = 12              # instants attempted before giving up on the same-clip filter
+CROP = (640, 480)           # the committed window, centred on the frame centre (= the aim point = the man)
 
 
 # ---- driving this checkout's editor -----------------------------------------------------------------------
@@ -178,15 +184,31 @@ def capture():
         raise RuntimeError('only ' + str(done) + ' of ' + str(INSTANTS)
                            + ' instants had all three men in one clip after ' + str(tries) + ' tries')
 
-    for name in keepers():
-        for ext in ('.png', '.json'):
-            shutil.copyfile(OUT / (name + ext), HERE / (name + ext))
-    print('copied ' + str(len(keepers()) * 2) + ' files to ' + str(HERE))
+    crop()
     return verify()
 
 
 def keepers():
     return [s + '_t1_' + str(i) for i in range(INSTANTS) for s in STEMS] + ['bg_' + str(i) for i in range(INSTANTS)]
+
+
+def crop():
+    """Cut the committed 640x480 crops out of the whole frames in Captures/g2, sidecar beside each."""
+    from PIL import Image
+    for name in keepers():
+        src = OUT / (name + '.png')
+        if not src.exists():
+            raise RuntimeError(str(src) + ': no whole frame to crop (run the capture first)')
+        im = Image.open(src)
+        cx, cy = im.width // 2, im.height // 2
+        box = (cx - CROP[0] // 2, cy - CROP[1] // 2, cx + CROP[0] // 2, cy + CROP[1] // 2)
+        im.crop(box).save(HERE / (name + '.png'))
+        d = json.loads((OUT / (name + '.json')).read_text(encoding='utf-8'))
+        d['path'] = name + '.png'
+        d['whole_frame'] = 'Captures/g2/' + name + '.png'
+        d['crop_box_in_whole_frame'] = list(box)
+        (HERE / (name + '.json')).write_text(json.dumps(d, indent=2), encoding='utf-8')
+    print('cropped ' + str(len(keepers())) + ' stills to ' + str(CROP[0]) + 'x' + str(CROP[1]) + ' in ' + str(HERE))
 
 
 def verify():
@@ -198,6 +220,9 @@ def verify():
         if not js.exists():
             bad.append(js.name + ': missing')
             continue
+        from PIL import Image
+        if Image.open(png).size != CROP:
+            bad.append(png.name + ': ' + str(Image.open(png).size) + ', not the committed crop size')
         d = json.loads(js.read_text(encoding='utf-8'))
         if abs(d.get('focus_x', 0) - SPOT[0]) > 0.01 or abs(d.get('focus_z', 0) - SPOT[1]) > 0.01:
             bad.append(js.name + ': aimed at ' + str(d.get('focus_x')) + ',' + str(d.get('focus_z'))
@@ -211,4 +236,9 @@ def verify():
     return 1 if bad else 0
 
 
-sys.exit(verify() if '--verify' in sys.argv else capture())
+if '--verify' in sys.argv:
+    sys.exit(verify())
+if '--crop' in sys.argv:
+    crop()
+    sys.exit(verify())
+sys.exit(capture())

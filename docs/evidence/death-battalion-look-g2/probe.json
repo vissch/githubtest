@@ -1,0 +1,46 @@
+{
+ "noise_rifleman_vs_rifleman": [
+  0.2394,
+  0.9126,
+  0.7878
+ ],
+ "signal_death_battalion_vs_rifleman": [
+  0.3895,
+  0.8089,
+  0.7203
+ ],
+ "bar": 0.0,
+ "min_signal": 0.3895,
+ "mask_px": {
+  "rifle_0": 1171,
+  "rifle_1": 458,
+  "rifle_2": 639,
+  "rifle2_0": 1227,
+  "rifle2_1": 885,
+  "rifle2_2": 572,
+  "deathbn_0": 1641,
+  "deathbn_1": 801,
+  "deathbn_2": 633
+ },
+ "mask_median_px": 801.0,
+ "mask_band_ratio_max_over_min": 3.583,
+ "band": 0.15,
+ "tolerance": 80,
+ "box_px": 200,
+ "clipped_by_crop": [],
+ "build": "5ba0fafb5a",
+ "files": [
+  "deathbn_t1_0.png",
+  "deathbn_t1_1.png",
+  "deathbn_t1_2.png",
+  "rifle2_t1_0.png",
+  "rifle2_t1_1.png",
+  "rifle2_t1_2.png",
+  "rifle_t1_0.png",
+  "rifle_t1_1.png",
+  "rifle_t1_2.png",
+  "bg_0.png",
+  "bg_1.png",
+  "bg_2.png"
+ ]
+}

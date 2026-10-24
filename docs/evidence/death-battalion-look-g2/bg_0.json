@@ -31,5 +31,12 @@
   "vertices": 7336,
   "shadows": 1,
   "fallen": 4,
-  "warnings": []
+  "warnings": [],
+  "whole_frame": "Captures/g2/bg_0.png",
+  "crop_box_in_whole_frame": [
+    1600,
+    840,
+    2240,
+    1320
+  ]
 }
