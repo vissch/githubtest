@@ -19,7 +19,10 @@ count and the inner px left after the 13x13 erosion; `seam_score`'s best angle a
 three rows carrying the most edge energy mapped back to image y; and the inner mask's top and bottom y in ten x
 buckets, so a flat-bottomed ground band shows up as a constant bottom.
 
-  usage: python docs/evidence/flame-jet-opaque-near-2-g1/seamwhere.py
+Given a folder it reads that folder's stills instead, skipping the ones it does not have, so a single fresh capture
+outside the checkout can be read without touching committed evidence (round 6, 2026-10-24).
+
+  usage: python docs/evidence/flame-jet-opaque-near-2-g1/seamwhere.py [stills dir]
 """
 import os, sys
 import numpy as np
@@ -99,6 +102,9 @@ def buckets(inner, x0, x1):
 
 def report(root, label):
     jets, plate = probe.paths(root)
+    jets = [p for p in jets if os.path.exists(p)]
+    if not jets:
+        print(chr(10) + "%s: no jet-t2-*.png in %s" % (label, root))
     for path in jets:
         print("\n%s %s" % (label, os.path.basename(path)))
         x = probe.rgb(path)
@@ -125,11 +131,14 @@ def report(root, label):
         print("    " + "  ".join(buckets(inner2, ix0, ix1)))
 
 
-def main():
+def main(argv):
+    if argv:
+        report(os.path.abspath(argv[0]), "fresh")
+        return 0
     report(HERE, "new")
     report(os.path.join(HERE, "baseline"), "baseline")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

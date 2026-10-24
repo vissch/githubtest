@@ -301,3 +301,35 @@ Not settled: how to separate the stream from the pool. The one rule this leg cou
 than no rule. Separating them honestly needs either a mask the renderer hands over (a per-book stencil or a capture
 with `Book.Pool` suppressed, which is a harness change and a re-shoot) or a geometric rule stronger than a
 column walk. Either is a new unit, not a change of bar. **The bar is not touched to make it pass.**
+
+## Round 6 — the pool is taken out of the capture, and the floor stays (2026-10-24)
+
+Option (e) of the seam question: measure the seam on the stream alone by keeping the fire that lies on the ground out
+of the picture. `FlipbookFx.Hidden` (new, a capture switch, one bit per `Book` ordinal, 0 in the game) makes `Add`
+drop a hidden book's card before it is stored, and `FlameJetStills` sets it from `TW_FLAME_HIDE` before the burst and
+puts it back in its `finally`. Two fresh captures of age 1.3 s - the still that carries the failing 11.427 - were shot
+outside the checkout and read with `seamwhere.py <dir>`.
+
+| capture | hidden books | mask piece | near third | inner px | seam | ridge row | inner bottom y, right-hand buckets |
+|---|---|---|---|---|---|---|---|
+| round 4, committed | (none) | 100661 px, x 720..1249, y 208..579 | x 720..895, 46558 px | 36240 | 11.427 @ +0 deg | image y 413 | 559..570 |
+| round 6 shot A | Pool,Pyre,Stand,Smoke,MineSmoke,Bloom,Fan | 100661 px, x 720..1249, y 208..579 | x 720..895, 46558 px | 36240 | **11.427 @ +0 deg** | **image y 413** | 559..570 |
+| round 6 shot B | the same, plus Fire | 101171 px, x 720..1253, y 208..579 | x 720..897, 47202 px | 36823 | **11.383 @ +0 deg** | **image y 413** | 559..570 |
+
+**The check fails.** The plan's pass was "the near third's mask bottom above image y 500, and the ridge row off
+y 413". The mask bottom is 570 in both shots and the ridge is y 413 in both. Shot A is identical to the committed
+round-4 numbers to the pixel; shot B, with `Fire` hidden as well, is 0.04 lower on a mask that got slightly *larger*.
+
+So the floor at y 551..570 is not drawn by any of those eight books. Hiding fire books cannot remove it, and hiding
+`Fire` only takes cards out of the stream (which is why shot B's near third is wider and its seam marginally lower),
+which is the thing being measured. What is left in that band is warm, bright ground: the mud lit by the jet's own
+fire light and the scorch under it, which `firemask` ("warm and bright") cannot tell from flame. That is a lit
+surface, not a card, so no per-book switch reaches it.
+
+Per the plan's own instruction for this outcome, nothing further was built and no bar was moved. The harness switch
+stays (it is proved, cheap and off in the game); the next unit needs a mask the renderer hands over - a per-book or
+per-card stencil written out with the still - and not a book-hiding list.
+
+Repeat it: `TW_FLAME_CAP=1 TW_FLAME_HIDE=... TW_STILLS_DIR=<dir outside the checkout>` with
+`-runTests -testPlatform EditMode -testFilter FlameJetStills`, then
+`python docs/evidence/flame-jet-opaque-near-2-g1/seamwhere.py <dir>`.

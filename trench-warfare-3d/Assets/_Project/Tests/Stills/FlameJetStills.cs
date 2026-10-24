@@ -27,7 +27,15 @@
 //             -testResults <out.xml> -logFile <out.log>
 // Environment: TW_FLAME_CAP  which still (1, 2, 3 or plate; plate fires no burst) - default 1,
 //              TW_STILLS_DIR where the stills go (default %TEMP%/tw-flamejetstills: never inside the checkout),
-//              TW_FLAME_SETTLE ticks to settle before the burst (300).
+//              TW_FLAME_SETTLE ticks to settle before the burst (300),
+//              TW_FLAME_HIDE   the books kept out of the picture (Book names, comma separated; empty hides nothing).
+//
+// Why anything is hidden. Round 5 of this unit measured the seam the probe scores and it was not the jet's: the
+// straightest pale line in the frame is the burning ground pool's flat top edge, at image y 413, five pixels below
+// the stream's own body. The pool, the pyre, the standing flames, the smoke banks, the bloom and the fan all lie on
+// or rise off the ground, so they are hidden here and the seam is measured on the stream alone (option (e) of the
+// seam question in decisions.md). Book.Fire stays visible: Flamethrower lays it along the stream IN THE AIR, so
+// hiding it would eat the stream.
 using System.Collections;
 using System.Globalization;
 using System.IO;
@@ -63,6 +71,26 @@ namespace TW.Tests
         static readonly float[] Ages = { 1.3f, 1.5f, 1.7f };
         static float AgeFor(string which) => which == "2" ? Ages[1] : which == "3" ? Ages[2] : which == "1" ? Ages[0] : Ages[1];
         const int Seed = 20250925;
+
+        // the books that draw fire lying on the ground, hidden so the seam is measured on the stream in the air
+        const string DefaultHide = "Pool,Pyre,Stand,Smoke,MineSmoke,Bloom,Fan";
+
+        static ulong HideMask(string list, out string names)
+        {
+            ulong mask = 0UL;
+            var kept = new System.Collections.Generic.List<string>();
+            foreach (string raw in list.Split(','))
+            {
+                string n = raw.Trim();
+                if (n.Length == 0) continue;
+                Assert.That(System.Enum.TryParse<FlipbookFx.Book>(n, false, out var book) && book != FlipbookFx.Book.Count,
+                            Is.True, "TW_FLAME_HIDE names no such FlipbookFx.Book: " + n);
+                mask |= 1UL << (int)book;
+                kept.Add(n);
+            }
+            names = kept.Count == 0 ? "(none)" : string.Join(",", kept.ToArray());
+            return mask;
+        }
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
@@ -132,6 +160,9 @@ namespace TW.Tests
                 Say(CaptureRig.Hold(120f));            // clock stopped, weather pinned: one sky for all four stills
                 for (int f = 0; f < 4; f++) yield return null;
 
+                FlipbookFx.Hidden = HideMask(Env("TW_FLAME_HIDE", DefaultHide), out string hidden);
+                Say($"hidden books: {hidden} (mask {FlipbookFx.Hidden})");
+
                 Random.InitState(Seed);
                 var flames = Flamethrower.Active;
                 Assert.That(flames, Is.Not.Null, "no CombatFx in the scene, so no Flamethrower to fire");
@@ -172,6 +203,7 @@ namespace TW.Tests
             finally
             {
                 Flamethrower.PinnedNow = -1f;
+                FlipbookFx.Hidden = 0UL;
                 Time.captureDeltaTime = 0f;
                 CaptureRig.Release();
             }
