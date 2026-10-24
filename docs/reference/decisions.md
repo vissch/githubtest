@@ -303,8 +303,15 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 
 ## Open: waiting on the owner
-- **The jet's `EDGE_BAR` cannot be earned: `near_edge_corr` straddles zero in both builds (2026-10-24, lane
-  `lane/show/flame-jet-opaque-near-2-g1`):** the near-third edge bar is `near_edge_corr_max <= 0.0032`, derived as
+- **WITHDRAWN 2026-10-24, answered by measurement: the jet's `EDGE_BAR` is earned.** Round 4 of the lane (the
+  `_Solid` ramp widened from 0.18/0.22 to 0.06/0.60, the one sheet's centre pulled from 0.50 to 0.42 of the band)
+  reads `near_edge_corr` **-0.0155, -0.0326, -0.0151**: all three below zero, so the worst of three is -0.0151 and
+  the bar of <= 0.0032 is met with room, and met by a drawing rather than by luck. `core_over_tip_luma_min` paid
+  nothing for it (1.936 -> 1.954). Neither option (b) nor (c) below is built, and the bar stays exactly as the
+  owner's words set it. The seam question that replaces it is the next bullet.
+  The question as it was asked:
+- ~~**The jet's `EDGE_BAR` cannot be earned: `near_edge_corr` straddles zero in both builds (2026-10-24, lane
+  `lane/show/flame-jet-opaque-near-2-g1`):**~~ the near-third edge bar is `near_edge_corr_max <= 0.0032`, derived as
   half the current build's own minimum. Measured over three ages of the pinned clock, the quantity has no stable
   sign: the eleven-card build reads **+0.0065, +0.0153, +0.0172**, the one-sheet build **-0.0196, +0.0221, +0.0318**.
   A ceiling of 0.0032 on the worst of three is therefore luck, not a drawing: the near third already hides the plate
@@ -314,6 +321,21 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   non-regression bar that says "no worse than today"; (c) drop the edge bar and keep the seam and luma bars, since
   the near third's opacity is already proved by them. (b) and (c) are not built without his answer (this leg,
   because changing which quantity a bar measures is the owner's call, not the lane's).
+- **The jet's one-sheet seam: the ramp was the last lever this lane owns, and the cut is still there (2026-10-24,
+  lane `lane/show/flame-jet-opaque-near-2-g1`):** the owner's words were "draw the near third as one sheet with no
+  cut". It is built, and the internal `seam_score` says the one sheet trades a short card-to-card cut for a longer
+  straight line of its own: the eleven-card baseline reads 2.03-2.13, the one sheet 2.78, 3.53 and **11.43**, still
+  at exactly 0 degrees in the worst capture. Round 3 named the opacity path as the remedy and round 4 built it -
+  the `_Solid` ramp widened over three times, 0.18/0.22 -> 0.06/0.60 - and the seam moved 2.5% (11.15 -> 11.43)
+  while the edge bar was won outright. So the ridge is not the keyed fringe's contour. What is left at 0 degrees is
+  the card's own boundary: `JetCore` draws with `Fill = 0.90`, the glyph runs to within a tenth of its cell and is
+  clipped by the quad, and no alpha ramp can feather a UV clip. Options: (a) **report the number and stop** - the
+  default taken here, so `probe.py` keeps exiting 1 on `seam_score_max` alone and the bars stay where the baseline
+  put them; (b) inset the glyph inside its cell so the quad clips nothing (a sheet change, `tw-vfx-sheets`, and a
+  concepts brief first); (c) let the lone sheet keep the depth soften that `_Solid` skips, which trades away the
+  opacity he asked for in the same breath; (d) keep the eleven cards and attack the card-to-card cut where it is,
+  which reverses this lane's premise and is out of its scope. (b), (c) and (d) are not built without his answer
+  (this leg, because each changes a look or reverses the unit's premise).
 - **The jet's semi-transparent outer rim: no measured reason left to change it (2026-10-20, lane
   `lane/show/flame-jet-opaque-near-2`):** this unit's plan had two parts. Part 1 (pin the burst's birth clock for a
   capture) is built and pushed (`ee49e7ee4b`). Part 2 was to add a solid `Book.JetBody` row and draw the stream's

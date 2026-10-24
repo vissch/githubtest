@@ -655,8 +655,12 @@ namespace TW.Presentation.Tactical
                         float sw = HotThird * len * 1.30f / sFill;
                         float sh = 5.0f * 1.25f * breath / Mathf.Max(0.05f, hi - lo);
                         Shapely(FlipbookFx.Book.JetCore, ref sw, ref sh);
+                        // Centred at 0.42 of the band, not at its middle. The sheet is 1.30 of the band long, so
+                        // from the middle it hangs 0.15 of a band past BOTH ends; pulled back to 0.42 it reaches
+                        // 0.23 of a band behind the mouth and still 1.07 past it, which keeps the hand-over to the
+                        // first warm link covered and puts drawn ink where the plate's stakes were reading through.
                         books.Add(FlipbookFx.Book.JetCore,
-                                  mouth + along * (HotThird * len * 0.5f) + Arc(cam, HotThird * 0.5f, len, along),
+                                  mouth + along * (HotThird * len * 0.42f) + Arc(cam, HotThird * 0.42f, len, along),
                                   sw, RootEvery * 1.15f, FlipbookFx.Kind.None,
                                   roll: roll, height: sh,
                                   alpha: valve * drawnWeight, glow: glow * 2.50f,

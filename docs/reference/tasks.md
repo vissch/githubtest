@@ -684,6 +684,14 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   the lone card's own horizontal rim is a hard opaque straight line spanning the whole band - a bigger straight line
   than the card-to-card cut it removed, and nothing a width, a length or an alpha can soften. Do not add a second
   card in the hot band to hide it: that is the cut coming back.
+  **Nor the opacity ramp** (2026-10-24, the next step in the same lane): the `_Solid` branch's ramp was widened over
+  three times (`saturate((tex.a - 0.18) / 0.22)` -> `0.06 / 0.60`, so the glyph's fringe fades over a band of pixels
+  instead of ending on a level line) and the one sheet's centre pulled from 0.50 to 0.42 of the band. That **won the
+  edge bar outright** - `near_edge_corr` -0.0155/-0.0326/-0.0151, all three below zero against <= 0.0032, where no
+  build in this lane had cleared it before - and cost `core_over_tip_luma_min` nothing (1.936 -> 1.954). The seam
+  did not move: 11.15 -> 11.43, still at 0 degrees. What is left is the card's own UV boundary (`Fill = 0.90`, so
+  the glyph is clipped by the quad), which no alpha ramp feathers. `probe.py` exits 1 on `seam_score_max` alone and
+  the remaining remedies are an open question for the owner (`decisions.md`).
 - **Trap:** `FlipbookFx` indexes its sheets by the `Book` enum's ordinal and is only `Ready` when every sheet loads.
   A missing PNG or a row out of order silently disables every flipbook in the game. Add the enum entry, the row and
   the PNG together, and check `books.Ready`.

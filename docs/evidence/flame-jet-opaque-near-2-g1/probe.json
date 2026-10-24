@@ -32,27 +32,27 @@
   "bars_outside_baseline_spread": true,
   "new": {
     "near_edge_corr_each": [
-      0.0318,
-      -0.0196,
-      0.0221
+      -0.0155,
+      -0.0326,
+      -0.0151
     ],
     "seam_score_each": [
-      11.1465,
-      2.4889,
-      6.8418
+      11.4268,
+      2.7746,
+      3.534
     ],
     "core_over_tip_luma_each": [
-      2.2062,
-      2.0693,
-      1.936
+      2.2027,
+      2.0856,
+      1.9542
     ],
-    "near_edge_corr_max": 0.0318,
-    "seam_score_max": 11.1465,
-    "core_over_tip_luma_min": 1.936,
+    "near_edge_corr_max": -0.0151,
+    "seam_score_max": 11.4268,
+    "core_over_tip_luma_min": 1.9542,
     "shas": [
-      "d7b0fda40484cae46970d070a5cc873c7eff444a2dad65d83cafcf272b14a468",
-      "97a604a1599736cbe804f4cc0ba8cea5631a16d29693448a2936d63a51c0ede1",
-      "55e3e1caf74a5c90589e1729c77af541fe595721a162e397affdb05ece4c50eb"
+      "685ec2b314846ef0ab2a3ab0084f33dc58e729afabeee82f58fd885a57fbe0c2",
+      "88391fbafb03ea0dbe3a115e3d2501cdfefa00a6c6f88b939d58bc7ac597b498",
+      "bb4ecb87e0adfbcfdfbf50cf598b86f3053252b2e3a150701a70460d49f59b2a"
     ]
   }
 }
