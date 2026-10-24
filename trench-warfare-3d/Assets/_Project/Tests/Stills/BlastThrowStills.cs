@@ -12,8 +12,10 @@
 // own axis cannot give (docs/evidence/blast-knockback-death-r2-g1/probe.py). Straight down means world x and z map
 // onto screen pixels at one scale with no foreshortening to correct.
 //
-// Why the frames now match the seconds: Time.captureDeltaTime = 1/30 makes the game clock step exactly 1/30 s a
-// frame, so the sidecars' `frame` gap is 30x the seconds, in batch or windowed. Why it is lit and dry: the clock is
+// The moments are measured in Time.time, which is what the shots are taken on, so the seconds are right.
+// Time.captureDeltaTime = 1/30 is asked for as well, but it does not hold in batch mode: the measured `frame` gaps
+// are 17 and 94 where 30 a second would give 45 and 120 (docs/evidence/blast-knockback-death-r2-g1/frames.txt), so
+// the sidecars' frame counter is a diagnostic, never the clock. Why it is lit and dry: the clock is
 // pinned at 30 (midday) with rain and squalls off — r1's clock 120 squall is why contrast_median read 0.111 against
 // the 0.12 bar (CaptureRig.cs:327).
 //
@@ -61,8 +63,19 @@ namespace TW.Tests
 
         static IEnumerator Drain(string path)
         {
+            string side = Path.ChangeExtension(path, ".json");
             for (int f = 0; f < 900 && CaptureRig.Pending() != "0"; f++) yield return null;
-            for (int f = 0; f < 300 && !File.Exists(path); f++) yield return null;
+            for (int f = 0; f < 300 && !(File.Exists(path) && File.Exists(side)); f++) yield return null;
+        }
+
+        /// <summary>Clear a shot's own files before it is taken. A retake writes over a png that is already there, so
+        /// Drain's File.Exists arm passed immediately and Side() read the take before it: blast2's -1 s take was
+        /// accepted on a drawn_infantry its own sidecar says was 0 (leg g1-02's first run).</summary>
+        static void Forget(string path)
+        {
+            string side = Path.ChangeExtension(path, ".json");
+            if (File.Exists(path)) File.Delete(path);
+            if (File.Exists(side)) File.Delete(side);
         }
 
         /// <summary>DeathStills.Open: a patch of open ground, no trench, ladder, wire, bunker or blocked cell from 4 m
@@ -164,70 +177,146 @@ namespace TW.Tests
             var size = map.SizeMeters;
             float rowLength = (Men - 1) * Spacing;
             int written = 0;
-            var used = new List<Vector2>();
+            // the patches, in the order the runs take them. Separated 22 m along x and 26 m along z from each other:
+            // a shot sees 41 m x 23 m of ground (zoom 20, straight down) and every throw this build records is along
+            // z (throw x read 0.00 for all twelve men of the first run) out to 11.3 m, so 22 m along x puts a
+            // neighbour's column outside the frame and along z the frame's own 11.5 m plus 12 m of throw needs 26.
+            var patches = new List<Vector2>();
+            for (float zz = 30f; zz < size.y - 30f && patches.Count < 12; zz += 4f)
+                for (float xx = 8f; xx < size.x - 20f && patches.Count < 12; xx += 4f)
+                {
+                    bool clear = true;
+                    foreach (var c in patches) if (Mathf.Abs(c.x - xx) < 22f && Mathf.Abs(c.y - zz) < 26f) clear = false;
+                    if (clear && Open(map, xx - 8f, zz - 4f, 16f, 0f, rowLength + 8f)) patches.Add(new Vector2(xx, zz));
+                }
+            TestContext.Out.WriteLine($"{patches.Count} open patches: {string.Join(" ", patches)}");
+            Assert.That(patches.Count, Is.GreaterThanOrEqualTo(2), "fewer than two open patches on this map");
+            int turn = 0;
             foreach (string run in Runs)
             {
                 bool blast = run.StartsWith("blast");
-                // up to three patches to try, each outside every other run's frame AND outside the other candidates'
-                // (a retake must not photograph the bodies the attempt before it left). A shot sees 41 m x 23 m of
-                // ground (zoom 20, straight down): 34 m along x puts a neighbour's nearest man outside it, 22 m along
-                // z clears its depth. The first pass asked 30 x 26 and ran out of ground for calm2 and calm3.
-                var candidates = new List<Vector2>();
-                for (float zz = 30f; zz < size.y - 30f && candidates.Count < 6; zz += 4f)
-                    for (float xx = 8f; xx < size.x - 20f && candidates.Count < 6; xx += 4f)
-                    {
-                        bool clear = true;
-                        foreach (var u in used) if (Mathf.Abs(u.x - xx) < 34f && Mathf.Abs(u.y - zz) < 22f) clear = false;
-                        foreach (var c in candidates) if (Mathf.Abs(c.x - xx) < 34f && Mathf.Abs(c.y - zz) < 22f) clear = false;
-                        if (clear && Open(map, xx - 8f, zz - 4f, 16f, 0f, rowLength + 8f)) candidates.Add(new Vector2(xx, zz));
-                    }
-                if (candidates.Count == 0) { TestContext.Out.WriteLine(run + ": no open ground left"); continue; }
-
+                // this run's own patch first, then every other one in turn if it will not give a clean frame
                 bool shot = false;
-                for (int attempt = 0; attempt < candidates.Count && !shot; attempt++)
+                for (int attempt = 0; attempt < patches.Count && !shot; attempt++)
                 {
-                    float x = candidates[attempt].x, z = candidates[attempt].y;
+                    var patch = patches[(turn + attempt) % patches.Count];
+                    float x = patch.x, z = patch.y;
                     // clean ground first: from straight above an old corpse reads as a standing man and never moves,
                     // so one left lying in the frame is a body the probe measures as thrown nowhere (leg g1).
                     var vat = Object.FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
                     if (vat != null) vat.ClearFallen();
+                    // and no other man anywhere on the field: drawn_infantry counts every foot figure the game drew,
+                    // so the match's own squads standing near a patch read as men of the row (11 for a row of six on
+                    // the first patch tried), and the "exactly Men" rule then burned patch after patch until the map
+                    // ran out of open ground. Moved off-map, not despawned, for the reason given below.
+                    int swept = 0;
+                    Host.WriteWorlds(m =>
+                    {
+                        var w = m.World;
+                        for (int sl = 0; sl < w.HighWater; sl++)
+                        {
+                            if ((w.Flags[sl] & (uint)UnitFlags.Alive) == 0) continue;
+                            if ((w.Flags[sl] & (uint)UnitFlags.Vehicle) != 0) continue;
+                            if (w.Position[sl].x < -400f) continue;
+                            w.Position[sl] = new float3(-500f, 0f, -500f);
+                            swept++;
+                        }
+                    });
+                    for (int f = 0; f < 30; f++) yield return null;
 
                     string slots = DeathLab.Row(Men, x, z, 0, Spacing, 100f, -1f, alongZ: true);
-                    TestContext.Out.WriteLine($"{run} attempt {attempt + 1} at {x}, {z}: {slots}");
+                    TestContext.Out.WriteLine($"{run} attempt {attempt + 1} at {x}, {z}: {slots} (swept {swept} men off the field)");
                     Assert.That(slots, Does.StartWith("slots "), run + ": the row failed: " + slots);
                     var mine = new List<int>();
                     foreach (string part in slots.Substring(6).Split(' ')) if (int.TryParse(part, out int slot)) mine.Add(slot);
+
+                    // the presenter must have captured the fresh row before anything is photographed.
+                    // SimPresenter.Capture sets count = HighWater and runs only after a stepped tick; until it has,
+                    // Drawn(slot) is float3.zero for the row's slots and PoseCount is 0, so the VAT fill job
+                    // (VATRenderer.cs:262, over PoseCount/PoseSlot) and CaptureRig.Measure (CaptureRig.cs:270, over
+                    // Drawn) both see a row standing at the origin: drawn_infantry 0 and men_in_frame 0 over a row
+                    // whose world.Position is perfectly right, which is the 0-read that burned seven runs in a row
+                    // (leg g1's note). No CaptureRig.Hold before this wait: Hold pins Time.timeScale to 0
+                    // (CaptureRig.cs:507), no tick steps, and the presenter could then never catch up.
+                    int caught = -1;
+                    for (int f = 0; f < 300 && caught < 0; f++)
+                    {
+                        bool ready = Host.Presenter.PoseCount > 0;
+                        foreach (int slot in mine)
+                            if (math.distance(Host.Presenter.Drawn(slot), Host.Local.World.Position[slot]) >= 0.5f) ready = false;
+                        if (ready) caught = f; else yield return null;
+                    }
+                    TestContext.Out.WriteLine($"  {run} attempt {attempt + 1}: the presenter caught the row after " +
+                                              (caught < 0 ? "300 frames it never did" : caught + " frames"));
 
                     // two seconds to stand and settle before the row is first photographed
                     float t0 = Time.time + 2f;
                     while (Time.time < t0) yield return null;
                     float cx = x, cz = z + rowLength * 0.5f;   // the shell at the row's middle, so throws stay inside the frame
 
-                    bool dirty = false;
-                    for (int k = 0; k < Moments.Length && !dirty; k++)
+                    // one posed shot, frozen for the shot only (GoreZoomStills' trick): the tactical camera eases
+                    // towards a pose and the rig puts it back when the queue drains, so a shot taken while it is still
+                    // moving comes out from the wrong place. Queueing the same shot three times did not cure it -
+                    // blast3's +3 s still landed at pitch 85.1, yaw 327 and 1.37 m off, which tilts every body in the
+                    // frame at once. Hold stops the clock dead, so the camera cannot move between pose and render.
+                    IEnumerator Take(string file)
                     {
-                        float due = t0 + 1f + Moments[k];   // the burst is at t0 + 1 s; -1 s is the standing row
-                        while (Time.time < due) yield return null;
-                        string path = Path.Combine(dir, $"{tag}_{run}_{MomentNames[k]}.png");
-                        // frozen for the shot only (GoreZoomStills' trick): the tactical camera eases towards a pose and the
-                        // rig puts it back when the queue drains, so a shot taken while it is still moving comes out from the
-                        // wrong place. Queueing the same shot three times did not cure it - blast3's +3 s still landed at
-                        // pitch 85.1, yaw 327 and 1.37 m off, which tilts every body in the frame at once. Hold stops the
-                        // clock dead, so the camera cannot move between the pose and the render.
+                        Forget(file);
                         CaptureRig.Hold(30f);
-                        CaptureRig.Shot(path, cx, cz, 20f, 0f, 89f, 1280, 720);
-                        yield return Drain(path);
+                        CaptureRig.Shot(file, cx, cz, 20f, 0f, 89f, 1280, 720);
+                        yield return Drain(file);
                         CaptureRig.Release();
                         TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;   // Release gives the sky its own clock back
+                    }
 
-                        if (k != 0) continue;
+                    bool dirty = false;
+                    float burstAt = 0f;
+                    for (int k = 0; k < Moments.Length && !dirty; k++)
+                    {
+                        // the burst is at t0 + 1 s, and -1 s is the standing row. From +0.5 s on the moment is
+                        // measured from when the shell was actually queued, because the -1 s shot may have taken
+                        // retakes below and a fixed t0 + 1 + Moments[k] would then photograph the wrong instant.
+                        float due = k == 0 ? t0 + 1f + Moments[k] : burstAt + Moments[k];
+                        while (Time.time < due) yield return null;
+                        string path = Path.Combine(dir, $"{tag}_{run}_{MomentNames[k]}.png");
+                        if (k != 0) { yield return Take(path); continue; }
+
                         // exactly the row and nothing else in the frame, read off the still itself: four living men
                         // walked into calm1's frame once (drawn_infantry 10 for a row of six), and a wanderer is a
-                        // blob the probe's matcher can pair with a row man. A bad frame is retaken on the next patch.
-                        float drawn = Side(Path.ChangeExtension(path, ".json"), "drawn_infantry");
-                        if (!(Mathf.Abs(drawn - Men) < 0.5f))
+                        // blob the probe's matcher can pair with a row man.
+                        // Up to three takes at the SAME patch before the patch is abandoned: the 0-read is
+                        // intermittent at one spot, and one bad frame used to burn a candidate patch, so a run ran
+                        // out of open ground. The "exactly Men men" rule itself is unchanged - it is the instrument's
+                        // only guard against a wanderer.
+                        bool clean = false;
+                        for (int take = 0; take < 3 && !clean; take++)
                         {
-                            TestContext.Out.WriteLine($"  {run} attempt {attempt + 1}: drawn_infantry {drawn}, not {Men}: retaking on the next patch");
+                            if (take > 0) for (int f = 0; f < 30; f++) yield return null;
+                            yield return Take(path);
+                            string side = Path.ChangeExtension(path, ".json");
+                            float drawn = Side(side, "drawn_infantry");
+                            if (Mathf.Abs(drawn - Men) < 0.5f) { clean = true; break; }
+                            // which of the three causes this is, said in this same run, so no second Unity run is
+                            // needed to tell them apart: a stale presenter (drawn far from position), a camera
+                            // mismatch (ViewEye.Main is not the camera the shot posed), or a bad pose (pose_error_m
+                            // large, cam_x/cam_z away from the cx, cz asked for).
+                            TestContext.Out.WriteLine($"  {run} attempt {attempt + 1} take {take + 1}: drawn_infantry {drawn}, not {Men}");
+                            TestContext.Out.WriteLine($"    PoseCount {Host.Presenter.PoseCount}" +
+                                                      $" viewEyeIsMain {ReferenceEquals(ViewEye.Main, Camera.main)}" +
+                                                      $" timeScale {Time.timeScale}" +
+                                                      $" men_in_frame {Side(side, "men_in_frame")}" +
+                                                      $" cam {Side(side, "cam_x")}, {Side(side, "cam_z")}" +
+                                                      $" pitch {Side(side, "cam_pitch")}" +
+                                                      $" pose_error_m {Side(side, "pose_error_m")}" +
+                                                      $" (asked for {cx}, {cz})");
+                            foreach (int slot in mine)
+                                TestContext.Out.WriteLine($"    slot {slot} position {Host.Local.World.Position[slot]}" +
+                                                          $" drawn {Host.Presenter.Drawn(slot)}" +
+                                                          $" alive {(Host.Local.World.Flags[slot] & (uint)UnitFlags.Alive) != 0}");
+                        }
+                        if (!clean)
+                        {
+                            TestContext.Out.WriteLine($"  {run} attempt {attempt + 1}: three takes all unclean: on to the next patch");
                             dirty = true;
                             break;
                         }
@@ -238,20 +327,15 @@ namespace TW.Tests
                                                       $"(UseAnimationController {Host.UseAnimationController})");
                         // the -1 s still is on disk before the shell is queued, so it is a standing row for certain
                         if (blast) TestContext.Out.WriteLine($"  {run}: {DeathLab.Shell(cx, cz, Radius, Damage)}");
+                        burstAt = Time.time;
                     }
-                    if (dirty)
-                    {
-                        // a rejected patch's row is never cleared away, only abandoned: left standing exactly where
-                        // it was it is the "wanderer" a later run's own frame can pick up (leg g1's blast3/calm1
-                        // both failed at a spot an earlier failed attempt had quietly left six live men in).
-                        // Moved off-map, not despawned: Despawn re-triggers the death/VAT path and the freed slot
-                        // came back reading drawn_infantry 0 on the very next spawn at it.
-                        Host.WriteWorlds(m => { foreach (int slot in mine) m.World.Position[slot] = new float3(-500f, 0f, -500f); });
-                        for (int f = 0; f < 30; f++) yield return null;
-                        continue;
-                    }
+                    // a rejected row needs no clearing up here: the next attempt's own sweep moves every living
+                    // man off the field and clears every fallen body before it spawns its row, which is what used to
+                    // be done by hand for the rejected row alone (leg g1's blast3/calm1 both failed at a spot an
+                    // earlier failed attempt had quietly left six live men in).
+                    if (dirty) continue;
                     shot = true;
-                    used.Add(new Vector2(x, z));
+                    turn++;
                     // counted here, not per shot: a retaken run overwrites its own stills, and each must count once
                     foreach (string moment in MomentNames) if (File.Exists(Path.Combine(dir, $"{tag}_{run}_{moment}.png"))) written++;
 
@@ -274,7 +358,7 @@ namespace TW.Tests
                     }
                     for (int f = 0; f < 30; f++) yield return null;
                 }
-                Assert.That(shot, Is.True, run + ": no candidate patch gave a clean frame of exactly " + Men + " men");
+                Assert.That(shot, Is.True, run + ": no patch gave a clean frame of exactly " + Men + " men");
             }
 
             CaptureRig.Release();
