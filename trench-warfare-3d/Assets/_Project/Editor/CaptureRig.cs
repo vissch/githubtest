@@ -52,6 +52,7 @@ namespace TW.Editor
                 public float AimY = float.NaN;   // look at THIS world height, not the default; NaN keeps the default
                 public bool Posed;
                 public Vector3 Want;   // the pose the rig computed, so a still can prove it was taken from where it claims
+                public string Mask;    // optional: a per-card stencil (FlipbookFx.SpiedCards) written beside the still, grey png
             }
 
             /// <summary>Logs each pose and render with its frame number. Off by default; it is how the two-rigs-in-
@@ -221,6 +222,16 @@ namespace TW.Editor
                     File.WriteAllText(Path.ChangeExtension(shot.Path, ".json"), LastJson);
                     Object.Destroy(tex);
                     Last = shot.Path;
+
+                    if (!string.IsNullOrEmpty(shot.Mask))
+                    {
+                        var mask = CardMask(FlipbookFx.SpiedCards, c, shot.W, shot.H);
+                        var mtex = new Texture2D(shot.W, shot.H, TextureFormat.R8, false);
+                        mtex.LoadRawTextureData(mask);
+                        mtex.Apply();
+                        File.WriteAllBytes(shot.Mask, mtex.EncodeToPNG());
+                        Object.Destroy(mtex);
+                    }
                 }
                 catch (System.Exception ex)
                 {
@@ -383,16 +394,100 @@ namespace TW.Editor
             return rig;
         }
 
-        /// <summary>Queue one still. Posed this frame, photographed the next, camera put back when the queue drains.</summary>
+        /// <summary>Queue one still. Posed this frame, photographed the next, camera put back when the queue drains.
+        /// `mask`, if given, is written beside the still as a grey png: FlipbookFx.SpiedCards projected through this
+        /// shot's own camera (see CardMask).</summary>
         public static string Shot(string path, float x, float z, float zoom, float yaw, float pitch = 25f, int w = 1600, int h = 900,
-                                  float aimY = float.NaN)
+                                  float aimY = float.NaN, string mask = null)
         {
-            Get().Queue.Enqueue(new Rig.Shot { Path = path, Focus = new Vector2(x, z), Zoom = zoom, Yaw = yaw, Pitch = pitch, W = w, H = h, AimY = aimY });
+            Get().Queue.Enqueue(new Rig.Shot { Path = path, Focus = new Vector2(x, z), Zoom = zoom, Yaw = yaw, Pitch = pitch, W = w, H = h, AimY = aimY, Mask = mask });
             return "queued " + path;
         }
 
         /// <summary>How many shots are still to be taken; 0 means the set is finished and the camera is back.</summary>
         public static string Pending() => rig != null ? rig.Queue.Count.ToString() : "0";
+
+        /// <summary>
+        /// A per-card stencil built from the renderer's own record (FlipbookFx.Pack, FlipbookFx.SpiedCards): for each
+        /// card, the same quad TW/Flipbook billboards (Flipbook_URP.shader:87-99), projected with this camera and
+        /// filled 255 where covered, 0 where not. A card with any corner behind the eye is dropped (its screen
+        /// position is meaningless there). Row 0 is the bottom of the image, the same convention `Rig.Render`'s
+        /// `ReadPixels` fills `tex` with, so the mask and the still flip together through `EncodeToPNG`.
+        /// </summary>
+        public static byte[] CardMask(IList<Matrix4x4> cards, Camera cam, int w, int h)
+        {
+            var mask = new byte[Mathf.Max(1, w) * Mathf.Max(1, h)];
+            if (cards == null || cam == null) return mask;
+            float wasAspect = cam.aspect;
+            cam.aspect = (float)w / Mathf.Max(1, h);   // WorldToViewportPoint reads the camera's own aspect, which the
+                                                        // active render target sets; restored so posing elsewhere is untouched
+            try { CardMaskInto(mask, cards, cam, w, h); } finally { cam.aspect = wasAspect; }
+            return mask;
+        }
+
+        static void CardMaskInto(byte[] mask, IList<Matrix4x4> cards, Camera cam, int w, int h)
+        {
+            var camPos = cam.transform.position;
+            var viewRight = cam.transform.right;
+            var viewUp = cam.transform.up;
+            var camForward = cam.transform.forward;
+            var uv = new[] { new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f) };
+            var corners = new Vector2[4];
+            foreach (var m in cards)
+            {
+                var at = new Vector3(m.m03, m.m13, m.m23);
+                float width = m.m00, height = m.m11, roll = m.m02, upright = m.m12, anchored = m.m20;
+                float mirror = m.m21 < 0f ? -1f : 1f;
+                float flat = upright >= 1.5f ? 1f : 0f;
+                float uprightEff = Mathf.Clamp01(upright) * (1f - flat);
+                var toEye = (camPos - at).normalized;
+                var flatRight = Vector3.Cross(Vector3.up, toEye);
+                flatRight = flatRight.sqrMagnitude > 1e-8f ? flatRight.normalized : Vector3.right;   // the eye straight above: no NaN, as the shader
+                Vector3 right = flat > 0.5f ? Vector3.right : (uprightEff > 0.5f ? flatRight : viewRight);
+                Vector3 up = flat > 0.5f ? Vector3.forward : (uprightEff > 0.5f ? Vector3.up : viewUp);
+                float sr = Mathf.Sin(roll), cr = Mathf.Cos(roll);
+
+                bool behind = false;
+                for (int k = 0; k < 4; k++)
+                {
+                    var c = new Vector2((uv[k].x - 0.5f) * mirror, uv[k].y - 0.5f * (1f - anchored));
+                    var rc = new Vector2(c.x * cr - c.y * sr, c.x * sr + c.y * cr);
+                    var worldPos = at + right * (rc.x * width) + up * (rc.y * height);
+                    if (Vector3.Dot(camForward, worldPos - camPos) <= 0f) { behind = true; break; }
+                    var vp = cam.WorldToViewportPoint(worldPos);
+                    corners[k] = new Vector2(vp.x * w, vp.y * h);
+                }
+                if (!behind) FillConvexQuad(mask, w, h, corners);
+            }
+        }
+
+        static void FillConvexQuad(byte[] mask, int w, int h, Vector2[] p)
+        {
+            float minX = Mathf.Min(p[0].x, Mathf.Min(p[1].x, Mathf.Min(p[2].x, p[3].x)));
+            float maxX = Mathf.Max(p[0].x, Mathf.Max(p[1].x, Mathf.Max(p[2].x, p[3].x)));
+            float minY = Mathf.Min(p[0].y, Mathf.Min(p[1].y, Mathf.Min(p[2].y, p[3].y)));
+            float maxY = Mathf.Max(p[0].y, Mathf.Max(p[1].y, Mathf.Max(p[2].y, p[3].y)));
+            int x0 = Mathf.Max(0, Mathf.FloorToInt(minX)), x1 = Mathf.Min(w, Mathf.CeilToInt(maxX));
+            int y0 = Mathf.Max(0, Mathf.FloorToInt(minY)), y1 = Mathf.Min(h, Mathf.CeilToInt(maxY));
+            for (int y = y0; y < y1; y++)
+                for (int x = x0; x < x1; x++)
+                    if (InsideConvexQuad(new Vector2(x + 0.5f, y + 0.5f), p)) mask[y * w + x] = 255;
+        }
+
+        static bool InsideConvexQuad(Vector2 pt, Vector2[] p)
+        {
+            float sign = 0f;
+            for (int i = 0; i < 4; i++)
+            {
+                var a = p[i]; var b = p[(i + 1) % 4];
+                float cross = (b.x - a.x) * (pt.y - a.y) - (b.y - a.y) * (pt.x - a.x);
+                if (cross == 0f) continue;
+                float s = Mathf.Sign(cross);
+                if (sign == 0f) sign = s;
+                else if (s != sign) return false;
+            }
+            return true;
+        }
 
         /// <summary>
         /// Where the men actually are: the middle of the thickest knot of them, not the average of all of them.

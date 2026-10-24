@@ -37,7 +37,7 @@ namespace TW.Tests
             ["DebrisRenderer"] = "Gore is a setting and ZoomShare the camera's share of every burst, set by CombatFx each frame; Biome and LavaLevel are set by each biome; Instance is the live renderer; Watch is a test probe the tests set and clear",
             ["EventPump"] = "ProfileSubscribers: a profiling switch",
             ["Flamethrower"] = "Active: the live instance, replaced when the next CombatFx starts; PinnedNow is a capture switch the caller restores",
-            ["FlipbookFx"] = "Hidden is a capture switch the caller restores",
+            ["FlipbookFx"] = "Hidden and Spied are capture switches the caller restores, SpiedCards the capture's own buffer",
             ["FrameBudget"] = "frame-stamped counters that roll over by themselves",
             ["GreyboxTerrainView"] = "code-made textures cached for the process (mudDetail, ripples)",
             ["HeavyWork"] = "frame-stamped claim that expires by itself",

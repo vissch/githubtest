@@ -648,6 +648,14 @@ namespace TW.Presentation.Tactical
         // ground out of the picture; the harness sets it before the burst and puts it back in its finally. 0 in the game.
         public static ulong Hidden;
 
+        // A second capture switch, one bit per Book ordinal (same width rule as Hidden; FlipbookSpyTests). A spied
+        // book's card is also recorded into SpiedCards, in Pack's own packed form - the record TW/Flipbook reads -
+        // so a mask built from it stencils exactly the pixels the renderer billboards, not a guess from colour.
+        // A card that is both hidden and spied is never recorded: Add drops a hidden card before it exists, so there
+        // is nothing left to spy on. 0 in the game; the caller restores it, as Hidden.
+        public static ulong Spied;
+        public static readonly List<Matrix4x4> SpiedCards = new List<Matrix4x4>(MaxCards);
+
         public FlipbookFx()
         {
             maxCards = Mathf.Max(1, Knobs.Get("flipbook.maxCards", MaxCards));
@@ -730,6 +738,7 @@ namespace TW.Presentation.Tactical
         public void Draw(float now, Bounds bounds)
         {
             if (!Ready) return;
+            if (Spied != 0UL) SpiedCards.Clear();
             float dt = Time.deltaTime;
             for (int i = cards.Count - 1; i >= 0; i--)
             {
@@ -777,20 +786,23 @@ namespace TW.Presentation.Tactical
                     float frame = (c.Kind & Kind.HoldLast) != 0 ? Mathf.Min(k * frames, frames - 1f)
                                 : Sheets[b].Cycle ? Mathf.Repeat(run, span) : Mathf.Min(run, span);
                     float bright = 1f + (c.Glow - 1f) * (1f - Mathf.Clamp01(k / 0.15f));   // the fire is out in the first sixth
+                    Matrix4x4 packed;
                     if (c.Soil > 0f)
                     {
                         // AOSA C103: the soil heave's own timing and shape, blended by the knob (see ColumnSoilKnob)
                         SoilShape(now - c.Born, c.Life, out float soilFrame, out float wide, out float tall);
-                        batch[n++] = Pack(c.Pos, c.Width * Mathf.Lerp(swell, wide, c.Soil), c.Height * Mathf.Lerp(swell, tall * c.Cap, c.Soil), Mathf.Lerp(frame, soilFrame, c.Soil), fade, bright, c.Roll, c.Kind, c.Alpha);
+                        packed = Pack(c.Pos, c.Width * Mathf.Lerp(swell, wide, c.Soil), c.Height * Mathf.Lerp(swell, tall * c.Cap, c.Soil), Mathf.Lerp(frame, soilFrame, c.Soil), fade, bright, c.Roll, c.Kind, c.Alpha);
                     }
                     else if (canLay && c.Axis.sqrMagnitude > 0f)
                     {
                         // laid along a world axis (a muzzle flame along its bore): the root stays on the mouth at any angle
                         InkLay(c.Book, out Vector2 inkRoot, out Vector2 inkPoint);
                         LayAlong(layRight, layUp, c.Pos, c.Axis, c.Width * swell, c.Height * swell, inkRoot, inkPoint, out var laidAt, out float laidRoll, out float laidWidth);
-                        batch[n++] = Pack(laidAt, laidWidth, c.Height * swell, frame, fade, bright, laidRoll, c.Kind, c.Alpha);
+                        packed = Pack(laidAt, laidWidth, c.Height * swell, frame, fade, bright, laidRoll, c.Kind, c.Alpha);
                     }
-                    else batch[n++] = Pack(c.Pos, c.Width * swell, c.Height * swell, frame, fade, bright, c.Roll, c.Kind, c.Alpha);
+                    else packed = Pack(c.Pos, c.Width * swell, c.Height * swell, frame, fade, bright, c.Roll, c.Kind, c.Alpha);
+                    batch[n++] = packed;
+                    if (Spied != 0UL && (Spied & (1UL << b)) != 0UL) SpiedCards.Add(packed);
                     if (n == batch.Length) { FrameBudget.Draw(rp, quad, 0, batch, n); n = 0; }
                 }
                 if (n > 0) FrameBudget.Draw(rp, quad, 0, batch, n);
