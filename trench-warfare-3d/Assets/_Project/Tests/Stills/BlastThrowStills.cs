@@ -149,78 +149,103 @@ namespace TW.Tests
             foreach (string run in Runs)
             {
                 bool blast = run.StartsWith("blast");
-                float x = -1f, z = -1f;
-                for (float zz = 30f; zz < size.y - 30f && x < 0f; zz += 4f)
-                    for (float xx = 8f; xx < size.x - 20f && x < 0f; xx += 4f)
+                // up to three patches to try, each outside every other run's frame AND outside the other candidates'
+                // (a retake must not photograph the bodies the attempt before it left). A shot sees 41 m x 23 m of
+                // ground (zoom 20, straight down): 34 m along x puts a neighbour's nearest man outside it, 22 m along
+                // z clears its depth. The first pass asked 30 x 26 and ran out of ground for calm2 and calm3.
+                var candidates = new List<Vector2>();
+                for (float zz = 30f; zz < size.y - 30f && candidates.Count < 3; zz += 4f)
+                    for (float xx = 8f; xx < size.x - 20f && candidates.Count < 3; xx += 4f)
                     {
                         bool clear = true;
-                        // a thrown body travels, and the shot sees 41 m x 23 m of ground (zoom 20, straight down), so
-                        // no run stands inside another's frame: 34 m along x puts a neighbour's nearest man outside it,
-                        // 22 m along z clears its depth. The first pass asked 30 x 26 and ran out of ground for calm2
-                        // and calm3 (12 stills of 18).
                         foreach (var u in used) if (Mathf.Abs(u.x - xx) < 34f && Mathf.Abs(u.y - zz) < 22f) clear = false;
-                        if (clear && Open(map, xx, zz, rowWidth + 2f, 6f, 6f)) { x = xx; z = zz; }
+                        foreach (var c in candidates) if (Mathf.Abs(c.x - xx) < 34f && Mathf.Abs(c.y - zz) < 22f) clear = false;
+                        if (clear && Open(map, xx, zz, rowWidth + 2f, 6f, 6f)) candidates.Add(new Vector2(xx, zz));
                     }
-                if (x < 0f) { TestContext.Out.WriteLine(run + ": no open ground left"); continue; }
-                used.Add(new Vector2(x, z));
+                if (candidates.Count == 0) { TestContext.Out.WriteLine(run + ": no open ground left"); continue; }
 
-                string slots = DeathLab.Row(Men, x, z, 0, Spacing, 100f);
-                TestContext.Out.WriteLine($"{run} at {x}, {z}: {slots}");
-                Assert.That(slots, Does.StartWith("slots "), run + ": the row failed: " + slots);
-                var mine = new List<int>();
-                foreach (string part in slots.Substring(6).Split(' ')) if (int.TryParse(part, out int s)) mine.Add(s);
-
-                // two seconds to stand and settle before the row is first photographed
-                float t0 = Time.time + 2f;
-                while (Time.time < t0) yield return null;
-                float cx = x + rowWidth * 0.5f, cz = z;   // the shell at the row's middle, so throws stay inside the frame
-
-                for (int k = 0; k < Moments.Length; k++)
+                bool shot = false;
+                for (int attempt = 0; attempt < candidates.Count && !shot; attempt++)
                 {
-                    float due = t0 + 1f + Moments[k];   // the burst is at t0 + 1 s; -1 s is the standing row
-                    while (Time.time < due) yield return null;
-                    string path = Path.Combine(dir, $"{tag}_{run}_{MomentNames[k]}.png");
-                    // frozen for the shot only (GoreZoomStills' trick): the tactical camera eases towards a pose and the
-                    // rig puts it back when the queue drains, so a shot taken while it is still moving comes out from the
-                    // wrong place. Queueing the same shot three times did not cure it — blast3's +3 s still landed at
-                    // pitch 85.1, yaw 327 and 1.37 m off, which tilts every body in the frame at once. Hold stops the
-                    // clock dead, so the camera cannot move between the pose and the render.
-                    CaptureRig.Hold(30f);
-                    CaptureRig.Shot(path, cx, cz, 20f, 0f, 89f, 1280, 720);
-                    yield return Drain(path);
-                    CaptureRig.Release();
-                    TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;   // Release gives the sky its own clock back
-                    if (File.Exists(path)) written++;
+                    float x = candidates[attempt].x, z = candidates[attempt].y;
+                    // clean ground first: from straight above an old corpse reads as a standing man and never moves,
+                    // so one left lying in the frame is a body the probe measures as thrown nowhere (leg g1).
+                    var vat = Object.FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
+                    if (vat != null) vat.ClearFallen();
 
-                    if (k == 0)
+                    string slots = DeathLab.Row(Men, x, z, 0, Spacing, 100f);
+                    TestContext.Out.WriteLine($"{run} attempt {attempt + 1} at {x}, {z}: {slots}");
+                    Assert.That(slots, Does.StartWith("slots "), run + ": the row failed: " + slots);
+                    var mine = new List<int>();
+                    foreach (string part in slots.Substring(6).Split(' ')) if (int.TryParse(part, out int slot)) mine.Add(slot);
+
+                    // two seconds to stand and settle before the row is first photographed
+                    float t0 = Time.time + 2f;
+                    while (Time.time < t0) yield return null;
+                    float cx = x + rowWidth * 0.5f, cz = z;   // the shell at the row's middle, so throws stay inside the frame
+
+                    bool dirty = false;
+                    for (int k = 0; k < Moments.Length && !dirty; k++)
                     {
+                        float due = t0 + 1f + Moments[k];   // the burst is at t0 + 1 s; -1 s is the standing row
+                        while (Time.time < due) yield return null;
+                        string path = Path.Combine(dir, $"{tag}_{run}_{MomentNames[k]}.png");
+                        // frozen for the shot only (GoreZoomStills' trick): the tactical camera eases towards a pose and the
+                        // rig puts it back when the queue drains, so a shot taken while it is still moving comes out from the
+                        // wrong place. Queueing the same shot three times did not cure it - blast3's +3 s still landed at
+                        // pitch 85.1, yaw 327 and 1.37 m off, which tilts every body in the frame at once. Hold stops the
+                        // clock dead, so the camera cannot move between the pose and the render.
+                        CaptureRig.Hold(30f);
+                        CaptureRig.Shot(path, cx, cz, 20f, 0f, 89f, 1280, 720);
+                        yield return Drain(path);
+                        CaptureRig.Release();
+                        TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;   // Release gives the sky its own clock back
+
+                        if (k != 0) continue;
+                        // exactly the row and nothing else in the frame, read off the still itself: four living men
+                        // walked into calm1's frame once (drawn_infantry 10 for a row of six), and a wanderer is a
+                        // blob the probe's matcher can pair with a row man. A bad frame is retaken on the next patch.
+                        float drawn = Side(Path.ChangeExtension(path, ".json"), "drawn_infantry");
+                        if (!(Mathf.Abs(drawn - Men) < 0.5f))
+                        {
+                            TestContext.Out.WriteLine($"  {run} attempt {attempt + 1}: drawn_infantry {drawn}, not {Men}: retaking on the next patch");
+                            dirty = true;
+                            break;
+                        }
                         // where each man stood, and whether the controller is the one posing him, logged for the next
                         // leg to read if the numbers come out low (never as the proof: the proof is the pixels)
-                        foreach (int s in mine)
-                            TestContext.Out.WriteLine($"  {run} slot {s} stood at {Host.Local.World.Position[s]} " +
+                        foreach (int slot in mine)
+                            TestContext.Out.WriteLine($"  {run} slot {slot} stood at {Host.Local.World.Position[slot]} " +
                                                       $"(UseAnimationController {Host.UseAnimationController})");
                         // the -1 s still is on disk before the shell is queued, so it is a standing row for certain
                         if (blast) TestContext.Out.WriteLine($"  {run}: {DeathLab.Shell(cx, cz, Radius, Damage)}");
                     }
-                }
-                // the throws, as the controller recorded them: scanned back over the ticks the burst could have fallen on
-                if (blast && Host.Animation != null)
-                {
-                    uint now = Host.Local.World.Tick;
-                    uint oldest = now > 400u ? now - 400u : 0u;
-                    foreach (int s in mine)
+                    if (dirty) { for (int f = 0; f < 30; f++) yield return null; continue; }
+                    shot = true;
+                    used.Add(new Vector2(x, z));
+                    // counted here, not per shot: a retaken run overwrites its own stills, and each must count once
+                    foreach (string moment in MomentNames) if (File.Exists(Path.Combine(dir, $"{tag}_{run}_{moment}.png"))) written++;
+
+                    // the throws, as the controller recorded them: scanned back over the ticks the burst could have fallen on
+                    if (blast && Host.Animation != null)
                     {
-                        bool found = false;
-                        for (uint t = now; t > oldest && !found; t--)
-                            if (Host.Animation.TryDeath(s, t, out var rec))
-                            {
-                                TestContext.Out.WriteLine($"  {run} slot {s} death tick {t}: throw {rec.ThrowX:0.00}, {rec.ThrowZ:0.00}, up {rec.ThrowUp:0.00}");
-                                found = true;
-                            }
-                        if (!found) TestContext.Out.WriteLine($"  {run} slot {s}: no death record in the ring");
+                        uint now = Host.Local.World.Tick;
+                        uint oldest = now > 600u ? now - 600u : 0u;
+                        foreach (int slot in mine)
+                        {
+                            bool found = false;
+                            for (uint t = now; t > oldest && !found; t--)
+                                if (Host.Animation.TryDeath(slot, t, out var rec))
+                                {
+                                    TestContext.Out.WriteLine($"  {run} slot {slot} death tick {t}: throw {rec.ThrowX:0.00}, {rec.ThrowZ:0.00}, up {rec.ThrowUp:0.00}");
+                                    found = true;
+                                }
+                            if (!found) TestContext.Out.WriteLine($"  {run} slot {slot}: no death record in the ring");
+                        }
                     }
+                    for (int f = 0; f < 30; f++) yield return null;
                 }
-                for (int f = 0; f < 30; f++) yield return null;
+                Assert.That(shot, Is.True, run + ": no candidate patch gave a clean frame of exactly " + Men + " men");
             }
 
             CaptureRig.Release();

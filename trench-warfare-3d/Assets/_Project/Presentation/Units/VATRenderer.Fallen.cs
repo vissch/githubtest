@@ -131,6 +131,12 @@ namespace TW.Presentation.Units
 
         void Remove(int index) => fallenMen.RemoveAt(index);
 
+        /// <summary>Take every body off the field. A capture must start on clean ground: from straight above a corpse
+        /// already lying there and a man standing read the same blob, and a corpse does not move when the shell goes
+        /// off, so an old body in the frame is a man the measurement reads as thrown nowhere (leg g1). Only the list
+        /// goes: the instance buffers are refilled from it every frame, so an empty list simply draws nothing.</summary>
+        public void ClearFallen() => fallenMen.Clear();
+
         /// <summary>The shared setup every AddFallen overload starts from: his figure, which row, whether the clip he was
         /// in fades out, and how long he lies. out near: the gag path needs it again for its own rate tweak.</summary>
         FallenMan NewFallen(Vector3 pos, float yaw, int team, int variant, Clip clip, int archetype, Clip fromClip, float fromPhase, float fade, int gib, float grime, int chr, out bool near)

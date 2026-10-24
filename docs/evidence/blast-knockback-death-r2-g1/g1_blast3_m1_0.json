@@ -15,7 +15,7 @@
   "want_y": 52.07724,
   "want_z": 137.09099,
   "pose_error_m": 0,
-  "luma_mean": 0.69643,
+  "luma_mean": 0.69662,
   "luma_p50": 0.77285,
   "luma_p95": 0.83166,
   "blown_frac": 0.00275,
@@ -30,6 +30,6 @@
   "drawn_far": 0,
   "vertices": 11004,
   "shadows": 1,
-  "fallen": 14,
+  "fallen": 0,
   "warnings": ["frame is brighter than a night scene should be"]
 }

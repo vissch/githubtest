@@ -30,6 +30,6 @@
   "drawn_far": 0,
   "vertices": 18340,
   "shadows": 1,
-  "fallen": 21,
+  "fallen": 2,
   "warnings": ["frame is brighter than a night scene should be"]
 }
