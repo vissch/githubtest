@@ -243,8 +243,12 @@ namespace TW.Tests
                     // far from the fight: at 60 m the wide framing still caught other corpses that had fallen on the
                     // patch while the frog was being staged
                     if (Vector2.Distance(new Vector2(xx, zz), crowd) < 120f) continue;
+                    // 25 m apart, not 16: a take's shell lands 13.5 m off its own patch (DeathLab.FrogKill) and its
+                    // crater lifts the ground under the NEXT patch, so the camera could not reach the pose it asked
+                    // for there and ctrl_p05 failed the pose check at 0.54-0.60 m on three runs. 40 m was tried
+                    // first and this field has only two patches of open ground that far apart.
                     bool clear = true;
-                    foreach (var u in spots) if (Vector2.Distance(u, new Vector2(xx, zz)) < 16f) clear = false;
+                    foreach (var u in spots) if (Vector2.Distance(u, new Vector2(xx, zz)) < 25f) clear = false;
                     if (clear && Open(map, xx, zz, 8f)) spots.Add(new Vector2(xx, zz));
                 }
             Assert.That(spots.Count, Is.EqualTo(3), "no three patches of open ground away from the battle");

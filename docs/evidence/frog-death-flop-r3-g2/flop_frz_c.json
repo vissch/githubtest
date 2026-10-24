@@ -15,10 +15,10 @@
   "want_y": 22.8384,
   "want_z": 220.54814,
   "pose_error_m": 0,
-  "luma_mean": 0.72295,
-  "luma_p50": 0.75796,
-  "luma_p95": 0.87192,
-  "blown_frac": 0.02638,
+  "luma_mean": 0.74564,
+  "luma_p50": 0.76973,
+  "luma_p95": 0.87164,
+  "blown_frac": 0.02548,
   "black_frac": 0,
   "men_in_frame": 0,
   "contrast_median": -1,
@@ -37,7 +37,7 @@
   "mark_in_frame": 1,
   "mark_px_per_m": 88.81076,
   "mark_gag": 13,
-  "mark_roll": 13,
+  "mark_roll": 29,
   "mark_figure": 2,
   "warnings": ["more than 2% of the frame is blown out", "frame is brighter than a night scene should be"]
 }

@@ -237,18 +237,23 @@ namespace TW.Presentation
         }
 
         /// <summary>A killed frog flops belly up and his legs twitch (pick A, 2026-10-19): a small hop so the pose reads
-        /// the same whatever killed him, held on its back with half a turn's rest roll (16 of the 32 roll steps a turn —
-        /// VatTint.cs's head comment fixes the format, not recomputed here), and a decaying twitch in the legs.</summary>
+        /// the same whatever killed him, and a decaying twitch in the legs.
+        /// The rest roll is 0, and that is read off the pixels, not planned: in docs/evidence/frog-death-flop-r3-g2,
+        /// ctrl_p15.png (the same death with DeathGags.Pin(0f), so no rest roll) already shows his pale belly and his
+        /// green hands, and flop_p15.png with the old half turn of 16 roll steps showed his dark back instead. The
+        /// death clip lays him on his back by itself; a half turn on top of it put him face down.</summary>
         static GagPlan FrogFlop(ref GagPlan plan, in GagInput g, float a, ref float3 fly)
         {
             plan.Gag = DeathGag.FrogFlop;
-            plan.RestRoll = 16;
+            plan.RestRoll = 0;
             fly = new float3(0f, Towards(0f, 0.35f, a), 0f);
             plan.Rolls = 0;
             plan.PulseQ = (sbyte)VatTintCode(Towards(1f, 1.12f, a)); plan.PulseDur = 0.12f;
             // 3.5 Hz puts a 1 s sampling gap half a cycle out of phase (worst case becomes best case; 5 Hz was a
-            // whole number of cycles per second and could read identical at two stills 1 s apart). 6 roll steps of
-            // amplitude keeps a >=2-step gap a second apart even where the two sine terms (RollStep) nearly cancel.
+            // whole number of cycles per second and could read identical at two stills 1 s apart). With the rest roll
+            // at 0 the twitch is all there is, and 6 roll steps of amplitude gives at worst a 1-step gap a second
+            // apart, near t = 0 where both samples sit close to zero: different, never identical
+            // (FrogDeathTests.TheTwitchReadsASecondApart).
             plan.TwitchRoll = 6f * math.min(1f, a); plan.TwitchHz = 3.5f; plan.TwitchDur = 2.6f * math.min(1f, a);
             return Capped(ref plan, ref fly);
         }

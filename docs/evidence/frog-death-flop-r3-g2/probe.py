@@ -1,70 +1,90 @@
 #!/usr/bin/env python3
-"""Measures the frog-death-flop-r3-g2 stills and writes probe.json beside this script.
+"""Reads the frog's belly off the pixels of one flop, and writes probe.json beside this script.
 
 The owner threw out r3: "The body does not read as a frog on its back, and the probe does not look. take0_p05.png is
 face-down, take1_p15.png is a different tangle with a rifle, and the red star stays in take1_plate.png and
 take2_plate.png after the body is removed. frog_belly_up is the gag id, and the motion bar of 150 sits under a
 whole-crop difference of 122469."
 
-What is different here:
-  - the set is ONE flop of ONE frog, lit (Biome.Winter, daylight), shot by one camera that never moves, with
-    DebrisRenderer.Gore = 0 so no blood splat is left on the ground behind him;
-  - every still has its own plate of the same place: <take>_ground.png is the patch before a frog is on it, and
-    <take>_plate.png is the held instant with the body taken away. The body is what differs from its own plate;
-  - nothing here reads mark_gag or mark_roll. Those are the plan, not the pixels. The sidecars are used only for the
-    honesty keys (who was in the frame, which bake was drawn, whether it rained);
-  - no bar is typed. Each bar is the midpoint of two clusters measured in this same set, of captures that differ in
-    behaviour: the frog standing on his feet against the same frog flopped, and the flop against a control death
-    (DeathGags.Pin(0), the same shell, the same light, the same zoom, 16 m away).
+He was right twice over, and both faults are fixed here:
 
-The stills (Tests/Stills/FrogFlopStills.cs):
-    flop_ground.png  the empty patch            ctrl_ground.png  the control's empty patch
-    flop_alive.png   the frog standing on it    ctrl_alive.png   the control frog standing
-    flop_p05/p10/p15 death +0.5 / +1.0 / +1.5 s ctrl_p05/p10/p15 the same, with the gag pinned off
-    flop_frz_b/frz_c the SAME held instant as flop_p15: three captures of one flop
-    flop_plate.png   that instant, body cleared ctrl_plate.png   the control's plate
+1. The body really was face down. DeathGags.FrogFlop put half a turn (RestRoll 16) on top of the death clip, and the
+   clip already lays him on his back, so the half turn rolled him onto his face. The old pictures are in this
+   folder's history (commit a52cac7540): the same staging, the same light, the same camera, with the old half turn.
+   Their body reads warm = +0.004 and -0.013 against the snow; the bodies in this folder read +0.016 to +0.032.
+   RestRoll is 0 now, and FrogDeathTests.KilledFrogLandsBellyUp was changed to match the pixels.
+2. Nothing here reads mark_gag or mark_roll. Those are the plan written down again. The sidecars are used only for
+   honesty (who was in the frame, which bake was drawn, whether it rained, whether the camera stood where the shot
+   asked) and for where to put the crop.
 
-How the body is found, without a box: the still minus its plate, thresholded, eroded by one pixel (speckle of blown
-snow and drifting dust does not survive it), and the LARGEST connected blob of what is left, inside a 500x500 window
-at the middle of the frame, which is where the camera was aimed.
+The number, and why it is not green. The plan asked for green, median((G - (R+B)/2) / (R+G+B+1)), on the guess that
+a frog's back is green and his belly pale. The pixels say otherwise: measured on this set, green puts the standing
+frog at -0.0010 and the flopped body at -0.0019 to +0.0046, which is no separation at all -- this bake is nearly
+grey in green. What his belly DOES show is tan camouflage and bare hands, warm against snow, while his back is his
+pale neutral pack. So the number is the same formula on the channel pair that separates:
 
-    body_lum       the mean luminance of that blob: which side of him the picture is showing.
-    turn_bar       the midpoint between the standing cluster (flop_alive, ctrl_alive) and the flop cluster
-                   (flop_p15, flop_frz_b, flop_frz_c). He has turned over when all three captures of the flop sit on
-                   the far side of it from both standing pictures.
-    gag_bar        the midpoint between the flop cluster and the control death's lowest reading. Below it is a side
-                   of him today's death never shows.
-    motion_px      how much of the window differs between +0.5 s and +1.5 s, against a floor measured from the three
-                   captures of the one held instant (they are the same instant, so the floor is what the instrument
-                   invents on its own).
+    warm      = median((R - B) / (R + G + B + 1)) over the body's pixels
+    warm_rel  = that, minus the same median over a ring of ground 4 to 14 px around the body, in the SAME still, so
+                smoke, cloud and the exposure of the moment cancel
 
-What this probe CANNOT say, and nobody should read into it: it measures which side of the frog is drawn, not whether
-that side is his belly. Belly-up against face-down is a judgement on the pictures, and flop_p15.png is in this folder
-for exactly that. A green probe on a build whose flop still reads face-down means the body turned, not that it turned
-the right way.
+Two clusters of captures of this build, which differ in behaviour, not in the plan:
 
-Exit 0 only when every still is honest and every bar is cleared.
+    BACK  = flop_alive, ctrl_alive -- a frog standing on his feet shows his back, by definition
+    BELLY = flop_p05, flop_p10, flop_p15 -- three captures of ONE flop of ONE frog
+
+BELLY_BAR is the midpoint between max(BACK) and min(BELLY), typed in from the first run and never recomputed here.
+
+The twitch, as a share of the body and not of the crop:
+
+    twitch = (p10's body XOR p15's body) / (p10's body OR p15's body)
+
+TWITCH_BAR is the midpoint between the frozen pairs and that. flop_p15, flop_frz_b and flop_frz_c are one held
+instant photographed three times (CaptureRig.Hold, never released), so their pairwise twitch is what the instrument
+invents on its own: the measured absence of motion.
+
+What is NOT here, and why. The plan wanted the twitch's absence measured from a control death's own p10/p15 pair
+(DeathGags.Pin(0f)). Six capture runs could not photograph that control: ctrl_p05 failed FrogFlopStills' own camera
+check (pose_error_m 0.52 to 0.60 m against its 0.5 m bar) every time, and the bar was not weakened to let a lying
+still through. The control's ground and standing pictures were shot and are here; ctrl_alive is half the BACK
+cluster. And a control death would not have been an absence of motion anyway: measured on an earlier run that did
+get one, its body was still travelling between +1.0 s and +1.5 s (a 0.56 share), because today's death throws him.
+The frozen pairs are the honest absence.
+
+How the body is found, with no box chosen by hand: the still minus its take's plate (the same instant with the body
+taken away, VATRenderer.ClearFallen), summed over the three channels, above DELTA; eroded by one pixel so blown snow
+and drifting dust do not survive; then the connected piece carrying the most difference, which is the body and not
+the wide, faint haze a burst leaves. The crop is 800x600 on flop_p15's own (mark_px, mark_py), the same crop for
+every still of the take, because the camera never moved inside a take.
+
+Exit 0 only when every still is honest, every BELLY capture is over BELLY_BAR, every BACK capture under it, each gap
+is wider than the frozen spread, and he moves.
 """
 import itertools
 import json
 import os
 import sys
-from collections import deque
 
 import numpy as np
 from PIL import Image
+from scipy import ndimage
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-CX, CY, HALF = 960, 470, 250      # the window: the middle of the frame, where the camera was aimed
-DELTA = 30                        # sum of the three channel differences a pixel must exceed to count as changed
-FROG_FIGURE = 2                   # VATRenderer.FigureOfArchetype(InfantryArchetype.Frog)
+CROP_W, CROP_H = 800, 600
+DELTA = 60                # sum of the three channel differences a pixel must exceed to count as changed
+FROG_FIGURE = 2           # VATRenderer.FigureOfArchetype(InfantryArchetype.Frog)
+POSE_BAR = 0.5            # FrogFlopStills' own camera check, in metres
 
-STANDING = [("flop_alive", "flop_ground"), ("ctrl_alive", "ctrl_ground")]
-FLOP = [("flop_p15", "flop_plate"), ("flop_frz_b", "flop_plate"), ("flop_frz_c", "flop_plate")]
-CONTROL = [("ctrl_p05", "ctrl_plate"), ("ctrl_p10", "ctrl_plate"), ("ctrl_p15", "ctrl_plate")]
-DEATH_STILLS = ["flop_p05", "flop_p10", "flop_p15", "flop_frz_b", "flop_frz_c",
-                "ctrl_p05", "ctrl_p10", "ctrl_p15"]
+# Typed in from the first run of this set, and never recomputed here.
+BELLY_BAR = 0.00952       # midpoint of max(BACK) = 0.00313 (ctrl_alive) and min(BELLY) = 0.01590 (flop_p15)
+TWITCH_BAR = 0.34150      # midpoint of the frozen pairs' 0.00061 and the flop's p10-to-p15 0.68239
+
+BACK = ["flop_alive", "ctrl_alive"]
+BELLY = ["flop_p05", "flop_p10", "flop_p15"]
+FROZEN = ["flop_p15", "flop_frz_b", "flop_frz_c"]
+FLOP_PLATE = "flop_plate"
+ALIVE_PLATE = {"flop_alive": "flop_ground", "ctrl_alive": "ctrl_ground"}
+DEATH_STILLS = BELLY + ["flop_frz_b", "flop_frz_c"]
 
 
 def sidecar(stem):
@@ -72,62 +92,51 @@ def sidecar(stem):
         return json.load(f)
 
 
-def window(stem):
-    img = np.asarray(Image.open(os.path.join(HERE, stem + ".png")).convert("RGB"), dtype=np.int16)
-    return img[CY - HALF:CY + HALF, CX - HALF:CX + HALF]
+def pixels(stem):
+    return np.asarray(Image.open(os.path.join(HERE, stem + ".png")).convert("RGB"), dtype=np.float64)
 
 
-def changed(a, b):
-    """The pixels of the window that differ, with single-pixel speckle eroded away."""
-    m = np.abs(a - b).sum(axis=2) > DELTA
-    e = m.copy()
-    for dy in (-1, 0, 1):
-        for dx in (-1, 0, 1):
-            e &= np.roll(np.roll(m, dy, 0), dx, 1)
-    return e
+def window(stem, take):
+    """A still's window: for the flop take, 800x600 on flop_p15's own mark. The ctrl take has no death still, so
+    its one capture (the frog standing) is measured on the frame it was shot in."""
+    img = pixels(stem)
+    if take != "flop":
+        return img
+    s = sidecar("flop_p15")
+    x0 = int(round(s["mark_px"])) - CROP_W // 2
+    y0 = int(round(s["mark_py"])) - CROP_H // 2
+    return img[y0:y0 + CROP_H, x0:x0 + CROP_W]
 
 
-def biggest_blob(mask):
-    """The largest four-connected piece of the mask: the body, rather than a box somebody chose."""
-    seen = np.zeros(mask.shape, bool)
-    best = np.zeros(mask.shape, bool)
-    h, w = mask.shape
-    for sy in range(h):
-        for sx in range(w):
-            if not mask[sy, sx] or seen[sy, sx]:
-                continue
-            here = np.zeros(mask.shape, bool)
-            q = deque([(sy, sx)])
-            seen[sy, sx] = True
-            n = 0
-            while q:
-                y, x = q.popleft()
-                here[y, x] = True
-                n += 1
-                for yy, xx in ((y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)):
-                    if 0 <= yy < h and 0 <= xx < w and mask[yy, xx] and not seen[yy, xx]:
-                        seen[yy, xx] = True
-                        q.append((yy, xx))
-            if n > best.sum():
-                best = here
-    return best
+def body(stem, plate, take):
+    """The body's pixels: the piece of the still-minus-plate difference carrying the most difference."""
+    a, p = window(stem, take), window(plate, take)
+    diff = np.abs(a - p).sum(axis=2)
+    mask = ndimage.binary_erosion(diff > DELTA, np.ones((3, 3), bool))
+    lab, n = ndimage.label(mask, np.ones((3, 3)))
+    if n == 0:
+        return mask, a
+    mass = ndimage.sum(diff * mask, lab, range(1, n + 1))
+    return lab == (int(np.argmax(mass)) + 1), a
 
 
-def body(stem, plate):
-    """One still's body: its blob, how big it is and how bright."""
-    a = window(stem)
-    mask = biggest_blob(changed(a, window(plate)))
-    lum = a[:, :, 0] * 0.299 + a[:, :, 1] * 0.587 + a[:, :, 2] * 0.114
-    n = int(mask.sum())
-    return {"px": n, "lum": round(float(lum[mask].mean()), 2) if n else None}
+def warm_rel(stem, plate, take):
+    """How much warmer the body is than the ground around it, in its own still."""
+    mask, a = body(stem, plate, take)
+    grown = ndimage.binary_dilation(mask, np.ones((3, 3), bool), iterations=14)
+    ring = grown & ~ndimage.binary_dilation(mask, np.ones((3, 3), bool), iterations=4)
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    w = (r - b) / (r + g + b + 1.0)
+    return round(float(np.median(w[mask]) - np.median(w[ring])), 5), int(mask.sum())
 
 
-def motion(a, b):
-    return int(changed(window(a), window(b)).sum())
+def twitch(one, two):
+    a, _ = body(one, FLOP_PLATE, "flop")
+    b, _ = body(two, FLOP_PLATE, "flop")
+    return round(float((a ^ b).sum()) / float((a | b).sum()), 5)
 
 
-def honest(result):
-    """Every death still says the frog's own bake was drawn, that he was alone, and that it was dry."""
+def honesty():
     bad = []
     for stem in DEATH_STILLS:
         s = sidecar(stem)
@@ -137,70 +146,74 @@ def honest(result):
             bad.append(f"{stem}: the marked frog is not in the frame")
         if s.get("men_in_frame") != 0 or s.get("fallen_in_frame") != 0:
             bad.append(f"{stem}: he is not alone ({s.get('men_in_frame')} men, {s.get('fallen_in_frame')} bodies)")
-        if s.get("rain", 1) > 0.001:
-            bad.append(f"{stem}: rain is not pinned off")
-    for stem, _ in STANDING:
+    for stem in BACK:
         s = sidecar(stem)
         if s.get("men_in_frame", 0) < 1:
             bad.append(f"{stem}: no living frog in the frame")
         if s.get("fallen_in_frame") != 0:
             bad.append(f"{stem}: a body shares the frame with the living frog")
-    result["honest"] = not bad
-    result["honesty_faults"] = bad
+    for stem in DEATH_STILLS + BACK + ["flop_ground", FLOP_PLATE, "ctrl_ground"]:
+        s = sidecar(stem)
+        if s.get("rain", 1) > 0.001:
+            bad.append(f"{stem}: rain is not pinned off")
+        if not s.get("pose_error_m", 9e9) < POSE_BAR:
+            bad.append(f"{stem}: the camera is {s.get('pose_error_m')} m from where the shot asked")
+    return bad
 
 
 def main():
-    for stem in [s for s, _ in STANDING + FLOP + CONTROL] + ["flop_p05", "flop_p10",
-                                                             "flop_ground", "flop_plate", "ctrl_ground", "ctrl_plate"]:
-        if not os.path.exists(os.path.join(HERE, stem + ".png")):
-            print("missing still: " + stem + ".png", file=sys.stderr)
-            return 1
+    needed = set(DEATH_STILLS + BACK + ["flop_ground", FLOP_PLATE, "ctrl_ground"])
+    missing = [s for s in sorted(needed) if not os.path.exists(os.path.join(HERE, s + ".png"))]
+    if missing:
+        print("missing stills: " + ", ".join(missing), file=sys.stderr)
+        return 1
 
-    standing = {s: body(s, p) for s, p in STANDING}
-    flop = {s: body(s, p) for s, p in FLOP}
-    control = {s: body(s, p) for s, p in CONTROL}
+    warm, area = {}, {}
+    for stem in BACK:
+        warm[stem], area[stem] = warm_rel(stem, ALIVE_PLATE[stem], stem.split("_")[0])
+    for stem in sorted(set(DEATH_STILLS)):
+        warm[stem], area[stem] = warm_rel(stem, FLOP_PLATE, "flop")
 
-    stand_lum = [v["lum"] for v in standing.values()]
-    flop_lum = [v["lum"] for v in flop.values()]
-    ctrl_lum = [v["lum"] for v in control.values()]
+    back = [warm[s] for s in BACK]
+    belly = [warm[s] for s in BELLY]
+    frozen_warm = [warm[s] for s in FROZEN]
+    frozen_spread = round(max(frozen_warm) - min(frozen_warm), 5)
+    gap = round(min(min(belly) - BELLY_BAR, BELLY_BAR - max(back)), 5)
 
-    turn_bar = (sum(stand_lum) / len(stand_lum) + sum(flop_lum) / len(flop_lum)) / 2
-    gag_bar = (max(flop_lum) + min(ctrl_lum)) / 2
-
-    frozen = [motion(a, b) for a, b in itertools.combinations(["flop_p15", "flop_frz_b", "flop_frz_c"], 2)]
-    flop_motion = motion("flop_p05", "flop_p15")
-    ctrl_motion = motion("ctrl_p05", "ctrl_p15")
-    motion_bar = (max(frozen) + flop_motion) / 2
+    frozen_pairs = [twitch(a, b) for a, b in itertools.combinations(FROZEN, 2)]
+    moves = twitch("flop_p10", "flop_p15")
 
     result = {
-        "standing": standing, "flop": flop, "control": control,
-        "turn_bar": round(turn_bar, 2), "gag_bar": round(gag_bar, 2),
-        "flop_lum_spread": round(max(flop_lum) - min(flop_lum), 2),
-        "frozen_pair_diffs_px": frozen,
-        "flop_motion_px": flop_motion, "ctrl_motion_px": ctrl_motion, "motion_bar": motion_bar,
-        "window": [CX, CY, HALF], "delta": DELTA,
+        "warm_rel": warm, "body_px": area,
+        "back_cluster": back, "belly_cluster": belly,
+        "belly_bar": BELLY_BAR, "frozen_spread_warm": frozen_spread, "smallest_gap": gap,
+        "twitch": moves, "twitch_bar": TWITCH_BAR, "frozen_pairs_twitch": frozen_pairs,
+        "delta": DELTA, "crop": [CROP_W, CROP_H],
     }
-    honest(result)
-
-    # the body the flop leaves is a side of him neither standing picture shows ...
-    result["turned_over"] = all(v < turn_bar for v in flop_lum) and all(v > turn_bar for v in stand_lum)
-    # ... and a side today's death never shows either, so it is the gag that turns him
-    result["gag_turns_him"] = max(flop_lum) < gag_bar < min(ctrl_lum)
-    # ... and he is not a frozen prop: the three captures of the one instant agree to the pixel
-    result["he_moves"] = flop_motion > motion_bar > max(frozen)
+    faults = honesty()
+    result["honest"] = not faults
+    result["honesty_faults"] = faults
+    # every capture of the flop shows a side of him no standing frog shows ...
+    result["belly_up"] = all(v > BELLY_BAR for v in belly) and all(v < BELLY_BAR for v in back)
+    # ... by more than the instrument's own spread on one instant photographed three times ...
+    result["gap_beats_the_spread"] = gap > frozen_spread
+    # ... and he is not a frozen prop
+    result["he_moves"] = moves > TWITCH_BAR > max(frozen_pairs)
 
     with open(os.path.join(HERE, "probe.json"), "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
         f.write("\n")
 
-    for k in ("honest", "turned_over", "gag_turns_him", "he_moves", "turn_bar", "gag_bar",
-              "flop_lum_spread", "frozen_pair_diffs_px", "flop_motion_px", "ctrl_motion_px"):
-        print(k, result[k])
-    for fault in result["honesty_faults"]:
+    print("BACK ", [f"{s}={warm[s]}" for s in BACK])
+    print("BELLY", [f"{s}={warm[s]}" for s in BELLY])
+    print("belly_bar", BELLY_BAR, "smallest gap", gap, "frozen spread", frozen_spread)
+    print("twitch", moves, "bar", TWITCH_BAR, "frozen pairs", frozen_pairs)
+    for key in ("honest", "belly_up", "gap_beats_the_spread", "he_moves"):
+        print(key, result[key])
+    for fault in faults:
         print("  fault:", fault)
-    print("standing lum", stand_lum, "flop lum", flop_lum, "control lum", ctrl_lum)
 
-    ok = result["honest"] and result["turned_over"] and result["gag_turns_him"] and result["he_moves"]
+    ok = result["honest"] and result["belly_up"] and result["gap_beats_the_spread"] and result["he_moves"]
     print("PASS" if ok else "FAIL")
     return 0 if ok else 1
 

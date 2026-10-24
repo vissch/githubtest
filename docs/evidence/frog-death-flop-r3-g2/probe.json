@@ -1,62 +1,49 @@
 {
-  "standing": {
-    "flop_alive": {
-      "px": 21774,
-      "lum": 143.13
-    },
-    "ctrl_alive": {
-      "px": 15902,
-      "lum": 135.17
-    }
+  "warm_rel": {
+    "flop_alive": 0.00301,
+    "ctrl_alive": 0.00313,
+    "flop_frz_b": 0.01582,
+    "flop_frz_c": 0.01592,
+    "flop_p05": 0.03245,
+    "flop_p10": 0.02588,
+    "flop_p15": 0.0159
   },
-  "flop": {
-    "flop_p15": {
-      "px": 16145,
-      "lum": 64.33
-    },
-    "flop_frz_b": {
-      "px": 16144,
-      "lum": 64.32
-    },
-    "flop_frz_c": {
-      "px": 16142,
-      "lum": 64.31
-    }
+  "body_px": {
+    "flop_alive": 18930,
+    "ctrl_alive": 13542,
+    "flop_frz_b": 11388,
+    "flop_frz_c": 11388,
+    "flop_p05": 11324,
+    "flop_p10": 12015,
+    "flop_p15": 11391
   },
-  "control": {
-    "ctrl_p05": {
-      "px": 13961,
-      "lum": 74.3
-    },
-    "ctrl_p10": {
-      "px": 11735,
-      "lum": 107.48
-    },
-    "ctrl_p15": {
-      "px": 12180,
-      "lum": 93.94
-    }
-  },
-  "turn_bar": 101.73,
-  "gag_bar": 69.31,
-  "flop_lum_spread": 0.02,
-  "frozen_pair_diffs_px": [
-    0,
-    0,
-    0
+  "back_cluster": [
+    0.00301,
+    0.00313
   ],
-  "flop_motion_px": 24266,
-  "ctrl_motion_px": 52884,
-  "motion_bar": 12133.0,
-  "window": [
-    960,
-    470,
-    250
+  "belly_cluster": [
+    0.03245,
+    0.02588,
+    0.0159
   ],
-  "delta": 30,
+  "belly_bar": 0.00952,
+  "frozen_spread_warm": 0.0001,
+  "smallest_gap": 0.00638,
+  "twitch": 0.68239,
+  "twitch_bar": 0.3415,
+  "frozen_pairs_twitch": [
+    0.00061,
+    0.00026,
+    0.00035
+  ],
+  "delta": 60,
+  "crop": [
+    800,
+    600
+  ],
   "honest": true,
   "honesty_faults": [],
-  "turned_over": true,
-  "gag_turns_him": true,
+  "belly_up": true,
+  "gap_beats_the_spread": true,
   "he_moves": true
 }

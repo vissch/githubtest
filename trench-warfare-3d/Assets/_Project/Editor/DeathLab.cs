@@ -154,9 +154,11 @@ namespace TW.Editor
             return s;
         }
 
-        /// <summary>The shell 10 m off (x, z) that kills the frog standing there: the burst's radius reaches him, its
-        /// smoke, dust and crater stay out there, so a close frame on him holds his body alone.</summary>
-        public static string FrogKill(float x = 100f, float z = 120f) => Shell(x + 10f, z, 14f, 600f);
+        /// <summary>The shell 13.5 m off (x, z) that kills the frog standing there: just inside the burst's 14 m
+        /// radius, so it still kills him, and far enough that its smoke stays out there.
+        /// 10 m was measured too close: in docs/evidence/frog-death-flop-r3-g2 the burst's smoke had drifted over
+        /// his body by death +1.0 s, and a colour read of a body lying under orange smoke is a read of the smoke.</summary>
+        public static string FrogKill(float x = 100f, float z = 120f) => Shell(x + 13.5f, z, 14f, 600f);
 
         /// <summary>A machine of the enemy's held where it stands, facing east, and a shell that obliterates it once the
         /// picture draws it there (a machine killed the moment it appears is drawn blending in from the map's corner).</summary>
