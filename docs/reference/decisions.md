@@ -336,6 +336,20 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   opacity he asked for in the same breath; (d) keep the eleven cards and attack the card-to-card cut where it is,
   which reverses this lane's premise and is out of its scope. (b), (c) and (d) are not built without his answer
   (this leg, because each changes a look or reverses the unit's premise).
+  **Round 5, 2026-10-24, where the ridge is in pixels (`seamwhere.py`, look-only, nothing re-shot):** the row
+  carrying `seam_score` 11.427 in capture 1 is **image y 413**, and the stream's own body at that x ends at y 408 -
+  the ridge is 5 px BELOW the fire. In all six stills the mask reaches y 579 and the eroded inner mask's bottom is a
+  near-constant y 551..570 across the right-hand x buckets: `firemask`'s largest connected piece is the stream with
+  the **burning ground pool** merged onto it, though `probe.py`'s docstring promises the pool is excluded. So the
+  number failing the done-when is the pool's straight horizontal top edge, not the owner's cut, and option (a)'s
+  "report the number" now reads: the number is not measuring the thing. Round 4's reading (the glyph clipped by its
+  quad) is wrong on the code - `Flamethrower.cs:655` makes the quad larger than the ink. A stream-only rule (keep
+  the one vertical run containing a tracked spine) was written and measured and is worse than none: near px 18544 /
+  2796 / 15813 against a 25% agreement check, the tip clipped at x 1041 in two of three, so it was reverted and
+  `probe.py` stands as round 4 left it. A fifth option follows from this: (e) **separate the pool from the stream at
+  the source** - a re-shoot with `Book.Pool` suppressed, or a per-book stencil - and measure the seam again before
+  any look is changed. That is a new unit and a harness change, so it is not built here either. See
+  `docs/evidence/flame-jet-opaque-near-2-g1/measurements.md`, "Round 5".
 - **The jet's semi-transparent outer rim: no measured reason left to change it (2026-10-20, lane
   `lane/show/flame-jet-opaque-near-2`):** this unit's plan had two parts. Part 1 (pin the burst's birth clock for a
   capture) is built and pushed (`ee49e7ee4b`). Part 2 was to add a solid `Book.JetBody` row and draw the stream's

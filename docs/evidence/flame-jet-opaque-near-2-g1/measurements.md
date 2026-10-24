@@ -237,3 +237,67 @@ quad clips nothing (a sheet change, `tw-vfx-sheets`); let the lone sheet keep th
 which trades the opacity the owner asked for; or keep the eleven cards and attack the card-to-card cut where it is,
 which is this lane's premise reversed. The lane's own scope says the first two change a look and the third is out
 of scope, so the number is reported and the bars stay where the baseline put them.
+
+## Round 5 — where the ridge is, in pixels (2026-10-24)
+
+No still was re-shot and no look changed. `seamwhere.py` (new, look-only) reuses `probe.py`'s own `firemask`,
+`edges`, `near_and_tip` and `seam_score` and asks one question: **which image row carries `seam_score`?**
+
+**The prediction, written before the result** (round 4 blamed the glyph being clipped by its quad; that reading is
+wrong on the code — `Flamethrower.cs:655` makes the quad *larger* than the ink and `Flipbook_URP.shader:105` samples
+the whole cell, so nothing is clipped): capture 1's near mask of 46558 px against 28063 and 31154, in a window
+shifted 70 px right, means `firemask`'s largest connected piece at age 1.3 s is the stream **with the burning ground
+pool merged onto it**, and the ridge is the pool's straight horizontal top edge, not a cut through the white core.
+
+**The prediction holds.**
+
+| still | mask piece | near third | inner px | seam | the row carrying it | inner bottom y, right-hand buckets |
+|---|---|---|---|---|---|---|
+| jet-t2-1 | 100661 px, x 720..1249, y 208..579 | x 720..895, 46558 px | 36240 | 11.427 @ +0 deg | **image y 413** | 559, 561, 561, 563, 565, 567, 567, 570, 570 |
+| jet-t2-2 | 98916 px, x 645..1218 | x 645..835, 28063 px | 13694 | 2.775 @ +4 deg | row 170/333 (0.51 down) | 551, 559, 561, 561, 563, 565 |
+| jet-t2-3 | 104111 px, x 654..1251 | x 654..852, 31154 px | 17175 | 3.534 @ +2 deg | row 163/322 (0.51 down) | 553, 560, 561, 562, 564, 565, 567 |
+| baseline 1 | 125384 px, x 624..1249 | x 624..831, 34656 px | 20826 | 2.088 @ +2 deg | row 170/349 (0.49 down) | 553, 560, 561, 563, 565 |
+| baseline 2 | 127263 px, x 631..1218 | x 631..826, 33460 px | 19715 | 2.030 @ -54 deg | row 190/345 (0.55 down) | 553, 560, 561, 563, 565 |
+| baseline 3 | 125311 px, x 624..1252 | x 624..832, 34801 px | 20962 | 2.127 @ -52 deg | row 188/351 (0.53 down) | 553, 560, 561, 563, 565 |
+
+Two findings, both in the table:
+
+1. **All six masks carry the ground band.** Every one of them reaches y 579 (near the picture's foot) and its inner
+   mask's bottom is a near-constant 551..570 across the right-hand x buckets — a flat, horizontal floor. `probe.py`'s
+   docstring promises the mask is "the stream, not the pool of burning fuel on the ground"; it is not. The pool is in
+   every number this probe has ever printed, in both builds.
+2. **Capture 1's ridge is not in the stream.** The row is image **y 413**, and at the near third's leftmost bucket
+   (x 727..743) the inner mask runs y 357..408 — the stream's own body ends 5 px *above* the ridge. From the next
+   bucket on the mask jumps down to 559. So y 413 is the horizontal line where the stream's underside meets the fire
+   on the ground, not a cut through the white core. Captures 2 and 3 peak at +4 and +2 degrees halfway down an inner
+   bbox whose bottom is that same floor.
+
+### The attempted fix, and why it was reverted
+
+A `stream_only(m)` was written into `near_and_tip`: the median y of the mask over its leftmost 10% of columns as the
+nozzle spine, then column by column keep only the one vertical run containing the tracked y. Measured, it eats the
+stream rather than the pool:
+
+| still | near px (committed) | near px (stream_only) | mask x1 | seam |
+|---|---|---|---|---|
+| jet-t2-1 | 46558 | 18544 | 1041 (was 1249) | 7.057 |
+| jet-t2-2 | 28063 | **2796** | 1041 (was 1218) | 0.000 (under the inner-px floor) |
+| jet-t2-3 | 31154 | 15813 | 1251 | 3.234 |
+
+A 6.6x spread where the plan's own check asks for 25%, the tip clipped at x 1041 in two of three, one capture with
+nothing left to measure, and `core_over_tip_luma_min` down to 1.492 from 1.954 — the single-run walk snaps to the
+wrong run at the stream's thin waist and abandons the far half of the jet. That is the risk the plan named for this
+step, and its instruction: keep the old `near_and_tip`. `probe.py` is unchanged from round 4 and still exits 1 on
+`seam_score_max` 11.427 alone. The bars did not move; no bar was re-derived, because the metric under it did not
+change.
+
+### What this leg settles, and what it does not
+
+Settled, by measurement: **the number that fails the done-when is not measuring the owner's cut.** It is measuring
+the top edge of the burning ground pool, which `firemask` merges into the stream and which `probe.py` claims it
+excludes. The owner's cut may still be there — this says nothing about it either way — but 11.427 is not it.
+
+Not settled: how to separate the stream from the pool. The one rule this leg could write for it is measurably worse
+than no rule. Separating them honestly needs either a mask the renderer hands over (a per-book stencil or a capture
+with `Book.Pool` suppressed, which is a harness change and a re-shoot) or a geometric rule stronger than a
+column walk. Either is a new unit, not a change of bar. **The bar is not touched to make it pass.**
