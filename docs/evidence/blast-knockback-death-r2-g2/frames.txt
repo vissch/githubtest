@@ -1,0 +1,77 @@
+Blast knockback death, round 2, second look (g2) — the stills, and what is in each. The committed set is pass `a`
+of three identical passes (a, b, c) of the same build: commit a7bb5d9c77 (the corpse counters and the man-from-above
+size) plus this unit's empty-ground plate shot in BlastThrowStills. Every shot: straight down (pitch 89, yaw 0),
+zoom 20, 1280x720, on the Winter day field with rain and squalls off and the weather clock pinned at 30, the game
+clock frozen for the shot (CaptureRig.Hold) so the camera cannot ease between the pose and the render: every
+sidecar reads pose_error_m 0, cam_pitch 89.0, cam_yaw 0. Time.captureDeltaTime is 1/30, so the -1 s to +3 s pair is
+4 s and 124 frames apart (31 fps implied).
+
+view: one row of six men 2.5 m apart, the shot centred on the row's middle, which is where the shell bursts.
+band: T1-ish standoff (zoom 20, ~41 m x 23 m of ground in frame, 32.9 px/m).
+
+What is new in this set: each run is photographed FOUR times, and the first is the bare patch of ground before a
+single man stands on it (`_plate`). Round 2 took its background as the ROI's median colour, so every plank, crate,
+sandbag and old shell hole was foreground and could be matched as a body (blast3 held 89 such blobs). The plate
+subtracts all of that out: the mask is now the man and not the planks.
+
+a_blast1_plate.png | view: top-down on the row | band: zoom 20 | moment: before anyone stands there | clock held: weather pinned 30, game clock frozen for the shot | in frame: the bare patch: planks, crates, sandbags and old shell holes, the probe's background
+a_blast1_m1_0.png | view: top-down on the row | band: zoom 20 | moment: -1 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the row standing, before the shell: 6 men found as an evenly spaced row (six men killed by a 10 m, 600-damage shell at the row's middle (DeathLab.Shell))
+a_blast1_p0_5.png | view: top-down on the row | band: zoom 20 | moment: +0.5 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the burst, the men in the air
+a_blast1_p3_0.png | view: top-down on the row | band: zoom 20 | moment: +3 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: where they came to rest: 5 corpses drawn (drawn_fallen), 6 matched one to one, nearest 0.352 m and median 1.753 m from where each stood
+a_blast2_plate.png | view: top-down on the row | band: zoom 20 | moment: before anyone stands there | clock held: weather pinned 30, game clock frozen for the shot | in frame: the bare patch, the probe's background
+a_blast2_m1_0.png | view: top-down on the row | band: zoom 20 | moment: -1 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the row standing, before the shell (six men killed by a 10 m, 600-damage shell at the row's middle)
+a_blast2_p0_5.png | view: top-down on the row | band: zoom 20 | moment: +0.5 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the burst, the men in the air
+a_blast2_p3_0.png | view: top-down on the row | band: zoom 20 | moment: +3 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: where they came to rest: 6 corpses drawn, 7 matched one to one, nearest 0.958 m and median 2.713 m
+a_blast3_plate.png | view: top-down on the row | band: zoom 20 | moment: before anyone stands there | clock held: weather pinned 30, game clock frozen for the shot | in frame: the bare patch: this one borders a frozen pond and a ruined wall, which is why round 2 read it as speckles
+a_blast3_m1_0.png | view: top-down on the row | band: zoom 20 | moment: -1 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the row standing: 4 of the 6 men read, the other two stand on the wall prop and the mask cannot separate them from it
+a_blast3_p0_5.png | view: top-down on the row | band: zoom 20 | moment: +0.5 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the burst, the men in the air
+a_blast3_p3_0.png | view: top-down on the row | band: zoom 20 | moment: +3 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: where they came to rest: 6 corpses drawn, 4 matched one to one, nearest 0.614 m and median 2.12 m
+a_calm1_plate.png | view: top-down on the row | band: zoom 20 | moment: before anyone stands there | clock held: weather pinned 30, game clock frozen for the shot | in frame: the bare patch, the probe's background
+a_calm1_m1_0.png | view: top-down on the row | band: zoom 20 | moment: -1 s | clock held: weather pinned 30, game clock frozen for the shot | in frame: the row standing (six men left standing, nothing fired: the noise floor)
+a_calm1_p0_5.png | view: top-down on the row | band: zoom 20 | moment: +0.5 s | clock held: weather pinned 30, game clock frozen for the shot | in frame: the same row, half a second on
+a_calm1_p3_0.png | view: top-down on the row | band: zoom 20 | moment: +3 s | clock held: weather pinned 30, game clock frozen for the shot | in frame: the same row, 0.217 m of drift, nearest man 0.005 m
+a_calm2_plate.png | view: top-down on the row | band: zoom 20 | moment: before anyone stands there | clock held: weather pinned 30, game clock frozen for the shot | in frame: the bare patch, the probe's background
+a_calm2_m1_0.png | view: top-down on the row | band: zoom 20 | moment: -1 s | clock held: weather pinned 30, game clock frozen for the shot | in frame: the row standing (the noise floor)
+a_calm2_p0_5.png | view: top-down on the row | band: zoom 20 | moment: +0.5 s | clock held: weather pinned 30, game clock frozen for the shot | in frame: the same row, half a second on
+a_calm2_p3_0.png | view: top-down on the row | band: zoom 20 | moment: +3 s | clock held: weather pinned 30, game clock frozen for the shot | in frame: the same row, 0.215 m of drift, nearest man 0.025 m
+a_calm3_plate.png | view: top-down on the row | band: zoom 20 | moment: before anyone stands there | clock held: weather pinned 30, game clock frozen for the shot | in frame: the bare patch, the probe's background
+a_calm3_m1_0.png | view: top-down on the row | band: zoom 20 | moment: -1 s | clock held: weather pinned 30, game clock frozen for the shot | in frame: the row standing (the noise floor)
+a_calm3_p0_5.png | view: top-down on the row | band: zoom 20 | moment: +0.5 s | clock held: weather pinned 30, game clock frozen for the shot | in frame: the same row, half a second on
+a_calm3_p3_0.png | view: top-down on the row | band: zoom 20 | moment: +3 s | clock held: weather pinned 30, game clock frozen for the shot | in frame: the same row, 1.191 m of drift (one man walked), nearest man 0.106 m
+
+Measured by probe.py into probe.json (exit 0):
+  nearest_body_m 0.352 m, against a bar of 0.30 m
+  per-run nearest [0.352, 0.958, 0.614] m, per-run median [1.753, 2.713, 2.12] m, pooled median 2.56 m
+  noise floor (calm medians) [0.217, 0.215, 1.191] m, calm nearest [0.005, 0.025, 0.106] m
+  drawn_fallen [5, 6, 6] -- corpses the +3 s frame actually drew, against `fallen` [7, 13, 21] the renderer held
+  px_per_m 32.9, frame gap 124 for the 4 s pair
+
+The three passes, same build, same field, fresh batch editor each time: nearest_body_m 0.352, 0.352, 0.352 m. The
+stills are not bit-identical between passes (the snow drifts; the PNGs hash differently), but the measurement does
+not move at all, so the spread is 0.000 m and the 0.30 m bar sits 0.052 m (15%) clear below its minimum. It is
+outside the spread, not inside it.
+
+What this set says, against the goal's three findings:
+  - "the after frame drops the soldier mesh (drawn infantry 0, vertices 0, men in frame 0)": the living counters are
+    still 0 in a +3 s frame, and that is correct -- a dead man is out of the sim world, so there is nothing living
+    left to count. What the frame draws is now counted separately: drawn_fallen is 5-6 in every blast run's +3 s
+    still, with fallen_vertices to match. The -1 s stills read men_in_frame 6 and contrast_median 0.20, where round 2
+    read men_in_frame 0: a man seen from straight above is sized across the screen now, not head to foot.
+  - "blast3's row becomes black speckles": the speckles were the measurement, not the picture. blast3's patch borders
+    a frozen pond and a ruined wall, and round 2's median-colour background made all of it foreground. Against its
+    own plate that clutter subtracts out and blast3 matches 4 bodies out of 30 candidates.
+  - "put the nearest-body bar outside the spread": done, above.
+
+What it does NOT say, for the next round:
+  - The nearest body still only rests 0.352 m from where that man stood. That clears the calm runs' nearest (0.005
+    to 0.106 m) by 3-70x, so it is a real move and not drift -- but it is a third of a metre, and the throw the
+    controller records for these men is 4-10 m out (BlastThrowStills logs it per slot). The gap is downstream of
+    Die, in VATRenderer.ThrowPath / CombatFx.Deaths, exactly where round 2 said to look. This unit makes the number
+    honest and does not close that gap.
+  - `corpses_in_frame` is 0, 1 and 1 while drawn_fallen is 5, 6 and 6: CaptureRig's per-corpse contrast loop is
+    still rejecting bodies the renderer did draw (its corpse_contrast_median is -1 or near it). drawn_fallen comes
+    straight from VATRenderer and is the number the probe gates on; corpses_in_frame is reported but not trusted,
+    and finding out which of its filters eats the bodies is the next piece of this instrument.
+  - blast3's -1 s frame finds 4 men of 6: two stand on a ruined wall prop and the plate cannot separate them from
+    it. The probe's bar is 4 bodies per run, so this passes, but a patch of ground with a wall on the row's strip is
+    not what BlastThrowStills.Open means to pick.

@@ -4,8 +4,9 @@
 // findings, and it is copied in shape from DeathStills (read its header for why it is an [Explicit] EditMode test that
 // enters Play itself).
 //
-// Six runs on open ground, each a row of six men 2.5 m apart, each photographed straight down (pitch 89, zoom 20) at
-// -1 s, +0.5 s and +3 s around the moment a shell bursts: blast1..3 get the shell, calm1..3 get nothing and so give
+// Six runs on open ground, each a row of six men 2.5 m apart, each photographed straight down (pitch 89, zoom 20) four
+// times: the bare patch before anyone stands on it (`plate`, the probe's background), then -1 s, +0.5 s and +3 s
+// around the moment a shell bursts: blast1..3 get the shell, calm1..3 get nothing and so give
 // the probe its noise floor. Straight down means world x and z map onto screen pixels at one scale with no
 // foreshortening to correct, which is what docs/evidence/blast-knockback-death-r2/probe.py measures per body.
 //
@@ -164,6 +165,20 @@ namespace TW.Tests
                 if (x < 0f) { TestContext.Out.WriteLine(run + ": no open ground left"); continue; }
                 used.Add(new Vector2(x, z));
 
+                // the empty ground first, before a single man stands on it: every plank, crate, sandbag and old
+                // shell hole on this patch is in the plate, so the probe can subtract it and mask the man and not
+                // the planks. Shot with the identical Hold/Shot/Drain/Release block the three moments use, from the
+                // same pose, so its pose_error_m is theirs: 0.
+                {
+                    string plate = Path.Combine(dir, $"{tag}_{run}_plate.png");
+                    CaptureRig.Hold(30f);
+                    CaptureRig.Shot(plate, x + rowWidth * 0.5f, z, 20f, 0f, 89f, 1280, 720);
+                    yield return Drain(plate);
+                    CaptureRig.Release();
+                    TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;   // Release gives the sky its own clock back
+                    if (File.Exists(plate)) written++;
+                }
+
                 string slots = DeathLab.Row(Men, x, z, 0, Spacing, 100f);
                 TestContext.Out.WriteLine($"{run} at {x}, {z}: {slots}");
                 Assert.That(slots, Does.StartWith("slots "), run + ": the row failed: " + slots);
@@ -230,7 +245,7 @@ namespace TW.Tests
             Time.captureDeltaTime = 0f;
             yield return new ExitPlayMode();
             TestContext.Out.WriteLine($"wrote {written} stills to {dir}");
-            Assert.That(written, Is.EqualTo(Runs.Length * Moments.Length), "not every moment of every run was photographed");
+            Assert.That(written, Is.EqualTo(Runs.Length * (Moments.Length + 1)), "not every moment of every run, plus its empty-ground plate, was photographed");
 
             // the one number read back out of the stills here: the bodies the +3 s blast frames drew
             foreach (string run in Runs)

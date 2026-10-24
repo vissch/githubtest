@@ -1,0 +1,200 @@
+{
+  "tag": "a",
+  "nearest_body_m": 0.352,
+  "nearest_bar_m": 0.3,
+  "throw_m": 2.56,
+  "per_body_m": [
+    0.352,
+    0.369,
+    1.491,
+    2.016,
+    2.888,
+    3.511,
+    0.958,
+    1.955,
+    2.56,
+    2.713,
+    3.13,
+    4.378,
+    5.223,
+    0.614,
+    1.436,
+    2.804,
+    3.223
+  ],
+  "noise_floor_m": [
+    0.217,
+    0.215,
+    1.191
+  ],
+  "blast_median_m": [
+    1.753,
+    2.713,
+    2.12
+  ],
+  "blast_nearest_m": [
+    0.352,
+    0.958,
+    0.614
+  ],
+  "px_per_m": 32.94,
+  "frame_gap": 124.0,
+  "seconds_gap": 4.0,
+  "fps_implied": 31.0,
+  "fallen_after": [
+    7,
+    13,
+    21
+  ],
+  "drawn_fallen": [
+    5,
+    6,
+    6
+  ],
+  "corpses_in_frame": [
+    0,
+    1,
+    1
+  ],
+  "runs": [
+    {
+      "run": "blast1",
+      "n_standing": 6,
+      "n_candidates": 30,
+      "n_bodies": 6,
+      "man_px": 583.0,
+      "per_body_m": [
+        0.352,
+        0.369,
+        1.491,
+        2.016,
+        2.888,
+        3.511
+      ],
+      "nearest_m": 0.352,
+      "median_m": 1.753,
+      "px_per_m": 32.1,
+      "frame_gap": 124,
+      "fallen_after": 7,
+      "drawn_fallen": 5,
+      "corpses_in_frame": 0,
+      "contrast_median_after": -1
+    },
+    {
+      "run": "blast2",
+      "n_standing": 7,
+      "n_candidates": 24,
+      "n_bodies": 7,
+      "man_px": 581.0,
+      "per_body_m": [
+        0.958,
+        1.955,
+        2.56,
+        2.713,
+        3.13,
+        4.378,
+        5.223
+      ],
+      "nearest_m": 0.958,
+      "median_m": 2.713,
+      "px_per_m": 32.73,
+      "frame_gap": 124,
+      "fallen_after": 13,
+      "drawn_fallen": 6,
+      "corpses_in_frame": 1,
+      "contrast_median_after": -1
+    },
+    {
+      "run": "blast3",
+      "n_standing": 4,
+      "n_candidates": 30,
+      "n_bodies": 4,
+      "man_px": 696.0,
+      "per_body_m": [
+        0.614,
+        1.436,
+        2.804,
+        3.223
+      ],
+      "nearest_m": 0.614,
+      "median_m": 2.12,
+      "px_per_m": 32.57,
+      "frame_gap": 124,
+      "fallen_after": 21,
+      "drawn_fallen": 6,
+      "corpses_in_frame": 1,
+      "contrast_median_after": -1
+    },
+    {
+      "run": "calm1",
+      "n_standing": 8,
+      "n_candidates": 38,
+      "n_bodies": 8,
+      "man_px": 317.5,
+      "per_body_m": [
+        0.005,
+        0.014,
+        0.044,
+        0.081,
+        0.353,
+        0.463,
+        0.466,
+        1.894
+      ],
+      "nearest_m": 0.005,
+      "median_m": 0.217,
+      "px_per_m": 34.65,
+      "frame_gap": 125,
+      "fallen_after": 21,
+      "drawn_fallen": 1,
+      "corpses_in_frame": 0,
+      "contrast_median_after": 0.11835
+    },
+    {
+      "run": "calm2",
+      "n_standing": 6,
+      "n_candidates": 20,
+      "n_bodies": 6,
+      "man_px": 278.0,
+      "per_body_m": [
+        0.025,
+        0.039,
+        0.054,
+        0.376,
+        1.331,
+        1.946
+      ],
+      "nearest_m": 0.025,
+      "median_m": 0.215,
+      "px_per_m": 33.38,
+      "frame_gap": 124,
+      "fallen_after": 18,
+      "drawn_fallen": 0,
+      "corpses_in_frame": 0,
+      "contrast_median_after": 0.06584
+    },
+    {
+      "run": "calm3",
+      "n_standing": 6,
+      "n_candidates": 21,
+      "n_bodies": 6,
+      "man_px": 266.5,
+      "per_body_m": [
+        0.106,
+        0.527,
+        0.586,
+        1.796,
+        5.651,
+        7.221
+      ],
+      "nearest_m": 0.106,
+      "median_m": 1.191,
+      "px_per_m": 33.14,
+      "frame_gap": 124,
+      "fallen_after": 17,
+      "drawn_fallen": 0,
+      "corpses_in_frame": 0,
+      "contrast_median_after": 0.07935
+    }
+  ]
+}
