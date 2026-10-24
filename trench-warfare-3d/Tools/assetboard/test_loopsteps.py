@@ -429,6 +429,26 @@ def main():
          and pp('Pace: 7.0% of the week allowed by 15:11. The day\'s cap is spent.') == 0.0 and pp('Pace: 7% allowed by 1:00, and the day is about 1.2% ahead of that.') == 0.0
          and pp('Today: about 2.3%') is None and pp('Pace: something new') is None)
 
+    # park briefs: every park kind's text goes through briefs.check, the brief tool's own validator (2026-10-24: 62 ids made the why 58 words)
+    import briefs
+    import loopsteps
+    fam = 'ability-fx-captures-r2-2'
+    ids = [f'{fam}-g{i}' + '-g1' * 4 for i in range(62)]
+    long = 'the capture shows the smoke plume clipping through the trench wall and the gate reads it as a fail again ' * 3
+    kinds = {'depth, family': dict(uid=ids[0], rec=dict(deep=True, fails=[], family_ids=ids, why=long)),
+             'depth, one unit': dict(uid=ids[0], rec=dict(deep=True, fails=[], family_ids=[ids[0]], why=long)),
+             'no progress': dict(uid='some-unit', rec=dict(fails=['FAIL 1', 'BLOCKED 2'], why=long)),
+             'refusals': dict(uid='some-unit', rec=dict(fails=['refused'] * 4, refused=['a', 'b', 'c', 'd'], why=long))}
+    bad = {}
+    for k, a in kinds.items():
+        title, what_for, why = loopsteps.park_text(a['uid'], a['rec'], long)
+        opts = ['Try it once more as it stands', 'Drop it: nothing more is built', 'Change it: write in a note what to do instead']
+        r = briefs.check(title, what_for, opts, why, [], 'a unit that went nowhere has nothing to show but its stop records')
+        r += briefs.check_then('It goes back on the queue as it is') + briefs.check_then('Nothing more is built; it stays off the queue')
+        if r:
+            bad[k] = r
+    case('every park kind writes a brief the brief tool accepts (title, for, why, options, then lines within its limits)', not bad, bad)
+
     print(f'{sum(results)} of {len(results)} cases behaved')
     return 0 if all(results) else 1
 
