@@ -6,9 +6,9 @@
       0.0153
     ],
     "seam_score_each": [
-      1.9463,
-      2.0369,
-      1.8997
+      2.0883,
+      2.0303,
+      2.1273
     ],
     "core_over_tip_luma_each": [
       1.961,
@@ -16,7 +16,7 @@
       2.0029
     ],
     "near_edge_corr_max": 0.0172,
-    "seam_score_max": 2.0369,
+    "seam_score_max": 2.1273,
     "core_over_tip_luma_min": 1.961,
     "shas": [
       "0ef36eddf0e73a31c9ce41f7077ba5ec14238f2f8638818f0c48081d48e9a85d",
@@ -26,7 +26,7 @@
   },
   "bars": {
     "EDGE_BAR": 0.0032,
-    "SEAM_BAR": 0.94,
+    "SEAM_BAR": 1.01,
     "LUMA_BAR": 1.6
   },
   "bars_outside_baseline_spread": true,
@@ -37,9 +37,9 @@
       0.0221
     ],
     "seam_score_each": [
-      6.9576,
-      5.1226,
-      5.1093
+      11.1465,
+      2.4889,
+      6.8418
     ],
     "core_over_tip_luma_each": [
       2.2062,
@@ -47,7 +47,7 @@
       1.936
     ],
     "near_edge_corr_max": 0.0318,
-    "seam_score_max": 6.9576,
+    "seam_score_max": 11.1465,
     "core_over_tip_luma_min": 1.936,
     "shas": [
       "d7b0fda40484cae46970d070a5cc873c7eff444a2dad65d83cafcf272b14a468",

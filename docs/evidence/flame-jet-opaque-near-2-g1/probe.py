@@ -17,12 +17,17 @@ What is measured:
                           no-jet plate, over the fire's near third only, at the WORST of the three captures. An
                           opaque body hides the plate's edges and draws its own, unrelated to them, so this falls
                           toward 0; a veil passes them through and it stays high.
-  seam_score              the owner's cut, as a number. Over the near third's fire mask, a straight internal
-                          boundary concentrates Sobel energy on one LINE. For angles -90..88 step 2 the near third's
-                          edge magnitude is rotated (order 1), and over every row whose covered run is at least half
-                          the mask's width we take `row mean / mask mean`; seam_score is the largest such ratio over
-                          all angles, reported as the worst (largest) of the three captures. One sheet has no
-                          internal straight line; two cards meeting have one.
+  seam_score              the owner's cut, as a number, and INTERNAL only. The owner's fault is a line "through the
+                          underside of the white core", so the near third's mask is eroded by 13x13 (about 6 px in
+                          from the fire mask's outline) and nothing on that outline is measured - a lone card's own
+                          hard rim is not a cut. Inside that region a straight internal boundary concentrates Sobel
+                          energy on one LINE: for angles -90..88 step 2 the inner edge magnitude is rotated
+                          (order 1), and over every row whose covered run is at least half the inner width we take
+                          `row mean / inner mean`; seam_score is the largest such ratio over all angles, reported as
+                          the worst (largest) of the three captures. One sheet has no internal straight line; two
+                          cards meeting have one. Round 2 measured the outline instead, and so answered a question
+                          nobody asked: all six captures peaked at exactly 0 degrees, the aim axis, and width,
+                          length and alpha moved the score by 0.5% "because the rim IS the card".
   core_over_tip_luma_min  the LOWEST of the three captures, so a number inside the spread cannot pass.
 
 Where the bars come from. Not from judgement: from the CURRENT build. `baseline/` holds three stills of the build
@@ -33,7 +38,7 @@ be passed off as a pass. The previous round's `edge_spread` bar is gone: only id
 
 The measured baseline triples (this build, 2026-10-24; see measurements.md):
   near_edge_corr   0.0172, 0.0065, 0.0153   min 0.0065 -> EDGE_BAR 0.0032
-  seam_score       1.9463, 2.0369, 1.8997   min 1.8997 -> SEAM_BAR 0.94
+  seam_score       2.0883, 2.0303, 2.1273   min 2.0303 -> SEAM_BAR 1.01   (eroded: internal lines only)
   core_over_tip    1.9610, 2.0237, 2.0029   min 1.9610 (already over LUMA_BAR)
 LUMA_BAR stays 1.6, the owner's standing bar from the round before.
 
@@ -55,8 +60,11 @@ from scipy import ndimage
 HERE = os.path.dirname(os.path.abspath(__file__))
 # Both bars are the midpoint between the baseline minimum and 0, rounded down, so each sits strictly outside the
 # current build's own measured spread. EDGE_BAR keeps four decimals: the baseline's own minimum is 0.0065, so two
-# decimals would round the bar to 0.00 and no build could ever meet it.
-EDGE_BAR, SEAM_BAR, LUMA_BAR = 0.0032, 0.94, 1.6
+# decimals would round the bar to 0.00 and no build could ever meet it. SEAM_BAR was re-derived by that same rule
+# when seam_score changed to measure internal lines only: the eroded baseline minimum is 2.0303, half is 1.01515,
+# rounded down 1.01. The rule did not move, the metric under it did; bars_outside_baseline_spread still refuses any
+# bar sitting inside the current build's own spread.
+EDGE_BAR, SEAM_BAR, LUMA_BAR = 0.0032, 1.01, 1.6
 
 
 def paths(root):
@@ -107,15 +115,22 @@ def corr(a, b):
 
 
 def seam_score(em, near):
-    """The strongest straight line of edge energy inside the near third, at any angle.
+    """The strongest straight line of edge energy INSIDE the fire, at any angle - never its own outline.
 
-    The near third's edge magnitude is kept where the mask is and zeroed elsewhere; the mask itself rides along as a
-    coverage image. At each angle both are rotated, and a row counts only when its covered run is at least half the
-    mask's width, so short rows along the mask's own outline cannot be the answer. The score is the largest row mean
-    over the whole mask's mean: 1 means the energy is spread evenly, a tall number means one line carries it."""
-    band = np.where(near, em, 0.0).astype(np.float32)
-    cov = near.astype(np.float32)
-    ys, xs = np.where(near)
+    The near third's mask is first eroded by 13x13, about 6 px in from the fire mask's outline, and everything is
+    measured over that inner region only: a card's own rim sits ON the outline and is eroded away, while a cut
+    through the underside of the white core is internal and survives. The inner region's edge magnitude is kept
+    where the inner mask is and zeroed elsewhere; the inner mask itself rides along as a coverage image. At each
+    angle both are rotated, and a row counts only when its covered run is at least half the inner region's width,
+    so short rows cannot be the answer. The score is the largest row mean over the inner region's mean: 1 means the
+    energy is spread evenly, a tall number means one internal line carries it. Under 1000 inner pixels there is
+    nothing to measure and the function refuses, returning 0."""
+    inner = ndimage.binary_erosion(near, np.ones((13, 13)))
+    if inner.sum() < 1000:
+        return 0.0, 0.0
+    band = np.where(inner, em, 0.0).astype(np.float32)
+    cov = inner.astype(np.float32)
+    ys, xs = np.where(inner)
     y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
     band, cov = band[y0:y1, x0:x1], cov[y0:y1, x0:x1]
     width = x1 - x0

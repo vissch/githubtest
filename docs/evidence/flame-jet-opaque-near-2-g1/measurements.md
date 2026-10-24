@@ -116,3 +116,61 @@ sheet trades a short internal cut for a long external one. The bars stay exactly
 probe exits 1. The next move is the owner's, and the two candidates are in the leg note: soften `JetCore`'s rim
 (drop `_Solid` for this one card, or feather its alpha at the quad edge) so a lone sheet has no hard boundary, or
 keep the eleven cards and attack the cut where it is - neither is a number this lane may choose on its own.
+
+## Round 3 - the seam measured inside the mask, 2026-10-24
+
+Round 2's `seam_score` could not tell a cut from an outline. All six captures peaked at exactly 0 degrees, the aim
+axis, and width, length and alpha moved the score by 0.5% "because the rim IS the card". The owner's fault is a line
+*through the underside of the white core*: internal. So `seam_score` now erodes the near third's mask by 13x13
+(about 6 px in from the fire mask's own outline) and scores only inside that region. No png was re-shot: both
+triples below are the same committed stills, measured again.
+
+Prediction this run tested: the eleven-card baseline's cut is internal, so its eroded seam must stay well above 1.0
+while the one sheet's falls. **Half of it held.** The baseline stayed above 1.0 - the metric still measures
+something - but the one sheet's did not fall. It rose.
+
+### The eleven cards (`baseline/`, the build at `3738dc6584`)
+
+| still | age | near px | eroded seam_score | angle |
+|---|---|---|---|---|
+| jet-t2-1.png | 1.3 s | 34656 | 2.088 | +2 deg |
+| jet-t2-2.png | 1.5 s | 33460 | 2.030 | -54 deg |
+| jet-t2-3.png | 1.7 s | 34801 | 2.127 | -52 deg |
+
+Min 2.0303. Two of the three now peak near -53 degrees, not on the aim axis: with the outline gone the metric finds
+a different, internal line. That is the erosion doing its job.
+
+### The one sheet (folder root, the build at `fd68de7cd4`)
+
+| still | age | near px | eroded seam_score | angle |
+|---|---|---|---|---|
+| jet-t2-1.png | 1.3 s | 46507 | 11.146 | +0 deg |
+| jet-t2-2.png | 1.5 s | 28561 | 2.489 | +70 deg |
+| jet-t2-3.png | 1.7 s | 31925 | 6.842 | +0 deg |
+
+Max 11.146, worse than round 2's own 6.958. Two of the three still peak at exactly 0 degrees, 6 px inside the fire.
+
+### The new bar and its arithmetic
+
+`SEAM_BAR` is re-derived by the rule already in use - half the baseline minimum, rounded down to two decimals -
+because the metric under it changed: 2.0303 / 2 = 1.01515 -> **1.01**. `EDGE_BAR` 0.0032 and `LUMA_BAR` 1.6 do not
+move. The probe's `bars_outside_baseline_spread` check still refuses a bar sitting inside the current build's own
+spread, so the guard the owner asked for stays in force.
+
+### Verdict
+
+| bar | wanted | baseline (eleven cards) | one sheet | verdict |
+|---|---|---|---|---|
+| `seam_score_max` (internal) | <= 1.01 | 2.0303 (min) | **11.146** | far worse |
+| `near_edge_corr_max` | <= 0.0032 | 0.0172 | **0.0318** | worse |
+| `core_over_tip_luma_min` | >= 1.6 | 1.9610 | 1.936 | over the bar |
+
+`python docs/evidence/flame-jet-opaque-near-2-g1/probe.py` exits 1; `--baseline` exits 0.
+
+The round-2 reading was that the one sheet's straight line was only its own rim, and that a fairer, internal metric
+would clear it. The internal metric says otherwise: a hard horizontal line along the aim axis is still there 6 px
+inside the fire, and it is five times the eleven cards'. `Book.JetCore` is `_Solid`, so the shader keeps the card's
+keyed fringe fully opaque; the resulting hard top and bottom boundary casts a Sobel ridge that reaches well inside
+the mask, and one long card concentrates it where eleven short overlapping ones did not. The remedy is therefore
+the opacity path, not the card count: soften `JetCore`'s rim so a lone sheet has no hard boundary at all. That is
+the next leg's step 6, and it changes a look.
