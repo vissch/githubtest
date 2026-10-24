@@ -676,10 +676,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `python docs/evidence/flame-jet-opaque-near-2-g2/probe.py` is the third try, after the owner said the orange tip
   carries a white loop that reads as a card stroke: it measures `tip_white_frac` (bright-and-not-warm px over the
   fire's last third, at the worst of three captures), with `tip_px_ratio` and the carried-over `near_edge_corr`
-  as the guards against faking it. It exits **1** on this tree and the folder's `measurements.md` says why: the
-  baseline it took from the previous round does not reproduce on this build (the stream measures 509 px, not
-  588 px), so its bar and its `TIP_PX_REF` are not this build's, and the question is open for the owner
-  (2026-10-24).
+  as the guards against faking it. It exits 0 at **0.0434** white (half the 0.0868 this build measures, so the bar
+  sits outside the spread of three captures of it), a spread of 0.01, `tip_px_ratio` 0.85..1.15 and
+  `near_edge_corr` 0.15; the shipped stills measure 0.0006, 0.0000, 0.976 and +0.0186. The stroke was the HOT core
+  chain's wide cream card faces spilling past the hot band - an ablation of every emitter in the jet put 98% of it
+  there - and `Flamethrower.HotGlow` bounds their extra glow to the band, alpha untouched, guarded by
+  `FlameJetCoreTests.HotCoreGlowIsSpentBeforeTheOrangeBand` (2026-10-24).
 - **Trap:** `FlipbookFx` indexes its sheets by the `Book` enum's ordinal and is only `Ready` when every sheet loads.
   A missing PNG or a row out of order silently disables every flipbook in the game. Add the enum entry, the row and
   the PNG together, and check `books.Ready`.

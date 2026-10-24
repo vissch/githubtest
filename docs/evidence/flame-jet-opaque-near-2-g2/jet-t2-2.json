@@ -15,11 +15,11 @@
   "want_y": 17.60972,
   "want_z": 104,
   "pose_error_m": 0,
-  "luma_mean": 0.24189,
-  "luma_p50": 0.18617,
-  "luma_p95": 0.64189,
-  "blown_frac": 0.02162,
-  "black_frac": 0.0002,
+  "luma_mean": 0.23796,
+  "luma_p50": 0.18589,
+  "luma_p95": 0.59609,
+  "blown_frac": 0.01506,
+  "black_frac": 0.00022,
   "men_in_frame": 0,
   "contrast_median": -1,
   "contrast_p10": -1,
@@ -31,5 +31,5 @@
   "vertices": 0,
   "shadows": 1,
   "fallen": 0,
-  "warnings": ["more than 2% of the frame is blown out"]
+  "warnings": []
 }

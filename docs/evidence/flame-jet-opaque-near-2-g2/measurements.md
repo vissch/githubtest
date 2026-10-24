@@ -262,3 +262,48 @@ cards' faces reach, or how bright they are past the hot band - not delete them.
 
 Part 3 of the plan (steps 9-11) makes the cut, on suspect K, with `tip_px_ratio` 0.85..1.15 and
 `near_edge_corr_max` <= 0.15 as the two things it may not spend.
+
+# Part 5: the cut, and the four numbers after it (2026-10-24)
+
+The cut is `Flamethrower.HotGlow`, on suspect K of part 4's table - the hot core chain, which carried 98% of the
+white in the orange band. It takes nothing away from the mouth and deletes no card: the hot links' **extra** glow
+(x2.3 on the main chain, x2.2 and x2.1 on the two staggered passes) is now full at the nozzle and gone by the end
+of the hot band, so a hot card's wide cream face that reaches past the band is drawn at the cool chain's own
+brightness and reads as orange. **Alpha is untouched**, which is what keeps the near third as opaque as it was and
+`near_edge_corr` where it was. This is the owner's 2026-10-19 reversal applied to the one emitter that had never
+had it: heat at the mouth, orange to the tip, soot past it.
+
+Three after stills, `TW_FLAME_CAP` 1, 2 and 3, one batch editor session each, `TW_STILLS_DIR` pointing here. They
+are one md5 (`1cf355c2fcbdb6daaa3845df648c5a1f`), as the pinned clock predicts. The plate `bg-t2.png` was not
+recaptured: it fires no burst.
+
+## The four probe numbers
+
+    tip_white_frac_max     = 0.0006   (bar <= 0.0434)        was 0.0868
+    tip_white_spread       = 0.0000   (bar <= 0.01)
+    tip_px_ratio           = 0.976    (bar 0.85..1.15)       34 121 px against the before median 34 948
+    near_edge_corr_max     = +0.0186  (bar <= 0.15)          was +0.0176
+
+    python docs/evidence/flame-jet-opaque-near-2-g2/probe.py   -> exit 0
+
+The white in the last third fell from 3 032 px to **22 px**, in 8 pieces none bigger than 10 px: there is no stroke
+left to see. `whitemap.py` on the after still:
+
+    white per tenth (nozzle -> tip): 0.049 0.113 0.116 0.060 0.064 0.052 0.006 0.001 0.000 0.000
+
+The first six tenths are unchanged to the third decimal - the mouth and the hot band kept their white-hot core -
+and the seventh onwards, the orange band, goes to nothing. That is the shape the owner asked for, and it is why
+`tip_px_ratio` only moved 2.4%: the fire px in the tip were always the orange cards', never the cream faces'.
+
+## The guard
+
+`FlameJetCoreTests.HotCoreGlowIsSpentBeforeTheOrangeBand`, written like `FlameJetTipCoolsToSoot`: full heat at
+u 0, nothing at `HotThird` and past it, at most half of it by the middle of the band, and never hotter again
+downstream. Its bars come from part 4's measured 98% share and from the probe's bar, not from the formula.
+
+    unity -runTests -testPlatform EditMode -testFilter FlameJetCoreTests   -> 5 of 5 passed
+
+## State after part 5
+
+    python docs/evidence/flame-jet-opaque-near-2-g2/probe.py       -> exit 0   (the unit's done_when)
+    python docs/evidence/flame-jet-opaque-near-2-g2/whitemap.py    -> exit 0

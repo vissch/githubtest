@@ -1,4 +1,4 @@
-// Phase: A5c (show side) - the Flammenwerfer-Trupp's fire. Four things burn here:
+﻿// Phase: A5c (show side) - the Flammenwerfer-Trupp's fire. Four things burn here:
 //
 //   the JET      a stream held on a target for as long as the man has fuel
 //   a POOL       burning fuel left on the ground where the stream swept, which outlives the burst
@@ -508,6 +508,22 @@ namespace TW.Presentation.Tactical
         /// <summary>How much of the run burns as the white-hot core: the owner's "first third".</summary>
         public const float HotThird = 0.34f;
 
+        /// <summary>
+        /// How much of the hot core chain's EXTRA heat is left at u along the run: 1 at the mouth, nothing by the
+        /// end of the hot band. The hot links are drawn at x1.8 thickness over 2.3 link steps, so their cards are
+        /// wide enough that their faces reach two thirds of the way down the stream, and the ablation in
+        /// `docs/evidence/flame-jet-opaque-near-2-g2/measurements.md` (part 4, suspect K) measured them as 98% of
+        /// the white sitting in the orange band: cut the hot chain and 3 032 px of last-third white fall to 59.
+        /// Nothing there was clipped and 99.9% of it was cream, so it is those cards' own crescent faces, not
+        /// additive stacking. They cannot simply go - without them the near third loses the opaque body
+        /// near_edge_corr guards - so the extra glow that makes them read white is bounded instead: full at the
+        /// nozzle, where the owner's 2026-10-19 reversal wants the heat, and gone where the band ends, so a face
+        /// spilling past the band carries the cool chain's brightness and reads as orange, not as a white stroke.
+        /// Alpha is untouched: the near third stays as opaque as it was.
+        /// </summary>
+        public static float HotGlow(float u)
+            => u >= HotThird ? 0f : 1f - u / HotThird;
+
         static Vector3 Arc(Camera cam, float u, float len, Vector3 along)
         {
             Vector3 down = cam != null
@@ -865,7 +881,7 @@ namespace TW.Presentation.Tactical
                                   // Past it CoreCool cools the chain towards soot, so the cream crescent stops
                                   // drawing a white stroke through the orange band (see CoreCool).
                                   alpha: valve * drawnWeight * CoreCool(u),
-                                  glow: glow * (hot ? 2.3f : 1f) * CoreCool(u), velocity: j.ManVel,
+                                  glow: glow * (hot ? Mathf.Lerp(1f, 2.3f, HotGlow(u)) : 1f) * CoreCool(u), velocity: j.ManVel,
                                   startFrame: Mathf.Max(3f, 16f - (CoreLinks - 1 - i) * 2.2f));
                         // Two extra hot cards, laid half a step along from the first and third links and turned the
                         // other way, so the near third is covered TWICE over. One chain of curls still left the
@@ -888,7 +904,7 @@ namespace TW.Presentation.Tactical
                                       roll: (cFlip ? roll : roll + Mathf.PI)
                                           + (Mathf.PerlinNoise(j.Seed + i * 5.1f, 4.5f) - 0.5f) * 0.40f,
                                       height: cH * 0.92f,
-                                      alpha: valve * drawnWeight, glow: glow * 2.2f, velocity: j.ManVel,
+                                      alpha: valve * drawnWeight, glow: glow * Mathf.Lerp(1f, 2.2f, HotGlow(u)), velocity: j.ManVel,
                                       startFrame: Mathf.Max(3f, 15f - (CoreLinks - 1 - i) * 2.2f));
                             books.Add(cBook,
                                       mouth + along * (cStep * (i + 0.15f)) + Arc(cam, u, len, along),
@@ -898,7 +914,7 @@ namespace TW.Presentation.Tactical
                                       roll: (cFlip ? roll + Mathf.PI : roll)
                                           + (Mathf.PerlinNoise(j.Seed + i * 6.7f, 5.5f) - 0.5f) * 0.40f,
                                       height: cH * 1.15f,
-                                      alpha: valve * drawnWeight, glow: glow * 2.1f, velocity: j.ManVel,
+                                      alpha: valve * drawnWeight, glow: glow * Mathf.Lerp(1f, 2.1f, HotGlow(u)), velocity: j.ManVel,
                                       startFrame: Mathf.Max(3f, 14f - (CoreLinks - 1 - i) * 2.2f));
                         }
                     }

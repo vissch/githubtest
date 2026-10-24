@@ -1,4 +1,4 @@
-// Phase: VFX pass (owner, 2026-10-19) - the flamethrower jet's near third as an opaque white-hot core.
+﻿// Phase: VFX pass (owner, 2026-10-19) - the flamethrower jet's near third as an opaque white-hot core.
 // Harsh critic r1 (41/100) fix 1 on flame-jet-core, 2026-10-19: by eye the jet's near third was see-through -
 // hedgehogs and stakes read straight through it at x 330-480 of jet-t2-after.png - while the old see_through_frac
 // probe called any 6/255 of tint "opaque" and so measured 0.0. The near third is the owner's opaque white-hot core
@@ -69,6 +69,42 @@ namespace TW.Tests
 
             // by the tip it is soot: at most a bit over a third of the mouth's brightness
             Assert.LessOrEqual(Flamethrower.CoreCool(1f), 0.4f, "at the tip the core chain reads as soot, not as a white stroke");
+        }
+
+        // The cut of flame-jet-opaque-near-2-g2 (2026-10-24). CoreCool was not the emitter: the ablation in
+        // docs/evidence/flame-jet-opaque-near-2-g2/measurements.md (part 4, suspect K) cut the HOT core chain and
+        // the last third's white fell from 3 032 px to 59 - 98% of it - while cutting any other emitter made the
+        // stroke worse. So the white in the orange band is the hot links' own wide cream faces spilling past the
+        // band, and Flamethrower.HotGlow bounds their extra heat instead of deleting them. The bars below come
+        // from that measured share and from the probe's bar (half the 0.0868 baseline), not from the formula:
+        // if the hot faces carry 98% of the white, their extra glow must be mostly spent before the band ends,
+        // and must be worth nothing at all past it.
+        [Test]
+        public void HotCoreGlowIsSpentBeforeTheOrangeBand()
+        {
+            // at the nozzle the owner's white-hot mouth keeps every bit of its extra heat
+            Assert.AreEqual(1f, Flamethrower.HotGlow(0f), 1e-6f, "the mouth is the white-hot core: nothing is taken off it");
+
+            // past the hot band a hot card's face carries no extra heat at all, so a face spilling into the
+            // orange band is drawn at the cool chain's brightness and reads as orange
+            foreach (float u in new[] { Flamethrower.HotThird, 0.5f, 0.75f, 1f })
+                Assert.AreEqual(0f, Flamethrower.HotGlow(u), 1e-6f,
+                                $"at u={u} the stream is the orange band, so the hot chain's extra glow is gone");
+
+            // and it is spent gradually, at least half of it by the middle of the band: the faces that reach the
+            // last third are the far links', and they are what the 98% share was measured on
+            Assert.LessOrEqual(Flamethrower.HotGlow(Flamethrower.HotThird * 0.5f), 0.5f,
+                               "half way down the hot band the extra heat is already at most half: the far links are what paints the orange band");
+
+            // never a brighter card downstream of a dimmer one
+            float prev = Flamethrower.HotGlow(0f);
+            for (int i = 0; i <= 50; i++)
+            {
+                float g = Flamethrower.HotGlow(i / 50f);
+                Assert.LessOrEqual(g, prev + 1e-6f, $"the hot chain must not get hotter again at u={i / 50f}");
+                Assert.GreaterOrEqual(g, 0f, "the extra heat never goes negative");
+                prev = g;
+            }
         }
 
         [Test]
