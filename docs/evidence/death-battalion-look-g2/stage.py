@@ -110,6 +110,21 @@ def clip_of(slot):
     return ev(HOST + 'return h.Animation.State[' + str(slot) + '].Clip.ToString();')
 
 
+def match_pose(ref_slot, slot):
+    """Copy the reference man's whole AnimState onto slot, keeping slot's own identity (step 4)."""
+    ev(HOST + 'var r=h.Animation.State[' + str(ref_slot) + '];'
+       'var s=h.Animation.State[' + str(slot) + '];var g=s.Generation;var d=s.Dead;s=r;'
+       's.Generation=g;s.Dead=d;h.Animation.State[' + str(slot) + ']=s;h.Animation.Advance(0f);'
+       'return "ok";')
+
+
+def frame_yaw_of(slot):
+    v = ev(HOST + 'var s=h.Animation.State[' + str(slot) + '];'
+           'return s.Frame+" "+s.ShownYaw;')
+    f, y = v.split(' ')
+    return (float(f), float(y))
+
+
 def shot(path, x, z):
     ev('return TW.Editor.CaptureRig.Shot(@"' + path + '", ' + str(x) + 'f, ' + str(z) + 'f, '
        + str(CAM['zoom']) + 'f, ' + str(CAM['yaw']) + 'f, ' + str(CAM['pitch']) + 'f, '
@@ -171,6 +186,16 @@ def capture():
             time.sleep(3)
             continue
         print('instant ' + str(done) + ': all three in ' + clips[STEMS[0]])
+        ref = slots[STEMS[0]]
+        for stem in STEMS[1:]:
+            match_pose(ref, slots[stem])
+        frames = dict((s, frame_yaw_of(slots[s])) for s in STEMS)
+        print('instant ' + str(done) + ' poses: ' + str(frames))
+        base = frames[STEMS[0]]
+        drift = [s for s in STEMS[1:]
+                 if abs(frames[s][0] - base[0]) > 0.001 or abs(frames[s][1] - base[1]) > 0.001]
+        if drift:
+            raise RuntimeError('pose drifted before the shot for: ' + ', '.join(drift) + ' ' + str(frames))
         for stem in STEMS:
             place(slots[stem], *SPOT)
             shot(str(OUT / (stem + '_t1_' + str(done) + '.png')), *SPOT)
