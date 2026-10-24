@@ -129,11 +129,17 @@ Shader "TW/Flipbook (URP)"
                 // sheets are keyed with a soft edge, so the fringe and the thin interior wash come out part-alpha and
                 // the ground reads straight through them. Remap the keyed ramp so anything the artist drew at all goes
                 // opaque and only true holes stay holes. _Solid is 0 for every other book, so they are drawn bit for bit.
-                // The ramp, and not harder than this. 0.10/0.12 was tried on 2026-10-19 and bought nothing:
-                // near_edge_corr stayed at 0.164 and core_over_tip_luma_min fell to 1.351. The field that still
-                // shows through the near third is not this ramp's doing, so hardening it further only costs the
-                // drawing its own edge.
-                if (_Solid > 0.5) alpha = saturate((tex.a - 0.18) / 0.22) * i.tone.x * i.opacity;
+                // The ramp goes the OTHER way, and this is why (2026-10-24). 0.10/0.12 was tried on 2026-10-19 and
+                // bought nothing: near_edge_corr stayed at 0.164 and core_over_tip_luma_min fell to 1.351. Hardening
+                // it is not what the near third needed. What it needed is the opposite: at 0.18/0.22 the glyph is
+                // fully opaque by tex.a 0.40, so the drawing's own fringe ENDS ON A CONTOUR - a step from clear to
+                // solid along a level line of the alpha channel. With the hot band drawn as one card that contour is
+                // the card's rim, and the rim of a quad is straight: seam_score went 2.03 to 11.15 and every capture
+                // landed at exactly 0 degrees. Nothing about a width, a length or an alpha moves a contour; only the
+                // ramp it sits on does. Over 0.06..0.66 the same fringe fades across a band of pixels instead, so
+                // the sheet has no level line to read as a cut, and the low end picks up the faint ink at the
+                // nozzle that 0.18 was throwing away.
+                if (_Solid > 0.5) alpha = saturate((tex.a - 0.06) / 0.60) * i.tone.x * i.opacity;
                 // AOSA C61 (fx.smokeHard, the smoke and the burst's cloud only): a toon cut instead of the drawing's soft
                 // alpha falloff. The silhouette (torn as above when the book erodes) is stepped at half, about a pixel wide,
                 // and the cloud inside it keeps its fade and opacity, so it thins as a whole and tears at hard edges. The

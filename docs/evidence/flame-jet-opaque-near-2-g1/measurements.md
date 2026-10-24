@@ -174,3 +174,66 @@ keyed fringe fully opaque; the resulting hard top and bottom boundary casts a So
 the mask, and one long card concentrates it where eleven short overlapping ones did not. The remedy is therefore
 the opacity path, not the card count: soften `JetCore`'s rim so a lone sheet has no hard boundary at all. That is
 the next leg's step 6, and it changes a look.
+
+## Round 4 - the rim's ramp widened, and the nozzle centre pulled back, 2026-10-24
+
+Round 3's conclusion named the opacity path as the remedy: "soften `JetCore`'s rim so a lone sheet has no hard
+boundary at all". Two changes, shot together in one round of four sessions:
+
+1. **`Flipbook_URP.shader:136`**, the `_Solid` branch: `saturate((tex.a - 0.18) / 0.22)` -> `(tex.a - 0.06) / 0.60`.
+   At 0.18/0.22 the glyph is fully opaque by `tex.a` 0.40, so the drawing's fringe ends on a *level line* of the
+   alpha channel - a step from clear to solid. Over 0.06..0.66 the same fringe fades across a band of pixels.
+   `Solid = true` is on the `FireCore`/`JetCore` row alone (`FlameJetCoreTests.OnlyTheJetCoreIsSolid` guards it),
+   so no other book moved.
+2. **`Flamethrower.cs`**, the one sheet's centre: `HotThird * len * 0.50` -> `0.42`. The sheet is 1.30 of the band
+   long, so from the middle it hung 0.15 of a band past both ends; at 0.42 it reaches 0.23 behind the mouth and
+   still 1.07 past it, which keeps the hand-over to the first warm link covered.
+
+The two were not measured apart. Each round costs four editor sessions, and round 3's number already said the
+placement nudge can only move `near_edge_corr`, never the seam, so separating them buys no reading the seam column
+does not already give.
+
+Three distinct pngs, same harness, same pose, same pinned clock, one editor session per still. `bg-t2.png` came
+back byte-identical to round 3's (it fires no burst), which is the harness's own repeatability check passing.
+
+    8f481d39071d5d465a3da2d5efe9b0e4  jet-t2-1.png   age 1.3 s
+    842ae2c998188730893ce67a291f6ea7  jet-t2-2.png   age 1.5 s
+    21de1fb7d15bc671a86b61c92b9a862d  jet-t2-3.png   age 1.7 s
+    80f6f58d24177de0eb7e4e9393765e2a  bg-t2.png      the plate, unchanged
+
+| still | age | fire mask x | near px | near_edge_corr | eroded seam_score | core_over_tip |
+|---|---|---|---|---|---|---|
+| jet-t2-1.png | 1.3 s | 720..1249 (530) | 46558 | -0.0155 | 11.427 @ +0 deg | 2.203 |
+| jet-t2-2.png | 1.5 s | 645..1218 (574) | 28063 | -0.0326 | 2.775 @ +4 deg | 2.086 |
+| jet-t2-3.png | 1.7 s | 654..1251 (598) | 31154 | -0.0151 | 3.534 @ +2 deg | 1.954 |
+
+### Verdict
+
+| bar | wanted | baseline (eleven cards) | round 3 (one sheet) | round 4 | verdict |
+|---|---|---|---|---|---|
+| `near_edge_corr_max` | <= 0.0032 | 0.0172 | +0.0318 | **-0.0151** | **passes** |
+| `core_over_tip_luma_min` | >= 1.6 | 1.9610 | 1.936 | **1.954** | passes |
+| `seam_score_max` (internal) | <= 1.01 | 2.0303 (min) | 11.146 | **11.427** | **fails** |
+
+`python docs/evidence/flame-jet-opaque-near-2-g1/probe.py` exits 1, on `seam_score_max` alone.
+
+**The nozzle hole is closed and the edge bar is earned.** `near_edge_corr` went +0.0318 to -0.0151, past 0 and
+below EDGE_BAR 0.0032: the near third no longer lets the plate's stakes read through it anywhere, and it is the
+first build in this lane to clear that bar - the eleven-card baseline never did either (+0.0065 at best). The
+previous leg's open question, "the jet's EDGE_BAR cannot be earned, near_edge_corr straddles zero in both builds",
+is answered by measurement: it can, and this build earns it. `core_over_tip_luma` did not pay for it (1.936 ->
+1.954), so the wider ramp cost the core none of its brightness over the tip.
+
+**The seam did not move, and the ramp was its last named lever.** 11.146 -> 11.427, still at exactly 0 degrees in
+capture 1. Two of the three improved a lot (6.842 -> 3.534 and 2.489 -> 2.775 is a wash, but round 2's 5.11/5.12
+pair is gone), and the max is carried entirely by capture 1 at age 1.3 s - the capture whose near mask is 46.5k px
+against 28-31k for the other two, half again as much fire in the band. So the ridge is not the keyed fringe's
+contour: widening the ramp over three times its old width changed it by 2.5%. What is left at 0 degrees after the
+fringe is softened is the card's own UV/geometry boundary - the sheet is drawn with `Fill = 0.90`, so the glyph
+runs to within a tenth of the cell and is clipped by the quad, which no alpha ramp can feather.
+
+Three remedies remain, and all three are the owner's call, not this lane's: inset the glyph inside its cell so the
+quad clips nothing (a sheet change, `tw-vfx-sheets`); let the lone sheet keep the depth soften that `_Solid` skips,
+which trades the opacity the owner asked for; or keep the eleven cards and attack the card-to-card cut where it is,
+which is this lane's premise reversed. The lane's own scope says the first two change a look and the third is out
+of scope, so the number is reported and the bars stay where the baseline put them.
