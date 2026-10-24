@@ -642,6 +642,12 @@ namespace TW.Presentation.Tactical
         public bool Ready { get; private set; }
         public int Alive => cards.Count;
 
+        // A CAPTURE SWITCH, one bit per Book ordinal (so Book.Count must stay at or under 64: FlipbookHiddenTests).
+        // A hidden book's card is never stored, so nothing draws it and nothing else about the frame moves. It exists
+        // for the flame-jet stills, which measure the seam of the stream in the air and need the fire lying on the
+        // ground out of the picture; the harness sets it before the burst and puts it back in its finally. 0 in the game.
+        public static ulong Hidden;
+
         public FlipbookFx()
         {
             maxCards = Mathf.Max(1, Knobs.Get("flipbook.maxCards", MaxCards));
@@ -713,6 +719,7 @@ namespace TW.Presentation.Tactical
         public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float startFrame = 0f, float soil = 0f, float soilCap = 1f, float cut = 0f, Vector3 axis = default)
         {
             if (!Ready) return;
+            if ((Hidden & (1UL << (int)book)) != 0UL) return;   // hidden for a capture: never stored, so never drawn
             if (cards.Count >= maxCards) cards.RemoveAt(0);
             if (IsSmoke(book)) ShapeSmoke(book == Book.Burst ? BurstWeight(smokeWeight) : smokeWeight, smokeLean, aspect[(int)book], ref width, ref height, ref life, ref alpha);   // FlipbookFx.Smoke.cs
             float h = height > 0f ? height : width / Mathf.Max(0.05f, aspect[(int)book]);
