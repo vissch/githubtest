@@ -533,7 +533,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.AssetScaleAudit.Write(path, playing)` | Editor/AssetScaleAudit.cs | Writes the audit, or refuses and answers null when the game is playing. |
 | `TW.Editor.BuildWindows.Queue(development)` | Editor/BuildWindows.cs | Schedules a build for the next editor tick and returns at once, so a `unity command eval` does not hold the command server for the minutes a first ... |
 | `TW.Editor.BuildWindows.Build(development)` | Editor/BuildWindows.cs | (no summary: read the method) |
-| `TW.Editor.CaptureRig.Shot(path, x, z, zoom, yaw, pitch, w, h, aimY)` | Editor/CaptureRig.cs | Queue one still. |
+| `TW.Editor.CaptureRig.Shot(path, x, z, zoom, yaw, pitch, w, h, aimY, mask)` | Editor/CaptureRig.cs | Queue one still. |
 | `TW.Editor.CaptureRig.Pending()` | Editor/CaptureRig.cs | How many shots are still to be taken; 0 means the set is finished and the camera is back. |
 | `TW.Editor.CaptureRig.ShotCrowd(path, zoom, yaw, pitch, w, h, cell)` | Editor/CaptureRig.cs | A still of the thickest knot of men, so a capture contains soldiers without anyone guessing at coordinates. |
 | `TW.Editor.CaptureRig.CrowdLine(path, at, men)` | Editor/CaptureRig.cs | ShotCrowd's answer: the file, the focus it chose and how many men stood in that square. |

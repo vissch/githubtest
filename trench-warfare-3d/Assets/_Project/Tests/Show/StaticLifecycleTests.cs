@@ -60,6 +60,8 @@ namespace TW.Tests
             ["EventPump.ProfileSubscribers"] = "a profiling switch, off unless a profiling run sets it",
             ["Flamethrower.Active"] = "the live instance, replaced when the next CombatFx starts",
             ["FlipbookFx.Hidden"] = "a capture switch: the caller that hides a book restores it",
+            ["FlipbookFx.Spied"] = "a capture switch: the caller that spies on a book restores it",
+            ["FlipbookFx.SpiedCards"] = "the capture's own buffer of a spied book's cards, cleared by the capture that fills it",
             ["Flamethrower.PinnedNow"] = "a capture switch: the caller that pins the jet's clock restores it",
             ["FrameBudget.frame"] = "the frame the counters below belong to: they roll over by themselves",
             ["HeavyWork.claimedFrame"] = "a frame-stamped claim that expires by itself",

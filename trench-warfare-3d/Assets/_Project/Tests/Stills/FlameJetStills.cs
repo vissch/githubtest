@@ -28,7 +28,9 @@
 // Environment: TW_FLAME_CAP  which still (1, 2, 3 or plate; plate fires no burst) - default 1,
 //              TW_STILLS_DIR where the stills go (default %TEMP%/tw-flamejetstills: never inside the checkout),
 //              TW_FLAME_SETTLE ticks to settle before the burst (300),
-//              TW_FLAME_HIDE   the books kept out of the picture (Book names, comma separated; empty hides nothing).
+//              TW_FLAME_HIDE   the books kept out of the picture (Book names, comma separated; empty hides nothing),
+//              TW_FLAME_SPY    the books stencilled into <still>.mask.png (Book names, comma separated; default
+//                               JetCore,Fire - the stream's own cards, which is what the seam is measured on).
 //
 // Why anything is hidden. Round 5 of this unit measured the seam the probe scores and it was not the jet's: the
 // straightest pale line in the frame is the burning ground pool's flat top edge, at image y 413, five pixels below
@@ -74,8 +76,11 @@ namespace TW.Tests
 
         // the books that draw fire lying on the ground, hidden so the seam is measured on the stream in the air
         const string DefaultHide = "Pool,Pyre,Stand,Smoke,MineSmoke,Bloom,Fan";
+        // the books that draw the stream itself, stencilled into the mask so the seam is measured on the renderer's
+        // own cards rather than on a guess about colour (round 7: "the mask comes from the renderer")
+        const string DefaultSpy = "JetCore,Fire";
 
-        static ulong HideMask(string list, out string names)
+        static ulong BookMask(string list, out string names)
         {
             ulong mask = 0UL;
             var kept = new System.Collections.Generic.List<string>();
@@ -101,6 +106,20 @@ namespace TW.Tests
             string dir = Env("TW_STILLS_DIR", Path.Combine(Path.GetTempPath(), "tw-flamejetstills"));
             Directory.CreateDirectory(dir);
             return dir;
+        }
+
+        static int CoveredPixels(string path)
+        {
+            var tex = new Texture2D(2, 2, TextureFormat.R8, false);
+            try
+            {
+                tex.LoadImage(File.ReadAllBytes(path));
+                var px = tex.GetPixels32();
+                int n = 0;
+                for (int i = 0; i < px.Length; i++) if (px[i].r > 0) n++;
+                return n;
+            }
+            finally { Object.DestroyImmediate(tex); }
         }
 
         static IEnumerator Drain(string path)
@@ -138,6 +157,7 @@ namespace TW.Tests
             string dir = Dir();
             string name = plate ? "bg-t2.png" : "jet-t2-" + which + ".png";
             string path = Path.Combine(dir, name);
+            string maskPath = Path.ChangeExtension(path, null) + ".mask.png";
             var info = new System.Text.StringBuilder();
             void Say(string s) { info.AppendLine(s); File.WriteAllText(Path.Combine(dir, "info." + which + ".txt"), info.ToString()); Debug.Log("[flamejetstills] " + s); }
 
@@ -160,8 +180,10 @@ namespace TW.Tests
                 Say(CaptureRig.Hold(120f));            // clock stopped, weather pinned: one sky for all four stills
                 for (int f = 0; f < 4; f++) yield return null;
 
-                FlipbookFx.Hidden = HideMask(Env("TW_FLAME_HIDE", DefaultHide), out string hidden);
+                FlipbookFx.Hidden = BookMask(Env("TW_FLAME_HIDE", DefaultHide), out string hidden);
                 Say($"hidden books: {hidden} (mask {FlipbookFx.Hidden})");
+                FlipbookFx.Spied = BookMask(Env("TW_FLAME_SPY", DefaultSpy), out string spied);
+                Say($"spied books: {spied} (mask {FlipbookFx.Spied})");
 
                 Random.InitState(Seed);
                 var flames = Flamethrower.Active;
@@ -195,15 +217,21 @@ namespace TW.Tests
                 }
 
                 if (File.Exists(path)) File.Delete(path);
-                Say(CaptureRig.Shot(path, FocusX, FocusZ, Zoom, Yaw, Pitch, W, H));
+                if (File.Exists(maskPath)) File.Delete(maskPath);
+                Say(CaptureRig.Shot(path, FocusX, FocusZ, Zoom, Yaw, Pitch, W, H, mask: maskPath));
                 yield return Drain(path);
                 Assert.That(File.Exists(path), Is.True, "the still was not written: " + path);
                 Say($"wrote {name}");
+                // the plate fires no burst, so its spied books never draw a card and its mask.png is all black -
+                // the probe does not read the plate's mask
+                int covered = File.Exists(maskPath) ? CoveredPixels(maskPath) : 0;
+                Say($"wrote {Path.GetFileName(maskPath)}: {covered} px covered by {FlipbookFx.SpiedCards.Count} spied card(s)");
             }
             finally
             {
                 Flamethrower.PinnedNow = -1f;
                 FlipbookFx.Hidden = 0UL;
+                FlipbookFx.Spied = 0UL;
                 Time.captureDeltaTime = 0f;
                 CaptureRig.Release();
             }
