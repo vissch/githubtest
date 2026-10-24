@@ -7,6 +7,17 @@ This set (`g1`) is a genuine reshoot of all 18 stills on the same tree, from one
 baseline-in-the-file with a measured bar: the spread of three calm captures of THIS build. See frames.txt for what
 each still is.
 
+g1's first cut stood the row along x and threw it along x too (`AnimationController.Death.cs:219` takes the throw
+direction from the burst's own `simDir`, so every man in one burst is thrown the SAME way): six collinear men thrown
+along their own line cannot be measured by any one-to-one matcher, because a shifted row matches onto itself (man i
+pairs with the body of man i-k) and reads as a tiny "move" regardless of the real throw. The fix is geometry, not
+matching: the harness (`BlastThrowStills.cs`, `DeathLab.Row(..., alongZ: true)`) now stands the row ACROSS the throw
+(along z), so every standing man shares one x and the whole throw lands in x. `across()` below measures `|body.x -
+row_x|` directly, with NO assignment between before/after blobs: that makes the bar permutation-free, which no cost
+tuning on the old axis could give. The old one-to-one matcher (`matched_distances`) is kept only to report
+`per_body_m`/`throw_m`/`blast_median_m` as the per-body numbers the owner asked for; it is not what the pass/fail
+bar reads.
+
 What it reads (shot by Tests/Stills/BlastThrowStills.cs, `g1_` prefix):
   g1_blast1..3_{m1_0,p0_5,p3_0}.png  a row of six men 2.5 m apart, straight down (pitch 89, zoom 20), at -1 s,
                                       +0.5 s and +3 s around a shell at the row's middle;
@@ -40,15 +51,16 @@ Method, per run, on the (-1 s, +3 s) pair:
      a calm "body" too.
   6. The run's value is the MEDIAN of its per-body distances in metres.
 
-The bar: calm_spread_m is the largest surviving per-body distance over calm1..3 -- what a standing row moves by on
-its own, at its worst, on this capture. worst_body_m is the smallest surviving per-body distance over blast1..3.
-The set passes only if every blast body clears the calm spread (worst_body_m > calm_spread_m); otherwise the
+The bar: calm_spread_m is the largest across_m over every calm1..3 body -- how far a standing column drifts off its
+own line on its own, at its worst, on this capture. worst_across_m is the smallest across_m over every blast1..3
+body. The set passes only if every blast body clears the calm spread (worst_across_m > calm_spread_m); otherwise the
 failing run, body and distance are printed and the script exits 1. There is no baseline constant: a number copied
-out of the run it judges proves nothing (that is exactly how r2's circular baseline happened).
+out of the run it judges proves nothing (that is exactly how r2's circular baseline happened), and across_m needs no
+assignment at all, so it cannot be fooled by a row thrown along its own axis the way the old matcher was.
 
 Reported in probe.json and printed: throw_m, per_body_m, blast_median_m, noise_floor_m, calm_spread_m,
-worst_body_m, px_per_m, frame_gap, seconds_gap, fps_implied, fallen_after and the per-run rows. Raises if a run
-matched fewer than MIN_BODIES bodies, or if the pinned-camera check fails.
+worst_across_m, px_per_m, frame_gap, seconds_gap, fps_implied, fallen_after and the per-run rows (each carrying
+across_m too). Raises if a run matched fewer than MIN_BODIES bodies, or if the pinned-camera check fails.
 """
 import glob
 import json
@@ -134,25 +146,28 @@ def standing_row(found):
     spanning at most MEN - 1 gaps. Only lattice members are returned: a blob off the lattice is not a man of this row,
     however blob-like it is.
 
-    Returns (members sorted by x, the number of SPACING_M steps the members span).
+    The row now stands ACROSS the throw (along z: a column in the image, since straight down maps world z to
+    screen y), so the band is on x and the chain on y -- the same lattice search, with the two blob axes swapped.
+
+    Returns (members sorted by y, the number of SPACING_M steps the members span).
     """
     best, best_steps = [], 0
     for anchor in found:
-        band = sorted((q for q in found if abs(q[1] - anchor[1]) <= BAND_PX), key=lambda q: q[0])
+        band = sorted((q for q in found if abs(q[0] - anchor[0]) <= BAND_PX), key=lambda q: q[1])
         for i in range(len(band)):
             for j in range(i + 1, len(band)):
-                gap = band[j][0] - band[i][0]
+                gap = band[j][1] - band[i][1]
                 if not GAP_MIN_PX <= gap <= GAP_MAX_PX:
                     continue
                 # band[i] is lattice point 0 and band[j] point 1: every other blob takes the nearest lattice point
                 # inside the row's own span, and the nearest blob wins a point no two men can share.
-                x0 = band[i][0]
+                y0 = band[i][1]
                 at = {}
                 for q in band:
-                    k = int(round((q[0] - x0) / gap))
+                    k = int(round((q[1] - y0) / gap))
                     if not 0 <= k <= MEN - 1:
                         continue
-                    residual = abs(q[0] - (x0 + k * gap))
+                    residual = abs(q[1] - (y0 + k * gap))
                     if residual > 0.3 * gap:
                         continue
                     if k not in at or residual < at[k][0]:
@@ -169,7 +184,7 @@ def row_scale_px_per_m(standing, steps):
     the camera-derived scale, never the scale itself (see the module docstring)."""
     if len(standing) < 2 or steps < 1:
         return None
-    return (standing[-1][0] - standing[0][0]) / (steps * SPACING_M)
+    return (standing[-1][1] - standing[0][1]) / (steps * SPACING_M)
 
 
 def camera_px_per_m(zoom, frame_h_px=FRAME_H_PX):
@@ -217,6 +232,13 @@ def matched_distances(before, after, before_path, after_path, scale):
         if metres <= MAX_MATCH_M:
             out.append(metres)
     return sorted(out)
+
+
+def across(after_blobs, after_path, row_x, scale):
+    """|body.x - row_x| in metres for every "after" blob, in world coordinates. No assignment: a body cannot dodge
+    this measurement by pairing with a different lattice point, which is exactly what the old one-to-one matcher
+    let a shifted collinear row do. row_x is the standing column's own median x (world metres)."""
+    return sorted(abs(x - row_x) for x, _z, _a in to_world(after_blobs, after_path, scale))
 
 
 def sidecar(path, key):
@@ -278,9 +300,14 @@ def run(tag, name, scale):
                 f"{name}: row-measured scale {row_scale:.2f} px/m disagrees with the camera-derived "
                 f"{scale:.2f} px/m by more than {ROW_SCALE_TOLERANCE:.0%}")
 
-    per_body = matched_distances(standing, blobs(after), before, after, scale)
+    after_blobs = blobs(after)
+    per_body = matched_distances(standing, after_blobs, before, after, scale)
     if len(per_body) < MIN_BODIES:
         raise RuntimeError(f"{name}: only {len(per_body)} bodies matched, under the {MIN_BODIES} the bar asks for")
+    row_x = statistics.median(x for x, _z, _a in to_world(standing, before, scale))
+    across_m = across(after_blobs, after, row_x, scale)
+    if len(across_m) < MIN_BODIES:
+        raise RuntimeError(f"{name}: only {len(across_m)} bodies in the +3 s frame, under the {MIN_BODIES} the bar asks for")
     fb, fa = sidecar(before, "frame"), sidecar(after, "frame")
     return {
         "run": name,
@@ -288,6 +315,7 @@ def run(tag, name, scale):
         "n_bodies": len(per_body),
         "per_body_m": [round(d, 3) for d in per_body],
         "median_m": round(statistics.median(per_body), 3),
+        "across_m": [round(d, 3) for d in across_m],
         "px_per_m": round(scale, 2),
         "row_px_per_m": round(row_scale, 2) if row_scale is not None else None,
         "frame_gap": (fa - fb) if (fa is not None and fb is not None) else None,
@@ -309,8 +337,8 @@ def main():
     calm = [run(tag, name, scale) for name in CALM_RUNS]
 
     pooled = [d for r in blast for d in r["per_body_m"]]
-    calm_spread_m = max(d for r in calm for d in r["per_body_m"])
-    worst_body_m = min(d for r in blast for d in r["per_body_m"])
+    calm_spread_m = max(d for r in calm for d in r["across_m"])
+    worst_across_m = min(d for r in blast for d in r["across_m"])
     seconds_gap = 4.0   # -1 s to +3 s, the pair that is measured
     gaps = [r["frame_gap"] for r in blast + calm if r["frame_gap"] is not None]
     frame_gap = statistics.median(gaps) if gaps else None
@@ -321,7 +349,7 @@ def main():
         "noise_floor_m": [r["median_m"] for r in calm],
         "blast_median_m": [r["median_m"] for r in blast],
         "calm_spread_m": round(calm_spread_m, 3),
-        "worst_body_m": round(worst_body_m, 3),
+        "worst_across_m": round(worst_across_m, 3),
         "px_per_m": round(scale, 2),
         "frame_gap": frame_gap,
         "seconds_gap": seconds_gap,
@@ -333,23 +361,23 @@ def main():
     with open(os.path.join(HERE, "probe.json"), "w", encoding="utf-8") as fh:
         json.dump(report, fh, indent=2)
         fh.write("\n")
-    for key in ("tag", "throw_m", "per_body_m", "noise_floor_m", "blast_median_m", "calm_spread_m", "worst_body_m",
+    for key in ("tag", "throw_m", "per_body_m", "noise_floor_m", "blast_median_m", "calm_spread_m", "worst_across_m",
                 "px_per_m", "frame_gap", "seconds_gap", "fps_implied", "fallen_after", "contrast_median_after"):
         print(f"{key}: {report[key]}")
     for r in report["runs"]:
-        print(f"  {r['run']}: {r['n_bodies']} bodies, median {r['median_m']} m, {r['px_per_m']} px/m "
-              f"(row {r['row_px_per_m']})")
+        print(f"  {r['run']}: {r['n_bodies']} bodies, median {r['median_m']} m, across {r['across_m']}, "
+              f"{r['px_per_m']} px/m (row {r['row_px_per_m']})")
 
     failures = []
     for r in blast:
-        for i, d in enumerate(r["per_body_m"]):
+        for i, d in enumerate(r["across_m"]):
             if d <= calm_spread_m:
                 failures.append((r["run"], i, d))
     if failures:
         for run_name, i, d in failures:
-            print(f"FAIL: {run_name} body {i} moved {d} m, inside the calm spread of {calm_spread_m} m")
+            print(f"FAIL: {run_name} body {i} is {d} m across, inside the calm spread of {calm_spread_m} m")
         return 1
-    print(f"PASS: worst blast body {worst_body_m} m clears the calm spread {calm_spread_m} m")
+    print(f"PASS: worst blast body {worst_across_m} m across clears the calm spread {calm_spread_m} m")
     return 0
 
 

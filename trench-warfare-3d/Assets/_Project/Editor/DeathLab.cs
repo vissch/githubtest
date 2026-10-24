@@ -4,7 +4,7 @@
 // an enemy's gun, a machine driven over a row), never by a Despawn inside WriteWorlds: the next Step clears the events
 // raised there, so the picture would never see the Death and draw no body.
 //  - Absurd(x): pin how absurd (DeathGags.Pin; a negative value hands it back to the fx.deathAbsurd knob);
-//  - Row(n, x, z, team, spacing, hp): n men in a line along x, facing +z, with hp each (1 = the first hit kills);
+//  - Row(n, x, z, team, spacing, hp): n men in a line along x (or along z with alongZ: true), facing +z, with hp each (1 = the first hit kills);
 //  - Shell(x, z, radius, damage) / Fire(x, z, radius): one burst into every world's BlastSystem, bursting next tick;
 //  - Call(ability, x, z, args): a support call for player 0 (silver topped up first): 1 HE, 3 chlorine, 11 the beam;
 //  - Disarm(slot): a machine's guns out of action, so it runs men down rather than shelling them;
@@ -37,14 +37,15 @@ namespace TW.Editor
             return "fx.deathAbsurd " + (intensity < 0f ? "from the knob: " + DeathGags.Intensity : DeathGags.Intensity.ToString("0.00"));
         }
 
-        /// <summary>n men in a line along x from (x, z), facing +z, each with hp hit points; returns their slots.</summary>
-        public static string Row(int n = 6, float x = 100f, float z = 120f, int team = 0, float spacing = 1.6f, float hp = 1f, float maxHp = -1f)
+        /// <summary>n men in a line along x (or, with alongZ, along z) from (x, z), facing +z, each with hp hit points;
+        /// returns their slots.</summary>
+        public static string Row(int n = 6, float x = 100f, float z = 120f, int team = 0, float spacing = 1.6f, float hp = 1f, float maxHp = -1f, bool alongZ = false)
         {
             var h = Host; if (h == null) return "no SimHost";
             var sb = new StringBuilder("slots");
             for (int k = 0; k < n; k++)
             {
-                string s = TankCapture.Spawn(team, 0, x + k * spacing, z, 0f);
+                string s = alongZ ? TankCapture.Spawn(team, 0, x, z + k * spacing, 0f) : TankCapture.Spawn(team, 0, x + k * spacing, z, 0f);
                 if (!s.StartsWith("slot ")) return s;
                 int slot = int.Parse(s.Substring(5));
                 h.WriteWorlds(m => { m.World.Hp[slot] = hp; m.World.Speed[slot] = 0f; if (maxHp > 0f) m.World.MaxHp[slot] = maxHp; });
