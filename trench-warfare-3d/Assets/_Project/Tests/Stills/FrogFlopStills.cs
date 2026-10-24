@@ -7,7 +7,9 @@
 //   Unity.exe -batchmode -projectPath <project> -runTests -testPlatform EditMode -testFilter FrogFlopStills \
 //             -testResults <out.xml> -logFile <out.log>
 // Environment: TW_STILLS_DIR where the stills go (default %TEMP%/tw-frogflop), TW_FROG_BASE=1 films the r2 framing
-// (zoom 30, pitch 25) as the probe's noise floor instead of the new take.
+// (zoom 30, pitch 25) as the probe's noise floor instead of the new take. TW_FROG_PLAYER=1 (r3-g1) shoots the full
+// take (p05/p10/p15/frz_b/plate, no frz_c) at the TacticalCamera's own standard view (Zoom/Pitch read off it, not
+// typed) instead of the close-up framing, so the body is proved findable at the view a player actually plays at.
 //
 // What one take shoots, all on one frog staged by DeathLab.FrogAlone on empty ground far from the battle:
 //   <t>_p05/p10/p15.png   death +0.5 / +1.0 / +1.5 s, aimed at the body, pitch 60 (a belly-up body foreshortens
@@ -156,6 +158,7 @@ namespace TW.Tests
             if (string.IsNullOrEmpty(dir)) dir = Path.Combine(Path.GetTempPath(), "tw-frogflop");
             Directory.CreateDirectory(dir);
             bool baseMode = System.Environment.GetEnvironmentVariable("TW_FROG_BASE") == "1";
+            bool playerMode = System.Environment.GetEnvironmentVariable("TW_FROG_PLAYER") == "1";
 
             // quiet: nobody deploys, attacks or drops a shell of their own, so the only death is the one we stage
             Host.ScriptedPeer = false; Host.PeerAttacks = false;
@@ -170,15 +173,21 @@ namespace TW.Tests
             var tc = Object.FindFirstObjectByType<TW.Presentation.Tactical.TacticalCamera>();
             Assert.That(tc, Is.Not.Null, "no TacticalCamera");
             tc.BaseYaw = -90f;
-            if (!baseMode)
+            if (!baseMode && !playerMode)
             {
                 // without this, Pose clamps every zoom up to NearZoom (~15) and the frog can never fill the crop
                 tc.ZoomMin = 1.5f; tc.CloseFitHeight = 1.2f;
             }
-            float pitch = baseMode ? 25f : 60f;
+            float pitch = (baseMode || playerMode) ? (playerMode ? tc.Pitch : 25f) : 60f;
+            if (playerMode)
+            {
+                var sky0 = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
+                Assert.That(sky0, Is.Not.Null, "no Atmosphere");
+                Assert.That(sky0.Look, Is.EqualTo(TW.Presentation.Terrain.Atmosphere.Mood.Night), "the player take is not at night");
+            }
             // The camera looks 1.5 m above the body, not at it: at pitch 60 and ~190 px/m a body aimed at exactly
             // sits high in the frame (the first set cut him off at the top edge), because what is drawn stands above
-            // the point the mark projects. Base mode keeps the tactical camera's own aim, as r2 had it.
+            // the point the mark projects. Base and player mode keep the tactical camera's own aim, as r2 had it.
             const float AimAbove = 1.5f;
 
             // open ground far from the battle, a take's own patch each, found in the map rather than typed: the first
@@ -199,9 +208,9 @@ namespace TW.Tests
             Assert.That(spots.Count, Is.EqualTo(4), "no four patches of open ground away from the battle");
             TestContext.Out.WriteLine("patches: " + string.Join(", ", spots));
             int written = 0;
-            float zoom = baseMode ? 30f : 6f;
+            float zoom = baseMode ? 30f : playerMode ? tc.Zoom : 6f;
 
-            if (!baseMode)
+            if (!baseMode && !playerMode)
             {
                 // take 0: one trial still, and the zoom read off its own sidecar instead of typed
                 yield return Stage(spots[0].x, spots[0].y);
@@ -223,11 +232,11 @@ namespace TW.Tests
             for (int take = 0; take < 3; take++)
             {
                 string stem = baseMode ? $"base{take}" : $"take{take}";
-                var spot = spots[take + (baseMode ? 0 : 1)];
+                var spot = spots[take + ((baseMode || playerMode) ? 0 : 1)];
                 yield return Stage(spot.x, spot.y);
                 float death = Time.time;
                 var body = Vat.FallenPos(Marked);
-                float aimY = baseMode ? float.NaN : body.y + AimAbove;
+                float aimY = (baseMode || playerMode) ? float.NaN : body.y + AimAbove;
 
                 if (!baseMode)
                 {
@@ -247,7 +256,7 @@ namespace TW.Tests
                 // one held instant: p15, two more of the very same pose (the noise floor), then the body taken away
                 // (the plate). Never released in between, or the plate would be a different world.
                 CaptureRig.Hold(120f);
-                string[] frozen = baseMode ? new[] { "still" } : new[] { "p15", "frz_b", "frz_c" };
+                string[] frozen = baseMode ? new[] { "still" } : playerMode ? new[] { "p15", "frz_b" } : new[] { "p15", "frz_b", "frz_c" };
                 foreach (string name in frozen)
                 {
                     string path = Path.Combine(dir, $"{stem}_{name}.png");
@@ -275,7 +284,7 @@ namespace TW.Tests
             Time.captureDeltaTime = 0f;
             yield return new ExitPlayMode();
             TestContext.Out.WriteLine($"wrote {written} stills to {dir} at zoom {zoom.ToString("0.00", CultureInfo.InvariantCulture)}");
-            Assert.That(written, Is.GreaterThanOrEqualTo(baseMode ? 6 : 18), "the set is short: a take failed to land");
+            Assert.That(written, Is.GreaterThanOrEqualTo(baseMode ? 6 : playerMode ? 15 : 18), "the set is short: a take failed to land");
         }
     }
 }

@@ -1,0 +1,47 @@
+{
+  "n_captures": 3,
+  "body_px": 1248,
+  "floor_px": 246,
+  "twitch_px": 15964,
+  "belly_up": true,
+  "alone_and_night": true,
+  "zoom_pitch_ok": true,
+  "per_take": {
+    "take0": {
+      "body_px": 1248,
+      "floor_px": 0,
+      "twitch_px": 22647,
+      "mark_px": 960.00085,
+      "mark_py": 509.14502,
+      "px_per_m": 31.36109,
+      "crop": [
+        188,
+        141
+      ]
+    },
+    "take1": {
+      "body_px": 1362,
+      "floor_px": 246,
+      "twitch_px": 22484,
+      "mark_px": 960.00085,
+      "mark_py": 461.4527,
+      "px_per_m": 31.64564,
+      "crop": [
+        190,
+        142
+      ]
+    },
+    "take2": {
+      "body_px": 1630,
+      "floor_px": 14,
+      "twitch_px": 15964,
+      "mark_px": 960,
+      "mark_py": 477.86716,
+      "px_per_m": 31.54765,
+      "crop": [
+        189,
+        142
+      ]
+    }
+  }
+}

@@ -459,7 +459,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   name with a graphics device): one frog alone on open ground far from the fight, marked with `CaptureRig.MarkFallen`
   so the sidecars say where he is, at death +0.5 / +1.0 / +1.5 s, plus two more of the held +1.5 s instant and a
   plate with the body taken away; `docs/evidence/frog-death-flop-r3/probe.py` reads his area and his leg motion out
-  of those pixels (`TW_FROG_BASE=1` shoots the old zoom-30 framing for the floor).
+  of those pixels (`TW_FROG_BASE=1` shoots the old zoom-30 framing for the floor). `TW_FROG_PLAYER=1` shoots the same
+  flop at the TacticalCamera's own standard view (Zoom 30, Pitch 25, read off the camera, night) instead of the
+  close framing; `docs/evidence/frog-death-flop-r3-g1/probe.py` measures the body against its plate in a crop sized
+  in metres and proves the body is still findable at the view a player actually plays at.
   `Presentation/Core/AnimationController.Gags.cs` feeds it and puts the plan in the `DeathRecord`. The knob
   `fx.deathAbsurd` (0 today's deaths exactly, 1 the new look, 2 ludicrous) defaults to 1 (the owner turned it on, 2026-09-30);
   `DeathGags.Pin` overrides it for a test or a capture. What a shell takes off a man at the knob above 0:
