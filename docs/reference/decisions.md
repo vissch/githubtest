@@ -303,6 +303,27 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 
 ## Open: waiting on the owner
+- **The jet's white-loop bar has no valid baseline: the previous round's stills do not reproduce on this build
+  (2026-10-24, lane `lane/show/flame-jet-opaque-near-2-g2`):** this unit measures the white stroke in the jet's
+  orange tip against three captures of "the current build". Part 1 took those captures from the previous round's
+  folder, checking by `git log` only that no drawing file had changed since. Recaptured here from the **unchanged**
+  tree, the same harness and pose give a different picture: the fire spans 509 px, not 588 px, the last third holds
+  34 948 fire px, not 25 591, and `tip_white_frac` is **0.0868**, not 0.0476
+  (`docs/evidence/flame-jet-opaque-near-2-g2/recapture-unchanged.png` and that folder's `measurements.md`, with the
+  sidecars agreeing on the pose to the metre). So `WHITE_BAR` 0.0238 is half a baseline this build does not
+  produce, and `TIP_PX_REF` 25 591 makes `tip_px_ratio` **1.366** - outside 0.85..1.15 - for the unchanged build.
+  `probe.py` therefore cannot exit 0 for any change to the drawing, and moving the bar after the fact is the one
+  thing the plan forbids. The look change itself (`Flamethrower.CoreCool` and the dimmed scraps past the head, the
+  half of the owner's 2026-10-19 reversal the core chain never got) is built, green and committed, and it moves
+  none of these numbers; the white measures 5-15% of the fire in every tenth of the stream, peaking past the hot
+  third but short of the tip, so the core chain is at most part of what the owner saw. Options: (a) **re-derive the
+  baseline and the bar from three captures of today's unchanged build** and judge the change against that - the
+  default taken here, as the only route that can be measured, but it does restate a committed number, which is why
+  it is put to the owner; (b) find first why the previous round's stills differ (a stale `Library`, a different
+  editor binary, a scene asset reimported) and keep the old bar if the difference turns out to be harness noise;
+  (c) stop measuring this by the last third and judge the loop where it actually is - a per-tenth white profile
+  over the whole stream - which means a new probe and a new bar. Default taken here: (a), and nothing is landed on
+  it (this leg, because the step's baseline is measured false and only the owner may restate a committed bar).
 - **The jet's semi-transparent outer rim: no measured reason left to change it (2026-10-20, lane
   `lane/show/flame-jet-opaque-near-2`):** this unit's plan had two parts. Part 1 (pin the burst's birth clock for a
   capture) is built and pushed (`ee49e7ee4b`). Part 2 was to add a solid `Book.JetBody` row and draw the stream's
