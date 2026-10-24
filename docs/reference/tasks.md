@@ -474,8 +474,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   graphics device; `TW_STILLS_DIR` outside the checkout, `TW_DEATH_ABSURD`, `TW_DEATH_SCENES`, `TW_STILLS_FIELD`
   (`Winter` for daylight)) films each scene as a strip and a contact sheet.
   BlastThrowStills (`Tests/Stills`, explicit, the same way) films the blast throw itself three times at the zoom the
-  game is played at: a standing frame, then twelve stills back to back through the flight, bounce and settle
-  (`TW_STILLS_DIR`; night is the scene's own field and rain is off, so neither is overridden).
+  game is played at: a standing frame, twelve stills `StripGap` frames apart through the flight (about 0.15 s each,
+  ~1.8 s in all), and one more 1.5 s later, `c{c}_settled.png`, after the bodies have stopped
+  (`TW_STILLS_DIR`; night is the scene's own field and rain is off, so neither is overridden). The twelve stills
+  picked out of a run, what each moment is and what can be read off them:
+  `docs/evidence/blast-knockback-death-g1/` (`frames.txt`, `probe.py`).
   InfantryFiringStills (the same, for the firing: a squad of one type walks into its own fire; `TW_FIRING_UNITS`
   the archetypes, `TW_STILLS_DIR`, `TW_STILLS_FIELD`).
 - **Trap:** read a dead man through `Animation.TryDeath(slot, eventTick)`, never `State[slot]`: events are

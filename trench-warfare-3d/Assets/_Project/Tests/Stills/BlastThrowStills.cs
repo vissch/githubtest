@@ -4,9 +4,9 @@
 //
 // It does NOT use DeathLab.Scene("shell"): that stages the row and queues the shell in one call, so there is no
 // standing frame before the burst. Here each of three captures stands the row, takes a stand still, then shells it
-// and films twelve stills back to back (Gap 0) with Time.captureDeltaTime at 1/60, so the strip samples about every
-// 0.15 s of game time and the flight gets several samples. A last still follows 1.5 s after the strip,
-// c{c}_settled.png: the frame after the bodies have stopped moving.
+// and films twelve stills with Time.captureDeltaTime at 1/60 and StripGap frames let by between them, so the strip
+// samples about every 0.15 s of game time, spans ~1.8 s and holds the arc, the bounce and the skid. A last still
+// follows 1.5 s after the strip, c{c}_settled.png: the frame after the bodies have stopped moving.
 //
 // Every shot is the player's standard view: zoom 30 (T1, the zoom the game is played at), the base yaw pinned first.
 // Night is the scene's own field (GreyboxCorridor is NightMud): TW_STILLS_FIELD is deliberately not read. Rain is off.
@@ -16,7 +16,7 @@
 //             -testResults <out.xml> -logFile <out.log>
 // Environment: TW_STILLS_DIR where the stills go (default %TEMP%/tw-blastthrow: never inside the checkout, whose
 // untracked files land.py would see).
-// It asserts only that the 45 stills landed: it is an instrument; the pictures go to a critique. strip.txt in the
+// It asserts only that the 42 stills landed: it is an instrument; the pictures go to a critique. strip.txt in the
 // stills dir records each still's Time.time, so a reader can say which frame is which moment.
 using System.Collections;
 using System.Collections.Generic;
@@ -42,6 +42,11 @@ namespace TW.Tests
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
         const int Captures = 3;
         const int StripFrames = 12;
+        /// <summary>Frames of game time let by between two strip stills. A still of its own costs only the two frames
+        /// Drain waits, so without this the twelve stills landed 0.033 s apart and spanned 0.4 s: the whole strip fell
+        /// inside the burst's flash and ended while the bodies were still in the air. Seven more frames at 1/60 put the
+        /// stills about 0.15 s apart, so the strip spans ~1.8 s and holds the arc, the bounce and the skid.</summary>
+        const int StripGap = 7;
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
@@ -93,9 +98,8 @@ namespace TW.Tests
             var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
             if (sky != null) { sky.Rain = 0f; sky.Squalls = 0f; }
             TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;
-            // a still costs frames, not seconds: at 1/60 a back-to-back strip samples about every 0.15 s of game time,
-            // so the flight gets several samples (at DeathStills' 1/30 the stills land 0.33 s apart and the arc falls
-            // between them)
+            // a still costs frames, not seconds: a shot plus its Drain is only two frames at 1/60, so StripGap frames
+            // are let by after each one to put the stills about 0.15 s apart and span the whole flight
             Time.captureDeltaTime = 1f / 60f;
             var tc = Object.FindFirstObjectByType<TW.Presentation.Tactical.TacticalCamera>();
 
@@ -140,6 +144,7 @@ namespace TW.Tests
                     if (File.Exists(path)) written++;
                     strip.AppendLine($"c{c}_{k:00}.png\t{Time.time.ToString("0.###", CultureInfo.InvariantCulture)}");
                     TestContext.Out.WriteLine($"c{c}_{k:00}.png at t={Time.time:0.###}");
+                    for (int f = 0; f < StripGap; f++) yield return null;
                 }
                 // and a frame after they have stopped: ThrowPath's bounce and skid can still be running at the end of
                 // the strip's ~1.8 s window, so let 1.5 s of game time pass (90 frames at 1/60) and take one more

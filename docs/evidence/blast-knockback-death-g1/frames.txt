@@ -1,0 +1,65 @@
+blast knockback at the player's zoom — twelve stills, three captures, four moments each
+shot by TW.Tests.BlastThrowStills (EditMode, [Explicit], a graphics device, TW_STILLS_DIR outside the checkout)
+
+The shot, the same for all twelve
+  zoom 30 (T1, the zoom the game is played at), pitch 25, yaw 40, fov 25, 1280x720
+  scene Assets/_Project/Scenes/GreyboxCorridor.unity; night is the scene's own NightMud field, not TW_STILLS_FIELD,
+    and the clock is pinned (Atmosphere.PinnedClock 30)
+  rain off (Atmosphere.Rain 0, Squalls 0), ambient bombardment off, no scripted peer, no HUD
+  the row: six men 3 m apart, DeathLab.Row(6, x, z, 0, 3f, 100f), shelled at x + 7.5, z - 2
+    (DeathLab.Shell(x + 7.5, z - 2, 8, 600)); the camera looks at x + 7.5, z
+  c1 at x 8, z 106   c2 at x 62, z 112   c3 at x 14, z 136  (the test picks the open spots itself)
+  Time.captureDeltaTime 1/60; strip.txt beside these files has every still's Time.time
+
+The moments, and which strip still each one is
+  stand    c{c}_stand.png    the row standing, taken before the shell
+  air      strip 03, about 0.45 s after the shell: the bodies are off the ground and past the burst's core,
+           tumbling outward, clearly in flight
+  bounce   strip 09, about 1.38 s after the shell: the burst's warm mass is back to the stand frame's level
+           (c1 12.9k px against 12.3k standing, c2 31.3k against 28.3k), so the plume has gone and the bodies are
+           down, the bounce and skid running. Measured on c1 and c2 and used for c3 too, so the three captures
+           are read at the same moment.
+  settled  c{c}_settled.png, 1.5 s after the strip's last still: the bodies have stopped
+
+Why the strip had to be reshot for this
+  Before this leg a strip still cost only the two frames CaptureRig.Drain waits, so the twelve stills landed
+  0.033 s apart and the whole strip spanned 0.4 s: it sat inside the burst's flash and ended while the bodies
+  were still in the air, and there was no bounce frame to pick. BlastThrowStills now lets StripGap (7) frames by
+  after each still, so they are about 0.15 s apart and the strip spans ~1.8 s, which is what its header always
+  claimed. These twelve come from that run.
+
+What probe.py measures, and what the numbers are worth
+  A pixel becomes a ground point by intersecting its camera ray with y = ground_y, taken per still from its own
+  sidecar: the three spots are not at the same height (ground_y 1.40, 0.93, 1.51 on the stand frames) and the
+  greybox is not flat, so one plane for the whole set would be wrong.
+  throw_m, seg_air_bounce_m and seg_bounce_settled_m use the old probe's definition
+  (docs/evidence/blast-knockback-death/probe.py) so the two sets compare: the centroid of the mass present in the
+  earlier still and gone in the later one, against the centroid of the mass present in the later and not in the
+  earlier. Pixels brighter than the stand frame's luma_p95 are dropped first, so the flash does not drag the air
+  and bounce centroids.
+  That mass is the burst's smoke and clods as much as it is the bodies. It shows: the three captures measured
+  11.22 / 9.59 / 5.06 m of throw, 1.65 / 4.91 / 1.48 m air-to-bounce and 16.20 / 0.41 / 4.98 m bounce-to-settled.
+  The bar rule (below the minimum by at least the spread) therefore gives a negative number for all three, and
+  they are clamped to 0: these three numbers are recorded, not guarded. What the probe does hold is the sidecar
+  bars (zoom 30, pitch 25, luma_mean <= 0.30, no warning but the expected one, the row standing in `stand` and
+  down and drawn in the other three) and the row-spacing self-check. Narrowing them wants a mask that is bodies
+  only — the figures are khaki against blue mud, which the row check already uses, but the thrown ones are lit by
+  the burst, so that mask is its own piece of work.
+
+The row-spacing self-check
+  The standing men in c1_stand are warm (R - B > 4) pieces inside a fixed box (420,180)-(780,420); five of the six
+  are separate there, the sixth is behind a bunker at this angle. Each one's lowest pixel unprojects to a ground
+  point, and the span from the first to the last over the four gaps comes out at 2.82 m against the staged 3.0 m,
+  inside the 0.5 m tolerance. The men land at x 8.24, 10.74, 14.06, 17.38, 19.51 on z ~106, against the staged
+  8, 11, 14, 17, 20. The 3 m is given (DeathLab.Row's spacing argument), not worked out here: if this reading
+  drifts, the probe's metres mean nothing and it fails rather than returning quiet nonsense.
+
+The one warning the stills carry
+  "men barely separate from the ground: unreadable" is CaptureRig's contrast check, and it is expected: a body
+  lying in the mud is, by design, barely separate from it. It appears on the frames where the row is down and on
+  the stand frames of c2 and c3, which still hold the earlier captures' dead. Any other warning fails the probe.
+
+A thing the next reader should know
+  c2 and c3 are shot where an earlier capture's bodies still lie, so their stand frames count 11 and 10 men in
+  frame and their `fallen` starts at 6 and 12. The probe asks for men_in_frame >= 6 on a stand frame and
+  fallen >= 6 on the others, not a flat 6.

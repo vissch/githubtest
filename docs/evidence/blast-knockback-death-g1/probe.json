@@ -1,0 +1,50 @@
+{
+  "captures": {
+    "c1": {
+      "throw_m": 11.216,
+      "seg_air_bounce_m": 1.653,
+      "seg_bounce_settled_m": 16.201
+    },
+    "c2": {
+      "throw_m": 9.588,
+      "seg_air_bounce_m": 4.907,
+      "seg_bounce_settled_m": 0.414
+    },
+    "c3": {
+      "throw_m": 5.056,
+      "seg_air_bounce_m": 1.477,
+      "seg_bounce_settled_m": 4.976
+    }
+  },
+  "bars": {
+    "throw_m": 0.0,
+    "seg_air_bounce_m": 0.0,
+    "seg_bounce_settled_m": 0.0,
+    "row_spacing_m": 3.0,
+    "row_spacing_tol_m": 0.5
+  },
+  "row_spacing_m": 2.819,
+  "row_men_at_xz": [
+    [
+      8.24,
+      106.08
+    ],
+    [
+      10.74,
+      105.84
+    ],
+    [
+      14.06,
+      105.76
+    ],
+    [
+      17.38,
+      106.27
+    ],
+    [
+      19.51,
+      106.21
+    ]
+  ],
+  "failed": []
+}
