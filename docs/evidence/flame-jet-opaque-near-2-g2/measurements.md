@@ -190,3 +190,75 @@ the owner picks otherwise, this part is what gets reverted.
 
 That is the honest state before the cut: the tip is no longer accused of having shrunk, and the white stroke is
 the one thing left to remove.
+
+# Part 4: the capture is of HEAD, and the white is the HOT core chain's card faces (2026-10-24)
+
+No look change is in this commit. It adds `whitemap.py` (read only) and the measurements below. Twelve captures,
+all of this checkout, one still per batch editor session, the same recipe as every other still here.
+
+## The capture does see this checkout's code
+
+One still of HEAD, captured into `%TEMP%/tw-g2-check` (outside the checkout) and compared by md5 with the
+committed `jet-t2-1.png`:
+
+    ae11fd4b166c1a7f7d93dd5fe98ca545   jet-t2-1.png (committed)
+    ae11fd4b166c1a7f7d93dd5fe98ca545   the HEAD capture of today
+
+**Equal.** So the committed stills are of HEAD, and part 3's restated baseline (0.0868 white, 34 948 last-third px)
+is this build's number. Part 1's old baseline stays dead; there is one baseline, part 3's.
+
+## What the white is made of (`whitemap.py`)
+
+    white per tenth (nozzle -> tip): 0.049 0.112 0.115 0.060 0.074 0.097 0.152 0.089 0.100 0.004
+    of the white: clipped 0.000 (0 px), cream 0.999 (11 197 px), neither 0.001
+    last third: white 3 032 px in 41 pieces
+      1 387 px  x  970..1009    0% within 3 px of the contour -> inside the mask
+        849 px  x 1035..1094    5% within 3 px of the contour -> inside the mask
+        356 px  x 1017..1033    1% within 3 px of the contour -> inside the mask
+
+Two findings, both against the guesses on the table:
+
+- **Nothing is clipped.** Not one white pixel has r, g and b all >= 250, and 99.9% of them are cream (r - b in
+  20..45). So this is not additive cards stacking into blow-out; it is the **cream crescent glyph** of the stream
+  books being drawn bright.
+- **It is not a loop.** Every large piece sits inside the fire mask (0-5% of it within 3 px of the mask's contour),
+  so what the owner read as a stroke round the stream is a bright **card face** lying in the orange band, not an
+  outline hugging its edge.
+
+## The ablation table
+
+One capture per suspect, the emitter commented out in the working tree only (no production hook, no new static),
+`git checkout --` after each. The share is of the last third's 3 032 white px at HEAD.
+
+| # | Suspect (`Flamethrower.cs`) | last-third white | share removed |
+|---|---|---|---|
+| - | HEAD | 3 032 px | - |
+| A | the core chain PAST the hot third (`~841`, `CoreCool`'s band) | 3 741 px | **-23%** (worse) |
+| B | the scraps past the head (`~776`, `Book.Core`) | 3 032 px | 0% |
+| C | the boil (`~1008`, `Book.Fire`, t 0.55..1.15) | 3 032 px | 0% |
+| D | the envelope past the hot third (`~636`, `Book.Jet` links) | 3 075 px | -1% (worse) |
+| E | the terminus (`~927`, `Book.Bloom`) | 3 032 px | 0% |
+| F | the loose chain (`~985`, `Book.Fire`, glow 1.0 -> 0.22) | 3 183 px | -5% (worse) |
+| G | the head bolus (the last envelope link, `Book.Head`) | 3 032 px | 0% |
+| H | A + B + C + D + E + F together | 4 974 px | **-64%** (worse) |
+| I | the burning fuel pools on the ground (`~1128`, `Pool`/`Pyre`) | 3 032 px | 0% |
+| J | the two extra staggered HOT cards (`~882`) | 3 938 px | -30% (worse) |
+| K | **the HOT core chain itself** (`u < HotThird`, `Book.JetCore`) | **59 px** | **98%** |
+
+**The emitter is the hot core chain.** Its cards are the near third's opaque white-yellow core
+(`Book.JetCore`, thickness x1.8, `glow * 2.3`, plus two staggered passes at 2.2 and 2.1), and they are so wide
+that their cream faces reach two thirds of the way down the stream: cut them and 98% of the last third's white
+goes with them. Every other emitter in the jet is innocent, and removing any of them makes the stroke **worse**,
+because their orange cards are what covers the cream underneath - which is why part 2's `CoreCool` moved nothing.
+
+Suspect K is not a candidate fix as it stands: without the hot chain the fire mask falls from 120 604 px to
+100 818 px and the near third loses the opaque body `near_edge_corr` guards. The cut has to bound how far the hot
+cards' faces reach, or how bright they are past the hot band - not delete them.
+
+## State after part 4
+
+    python docs/evidence/flame-jet-opaque-near-2-g2/whitemap.py   -> exit 0 (prints the map above)
+    python docs/evidence/flame-jet-opaque-near-2-g2/probe.py      -> exit 1, tip_white_frac_max 0.0868 vs 0.0434
+
+Part 3 of the plan (steps 9-11) makes the cut, on suspect K, with `tip_px_ratio` 0.85..1.15 and
+`near_edge_corr_max` <= 0.15 as the two things it may not spend.
