@@ -665,13 +665,19 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   Sobel edges of the jet still with a no-jet plate inside the near-third mask (`near_edge_corr`, how much of what the
   jet flies over still shows through it) and takes the lowest `core_over_tip_luma` of three captures, and exits 0 at
   the bar of 0.15 and 1.6 (2026-10-19).
-  `python docs/evidence/flame-jet-opaque-near-2/probe.py` is the same three measurements with a third, `edge_spread`,
-  which says whether the other two can be believed at all: it exits 0 at 0.15, 1.6 and a spread of 0.03 (2026-10-20).
-  Its stills come from `Tests/Stills/FlameJetStills.cs`, one per editor session (`TW_FLAME_CAP` = 1, 2, 3 or plate),
-  which pins the jet's whole clock with `Flamethrower.PinnedNow`: a burst born at 100 s and photographed at 101.5 s
-  has age 1.5 s and left 1.5 s in every capture, so the valve is 1 and every Perlin and `Mathf.Repeat` phase in the
-  drawing is a function of 101.5 alone. Without it the three captures of one build spread wider than the bars
-  themselves and nothing measured through them meant anything.
+  `python docs/evidence/flame-jet-opaque-near-2/probe.py` added a third number, `edge_spread`, meant to say whether
+  the other two could be believed at all; its three stills turned out to be the same png, so that spread was 0 by
+  construction (the owner, 2026-10-24).
+  `python docs/evidence/flame-jet-opaque-near-2-g1/probe.py` is the one to run. It measures `near_edge_corr_max`,
+  `core_over_tip_luma_min` and `seam_score` - the owner's "pale straight cut ... one card meeting the next", as the
+  strongest straight line of Sobel energy inside the near third at any angle - and it refuses to measure three
+  stills at all unless they are three distinct frames. Its stills come from `Tests/Stills/FlameJetStills.cs`, one
+  per editor session (`TW_FLAME_CAP` = 1, 2, 3 or plate), which pins the jet's whole clock with
+  `Flamethrower.PinnedNow`: a burst born at 100 s over a fixed 3 s and photographed at 101.3, 101.5 or 101.7 s, so
+  the three stills are three AGES of one pinned stream (valve 1 in all three, every Perlin and `Mathf.Repeat` phase
+  a function of the sample time alone) rather than one frame counted three times. Every bar is set outside the
+  current build's measured spread: `baseline/` holds that build's own three stills, the probe measures them too, and
+  it exits non-zero unless each bar is below its baseline minimum (2026-10-24; `measurements.md` has the triples).
 - **Trap:** `FlipbookFx` indexes its sheets by the `Book` enum's ordinal and is only `Ready` when every sheet loads.
   A missing PNG or a row out of order silently disables every flipbook in the game. Add the enum entry, the row and
   the PNG together, and check `books.Ready`.

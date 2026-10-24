@@ -1,0 +1,33 @@
+{
+  "baseline": {
+    "near_edge_corr_each": [
+      0.0172,
+      0.0065,
+      0.0153
+    ],
+    "seam_score_each": [
+      1.9463,
+      2.0369,
+      1.8997
+    ],
+    "core_over_tip_luma_each": [
+      1.961,
+      2.0237,
+      2.0029
+    ],
+    "near_edge_corr_max": 0.0172,
+    "seam_score_max": 2.0369,
+    "core_over_tip_luma_min": 1.961,
+    "shas": [
+      "0ef36eddf0e73a31c9ce41f7077ba5ec14238f2f8638818f0c48081d48e9a85d",
+      "7dc67a63dd09964aa91c56a3581f2cedc222a99d3999fa49a9454ec1c35e5cee",
+      "968f11c8931a55abe411db618145567b2eeed47c7b990c94b142ff1b6020bbd2"
+    ]
+  },
+  "bars": {
+    "EDGE_BAR": 0.0032,
+    "SEAM_BAR": 0.94,
+    "LUMA_BAR": 1.6
+  },
+  "bars_outside_baseline_spread": true
+}
