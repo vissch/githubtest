@@ -1,0 +1,11 @@
+{
+  "bodies": [
+    {"from_x": 35, "from_z": 90, "land_x": 31.0957, "land_z": 91.0411, "rest_x": 28.7532, "rest_z": 91.6658, "thrown": true, "gag": 0},
+    {"from_x": 38, "from_z": 90, "land_x": 31.2399, "land_z": 93.0045, "rest_x": 27.1838, "rest_z": 94.8072, "thrown": true, "gag": 0},
+    {"from_x": 41, "from_z": 90, "land_x": 35.3673, "land_z": 97.5103, "rest_x": 32.1958, "rest_z": 101.7389, "thrown": true, "gag": 0},
+    {"from_x": 44, "from_z": 90, "land_x": 49.22, "land_z": 96.96, "rest_x": 52.2469, "rest_z": 100.9959, "thrown": true, "gag": 0},
+    {"from_x": 47, "from_z": 90, "land_x": 53.988, "land_z": 93.1058, "rest_x": 58.1808, "rest_z": 94.9693, "thrown": true, "gag": 0},
+    {"from_x": 50, "from_z": 90, "land_x": 53.8157, "land_z": 91.0175, "rest_x": 56.1051, "rest_z": 91.628, "thrown": true, "gag": 0}
+  ],
+  "count": 6
+}

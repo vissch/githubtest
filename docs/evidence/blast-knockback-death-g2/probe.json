@@ -1,0 +1,151 @@
+{
+  "bar": {
+    "low_m": 4.1,
+    "high_m": 22.4
+  },
+  "runs": [
+    {
+      "run": 1,
+      "row_z": 90.0,
+      "bodies": [
+        {
+          "from_x": 35,
+          "from_z": 90,
+          "throw_m": 6.4651,
+          "settle_m": 2.4244
+        },
+        {
+          "from_x": 38,
+          "from_z": 90,
+          "throw_m": 11.8364,
+          "settle_m": 4.4387
+        },
+        {
+          "from_x": 41,
+          "from_z": 90,
+          "throw_m": 14.6736,
+          "settle_m": 5.2858
+        },
+        {
+          "from_x": 44,
+          "from_z": 90,
+          "throw_m": 13.7449,
+          "settle_m": 5.0449
+        },
+        {
+          "from_x": 47,
+          "from_z": 90,
+          "throw_m": 12.2354,
+          "settle_m": 4.5883
+        },
+        {
+          "from_x": 50,
+          "from_z": 90,
+          "throw_m": 6.3184,
+          "settle_m": 2.3694
+        }
+      ],
+      "min_m": 6.3184,
+      "median_m": 12.0359,
+      "max_m": 14.6736
+    },
+    {
+      "run": 2,
+      "row_z": 150.0,
+      "bodies": [
+        {
+          "from_x": 35,
+          "from_z": 150,
+          "throw_m": 8.0531,
+          "settle_m": 3.02
+        },
+        {
+          "from_x": 38,
+          "from_z": 150,
+          "throw_m": 7.6834,
+          "settle_m": 2.8813
+        },
+        {
+          "from_x": 41,
+          "from_z": 150,
+          "throw_m": 12.761,
+          "settle_m": 4.7854
+        },
+        {
+          "from_x": 44,
+          "from_z": 150,
+          "throw_m": 12.8449,
+          "settle_m": 4.8116
+        },
+        {
+          "from_x": 47,
+          "from_z": 150,
+          "throw_m": 11.2102,
+          "settle_m": 4.2038
+        },
+        {
+          "from_x": 50,
+          "from_z": 150,
+          "throw_m": 8.4731,
+          "settle_m": 3.1774
+        }
+      ],
+      "min_m": 7.6834,
+      "median_m": 9.8417,
+      "max_m": 12.8449
+    },
+    {
+      "run": 3,
+      "row_z": 190.0,
+      "bodies": [
+        {
+          "from_x": 35,
+          "from_z": 190,
+          "throw_m": 5.2103,
+          "settle_m": 1.9539
+        },
+        {
+          "from_x": 38,
+          "from_z": 190,
+          "throw_m": 16.9878,
+          "settle_m": 6.9289
+        },
+        {
+          "from_x": 41,
+          "from_z": 190,
+          "throw_m": 17.8785,
+          "settle_m": 7.2218
+        },
+        {
+          "from_x": 44,
+          "from_z": 190,
+          "throw_m": 15.3913,
+          "settle_m": 5.4718
+        },
+        {
+          "from_x": 47,
+          "from_z": 190,
+          "throw_m": 11.7777,
+          "settle_m": 4.4167
+        },
+        {
+          "from_x": 50,
+          "from_z": 190,
+          "throw_m": 6.4639,
+          "settle_m": 2.424
+        }
+      ],
+      "min_m": 5.2103,
+      "median_m": 13.5845,
+      "max_m": 17.8785
+    }
+  ],
+  "all": {
+    "count": 18,
+    "min_m": 5.2103,
+    "median_m": 11.807,
+    "max_m": 17.8785
+  },
+  "pass": true,
+  "problems": []
+}

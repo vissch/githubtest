@@ -1,0 +1,29 @@
+How the three captures were made, so they can be made again. GreyboxCorridor, this checkout's editor in Play,
+the clock running (not held). Map is 90 x 276 m: the row sits at x 35..50 so a thrown body never meets
+VATRenderer's land clamp at 0.5 m from the map's edge. Three spots, one per run, because Hash01 keys off the
+death position and the sim seed is fixed per load: the same spot gives the same throws to four decimals.
+
+run1.png: top-down (CaptureRig zoom 40, yaw 90, pitch 75), focus 42.5/88, 3.5 s of game time after the shell.
+  Six men of DeathLab.Scene("shell", 35, 90), 3 m apart along x, thrown by one 8 m / 600 damage shell at
+  (42.5, 88); they have flown, bounced, skidded and settled. Sidecar run1.json.
+run2.png: the same, DeathLab.Scene("shell", 35, 150), focus 42.5/148. Sidecar run2.json.
+run3.png: the same, DeathLab.Scene("shell", 35, 190), focus 42.5/188. Sidecar run3.json.
+throws1.json / throws2.json / throws3.json: DeathLab.Throws, written at the same moment as each png: every fallen
+  body's from / land / rest in world metres, whether a blast threw him, and which gag took him. What probe.py reads.
+
+The eval sequence per run k (spot x = 35, z = 90 / 150 / 190), from trench-warfare-3d/:
+  Tools/tw up
+  Tools/tw run open_scene -- --path "Assets/_Project/Scenes/GreyboxCorridor.unity"
+  Tools/tw run editor_play
+  # wait until FindFirstObjectByType<TW.Presentation.SimHost>().Local is not null, then quiet the battlefield:
+  Tools/tw eval 'var h = UnityEngine.Object.FindFirstObjectByType<TW.Presentation.SimHost>(); h.ScriptedPeer = false; h.PeerAttacks = false; h.WriteWorlds(m => { var b = m.World.GetSystem<TW.Sim.Match.AmbientBombardmentSystem>(); if (b != null) b.ShellsPerMinute = 0f; }); return "quiet";'
+  Tools/tw eval 'return TW.Editor.DeathLab.Absurd(0f);'          # no death gag: every death is a plain blast throw
+  Tools/tw eval 'return TW.Editor.DeathLab.Scene("shell", 35f, <z>f);'
+  Tools/tw stepto 3.5
+  Tools/tw eval 'return TW.Editor.CaptureRig.Shot(@"<abs>/run<k>.png", 42.5f, <z>f - 2f, 40f, 90f, 75f);'   # then poll CaptureRig.Pending() until "0"
+  Tools/tw eval 'return TW.Editor.DeathLab.Throws(@"<abs>/throws<k>.json");'
+  Tools/tw run editor_stop
+
+Checks on each run: the Scene line prints six slots, and throws<k>.json holds six bodies on the row (from_z within
+1 m of the spot's z), every one "thrown": true and "gag": 0. Deaths elsewhere on the field land in the same json and
+probe.py drops them by that z window. If a spot gives fewer than six, move it 10 m along z and redo that run.
