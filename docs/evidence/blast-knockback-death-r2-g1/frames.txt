@@ -3,31 +3,35 @@ blast-knockback-death-r2-g1 — the stills, and what they are
 
 Shot by `Assets/_Project/Tests/Stills/BlastThrowStills.cs`
 (`BlastThrowsArePhotographedFromAbove`, [Explicit]), one run, 2026-10-24, on commit 4fb78c36c3's tree plus this
-leg's capture fix. Measured by `probe.py` in this folder.
+leg's capture fix, reshot with the shell off the row line. Measured by `probe.py` in this folder.
 
-Six runs on open ground. Each run stands a row of SIX men 2.5 m apart ACROSS the throw (along z,
-`DeathLab.Row(..., alongZ: true)`) and photographs it straight down at three moments around the instant a shell
-bursts at the row's middle: -1 s (the standing row), +0.5 s (mid-flight) and +3 s (where the bodies came to rest).
-`blast1..3` get the shell (radius 10 m, 600 damage: every man of the row is inside 0.8 * radius, the throw gate in
-`AnimationController.Death.cs:209`, and dies outright on 100 hp). `calm1..3` get nothing, and so give the bar its
-noise floor: how far a standing column drifts off its own line on its own.
+Six runs on open ground. Each run stands a row of SIX men 2.5 m apart ALONG z (`DeathLab.Row(..., alongZ: true)`)
+and photographs it straight down at three moments around the instant a shell bursts 5 m to -x of the row line
+(`ShellOffsetX` in the harness): -1 s (the standing row), +0.5 s (mid-flight) and +3 s (where the bodies came to
+rest). `blast1..3` get the shell (radius 10 m, 600 damage: every man of the row is inside 0.8 * radius, the throw
+gate in `AnimationController.Death.cs:209`, and dies outright on 100 hp). `calm1..3` get nothing, and so give the
+bar its noise floor: how far a standing row drifts on its own.
 
-The row stands across the throw because every man in one burst is thrown the SAME way (the burst's own `simDir`,
-`AnimationController.Death.cs:219`). This build's recorded throws confirm it: all eighteen read `throw x 0.00`, with
-`throw z` from 4.12 to 11.85 m. So the whole throw lands in x, every standing man shares one x, and `probe.py`'s
-`across()` can measure `|body.x - row_x|` with no assignment between the before and after blobs at all.
+The shell sits OFF the row line because every man in one burst is thrown straight away from the burst point
+(`Explosion.Dir` is zero -- `DeathLab.Shell` takes a point only -- so `AnimationController.Death.cs:219` throws him
+along `position - burst`). With the shell on the row's own middle, as the first g1 cut had it, the six men flew
+along their own line and the crater covered the very ground the measurement needs. Off the line, every recorded
+throw carries a large +x part: 2.1 to 7.4 m across the eighteen deaths, which the test itself asserts
+(`ThrowX > 0` per man, after all 18 stills are on disk). The end men stand 6.25 m up the row from the shell's z, so
+their direction is 5 : 6.25 and the z part is still the larger one -- `|ThrowX| > |ThrowZ|` is NOT true and is not
+asserted.
 
 The 18 stills
 -------------
-    g1_blast1_m1_0.png   g1_blast1_p0_5.png   g1_blast1_p3_0.png    shell, patch (24, 134)
-    g1_blast2_m1_0.png   g1_blast2_p0_5.png   g1_blast2_p3_0.png    shell, patch (44, 226)
-    g1_blast3_m1_0.png   g1_blast3_p0_5.png   g1_blast3_p3_0.png    shell, patch (68, 230)
-    g1_calm1_m1_0.png    g1_calm1_p0_5.png    g1_calm1_p3_0.png     no shell, patch (16, 238)
-    g1_calm2_m1_0.png    g1_calm2_p0_5.png    g1_calm2_p3_0.png     no shell, patch (24, 134)
-    g1_calm3_m1_0.png    g1_calm3_p0_5.png    g1_calm3_p3_0.png     no shell, patch (44, 226)
+    g1_blast1_m1_0.png   g1_blast1_p0_5.png   g1_blast1_p3_0.png    shell, camera on (24, 140.25)
+    g1_blast2_m1_0.png   g1_blast2_p0_5.png   g1_blast2_p3_0.png    shell, camera on (48, 236.25)
+    g1_blast3_m1_0.png   g1_blast3_p0_5.png   g1_blast3_p3_0.png    shell, camera on (24, 240.25)
+    g1_calm1_m1_0.png    g1_calm1_p0_5.png    g1_calm1_p3_0.png     no shell, camera on (24, 140.25)
+    g1_calm2_m1_0.png    g1_calm2_p0_5.png    g1_calm2_p3_0.png     no shell, camera on (48, 236.25)
+    g1_calm3_m1_0.png    g1_calm3_p0_5.png    g1_calm3_p3_0.png     no shell, camera on (24, 240.25)
 
-Each has a `.json` sidecar beside it, written by `CaptureRig`. `calm2` and `calm3` reuse `blast1`'s and `blast2`'s
-patches: this map's open ground is a band too narrow to hold six patches far enough apart, and nothing is left on a
+Each has a `.json` sidecar beside it, written by `CaptureRig`. Each calm run reuses the patch of the blast run with its
+number: this map's open ground is a band too narrow to hold six patches far enough apart, and nothing is left on a
 patch to find — every living man on the field is moved off it and every fallen body cleared before a row is spawned
 (below).
 
@@ -38,9 +42,9 @@ All eighteen: `zoom` 20, `pitch` 89, `yaw` 0, `cam_y` 52.07724, `cam_pitch` 89.0
 `px_per_m` comes from the camera's own pose, not from the row: 360 / (20 * tan 30 deg) = 31.18 px/m.
 `cam_x`/`cam_z` differ per run (different patches) and `probe.py`'s `to_world` folds them into one frame.
 `drawn_infantry` is 6 in every -1 s still: exactly the row, nothing else in the frame.
-`contrast_median` of the -1 s stills runs 0.154 (blast1) to 0.534 (calm3).
+`contrast_median` of the -1 s stills runs 0.154 (blast1) to 0.394 (calm3).
 
-`frame` gaps are 17 frames for the -1 s to +0.5 s step and 94 for -1 s to +3 s, not the 45 and 120 that
+`frame` gaps are 94 frames for the -1 s to +3 s step, not the 45 and 120 that
 `Time.captureDeltaTime = 1/30` is supposed to give: in batch mode the game clock is not pinned to the frame the way
 it is in a windowed editor. The seconds are right (the shots are taken on `Time.time`, which is what the moments are
 measured in); only the frame counter is not 30 a second. `probe.py` reports `frame_gap` and `fps_implied` and bars
@@ -68,16 +72,44 @@ the green capture passed its clean-frame check on the FIRST take.
    spawned (moved, never despawned: a freed slot came back reading 0 on the next spawn at it), and
    `VATRenderer.ClearFallen()` clears the bodies. That is also what makes a patch safe to reuse.
 
-What `probe.py` still cannot measure
-------------------------------------
-The set is good; the probe cannot read all of it yet, so there is no verdict in this file and no `probe.json`.
-`probe.py` exits 1 on `blast2`: the row lattice fits a 49.8 px gap (`row_px_per_m` 19.95) where the camera says one
-2.5 m gap is 77.94 px, because its gap window (`GAP_MIN_PX`, `GAP_MAX_PX` = 50, 110) is wide enough to admit a
-false fit and ties on member count are broken arbitrarily. Anchoring the window to the camera scale clears blast2
-but not the rest: in `calm1` and `calm2` the mask finds only 4 of the six men, under `MIN_LATTICE` 5, and the fitted
-`row_px_per_m` still spreads 26.2 to 37.1 against the camera's 31.18. The -1 s frames carry 35 to 55 blobs where six
-men stand, so the mask, not the capture, is what has to improve next.
+The man-area window, measured from the calm stills
+-------------------------------------------------
+`probe.py` picks a candidate body in the +3 s still by area, and the window comes from the standing men of the
+three calm -1 s stills, never from a result. After `merge()` (blob fragments within 1.0 m joined), the 17 standing
+men it finds read:
+    calm1   620  556  471  770  125  337
+    calm2  1846 1821 1673 1095  710          (5 of 6: the mask misses one man)
+    calm3   590 1274  136  417  630  404
+So `MAN_AREA_MIN, MAN_AREA_MAX = 62, 3692` -- half the smallest to twice the largest. `MIN_BLOB` already floors a
+fragment at 120 px, so only the ceiling bites; the crater and the scorch read 14 100 to 63 800 px, an order of
+magnitude out.
 
-Nothing here was tuned to move a verdict: `calm_spread_m` (the largest `across_m` over calm1..3) and
-`worst_across_m` (the smallest over blast1..3) are both measured from the pixels of the run being judged, which is
-what the owner asked for — "outside the spread of three captures of the current build".
+The verdict: RED, and why
+-------------------------
+`python docs/evidence/blast-knockback-death-r2-g1/probe.py` exits 1 on this set (`probe.json` holds the run):
+
+    calm_spread_m   1.678     worst_throw_m  0.0        throw_m 1.865
+    blast_median_m  1.745  2.389  1.638      noise_floor_m  0.375  0.066  0.219
+    per man (nearest body to each standing man, metres, sorted)
+      blast1  0.022  0.550  1.309  2.181  2.314  4.079      6 standing, 51 candidates
+      blast2  1.420  1.742  2.389  2.526  4.356             5 standing, 38 candidates
+      blast3  0.000  0.450  1.638  1.989  2.651             5 standing, 57 candidates
+      calm1   0.001  0.311  0.321  0.430  0.518  0.985      6 standing, 43 candidates
+      calm2   0.034  0.037  0.066  0.079  0.483             5 standing, 41 candidates
+      calm3   0.035  0.092  0.188  0.251  1.161  1.678      6 standing, 43 candidates
+
+The capture and the camera are sound (one pinned pose, `pose_error_m` 0, every run's row-measured scale now within
+3.5% of the camera's 31.18 px/m, where the first cut spread 26.2 to 37.1). The geometry is sound: the medians are
+1.6 to 2.4 m against a calm median of 0.07 to 0.38 m, so the throw IS there and is an order of magnitude over the
+calm centre. What fails is the bar's shape, at both ends, and both are mask noise, not knockback:
+  * each +3 s frame carries 38-57 candidate blobs in the man-area window -- blood, debris and snow churn. One of
+    them lands on a dead man's own standing spot in blast1 and blast3, so his `d_i` reads 0.022 m and 0.000 m
+    however far the body itself flew.
+  * at the other end, two calm3 men have NO candidate within 1.1 m at +3 s (the mask loses them), so the calm
+    spread, defined as the largest `d_i` over the calm runs, reads 1.678 m -- a missing man, not a drifting one.
+The two faults meet in the middle, which is why "every blast body clears the calm spread" is red while every
+median is wide clear. The bar needs a measurement that cannot be set by a single stray blob (see the leg note:
+the `d_i` of a MISSING candidate and of a body ON its spot are the same number today).
+
+Nothing here was tuned to move a verdict: both sides of the bar are measured from the pixels of the runs being
+judged, which is what the owner asked for -- "outside the spread of three captures of the current build".
