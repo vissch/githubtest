@@ -42,9 +42,10 @@ BOX = 200     # the box each man's mask is recentred into, px: a man at this zoo
 BAND = 0.15   # every mask within +/-15 % of the median OF ITS OWN INSTANT, or the staging failed
 INSTANTS = 3
 
-# Measured on the build at 5ba0fafb5a by this probe with BAR = 0: the three rifleman-versus-rifleman numbers were
-# 0.1206, 0.1083 and 0.1368. BAR = max + (max - min) = 0.1368 + 0.0285 = 0.1653, rounded up to 0.17.
-BAR = 0.0
+# Measured on the build at 10162a2b95 by this probe with BAR = 0, on the g2-staged stills (pose matched per
+# instant): the three rifleman-versus-rifleman numbers were 0.0008, 0.006 and 0.0023. BAR = max + (max - min) =
+# 0.006 + 0.0052 = 0.0112, rounded up to 0.012.
+BAR = 0.012
 
 
 def man(stem, i):

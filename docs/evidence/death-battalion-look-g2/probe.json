@@ -1,33 +1,33 @@
 {
  "noise_rifleman_vs_rifleman": [
-  0.0045,
-  0.1432,
-  0.2205
+  0.0008,
+  0.006,
+  0.0023
  ],
  "signal_death_battalion_vs_rifleman": [
-  0.1226,
-  0.2545,
-  0.2284
+  0.1121,
+  0.1284,
+  0.1261
  ],
- "bar": 0.0,
- "min_signal": 0.1226,
+ "bar": 0.012,
+ "min_signal": 0.1121,
  "mask_px": {
-  "rifle_0": 6415,
-  "rifle_1": 5513,
-  "rifle_2": 6341,
-  "rifle2_0": 6416,
-  "rifle2_1": 5613,
-  "rifle2_2": 6754,
-  "deathbn_0": 6751,
-  "deathbn_1": 5934,
-  "deathbn_2": 7141
+  "rifle_0": 6484,
+  "rifle_1": 5682,
+  "rifle_2": 5633,
+  "rifle2_0": 6487,
+  "rifle2_1": 5692,
+  "rifle2_2": 5630,
+  "deathbn_0": 6865,
+  "deathbn_1": 5542,
+  "deathbn_2": 5526
  },
- "mask_median_px": 6415.0,
- "mask_band_ratio_max_over_min": 1.295,
+ "mask_median_px": 5682.0,
+ "mask_band_ratio_max_over_min": 1.242,
  "mask_band_worst_per_instant": [
-  0.0522,
-  0.0572,
-  0.0611
+  0.0583,
+  0.0246,
+  0.0185
  ],
  "band": 0.15,
  "tolerance": 6,
