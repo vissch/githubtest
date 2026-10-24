@@ -42,9 +42,21 @@ namespace TW.Presentation.Units
         /// <summary>Whole turns are drawn in this many pitch steps; VAT_URP.shader decodes a step as 2 pi / 32: change both together.</summary>
         public const int PitchSteps = 32; public const float OneFlipFlight = 0.9f, TwoFlipsFlight = 1.4f;
         public int FallenCount => fallenMen.Count;
+        /// <summary>The corpses actually drawn this frame, near tier and far tier, and the vertices they cost (no
+        /// shadow doubling: the fallen draw with ShadowCastingMode.Off). FallenCount is how many bodies the renderer
+        /// holds; these are how many a camera saw. Zeroed at the top of DrawFallen, so an early return never hands
+        /// back last frame's numbers (the living path has the same fix, VATRenderer.cs ~272).</summary>
+        public int DrawnFallenNear, DrawnFallenFar;
+        public int DrawnFallen => DrawnFallenNear + DrawnFallenFar;
+        public long FallenVertices;
+        /// <summary>Where each drawn corpse was this frame, so a capture can measure the picture at the bodies
+        /// (CaptureRig.Measure). Zero-alloc: one array sized MaxFallen, refilled every frame.</summary>
+        public int FallenShown;
+        public Vector3 FallenShownAt(int k) => fallenShown != null && (uint)k < (uint)FallenShown ? fallenShown[k] : Vector3.zero;
         GraphicsBuffer fallenBuffer, fallenArgs;
         NativeArray<VatInstance> fallenInstances;
         Vector3[] fallenDrawAt;   // the near men's drawn position this frame, so the near loop need not recompute FallenAt
+        Vector3[] fallenShown;    // every drawn corpse's position this frame, near and far, for FallenShownAt
         GraphicsBuffer.IndirectDrawIndexedArgs[] fallenArgsData;
         readonly List<int>[] fallenByFigure = new List<int>[8];
         int pileW, pileL;
@@ -211,11 +223,13 @@ namespace TW.Presentation.Units
 
         void DrawFallen(Camera cam, Bounds bounds, float scale)
         {
+            DrawnFallenNear = 0; DrawnFallenFar = 0; FallenVertices = 0; FallenShown = 0;
             if (fallenMen.Count == 0 || figures == null) return;
             if (!fallenInstances.IsCreated)
             {
                 fallenInstances = new NativeArray<VatInstance>(MaxFallen, Allocator.Persistent);
                 fallenDrawAt = new Vector3[fallenInstances.Length];
+                fallenShown = new Vector3[fallenInstances.Length];
                 fallenBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, MaxFallen, 48);
                 fallenArgs = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, figures.Length + 1, GraphicsBuffer.IndirectDrawIndexedArgs.size);
                 fallenArgsData = new GraphicsBuffer.IndirectDrawIndexedArgs[figures.Length + 1];
@@ -247,6 +261,7 @@ namespace TW.Presentation.Units
                     for (int k = 0; k < 6 && seen; k++) seen = frustum[k].GetDistanceToPoint(at) > -2.5f * scale;
                     if (!seen) continue;
                 }
+                if (FallenShown < fallenShown.Length) fallenShown[FallenShown++] = at;
                 bool distant = (at - eye).sqrMagnitude > nearSq;
                 if (distant) { if (farCount < fallenInstances.Length) fallenInstances[last - farCount++] = Fallen(f, far.Asset, f.FarRow, now, scale, at); }
                 else { fallenDrawAt[i] = at; fallenByFigure[math.min(f.Figure, figures.Length - 1)].Add(i); }
@@ -257,7 +272,10 @@ namespace TW.Presentation.Units
                 int start = near;
                 foreach (int i in fallenByFigure[k]) { if (near + farCount >= fallenInstances.Length) break; var f = fallenMen[i]; fallenInstances[near++] = Fallen(f, figures[k].Asset, f.Row, now, scale, fallenDrawAt[i]); }
                 fallenArgsData[k] = Args(figures[k].Asset.Mesh, near - start, start);
+                FallenVertices += (long)(near - start) * figures[k].Asset.Mesh.vertexCount;
             }
+            DrawnFallenNear = near; DrawnFallenFar = farCount;
+            if (farCount > 0 && far != null) FallenVertices += (long)farCount * far.Asset.Mesh.vertexCount;
             if (near + farCount == 0) return;
             int farStart = fallenInstances.Length - farCount;
             if (near > 0) fallenBuffer.SetData(fallenInstances, 0, 0, near);

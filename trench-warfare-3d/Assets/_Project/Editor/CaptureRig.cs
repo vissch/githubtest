@@ -36,6 +36,18 @@ namespace TW.Editor
         /// as a man, foot soldier or rider, trench or not.</summary>
         public static bool IsFootFigure(uint flags) => (flags & (uint)UnitFlags.Alive) != 0 && (flags & (uint)UnitFlags.Vehicle) == 0;
 
+        /// <summary>A man under this many pixels is too small to say anything honest about, so Measure skips him.</summary>
+        public const float MinManPixels = 6f;
+        /// <summary>How long a man is, head to foot, in metres: the span measured across him when the camera looks
+        /// straight down.</summary>
+        public const float ManMeters = 1.78f;
+
+        /// <summary>How many pixels of picture a man covers: the bigger of his head-to-foot span and his span across
+        /// the screen. Straight down from above, head and foot are the same pixel and the tall span is ~0, which
+        /// dropped every man in a top-down frame (men_in_frame 0 while the renderer drew six). Pure, so
+        /// CaptureRigMeasureTests holds it.</summary>
+        public static float ManPixels(float headFootPx, float acrossPx) => Mathf.Max(headFootPx, acrossPx);
+
         /// <summary>
         /// Runs last in the frame (after the camera, the presenter and the renderers have all had their LateUpdate),
         /// so what it photographs is what those systems just prepared.
@@ -233,6 +245,15 @@ namespace TW.Editor
 
         static float Luma(Color32 p) => (0.2126f * p.r + 0.7152f * p.g + 0.0722f * p.b) / 255f;
 
+        /// <summary>The image pixels a man-long segment laid across the screen covers at `at`: the camera's own right
+        /// vector, so it holds however the camera is turned or pitched.</summary>
+        static float AcrossPixels(Camera cam, Vector3 at, int w)
+        {
+            Vector3 half = cam.transform.right * (ManMeters * 0.5f);
+            Vector3 a = cam.WorldToScreenPoint(at - half), b = cam.WorldToScreenPoint(at + half);
+            return Vector2.Distance(new Vector2(a.x, a.y), new Vector2(b.x, b.y)) * w / cam.pixelWidth;
+        }
+
         /// <summary>
         /// The numbers worth having about a frame. Luminance tells us whether anything is blown out (the yellow wash
         /// and the white burst would both have tripped `blown`), and the figure/ground contrast answers the question
@@ -276,12 +297,14 @@ namespace TW.Editor
                     // how tall he is drawn, in this image's pixels. The ring that samples the ground has to sit OUTSIDE
                     // him, and he is 80 px tall at the tactical camera and several hundred up close — a fixed radius
                     // measured the man against himself and called every frame unreadable.
-                    Vector3 footS = cam.WorldToScreenPoint((Vector3)host.Presenter.Drawn(s));
-                    Vector3 headS = cam.WorldToScreenPoint((Vector3)host.Presenter.Drawn(s) + Vector3.up * 2.6f);
+                    Vector3 foot = (Vector3)host.Presenter.Drawn(s);
+                    Vector3 footS = cam.WorldToScreenPoint(foot);
+                    Vector3 headS = cam.WorldToScreenPoint(foot + Vector3.up * 2.6f);
                     float tall = Mathf.Abs(headS.y - footS.y) * h / cam.pixelHeight;
-                    if (tall < 6f) continue;                                  // too small to say anything honest about
-                    int rMan = Mathf.Max(2, Mathf.RoundToInt(tall * 0.10f));
-                    int rIn = Mathf.RoundToInt(tall * 0.62f), rOut = Mathf.RoundToInt(tall * 1.00f);
+                    float size = ManPixels(tall, AcrossPixels(cam, foot, w));
+                    if (size < MinManPixels) continue;                        // too small to say anything honest about
+                    int rMan = Mathf.Max(2, Mathf.RoundToInt(size * 0.10f));
+                    int rIn = Mathf.RoundToInt(size * 0.62f), rOut = Mathf.RoundToInt(size * 1.00f);
                     if (cx < rOut || cy < rOut || cx >= w - rOut || cy >= h - rOut) continue;
                     inFrame++;
                     float man = Disc(lum, w, h, cx, cy, 0, rMan);
@@ -294,6 +317,34 @@ namespace TW.Editor
             float c10 = contrasts.Count > 0 ? contrasts[Mathf.Min(contrasts.Count - 1, (int)(contrasts.Count * 0.10f))] : -1f;
 
             var vat = Object.FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
+            // and the dead, the same way. A dead man is out of the world, so the loop above cannot see him: the
+            // living counters are 0 by construction once a blast has killed everyone in frame, and a capture of a
+            // body being thrown read as an empty field. VATRenderer hands over where it drew each corpse.
+            var corpses = new List<float>();
+            int corpsesInFrame = 0;
+            if (vat != null && cam != null)
+            {
+                for (int k = 0; k < vat.FallenShown; k++)
+                {
+                    Vector3 body = vat.FallenShownAt(k);
+                    Vector3 chest = body + Vector3.up * 0.3f;               // a corpse lies down: his bulk is just off the ground
+                    if (Vector3.Dot(chest - cam.transform.position, cam.transform.forward) <= 0f) continue;
+                    Vector3 sp = cam.WorldToScreenPoint(chest);
+                    int cx = Mathf.RoundToInt(sp.x * w / cam.pixelWidth), cy = Mathf.RoundToInt(sp.y * h / cam.pixelHeight);
+                    Vector3 topS = cam.WorldToScreenPoint(body + Vector3.up * 2.6f), baseS = cam.WorldToScreenPoint(body);
+                    float size = ManPixels(Mathf.Abs(topS.y - baseS.y) * h / cam.pixelHeight, AcrossPixels(cam, body, w));
+                    if (size < MinManPixels) continue;
+                    int rMan = Mathf.Max(2, Mathf.RoundToInt(size * 0.10f));
+                    int rIn = Mathf.RoundToInt(size * 0.62f), rOut = Mathf.RoundToInt(size * 1.00f);
+                    if (cx < rOut || cy < rOut || cx >= w - rOut || cy >= h - rOut) continue;
+                    corpsesInFrame++;
+                    float bodyL = Disc(lum, w, h, cx, cy, 0, rMan);
+                    float bg = Ring(lum, w, h, cx, cy, rIn, rOut);
+                    corpses.Add(Mathf.Abs(bodyL - bg) / (bg + 0.02f));
+                }
+            }
+            corpses.Sort();
+            float corpseMed = corpses.Count > 0 ? corpses[corpses.Count / 2] : -1f;
             var sb = new StringBuilder();
             sb.Append("{\n");
             F(sb, "path", Path.GetFileName(shot.Path));
@@ -318,6 +369,11 @@ namespace TW.Editor
                 N(sb, "drawn_infantry", vat.DrawnInfantry); N(sb, "drawn_near", vat.DrawnNear); N(sb, "drawn_far", vat.DrawnFar);
                 N(sb, "vertices", vat.VerticesThisFrame); N(sb, "shadows", vat.ShadowsThisFrame ? 1 : 0);
                 N(sb, "fallen", vat.FallenCount);
+                // how many of those bodies a camera actually saw this frame, and what they cost: `fallen` is only how
+                // many the renderer is holding
+                N(sb, "drawn_fallen", vat.DrawnFallen); N(sb, "fallen_near", vat.DrawnFallenNear); N(sb, "fallen_far", vat.DrawnFallenFar);
+                N(sb, "fallen_vertices", vat.FallenVertices);
+                N(sb, "corpses_in_frame", corpsesInFrame); N(sb, "corpse_contrast_median", corpseMed);
             }
             // the warnings the evening of 2026-09-22 would have wanted shouted at it
             var warn = new List<string>();

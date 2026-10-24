@@ -46,5 +46,23 @@ namespace TW.Tests
             Assert.That(CaptureRig.IsFootFigure(aliveFoot), Is.EqualTo(figurePathSocketsFoot));
             Assert.That(CaptureRig.IsFootFigure(aliveVehicle), Is.EqualTo(figurePathSocketsVehicle));
         }
+
+        /// <summary>Straight down from above, head and foot land on the same pixel, so the head-to-foot span is ~0
+        /// and a man sized by it alone is dropped (men_in_frame 0 while the renderer drew six). 58.4 px is a real
+        /// reading: build 19f946794d's px_per_m 32.8 times a man's 1.78 m.</summary>
+        [Test]
+        public void StraightDownAManIsSizedAcrossNotTall()
+        {
+            Assert.That(CaptureRig.ManPixels(0.4f, 58.4f), Is.EqualTo(58.4f).Within(0.001f));
+            Assert.That(CaptureRig.ManPixels(0.4f, 58.4f), Is.GreaterThan(CaptureRig.MinManPixels));
+        }
+
+        /// <summary>Sizing him across must not let a genuinely tiny man through: under MinManPixels either way he is
+        /// still skipped.</summary>
+        [Test]
+        public void AManTooSmallToJudgeIsStillSkipped()
+        {
+            Assert.That(CaptureRig.ManPixels(0.4f, 3f), Is.LessThan(CaptureRig.MinManPixels));
+        }
     }
 }
