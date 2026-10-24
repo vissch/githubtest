@@ -1,0 +1,6 @@
+capture 2 (age 1.5 s): settled at tick 301, seed 12648430, battlefield seed 1917
+held at weather clock 120
+burst born at pinned 100 s from 100.00,2.46,104.00 aim 0.358,0.000,0.934 for 3 s, jets 1
+sampled at pinned 101.5 s: age 1.5 s, left 1.5 s, valve 1, jets 1
+queued C:/Users/PC/AppData/Local/TrenchWarfare/relay/runs/20261024-065347-82152/desk/08/baseline-caps\jet-t2-2.png
+wrote jet-t2-2.png

@@ -1,0 +1,5 @@
+capture plate (age 1.5 s): settled at tick 301, seed 12648430, battlefield seed 1917
+held at weather clock 120
+the plate: the same pose and the same pinned clock at age 1.5 s, no burst
+queued C:/Users/PC/AppData/Local/TrenchWarfare/relay/runs/20261024-065347-82152/desk/08/baseline-caps\bg-t2.png
+wrote bg-t2.png
