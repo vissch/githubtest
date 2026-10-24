@@ -42,6 +42,22 @@ namespace TW.Presentation.Units
         /// <summary>Whole turns are drawn in this many pitch steps; VAT_URP.shader decodes a step as 2 pi / 32: change both together.</summary>
         public const int PitchSteps = 32; public const float OneFlipFlight = 0.9f, TwoFlipsFlight = 1.4f;
         public int FallenCount => fallenMen.Count;
+
+        /// <summary>One fallen man's throw, for the instruments: `from` is where he stood when he died, `land` his first
+        /// landing, `rest` where he comes to lie, `thrown` whether a blast threw him and `gag` which death gag took him
+        /// (0 none). A read: nothing here changes what is drawn. False when `i` is out of range.</summary>
+        public bool FallenThrow(int i, out Vector3 from, out Vector3 land, out Vector3 rest, out bool thrown, out int gag)
+        {
+            from = land = rest = Vector3.zero; thrown = false; gag = 0;
+            if (i < 0 || i >= fallenMen.Count) return false;
+            var f = fallenMen[i];
+            bool path = f.Thrown || f.Gag != 0;
+            from = f.From;
+            land = path ? FallenFlight.At(f.Path, f.Path.A0.Dur) : f.Pos;
+            rest = path ? f.Path.Rest : f.Pos;
+            thrown = f.Thrown; gag = f.Gag;
+            return true;
+        }
         GraphicsBuffer fallenBuffer, fallenArgs;
         NativeArray<VatInstance> fallenInstances;
         Vector3[] fallenDrawAt;   // the near men's drawn position this frame, so the near loop need not recompute FallenAt

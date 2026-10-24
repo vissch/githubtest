@@ -9,6 +9,7 @@
 //  - Call(ability, x, z, args): a support call for player 0 (silver topped up first): 1 HE, 3 chlorine, 11 the beam;
 //  - Disarm(slot): a machine's guns out of action, so it runs men down rather than shelling them;
 //  - DriveAt(slot, x, z): a machine driven straight at a point;
+//  - Throws(path): every fallen body's from/land/rest in metres, as json (the blast knockback's instrument);
 //  - Parts(x, z): one of each of a man's parts dropped in a row, to look at them close;
 //  - Later(seconds, act): something done a moment from now (the "machine" scene's shell);
 //  - Machine(archetype, x, z): a machine held where it stands and shelled to death a moment later (its absurd death);
@@ -75,6 +76,38 @@ namespace TW.Editor
             TankCapture.Silver();
             h.Issue(new SimCommand { Tick = h.Local.World.Tick, Type = CommandType.SupportFire, A = ability, B = args, Pos = new float3(x, 0f, z) });
             return "called " + (OffMapAbilityId)ability + " at " + x + ", " + z;
+        }
+
+        /// <summary>Every fallen body's throw, written as json to `path` (outside Assets/): where he stood when he died,
+        /// where he first landed, where he lies, whether a blast threw him and which gag took him. The instrument the
+        /// blast-knockback evidence measures: metres from the drawing, not pixels from a still.</summary>
+        public static string Throws(string path)
+        {
+            var vat = Object.FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
+            if (vat == null) return "no VATRenderer";
+            var ic = System.Globalization.CultureInfo.InvariantCulture;
+            var sb = new StringBuilder("{\n  \"bodies\": [");
+            int n = 0;
+            for (int i = 0; i < vat.FallenCount; i++)
+            {
+                if (!vat.FallenThrow(i, out var from, out var land, out var rest, out bool thrown, out int gag)) continue;
+                sb.Append(n > 0 ? "," : "").Append("\n    {");
+                sb.Append("\"from_x\": ").Append(from.x.ToString("0.####", ic));
+                sb.Append(", \"from_z\": ").Append(from.z.ToString("0.####", ic));
+                sb.Append(", \"land_x\": ").Append(land.x.ToString("0.####", ic));
+                sb.Append(", \"land_z\": ").Append(land.z.ToString("0.####", ic));
+                sb.Append(", \"rest_x\": ").Append(rest.x.ToString("0.####", ic));
+                sb.Append(", \"rest_z\": ").Append(rest.z.ToString("0.####", ic));
+                sb.Append(", \"thrown\": ").Append(thrown ? "true" : "false");
+                sb.Append(", \"gag\": ").Append(gag.ToString(ic)).Append("}");
+                n++;
+            }
+            sb.Append(n > 0 ? "\n  ]" : "]").Append(",\n  \"count\": ").Append(n.ToString(ic)).Append("\n}\n");
+            string full = System.IO.Path.GetFullPath(path);
+            // never into Assets/: a json dropped there is imported, gets a .meta and lands in the project
+            if (full.Replace("\\", "/").StartsWith(Application.dataPath.Replace("\\", "/"))) return "write outside Assets/, not in it: " + full;
+            System.IO.File.WriteAllText(full, sb.ToString());
+            return "wrote " + n + " bodies to " + full;
         }
 
         /// <summary>A whole staging by name at (x, z): a row of men and what kills them.</summary>

@@ -487,6 +487,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.DeathLab.Shell(x, z, radius, damage)` | Editor/DeathLab.cs | One shell, bursting next tick in every world (the men it kills die of it as they would in battle). |
 | `TW.Editor.DeathLab.Fire(x, z, radius)` | Editor/DeathLab.cs | An incendiary burst: the men inside it catch fire and burn to death over the next seconds. |
 | `TW.Editor.DeathLab.Call(ability, x, z, args)` | Editor/DeathLab.cs | A support call for player 0 at a point (silver topped up first); `args` is SimCommand.B (AbilityArgs: a line ability's heading, pattern and length; 0 ... |
+| `TW.Editor.DeathLab.Throws(path)` | Editor/DeathLab.cs | Every fallen body's throw, written as json to `path` (outside Assets/): where he stood when he died, where he first landed, where he lies, whether a ... |
 | `TW.Editor.DeathLab.Scene(name, x, z)` | Editor/DeathLab.cs | A whole staging by name at (x, z): a row of men and what kills them. |
 | `TW.Editor.DeathLab.Machine(archetype, x, z)` | Editor/DeathLab.cs | A machine of the enemy's held where it stands, facing east, and a shell that obliterates it once the picture draws it there (a machine killed the ... |
 | `TW.Editor.DeathLab.Parts(x, z)` | Editor/DeathLab.cs | One of each of a man's parts (DebrisRenderer.Figure, cut from his figure) dropped in a row from (x, z) along x, a metre apart and a metre up, in the ... |
