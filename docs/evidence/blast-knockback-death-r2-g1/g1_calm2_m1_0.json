@@ -30,6 +30,6 @@
   "drawn_far": 0,
   "vertices": 11004,
   "shadows": 1,
-  "fallen": 21,
+  "fallen": 1,
   "warnings": ["more than 2% of the frame is blown out", "frame is brighter than a night scene should be"]
 }

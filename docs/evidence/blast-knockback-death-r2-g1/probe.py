@@ -65,6 +65,10 @@ from scipy.optimize import linear_sum_assignment
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 SPACING_M = 2.5        # DeathLab.Row spacing in BlastThrowStills
+MEN = 6                # BlastThrowStills `Men`: the row is six men, so the lattice is six points wide and no
+                       # wider. Both numbers come from the harness that shot the stills, never from the result.
+MIN_LATTICE = 5        # how many of the six lattice points must carry a blob before a run is measured at all:
+                       # a mask that missed two men is a bad capture, to be reshot, not a thin measurement
 THRESH = 60.0          # colour distance from the snow that counts as foreground (a man reads 60-150 dark of it)
 MIN_BLOB = 120         # px; a blob smaller than this is debris or blood, not a man
 MAX_BLOB = 2000        # px; bigger than this is a shell hole, a bunker or two bodies run together. Raised from
@@ -121,26 +125,42 @@ def blobs(path, roi=ROI, thresh=THRESH, min_blob=MIN_BLOB, max_blob=MAX_BLOB):
 
 
 def standing_row(found):
-    """The row of men: the longest chain of evenly spaced blobs on one horizontal line, and how many SPACING_M steps
-    it spans. A man the mask missed leaves a double gap rather than ending the row, so a step of one or two counts."""
+    """The row of men as the scenario's OWN geometry: the best fit of a six-point lattice of SPACING_M to the blobs.
+
+    r2 and this leg's first set took "the longest chain of evenly spaced blobs", which let a stray body or a man who
+    wandered into the frame join the measured set -- from straight above, a corpse already lying on the ground reads
+    the same as a man standing, and it does not move when the shell goes off, so it measured as a throw of nothing.
+    BlastThrowStills stands exactly `MEN` men `SPACING_M` apart, so the row is a lattice of at most MEN points
+    spanning at most MEN - 1 gaps. Only lattice members are returned: a blob off the lattice is not a man of this row,
+    however blob-like it is.
+
+    Returns (members sorted by x, the number of SPACING_M steps the members span).
+    """
     best, best_steps = [], 0
     for anchor in found:
-        band = sorted((p for p in found if abs(p[1] - anchor[1]) <= BAND_PX), key=lambda p: p[0])
+        band = sorted((q for q in found if abs(q[1] - anchor[1]) <= BAND_PX), key=lambda q: q[0])
         for i in range(len(band)):
             for j in range(i + 1, len(band)):
                 gap = band[j][0] - band[i][0]
                 if not GAP_MIN_PX <= gap <= GAP_MAX_PX:
                     continue
-                chain, last, steps = [band[i], band[j]], band[j], 1
-                for p in band[j + 1:]:
-                    for k in (1, 2):
-                        if abs(p[0] - last[0] - k * gap) <= 0.3 * gap:
-                            chain.append(p)
-                            last = p
-                            steps += k
-                            break
-                if len(chain) > len(best):
-                    best, best_steps = chain, steps
+                # band[i] is lattice point 0 and band[j] point 1: every other blob takes the nearest lattice point
+                # inside the row's own span, and the nearest blob wins a point no two men can share.
+                x0 = band[i][0]
+                at = {}
+                for q in band:
+                    k = int(round((q[0] - x0) / gap))
+                    if not 0 <= k <= MEN - 1:
+                        continue
+                    residual = abs(q[0] - (x0 + k * gap))
+                    if residual > 0.3 * gap:
+                        continue
+                    if k not in at or residual < at[k][0]:
+                        at[k] = (residual, q)
+                members = [at[k][1] for k in sorted(at)]
+                steps = max(at) - min(at) if at else 0
+                if len(members) > len(best):
+                    best, best_steps = members, steps
     return best, best_steps
 
 
@@ -248,8 +268,9 @@ def run(tag, name, scale):
             raise RuntimeError(f"missing still: {os.path.basename(p)}")
 
     standing, steps = standing_row(blobs(before))
-    if len(standing) < MIN_BODIES:
-        raise RuntimeError(f"{name}: only {len(standing)} men found standing in the -1 s still")
+    if len(standing) < MIN_LATTICE:
+        raise RuntimeError(f"{name}: only {len(standing)} of the row's {MEN} men fit the {SPACING_M} m lattice in the "
+                           f"-1 s still, under the {MIN_LATTICE} a measurement needs: reshoot this set")
     row_scale = row_scale_px_per_m(standing, steps)
     if row_scale is not None:
         if abs(row_scale - scale) / scale > ROW_SCALE_TOLERANCE:
