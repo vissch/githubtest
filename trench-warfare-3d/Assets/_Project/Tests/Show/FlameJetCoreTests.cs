@@ -114,6 +114,26 @@ namespace TW.Tests
             }
         }
 
+        // Third try (flame-jet-opaque-near-2-g1, 2026-10-24). The owner saw a pale straight cut through the
+        // underside of the white core, "one card meeting the next". Eleven opaque cards covered the hot band and a
+        // card boundary is a straight line no brush drew, so the hot band is now ONE sheet and both chains start at
+        // the first link past HotThird. The expected values are the worked example, not what the code returned:
+        // u = i / (links - 1), so four links give 0, 0.333, 0.667, 1 and the first u >= 0.34 is i = 2; nine links
+        // give i / 8 = 0, 0.125, 0.25, 0.375, so i = 3.
+        [Test]
+        public void TheHotBandIsLeftToTheOneSheet()
+        {
+            Assert.AreEqual(2, Flamethrower.FirstWarmLink(4), "the envelope's four links: 0.333 is still hot, 0.667 is not");
+            Assert.AreEqual(3, Flamethrower.FirstWarmLink(9), "the core chain's nine links: 0.25 is still hot, 0.375 is not");
+
+            // and what they skip really is the hot band, in both chains
+            for (int i = 0; i < Flamethrower.FirstWarmLink(9); i++)
+                Assert.AreEqual(Book.JetCore, Flamethrower.CoreLink(i / 8f),
+                                $"core link {i} is inside the hot band, so the one sheet draws it instead");
+            Assert.AreEqual(Book.Jet, Flamethrower.JetLink(Flamethrower.FirstWarmLink(4) / 3f, false),
+                            "the first link the envelope draws is past the hot third, so it is the orange book");
+        }
+
         static float Flat(float x, float z) => 0f;
 
         /// <summary>One burst born at birth and drawn age seconds later, on the pinned clock alone. The cards it laid.</summary>

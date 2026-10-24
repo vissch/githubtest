@@ -678,6 +678,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   a function of the sample time alone) rather than one frame counted three times. Every bar is set outside the
   current build's measured spread: `baseline/` holds that build's own three stills, the probe measures them too, and
   it exits non-zero unless each bar is below its baseline minimum (2026-10-24; `measurements.md` has the triples).
+  **Measured, the near third as ONE sheet is worse, and it is the answer rather than a bug** (2026-10-24): with the
+  hot band drawn by a single `JetCore` card and both chains started at `Flamethrower.FirstWarmLink`, `seam_score`
+  went 1.90-2.04 to 5.11-6.96 and every one of the three landed at exactly 0 degrees. `Book.JetCore` is `_Solid`, so
+  the lone card's own horizontal rim is a hard opaque straight line spanning the whole band - a bigger straight line
+  than the card-to-card cut it removed, and nothing a width, a length or an alpha can soften. Do not add a second
+  card in the hot band to hide it: that is the cut coming back.
 - **Trap:** `FlipbookFx` indexes its sheets by the `Book` enum's ordinal and is only `Ready` when every sheet loads.
   A missing PNG or a row out of order silently disables every flipbook in the game. Add the enum entry, the row and
   the PNG together, and check `books.Ready`.

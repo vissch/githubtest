@@ -496,6 +496,20 @@ namespace TW.Presentation.Tactical
         /// <summary>How much of the run burns as the white-hot core: the owner's "first third".</summary>
         public const float HotThird = 0.34f;
 
+        /// <summary>
+        /// The lowest link index whose u is at or past the hot third. Both chains START here, because the hot band is
+        /// drawn by ONE sheet instead (owner, 2026-10-24: "a pale straight cut runs through the underside of the white
+        /// core, one card meeting the next ... draw the near third as one sheet with no cut"). Eleven overlapping
+        /// cards over the near third meant eleven card boundaries, and a boundary is a straight line no brush drew -
+        /// it cannot be jittered away, only removed.
+        /// </summary>
+        public static int FirstWarmLink(int links)
+        {
+            for (int i = 0; i < links; i++)
+                if ((links > 1 ? i / (links - 1f) : 1f) >= HotThird) return i;
+            return links - 1;
+        }
+
         static Vector3 Arc(Camera cam, float u, float len, Vector3 along)
         {
             Vector3 down = cam != null
@@ -618,7 +632,38 @@ namespace TW.Presentation.Tactical
                     // and the first one starts AT the mouth, not a fifth of the way out: the stream had begun
                     // in mid-air over empty mud with no nozzle and no operator under its near end.
                     Vector3 root = mouth - along * (step * 0.30f);
-                    for (int i = 0; i < Links; i++)
+
+                    // THE NEAR THIRD IS ONE SHEET. The owner, 2026-10-24: "a pale straight cut runs through the
+                    // underside of the white core, one card meeting the next". It was true, and it is not a jitter
+                    // problem. Eleven opaque cards covered the hot band - the envelope's two JetCore links plus three
+                    // core links each carrying two more staggered passes - and every pair of them meets somewhere.
+                    // Where two premultiplied cards meet, the join is a straight line at the edge of a quad: not a
+                    // contour any brush drew, and nothing a turn or a mirror can hide, because turning a card moves
+                    // the cut rather than removing it. The only drawing with no card boundary in it is a single card.
+                    // So: ONE JetCore sheet over the hot band, and both chains now start past it (FirstWarmLink).
+                    // It is ten per cent longer than the band so it overlaps the first warm link - the hand-over to
+                    // the orange Jet must not become the new edge - and it carries the mouth's own values: the
+                    // envelope's widest-at-the-nozzle thickness, and the glow 2.50 the owner settled on 2026-10-19.
+                    // No roll jitter: a lone sheet has no neighbour to differ from, and ten fewer cards per root can
+                    // only help FrameBudget.
+                    {
+                        FlipbookFx.Geometry(FlipbookFx.Book.JetCore, out _, out _, out float sFill);
+                        // 1.10 long and 5.0 m thick at alpha 0.95 measured a HOLE at the nozzle: the fire mask's
+                        // left edge moved 624 -> 728 px and near_edge_corr went 0.017 -> 0.068, the plate's stakes
+                        // reading through where the eleven cards used to overlap. So: 1.30 of the band's length, a
+                        // quarter thicker, and fully opaque. Not a second card - that is the cut coming back.
+                        float sw = HotThird * len * 1.30f / sFill;
+                        float sh = 5.0f * 1.25f * breath / Mathf.Max(0.05f, hi - lo);
+                        Shapely(FlipbookFx.Book.JetCore, ref sw, ref sh);
+                        books.Add(FlipbookFx.Book.JetCore,
+                                  mouth + along * (HotThird * len * 0.5f) + Arc(cam, HotThird * 0.5f, len, along),
+                                  sw, RootEvery * 1.15f, FlipbookFx.Kind.None,
+                                  roll: roll, height: sh,
+                                  alpha: valve * drawnWeight, glow: glow * 2.50f,
+                                  velocity: j.ManVel,
+                                  startFrame: Mathf.Max(Open, frame));   // a full-stream body cel, never a half-open valve
+                    }
+                    for (int i = FirstWarmLink(Links); i < Links; i++)
                     {
                         float u = Links > 1 ? i / (Links - 1f) : 1f;
                         bool head = i == Links - 1;
@@ -807,7 +852,7 @@ namespace TW.Presentation.Tactical
                     // no amount of turning it fixes that. Two drawings interleaved is turbulence.
                     const int CoreLinks = 9;   // shorter links, so the mouth one is not long enough to hit the clamp
                     float cStep = len / (CoreLinks - 0.35f);
-                    for (int i = 0; i < CoreLinks; i++)
+                    for (int i = FirstWarmLink(CoreLinks); i < CoreLinks; i++)
                     {
                         float u = CoreLinks > 1 ? i / (CoreLinks - 1f) : 1f;
                         float cSeg = cStep * 2.3f;
