@@ -4,10 +4,13 @@
 // findings, and it is copied in shape from DeathStills (read its header for why it is an [Explicit] EditMode test that
 // enters Play itself).
 //
-// Six runs on open ground, each a row of six men 2.5 m apart, each photographed straight down (pitch 89, zoom 20) at
-// -1 s, +0.5 s and +3 s around the moment a shell bursts: blast1..3 get the shell, calm1..3 get nothing and so give
-// the probe its noise floor. Straight down means world x and z map onto screen pixels at one scale with no
-// foreshortening to correct, which is what docs/evidence/blast-knockback-death-r2/probe.py measures per body.
+// Six runs on open ground, each a row of six men 2.5 m apart standing ACROSS the throw (along z, DeathLab.Row's
+// alongZ), each photographed straight down (pitch 89, zoom 20) at -1 s, +0.5 s and +3 s around the moment a shell
+// bursts: blast1..3 get the shell, calm1..3 get nothing and so give the probe its noise floor. The row stands across
+// the throw (not along it, as r2-g1 first shot it) so every standing man shares one x and the throw is all in x:
+// |dx| from the standing column no longer depends on which man a matcher pairs it with, which a row thrown along its
+// own axis cannot give (docs/evidence/blast-knockback-death-r2-g1/probe.py). Straight down means world x and z map
+// onto screen pixels at one scale with no foreshortening to correct.
 //
 // Why the frames now match the seconds: Time.captureDeltaTime = 1/30 makes the game clock step exactly 1/30 s a
 // frame, so the sidecars' `frame` gap is 30x the seconds, in batch or windowed. Why it is lit and dry: the clock is
@@ -141,9 +144,25 @@ namespace TW.Tests
             for (int f = 0; f < 900 && CaptureRig.Pending() != "0"; f++) yield return null;
             TestContext.Out.WriteLine(DeathLab.Absurd(0f));   // plain throws, no gag: the throw itself is what is measured
 
+            // a throwaway shot before the real loop: the very first CaptureRig.Shot of a run came back with
+            // drawn_infantry (and men_in_frame) 0 even over a fresh, correctly-positioned, full-hp row -- the VAT
+            // culling pipeline (VATRenderer.LateUpdate, which reads ViewEye.Main's frustum) was not yet warmed up
+            // this early in Play. One disposable shot here, discarded, pays that cost before any run is judged.
+            {
+                string warm = Path.Combine(Path.GetTempPath(), "tw-blastthrow-warmup.png");
+                CaptureRig.Hold(30f);
+                CaptureRig.Shot(warm, Host.Local.Map.SizeMeters.x * 0.5f, Host.Local.Map.SizeMeters.y * 0.5f, 20f, 0f, 89f, 1280, 720);
+                yield return Drain(warm);
+                CaptureRig.Release();
+                TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;
+                if (File.Exists(warm)) File.Delete(warm);
+                string warmJson = Path.ChangeExtension(warm, ".json");
+                if (File.Exists(warmJson)) File.Delete(warmJson);
+            }
+
             var map = Host.Local.Map;
             var size = map.SizeMeters;
-            float rowWidth = (Men - 1) * Spacing;
+            float rowLength = (Men - 1) * Spacing;
             int written = 0;
             var used = new List<Vector2>();
             foreach (string run in Runs)
@@ -154,13 +173,13 @@ namespace TW.Tests
                 // ground (zoom 20, straight down): 34 m along x puts a neighbour's nearest man outside it, 22 m along
                 // z clears its depth. The first pass asked 30 x 26 and ran out of ground for calm2 and calm3.
                 var candidates = new List<Vector2>();
-                for (float zz = 30f; zz < size.y - 30f && candidates.Count < 3; zz += 4f)
-                    for (float xx = 8f; xx < size.x - 20f && candidates.Count < 3; xx += 4f)
+                for (float zz = 30f; zz < size.y - 30f && candidates.Count < 6; zz += 4f)
+                    for (float xx = 8f; xx < size.x - 20f && candidates.Count < 6; xx += 4f)
                     {
                         bool clear = true;
                         foreach (var u in used) if (Mathf.Abs(u.x - xx) < 34f && Mathf.Abs(u.y - zz) < 22f) clear = false;
                         foreach (var c in candidates) if (Mathf.Abs(c.x - xx) < 34f && Mathf.Abs(c.y - zz) < 22f) clear = false;
-                        if (clear && Open(map, xx, zz, rowWidth + 2f, 6f, 6f)) candidates.Add(new Vector2(xx, zz));
+                        if (clear && Open(map, xx - 8f, zz - 4f, 16f, 0f, rowLength + 8f)) candidates.Add(new Vector2(xx, zz));
                     }
                 if (candidates.Count == 0) { TestContext.Out.WriteLine(run + ": no open ground left"); continue; }
 
@@ -173,7 +192,7 @@ namespace TW.Tests
                     var vat = Object.FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
                     if (vat != null) vat.ClearFallen();
 
-                    string slots = DeathLab.Row(Men, x, z, 0, Spacing, 100f);
+                    string slots = DeathLab.Row(Men, x, z, 0, Spacing, 100f, -1f, alongZ: true);
                     TestContext.Out.WriteLine($"{run} attempt {attempt + 1} at {x}, {z}: {slots}");
                     Assert.That(slots, Does.StartWith("slots "), run + ": the row failed: " + slots);
                     var mine = new List<int>();
@@ -182,7 +201,7 @@ namespace TW.Tests
                     // two seconds to stand and settle before the row is first photographed
                     float t0 = Time.time + 2f;
                     while (Time.time < t0) yield return null;
-                    float cx = x + rowWidth * 0.5f, cz = z;   // the shell at the row's middle, so throws stay inside the frame
+                    float cx = x, cz = z + rowLength * 0.5f;   // the shell at the row's middle, so throws stay inside the frame
 
                     bool dirty = false;
                     for (int k = 0; k < Moments.Length && !dirty; k++)
@@ -220,7 +239,17 @@ namespace TW.Tests
                         // the -1 s still is on disk before the shell is queued, so it is a standing row for certain
                         if (blast) TestContext.Out.WriteLine($"  {run}: {DeathLab.Shell(cx, cz, Radius, Damage)}");
                     }
-                    if (dirty) { for (int f = 0; f < 30; f++) yield return null; continue; }
+                    if (dirty)
+                    {
+                        // a rejected patch's row is never cleared away, only abandoned: left standing exactly where
+                        // it was it is the "wanderer" a later run's own frame can pick up (leg g1's blast3/calm1
+                        // both failed at a spot an earlier failed attempt had quietly left six live men in).
+                        // Moved off-map, not despawned: Despawn re-triggers the death/VAT path and the freed slot
+                        // came back reading drawn_infantry 0 on the very next spawn at it.
+                        Host.WriteWorlds(m => { foreach (int slot in mine) m.World.Position[slot] = new float3(-500f, 0f, -500f); });
+                        for (int f = 0; f < 30; f++) yield return null;
+                        continue;
+                    }
                     shot = true;
                     used.Add(new Vector2(x, z));
                     // counted here, not per shot: a retaken run overwrites its own stills, and each must count once
