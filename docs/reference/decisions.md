@@ -303,6 +303,17 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 
 ## Open: waiting on the owner
+- **The jet's `EDGE_BAR` cannot be earned: `near_edge_corr` straddles zero in both builds (2026-10-24, lane
+  `lane/show/flame-jet-opaque-near-2-g1`):** the near-third edge bar is `near_edge_corr_max <= 0.0032`, derived as
+  half the current build's own minimum. Measured over three ages of the pinned clock, the quantity has no stable
+  sign: the eleven-card build reads **+0.0065, +0.0153, +0.0172**, the one-sheet build **-0.0196, +0.0221, +0.0318**.
+  A ceiling of 0.0032 on the worst of three is therefore luck, not a drawing: the near third already hides the plate
+  in both builds, and what is left is noise around zero that no look change steers. Options: (a) **keep the bar
+  exactly as the owner's words set it and report that it cannot be earned** - the default taken here, so the probe
+  keeps exiting 1 on this number alone; (b) measure `abs(corr)` and bar it at the baseline's own maximum (0.0172), a
+  non-regression bar that says "no worse than today"; (c) drop the edge bar and keep the seam and luma bars, since
+  the near third's opacity is already proved by them. (b) and (c) are not built without his answer (this leg,
+  because changing which quantity a bar measures is the owner's call, not the lane's).
 - **The jet's semi-transparent outer rim: no measured reason left to change it (2026-10-20, lane
   `lane/show/flame-jet-opaque-near-2`):** this unit's plan had two parts. Part 1 (pin the burst's birth clock for a
   capture) is built and pushed (`ee49e7ee4b`). Part 2 was to add a solid `Book.JetBody` row and draw the stream's
