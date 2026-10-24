@@ -55,6 +55,7 @@ namespace TW.Tests
         /// <summary>The shell: radius 10 puts every man of the row inside 0.8 * radius, the throw gate in
         /// AnimationController.Death.cs:209, and 600 damage kills men on 100 hp outright.</summary>
         const float Radius = 10f, Damage = 600f;
+        const float ShellOffsetX = 5f;   // the shell sits this far to -x of the row line, so the throw runs across the row
         /// <summary>The three moments, in seconds from the burst, and the names they take in a stem.</summary>
         static readonly float[] Moments = { -1f, 0.5f, 3f };
         static readonly string[] MomentNames = { "m1_0", "p0_5", "p3_0" };
@@ -178,19 +179,21 @@ namespace TW.Tests
             float rowLength = (Men - 1) * Spacing;
             int written = 0;
             // the patches, in the order the runs take them. Separated 22 m along x and 26 m along z from each other:
-            // a shot sees 41 m x 23 m of ground (zoom 20, straight down) and every throw this build records is along
-            // z (throw x read 0.00 for all twelve men of the first run) out to 11.3 m, so 22 m along x puts a
-            // neighbour's column outside the frame and along z the frame's own 11.5 m plus 12 m of throw needs 26.
+            // a shot sees 41 m x 23 m of ground (zoom 20, straight down). The shell is 5 m to -x of the row and the
+            // throw now runs across the row, along +x, out to about 9 m, so the ground a run needs spans x - 9 to
+            // x + 13; 22 m along x still keeps a neighbour's column out of the frame, and 26 m along z covers the
+            // frame's own 11.5 m with room to spare.
             var patches = new List<Vector2>();
             for (float zz = 30f; zz < size.y - 30f && patches.Count < 12; zz += 4f)
                 for (float xx = 8f; xx < size.x - 20f && patches.Count < 12; xx += 4f)
                 {
                     bool clear = true;
                     foreach (var c in patches) if (Mathf.Abs(c.x - xx) < 22f && Mathf.Abs(c.y - zz) < 26f) clear = false;
-                    if (clear && Open(map, xx - 8f, zz - 4f, 16f, 0f, rowLength + 8f)) patches.Add(new Vector2(xx, zz));
+                    if (clear && Open(map, xx - 9f, zz - 4f, 22f, 0f, rowLength + 8f)) patches.Add(new Vector2(xx, zz));
                 }
             TestContext.Out.WriteLine($"{patches.Count} open patches: {string.Join(" ", patches)}");
             Assert.That(patches.Count, Is.GreaterThanOrEqualTo(2), "fewer than two open patches on this map");
+            var offRow = new List<string>();   // every man the shell did not throw across the row
             int turn = 0;
             foreach (string run in Runs)
             {
@@ -252,7 +255,14 @@ namespace TW.Tests
                     // two seconds to stand and settle before the row is first photographed
                     float t0 = Time.time + 2f;
                     while (Time.time < t0) yield return null;
-                    float cx = x, cz = z + rowLength * 0.5f;   // the shell at the row's middle, so throws stay inside the frame
+                    float cx = x, cz = z + rowLength * 0.5f;   // the camera's focus: the row's own middle, so every body stays inside the frame
+                    // the shell to the -x side of the row, never on it. On the row line Explosion.Dir is zero and
+                    // AnimationController.Death throws each man straight away from the burst, which is along the row
+                    // itself; and the crater then lands on exactly the ground the measurement needs. Offset 5 m: the
+                    // furthest man is sqrt(5^2 + 6.25^2) = 8.0 m out, still inside the throw gate
+                    // (closeness = 1.15 - dist/(0.8*Radius) = 0.15 > 0 at Radius 10), and his throw carries an x
+                    // fraction of 5/8; the middle men's is 1.0.
+                    float sx = x - ShellOffsetX;
 
                     // one posed shot, frozen for the shot only (GoreZoomStills' trick): the tactical camera eases
                     // towards a pose and the rig puts it back when the queue drains, so a shot taken while it is still
@@ -326,7 +336,7 @@ namespace TW.Tests
                             TestContext.Out.WriteLine($"  {run} slot {slot} stood at {Host.Local.World.Position[slot]} " +
                                                       $"(UseAnimationController {Host.UseAnimationController})");
                         // the -1 s still is on disk before the shell is queued, so it is a standing row for certain
-                        if (blast) TestContext.Out.WriteLine($"  {run}: {DeathLab.Shell(cx, cz, Radius, Damage)}");
+                        if (blast) TestContext.Out.WriteLine($"  {run}: {DeathLab.Shell(sx, cz, Radius, Damage)}");
                         burstAt = Time.time;
                     }
                     // a rejected row needs no clearing up here: the next attempt's own sweep moves every living
@@ -351,6 +361,13 @@ namespace TW.Tests
                                 if (Host.Animation.TryDeath(slot, t, out var rec))
                                 {
                                     TestContext.Out.WriteLine($"  {run} slot {slot} death tick {t}: throw {rec.ThrowX:0.00}, {rec.ThrowZ:0.00}, up {rec.ThrowUp:0.00}");
+                                    // the geometry this harness exists for: with the shell 5 m to -x of the row
+                                    // line every man is thrown across the row, out to +x, never along it. Not
+                                    // |x| > |z|: the end men sit 6.25 m up the row from the shell's own z, so
+                                    // their direction is 5 : 6.25 and the z part is the larger one. Collected,
+                                    // not asserted here, so a bad geometry still leaves all 18 stills on disk.
+                                    if (!(rec.ThrowX > 0f))
+                                        offRow.Add($"{run} slot {slot}: throw {rec.ThrowX:0.00}, {rec.ThrowZ:0.00} is not across the row (+x)");
                                     found = true;
                                 }
                             if (!found) TestContext.Out.WriteLine($"  {run} slot {slot}: no death record in the ring");
@@ -369,6 +386,7 @@ namespace TW.Tests
             yield return new ExitPlayMode();
             TestContext.Out.WriteLine($"wrote {written} stills to {dir}");
             Assert.That(written, Is.EqualTo(Runs.Length * Moments.Length), "not every moment of every run was photographed");
+            Assert.That(offRow, Is.Empty, "the shell threw men along the row instead of across it: " + string.Join("; ", offRow));
 
             // the one number read back out of the stills here: the bodies the +3 s blast frames drew
             foreach (string run in Runs)
