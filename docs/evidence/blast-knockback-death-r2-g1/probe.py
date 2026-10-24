@@ -7,20 +7,22 @@ This set (`g1`) is a genuine reshoot of all 18 stills on the same tree, from one
 baseline-in-the-file with a measured bar: the spread of three calm captures of THIS build. See frames.txt for what
 each still is.
 
-g1's first cut stood the row along x and threw it along x too (`AnimationController.Death.cs:219` takes the throw
-direction from the burst's own `simDir`, so every man in one burst is thrown the SAME way): six collinear men thrown
-along their own line cannot be measured by any one-to-one matcher, because a shifted row matches onto itself (man i
-pairs with the body of man i-k) and reads as a tiny "move" regardless of the real throw. The fix is geometry, not
-matching: the harness (`BlastThrowStills.cs`, `DeathLab.Row(..., alongZ: true)`) now stands the row ACROSS the throw
-(along z), so every standing man shares one x and the whole throw lands in x. `across()` below measures `|body.x -
-row_x|` directly, with NO assignment between before/after blobs: that makes the bar permutation-free, which no cost
-tuning on the old axis could give. The old one-to-one matcher (`matched_distances`) is kept only to report
-`per_body_m`/`throw_m`/`blast_median_m` as the per-body numbers the owner asked for; it is not what the pass/fail
-bar reads.
+g1's first cut stood the row along x and threw it along x too: `DeathLab.Shell` takes a point only, so
+`Explosion.Dir` is zero and `AnimationController.Death.cs:219` throws every man straight away from the burst. With
+the shell on the row's own middle, six collinear men flew along their own line, the crater covered the ground the
+measurement needs, and no matcher could read it (a shifted row matches onto itself). The fix is geometry: the
+harness (`BlastThrowStills.cs`, `ShellOffsetX` 5 m) bursts the shell 5 m to -x of a row standing along z, so every
+recorded throw carries a large +x part (2.1 to 7.4 m on this build, asserted by the test) and the crater sits off
+the row line.
+
+The bar is one rule, the same for blast and calm, with NO assignment between before and after blobs: for each of
+the six standing men at `p_i` the run's value is `d_i`, the distance in world metres from `p_i` to the NEAREST
+candidate body in the +3 s still. An extra blob can only shrink a `d_i`, so it can only ever make a blast run
+harder to pass, and no permutation of a collinear row can fool it, whatever axis the throw takes.
 
 What it reads (shot by Tests/Stills/BlastThrowStills.cs, `g1_` prefix):
-  g1_blast1..3_{m1_0,p0_5,p3_0}.png  a row of six men 2.5 m apart, straight down (pitch 89, zoom 20), at -1 s,
-                                      +0.5 s and +3 s around a shell at the row's middle;
+  g1_blast1..3_{m1_0,p0_5,p3_0}.png  a row of six men 2.5 m apart along z, straight down (pitch 89, zoom 20), at
+                                      -1 s, +0.5 s and +3 s around a shell 5 m to -x of the row line;
   g1_calm1..3_{...}.png              the same three moments with no shell: the noise floor, what a standing row
                                       drifts by on its own.
 Each PNG has a .json sidecar beside it (CaptureRig) carrying `frame`, `fallen`, `zoom`, `pitch`, `yaw`, `cam_x`,
@@ -29,38 +31,40 @@ Each PNG has a .json sidecar beside it (CaptureRig) carrying `frame`, `fallen`, 
 Method, per run, on the (-1 s, +3 s) pair:
   1. background = the ROI's median colour; mask = colour distance > THRESH, opened with a 3x3 so a plank's one-pixel
      outline is not a blob; label with scipy.ndimage and keep blobs of MIN_BLOB..MAX_BLOB px.
-  2. The standing men in the -1 s still are found as a ROW, not as "every blob": the horizontal line (y within
-     BAND_PX) holding the longest chain of blobs evenly spaced along x. A top-down winter field is full of planks,
-     crates, sandbags and shell holes that are blobs too, and they do not stand in an evenly spaced line.
-  3. The scale is NOT re-derived from the row's own pixel spacing (r2 did that and got px/m drifting 29.8-33.3
+  2. `merge()` collapses mask fragments, on both stills of the pair: from straight above, one man's mask breaks into
+     two or three pieces half a metre apart (the first g1 cut read the six men of blast1 as nine blobs, and the
+     -1 s frames carried 35-55 blobs where six men stood). Any two blob centres closer than MERGE_M become one
+     blob, area summed and centre area-weighted, until nothing merges. MERGE_M 1.0 m against the row's 2.5 m
+     spacing cannot swallow two men.
+  3. The standing men in the -1 s still are found as a six-point LATTICE of SPACING_M, and the lattice gap is NOT
+     fitted from a blob pair (that is how the first cut found a false 49.8 px gap where the camera says 77.94): the
+     gap is `SPACING_M * scale`, known from the camera. Only the band x and the phase are searched.
+  4. The scale is NOT re-derived from the row's own pixel spacing (r2 did that and got px/m drifting 29.8-33.3
      across runs, a 10% spread that is 0.2 m on a 2 m throw -- the size of the whole calm floor). CaptureRig poses a
      perspective camera at `distance = zoom * tan(30deg) / tan(fov/2)` (CaptureRig.cs:190), so whatever the fov, the
      ground half-height visible is `zoom * tan(30deg)` metres: `px_per_m = (h/2) / (zoom * tan(30deg))`. At zoom 20,
      720 px high: 360 / (20 * tan(30deg)) = 360 / 11.547 = 31.18. Every sidecar in this set carries the same `zoom`
-     (checked below), so ONE scale serves the whole set. The standing row's own median gap is kept only as a check:
-     if it disagrees with the camera-derived scale by more than ROW_SCALE_TOLERANCE, the run raises -- a silent
-     scale error is worse than a loud one.
-  4. One pinned camera, checked, not assumed: every sidecar must carry the same `zoom`, `pitch`, `yaw` and `cam_y`
+     (checked below), so ONE scale serves the whole set. The standing row's own span is kept only as a check: if it
+     disagrees with the camera-derived scale by more than ROW_SCALE_TOLERANCE, the run raises -- a silent scale
+     error is worse than a loud one.
+  5. One pinned camera, checked, not assumed: every sidecar must carry the same `zoom`, `pitch`, `yaw` and `cam_y`
      (within POSE_TOLERANCE_M / POSE_TOLERANCE_DEG) and `pose_error_m` within MAX_POSE_ERROR_M. `cam_x`/`cam_z` are
      still read per still (different patches of ground), which is what `to_world` uses to make two patches
      comparable in one coordinate frame.
-  5. Match the -1 s blobs to the +3 s blobs ONE TO ONE (scipy.optimize.linear_sum_assignment) on
-     cost = pixel distance + AREA_W * |area ratio - 1|, dropping any match over MAX_MATCH_M OR whose area ratio
-     falls outside AREA_RATIO_MIN..AREA_RATIO_MAX -- applied identically to blast and calm runs, so a loose match
-     (debris, the crater, or a body cut off at the frame edge) cannot read as a body without the same rule culling
-     a calm "body" too.
-  6. The run's value is the MEDIAN of its per-body distances in metres.
+  6. The candidates of a run are the merged +3 s blobs whose area is in MAN_AREA_MIN..MAX -- a window measured from
+     the six standing men of the three calm -1 s stills (see frames.txt), not from any result, and an order of
+     magnitude below the crater's 14 000-64 000 px. The run's values are the six `d_i` above; its `median_m` is
+     their median.
 
-The bar: calm_spread_m is the largest across_m over every calm1..3 body -- how far a standing column drifts off its
-own line on its own, at its worst, on this capture. worst_across_m is the smallest across_m over every blast1..3
-body. The set passes only if every blast body clears the calm spread (worst_across_m > calm_spread_m); otherwise the
-failing run, body and distance are printed and the script exits 1. There is no baseline constant: a number copied
-out of the run it judges proves nothing (that is exactly how r2's circular baseline happened), and across_m needs no
-assignment at all, so it cannot be fooled by a row thrown along its own axis the way the old matcher was.
+The bar: calm_spread_m is the largest `d_i` over every calm1..3 man -- how far a standing man's nearest candidate
+drifts on its own, at its worst, on this capture. worst_throw_m is the smallest `d_i` over blast1..3. The set passes
+only if every blast man clears the calm spread (worst_throw_m > calm_spread_m); otherwise the failing run, man and
+distance are printed and the script exits 1. There is no baseline constant: a number copied out of the run it judges
+proves nothing (that is exactly how r2's circular baseline happened).
 
 Reported in probe.json and printed: throw_m, per_body_m, blast_median_m, noise_floor_m, calm_spread_m,
-worst_across_m, px_per_m, frame_gap, seconds_gap, fps_implied, fallen_after and the per-run rows (each carrying
-across_m too). Raises if a run matched fewer than MIN_BODIES bodies, or if the pinned-camera check fails.
+worst_throw_m, px_per_m, frame_gap, seconds_gap, fps_implied, fallen_after and the per-run rows. Raises if a run
+has fewer than MIN_LATTICE standing men or fewer than MIN_BODIES candidates, or if the pinned-camera check fails.
 """
 import glob
 import json
@@ -72,7 +76,6 @@ import sys
 import numpy as np
 from PIL import Image
 from scipy import ndimage
-from scipy.optimize import linear_sum_assignment
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -89,18 +92,14 @@ MAX_BLOB = 2000        # px; bigger than this is a shell hole, a bunker or two b
                        # left the matcher no honest candidate near his own spot -- it picked a distant unrelated
                        # blob instead and read a 2.6 m "move" out of a man who never left his position.
 BAND_PX = 22           # how far off one line the row's men may sit (the shot is pitch 89, not quite 90)
-GAP_MIN_PX, GAP_MAX_PX = 50, 110   # one SPACING_M gap at this zoom is ~79 px: narrow enough that a chain cannot
-                                   # skip every other man and call 2.5 m a 5 m gap
-AREA_W = 10.0          # how much a change of area costs, against one pixel of distance. r2's 40 over-penalised the
-                       # genuine area a body loses going from standing (seen almost end-on at pitch 89) to lying
-                       # flat (seen full-length from above): every real blast throw measured on this build has an
-                       # area ratio of 0.13-1.2, so a weight of 40 made matching a standing man to his own
-                       # legitimate landing spot cost MORE than matching him to a same-sized blob metres away --
-                       # exactly the calm2 "2.6 m move" bug this constant is tuned to avoid.
-AREA_RATIO_MIN, AREA_RATIO_MAX = 0.1, 3.0   # a backstop only: every real match measured on this build (blast or
-                       # calm) has a ratio of 0.13-1.2, with idle-pose noise up to ~1.9 (still, same spot); this
-                       # only catches a pairing nothing in the data looks like.
-MAX_MATCH_M = 12.0     # a "body" that moved further than this is not the same body
+MERGE_M = 1.0          # blob centres closer than this are one man's mask broken into pieces, not two men: from
+                       # straight above a figure's mask splits into two or three fragments ~0.5 m apart, and the
+                       # row's own spacing is 2.5 m, so this cannot join two men
+MAN_AREA_MIN, MAN_AREA_MAX = 62, 3692    # px, after merging: a candidate body's area window, measured as half the
+                       # smallest to twice the largest merged standing man in the three calm -1 s stills (125-1846
+                       # px; the 17 men are listed in frames.txt). MIN_BLOB already floors a fragment at 120 px, so
+                       # only the ceiling bites, and the crater and the scorch read 14 100-63 800 px -- an order of
+                       # magnitude out, so the window separates a body from the burst's own mark.
 MIN_BODIES = 4         # the bar the leg card sets: n_bodies >= 4 per run
 MAX_POSE_ERROR_M = 0.6     # how far off its asked pose a still may have been shot: the translation is taken
                            # out exactly from the sidecar's own camera, so this only has to catch a wild pose
@@ -136,7 +135,33 @@ def blobs(path, roi=ROI, thresh=THRESH, min_blob=MIN_BLOB, max_blob=MAX_BLOB):
     return out
 
 
-def standing_row(found):
+def merge(found, scale, merge_m=MERGE_M):
+    """Blob fragments joined: any two centres closer than `merge_m` metres become one blob, area summed and centre
+    area-weighted, repeated until nothing merges. One man seen from straight above breaks into two or three mask
+    pieces about half a metre apart, which is why the first g1 cut read six men as nine blobs and fitted a false
+    lattice gap. The row's spacing is 2.5 m, well clear of `merge_m`."""
+    out = [(x, y, a) for x, y, a in found]
+    limit = merge_m * scale
+    changed = True
+    while changed:
+        changed = False
+        for i in range(len(out)):
+            for j in range(i + 1, len(out)):
+                xi, yi, ai = out[i]
+                xj, yj, aj = out[j]
+                if math.hypot(xi - xj, yi - yj) > limit:
+                    continue
+                total = ai + aj
+                out[i] = ((xi * ai + xj * aj) / total, (yi * ai + yj * aj) / total, total)
+                del out[j]
+                changed = True
+                break
+            if changed:
+                break
+    return out
+
+
+def standing_row(found, scale):
     """The row of men as the scenario's OWN geometry: the best fit of a six-point lattice of SPACING_M to the blobs.
 
     r2 and this leg's first set took "the longest chain of evenly spaced blobs", which let a stray body or a man who
@@ -146,36 +171,32 @@ def standing_row(found):
     spanning at most MEN - 1 gaps. Only lattice members are returned: a blob off the lattice is not a man of this row,
     however blob-like it is.
 
-    The row now stands ACROSS the throw (along z: a column in the image, since straight down maps world z to
-    screen y), so the band is on x and the chain on y -- the same lattice search, with the two blob axes swapped.
+    The row stands along z (a column in the image, since straight down maps world z to screen y), so the band is on
+    x and the lattice on y. The gap is not fitted: it is `SPACING_M * scale`, known from the camera's own pose. Only
+    the band x and the phase are searched, so no blob pair can sell the fit a gap the camera contradicts.
 
     Returns (members sorted by y, the number of SPACING_M steps the members span).
     """
+    gap = SPACING_M * scale
     best, best_steps = [], 0
     for anchor in found:
         band = sorted((q for q in found if abs(q[0] - anchor[0]) <= BAND_PX), key=lambda q: q[1])
-        for i in range(len(band)):
-            for j in range(i + 1, len(band)):
-                gap = band[j][1] - band[i][1]
-                if not GAP_MIN_PX <= gap <= GAP_MAX_PX:
+        for phase in band:
+            y0 = phase[1]
+            at = {}
+            for q in band:
+                k = int(round((q[1] - y0) / gap))
+                if not 0 <= k <= MEN - 1:
                     continue
-                # band[i] is lattice point 0 and band[j] point 1: every other blob takes the nearest lattice point
-                # inside the row's own span, and the nearest blob wins a point no two men can share.
-                y0 = band[i][1]
-                at = {}
-                for q in band:
-                    k = int(round((q[1] - y0) / gap))
-                    if not 0 <= k <= MEN - 1:
-                        continue
-                    residual = abs(q[1] - (y0 + k * gap))
-                    if residual > 0.3 * gap:
-                        continue
-                    if k not in at or residual < at[k][0]:
-                        at[k] = (residual, q)
-                members = [at[k][1] for k in sorted(at)]
-                steps = max(at) - min(at) if at else 0
-                if len(members) > len(best):
-                    best, best_steps = members, steps
+                residual = abs(q[1] - (y0 + k * gap))
+                if residual > 0.3 * gap:
+                    continue
+                if k not in at or residual < at[k][0]:
+                    at[k] = (residual, q)
+            members = [at[k][1] for k in sorted(at)]
+            steps = max(at) - min(at) if at else 0
+            if len(members) > len(best):
+                best, best_steps = members, steps
     return best, best_steps
 
 
@@ -206,39 +227,16 @@ def to_world(found, path, scale, size=(1280, 720)):
     return [(cam_x + (bx - w / 2.0) / scale, cam_z + (h / 2.0 - by) / scale, area) for bx, by, area in found]
 
 
-def matched_distances(before, after, before_path, after_path, scale):
-    """One-to-one matches from `before` blobs to `after` blobs; the distances in metres, nearest first. A match is
-    dropped if it moved further than MAX_MATCH_M or if its area changed outside AREA_RATIO_MIN..AREA_RATIO_MAX --
-    the same body, or not counted, for blast and calm alike."""
-    if not before or not after:
-        return []
-    bw = to_world(before, before_path, scale)
-    aw = to_world(after, after_path, scale)
-    cost = np.zeros((len(bw), len(aw)))
-    for i, (bx, bz, ba) in enumerate(bw):
-        for j, (ax, az, aa) in enumerate(aw):
-            d = float(np.hypot(ax - bx, az - bz)) * scale      # in pixels, so AREA_W keeps its meaning
-            ratio = aa / ba if ba > 0 else 0.0
-            cost[i, j] = d + AREA_W * abs(ratio - 1.0)
-    rows, cols = linear_sum_assignment(cost)
+def throws(standing, candidates, before_path, after_path, scale):
+    """One distance per standing man: `d_i` is the world-metre distance from man i's own standing spot to the
+    NEAREST candidate body in the +3 s still. No assignment, so no permutation of a collinear row can fool it, and
+    an extra candidate can only shrink a `d_i` -- which can only ever make a blast run harder to pass."""
+    pts = to_world(standing, before_path, scale)
+    cands = to_world(candidates, after_path, scale)
     out = []
-    for i, j in zip(rows, cols):
-        bx, bz, ba = bw[i]
-        ax, az, aa = aw[j]
-        ratio = aa / ba if ba > 0 else 0.0
-        if not AREA_RATIO_MIN <= ratio <= AREA_RATIO_MAX:
-            continue
-        metres = float(np.hypot(ax - bx, az - bz))
-        if metres <= MAX_MATCH_M:
-            out.append(metres)
+    for px, pz, _a in pts:
+        out.append(min(math.hypot(cx - px, cz - pz) for cx, cz, _ca in cands))
     return sorted(out)
-
-
-def across(after_blobs, after_path, row_x, scale):
-    """|body.x - row_x| in metres for every "after" blob, in world coordinates. No assignment: a body cannot dodge
-    this measurement by pairing with a different lattice point, which is exactly what the old one-to-one matcher
-    let a shifted collinear row do. row_x is the standing column's own median x (world metres)."""
-    return sorted(abs(x - row_x) for x, _z, _a in to_world(after_blobs, after_path, scale))
 
 
 def sidecar(path, key):
@@ -281,15 +279,15 @@ def check_one_pinned_camera(tag, names):
 
 
 def run(tag, name, scale):
-    """One run measured: its per-body distances, and what its sidecars say. `scale` (px/m) comes from the camera
-    pose, shared by the whole set; the row's own spacing is read only as a check on it."""
+    """One run measured: the six `d_i`, and what its sidecars say. `scale` (px/m) comes from the camera pose, shared
+    by the whole set; the row's own span is read only as a check on it."""
     before = os.path.join(HERE, f"{tag}_{name}_m1_0.png")
     after = os.path.join(HERE, f"{tag}_{name}_p3_0.png")
     for p in (before, after):
         if not os.path.exists(p):
             raise RuntimeError(f"missing still: {os.path.basename(p)}")
 
-    standing, steps = standing_row(blobs(before))
+    standing, steps = standing_row(merge(blobs(before), scale), scale)
     if len(standing) < MIN_LATTICE:
         raise RuntimeError(f"{name}: only {len(standing)} of the row's {MEN} men fit the {SPACING_M} m lattice in the "
                            f"-1 s still, under the {MIN_LATTICE} a measurement needs: reshoot this set")
@@ -300,22 +298,20 @@ def run(tag, name, scale):
                 f"{name}: row-measured scale {row_scale:.2f} px/m disagrees with the camera-derived "
                 f"{scale:.2f} px/m by more than {ROW_SCALE_TOLERANCE:.0%}")
 
-    after_blobs = blobs(after)
-    per_body = matched_distances(standing, after_blobs, before, after, scale)
-    if len(per_body) < MIN_BODIES:
-        raise RuntimeError(f"{name}: only {len(per_body)} bodies matched, under the {MIN_BODIES} the bar asks for")
-    row_x = statistics.median(x for x, _z, _a in to_world(standing, before, scale))
-    across_m = across(after_blobs, after, row_x, scale)
-    if len(across_m) < MIN_BODIES:
-        raise RuntimeError(f"{name}: only {len(across_m)} bodies in the +3 s frame, under the {MIN_BODIES} the bar asks for")
+    merged_after = merge(blobs(after), scale)
+    candidates = [b for b in merged_after if MAN_AREA_MIN <= b[2] <= MAN_AREA_MAX]
+    if len(candidates) < MIN_BODIES:
+        raise RuntimeError(f"{name}: only {len(candidates)} candidate bodies in the +3 s still "
+                           f"(area {MAN_AREA_MIN}-{MAN_AREA_MAX} px), under the {MIN_BODIES} the bar asks for")
+    per_man = throws(standing, candidates, before, after, scale)
     fb, fa = sidecar(before, "frame"), sidecar(after, "frame")
     return {
         "run": name,
         "n_standing": len(standing),
-        "n_bodies": len(per_body),
-        "per_body_m": [round(d, 3) for d in per_body],
-        "median_m": round(statistics.median(per_body), 3),
-        "across_m": [round(d, 3) for d in across_m],
+        "n_candidates": len(candidates),
+        "standing_area_px": [round(a) for _x, _y, a in standing],
+        "per_man_m": [round(d, 3) for d in per_man],
+        "median_m": round(statistics.median(per_man), 3),
         "px_per_m": round(scale, 2),
         "row_px_per_m": round(row_scale, 2) if row_scale is not None else None,
         "frame_gap": (fa - fb) if (fa is not None and fb is not None) else None,
@@ -336,9 +332,9 @@ def main():
     blast = [run(tag, name, scale) for name in BLAST_RUNS]
     calm = [run(tag, name, scale) for name in CALM_RUNS]
 
-    pooled = [d for r in blast for d in r["per_body_m"]]
-    calm_spread_m = max(d for r in calm for d in r["across_m"])
-    worst_across_m = min(d for r in blast for d in r["across_m"])
+    pooled = [d for r in blast for d in r["per_man_m"]]
+    calm_spread_m = max(d for r in calm for d in r["per_man_m"])
+    worst_throw_m = min(d for r in blast for d in r["per_man_m"])
     seconds_gap = 4.0   # -1 s to +3 s, the pair that is measured
     gaps = [r["frame_gap"] for r in blast + calm if r["frame_gap"] is not None]
     frame_gap = statistics.median(gaps) if gaps else None
@@ -349,7 +345,8 @@ def main():
         "noise_floor_m": [r["median_m"] for r in calm],
         "blast_median_m": [r["median_m"] for r in blast],
         "calm_spread_m": round(calm_spread_m, 3),
-        "worst_across_m": round(worst_across_m, 3),
+        "worst_throw_m": round(worst_throw_m, 3),
+        "man_area_px": [MAN_AREA_MIN, MAN_AREA_MAX],
         "px_per_m": round(scale, 2),
         "frame_gap": frame_gap,
         "seconds_gap": seconds_gap,
@@ -361,23 +358,29 @@ def main():
     with open(os.path.join(HERE, "probe.json"), "w", encoding="utf-8") as fh:
         json.dump(report, fh, indent=2)
         fh.write("\n")
-    for key in ("tag", "throw_m", "per_body_m", "noise_floor_m", "blast_median_m", "calm_spread_m", "worst_across_m",
-                "px_per_m", "frame_gap", "seconds_gap", "fps_implied", "fallen_after", "contrast_median_after"):
+    for key in ("tag", "throw_m", "per_body_m", "noise_floor_m", "blast_median_m", "calm_spread_m", "worst_throw_m",
+                "man_area_px", "px_per_m", "frame_gap", "seconds_gap", "fps_implied", "fallen_after",
+                "contrast_median_after"):
         print(f"{key}: {report[key]}")
     for r in report["runs"]:
-        print(f"  {r['run']}: {r['n_bodies']} bodies, median {r['median_m']} m, across {r['across_m']}, "
+        print(f"  {r['run']}: {r['n_standing']} standing (areas {r['standing_area_px']}), "
+              f"{r['n_candidates']} candidates, per man {r['per_man_m']}, median {r['median_m']} m, "
               f"{r['px_per_m']} px/m (row {r['row_px_per_m']})")
 
     failures = []
     for r in blast:
-        for i, d in enumerate(r["across_m"]):
+        for i, d in enumerate(r["per_man_m"]):
             if d <= calm_spread_m:
                 failures.append((r["run"], i, d))
     if failures:
         for run_name, i, d in failures:
-            print(f"FAIL: {run_name} body {i} is {d} m across, inside the calm spread of {calm_spread_m} m")
+            print(f"FAIL: {run_name} man {i} is {d} m from the nearest body, inside the calm spread of "
+                  f"{calm_spread_m} m")
         return 1
-    print(f"PASS: worst blast body {worst_across_m} m across clears the calm spread {calm_spread_m} m")
+    if worst_throw_m < 2.0 * calm_spread_m:
+        print(f"NOTE: the worst blast throw {worst_throw_m} m and the calm spread {calm_spread_m} m are within a "
+              f"factor of two of each other -- the margin is thin, read the stills before trusting it")
+    print(f"PASS: worst blast body {worst_throw_m} m clears the calm spread {calm_spread_m} m")
     return 0
 
 
