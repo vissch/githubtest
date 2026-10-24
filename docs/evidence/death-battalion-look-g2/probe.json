@@ -1,31 +1,36 @@
 {
  "noise_rifleman_vs_rifleman": [
-  0.2394,
-  0.9126,
-  0.7878
+  0.0045,
+  0.1432,
+  0.2205
  ],
  "signal_death_battalion_vs_rifleman": [
-  0.3895,
-  0.8089,
-  0.7203
+  0.1226,
+  0.2545,
+  0.2284
  ],
  "bar": 0.0,
- "min_signal": 0.3895,
+ "min_signal": 0.1226,
  "mask_px": {
-  "rifle_0": 1171,
-  "rifle_1": 458,
-  "rifle_2": 639,
-  "rifle2_0": 1227,
-  "rifle2_1": 885,
-  "rifle2_2": 572,
-  "deathbn_0": 1641,
-  "deathbn_1": 801,
-  "deathbn_2": 633
+  "rifle_0": 6415,
+  "rifle_1": 5513,
+  "rifle_2": 6341,
+  "rifle2_0": 6416,
+  "rifle2_1": 5613,
+  "rifle2_2": 6754,
+  "deathbn_0": 6751,
+  "deathbn_1": 5934,
+  "deathbn_2": 7141
  },
- "mask_median_px": 801.0,
- "mask_band_ratio_max_over_min": 3.583,
+ "mask_median_px": 6415.0,
+ "mask_band_ratio_max_over_min": 1.295,
+ "mask_band_worst_per_instant": [
+  0.0522,
+  0.0572,
+  0.0611
+ ],
  "band": 0.15,
- "tolerance": 80,
+ "tolerance": 6,
  "box_px": 200,
  "clipped_by_crop": [],
  "build": "5ba0fafb5a",

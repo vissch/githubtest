@@ -34,9 +34,12 @@ from PIL import Image
 from scipy import ndimage
 
 HERE = Path(__file__).resolve().parent
-TOL = 80      # summed over RGB, 0-765: a tenth of the range, above what the rain and the dark ground do on their own
+# Measured on the stills committed at a207416d50: an instant's background is pixel-identical between its four
+# stills away from the man (median per-pixel diff 1.0 of 765, p90 3.0). TOL = 80 was rejecting 70% of the man
+# (1818 px of a 6334 px man); TOL = 6 keeps the whole man and still clears the rain/ground noise.
+TOL = 6       # summed over RGB, 0-765: just above the pixel-identical background's own noise (p90 3.0)
 BOX = 200     # the box each man's mask is recentred into, px: a man at this zoom and 3840x2160 is about 70 px tall
-BAND = 0.15   # every mask within +/-15 % of the median of the nine, or the staging failed
+BAND = 0.15   # every mask within +/-15 % of the median OF ITS OWN INSTANT, or the staging failed
 INSTANTS = 3
 
 # Measured on the build at 5ba0fafb5a by this probe with BAR = 0: the three rifleman-versus-rifleman numbers were
@@ -83,10 +86,22 @@ def main():
                 clipped.append(f'{stem}_t1_{i}.png')
 
     median = float(np.median(list(areas.values())))
-    worst = max(areas, key=lambda k: abs(areas[k] - median))
     ratio = round(max(areas.values()) / min(areas.values()), 3)
     noise = [round(diff(masks[('rifle', i)], masks[('rifle2', i)]), 4) for i in range(INSTANTS)]
     signal = [round(diff(masks[('rifle', i)], masks[('deathbn', i)]), 4) for i in range(INSTANTS)]
+
+    # Were the three men photographed alike within EACH instant? Across instants the pose is meant to vary
+    # (clip phase, body yaw), so compare each mask only to the median of its own instant.
+    band_worst_per_instant = []
+    band_fail = None
+    for i in range(INSTANTS):
+        instant_areas = {f'{stem}_{i}': areas[f'{stem}_{i}'] for stem in stems}
+        instant_median = float(np.median(list(instant_areas.values())))
+        worst_key = max(instant_areas, key=lambda k: abs(instant_areas[k] - instant_median))
+        worst_dev = abs(instant_areas[worst_key] - instant_median) / instant_median
+        band_worst_per_instant.append(round(worst_dev, 4))
+        if worst_dev > BAND and band_fail is None:
+            band_fail = (worst_key, instant_areas[worst_key], instant_median)
 
     out = {
         'noise_rifleman_vs_rifleman': noise,
@@ -96,6 +111,7 @@ def main():
         'mask_px': areas,
         'mask_median_px': median,
         'mask_band_ratio_max_over_min': ratio,
+        'mask_band_worst_per_instant': band_worst_per_instant,
         'band': BAND,
         'tolerance': TOL,
         'box_px': BOX,
@@ -110,8 +126,9 @@ def main():
     if clipped:
         print('BAND FAIL: the crop cut these masks at its border, restage them: ' + ', '.join(clipped))
         return 2
-    if abs(areas[worst] - median) > BAND * median:
-        print(f'BAND FAIL: {worst} is {areas[worst]} px against a median of {median:.0f} px '
+    if band_fail:
+        worst_key, worst_px, instant_median = band_fail
+        print(f'BAND FAIL: {worst_key} is {worst_px} px against its instant median of {instant_median:.0f} px '
               f'(> {BAND:.0%}): the men were not photographed alike, restage')
         return 2
     if BAR < max(noise) + (max(noise) - min(noise)):
