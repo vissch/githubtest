@@ -1,0 +1,62 @@
+{
+  "standing": {
+    "flop_alive": {
+      "px": 21774,
+      "lum": 143.13
+    },
+    "ctrl_alive": {
+      "px": 15902,
+      "lum": 135.17
+    }
+  },
+  "flop": {
+    "flop_p15": {
+      "px": 16145,
+      "lum": 64.33
+    },
+    "flop_frz_b": {
+      "px": 16144,
+      "lum": 64.32
+    },
+    "flop_frz_c": {
+      "px": 16142,
+      "lum": 64.31
+    }
+  },
+  "control": {
+    "ctrl_p05": {
+      "px": 13961,
+      "lum": 74.3
+    },
+    "ctrl_p10": {
+      "px": 11735,
+      "lum": 107.48
+    },
+    "ctrl_p15": {
+      "px": 12180,
+      "lum": 93.94
+    }
+  },
+  "turn_bar": 101.73,
+  "gag_bar": 69.31,
+  "flop_lum_spread": 0.02,
+  "frozen_pair_diffs_px": [
+    0,
+    0,
+    0
+  ],
+  "flop_motion_px": 24266,
+  "ctrl_motion_px": 52884,
+  "motion_bar": 12133.0,
+  "window": [
+    960,
+    470,
+    250
+  ],
+  "delta": 30,
+  "honest": true,
+  "honesty_faults": [],
+  "turned_over": true,
+  "gag_turns_him": true,
+  "he_moves": true
+}

@@ -13,6 +13,8 @@
 //  - Later(seconds, act): something done a moment from now (the "machine" scene's shell);
 //  - Machine(archetype, x, z): a machine held where it stands and shelled to death a moment later (its absurd death);
 //  - FrogAlone(x, z): one frog, no row and no other body, killed by a shell 10 m off: the frame holds him alone;
+//    FrogStand(x, z) spawns him alive and still, FrogKill(x, z) fires the shell, so a capture can photograph him
+//    standing before he dies (the pixel reference for his back);
 //  - Scene(name, x, z): a whole staging by name (shot, mg, shell, heap, gas, fire, beam, crush, frog, frogalone, parts, and the
 //    machines: machine (a Tusk), maw, salvo, skimmer, walker (a Pincer)), then film it with TankCapture.Follow/Shot or
 //    CaptureRig.
@@ -137,15 +139,24 @@ namespace TW.Editor
         /// critic asked for (r1, 12/100: "no frog can be found at the frame centre ... the stills are not frog alone")
         /// is shot on this, with CaptureRig.MarkFallen on him, so the sidecars read men_in_frame 0 and
         /// fallen_in_frame 0. Returns his slot, as Frog does.</summary>
-        public static string FrogAlone(float x = 100f, float z = 120f)
+        public static string FrogAlone(float x = 100f, float z = 120f) => FrogStand(x, z) + "; " + FrogKill(x, z);
+
+        /// <summary>One frog standing on his feet at (x, z) and nothing else: Hp 1 so the first hit kills him, Speed 0
+        /// so he stays on the spot, and no shell yet. A capture takes his standing picture here: the only honest pixel
+        /// reference for what his BACK looks like, in the same light and at the same zoom as his flop.</summary>
+        public static string FrogStand(float x = 100f, float z = 120f)
         {
             var h = Host; if (h == null) return "no SimHost";
             string s = TankCapture.Spawn(0, InfantryArchetype.Frog, x, z, 0f);
             if (!s.StartsWith("slot ")) return s;
             int slot = int.Parse(s.Substring(5));
             h.WriteWorlds(m => { m.World.Hp[slot] = 1f; m.World.Speed[slot] = 0f; });
-            return s + "; " + Shell(x + 10f, z, 14f, 600f);
+            return s;
         }
+
+        /// <summary>The shell 10 m off (x, z) that kills the frog standing there: the burst's radius reaches him, its
+        /// smoke, dust and crater stay out there, so a close frame on him holds his body alone.</summary>
+        public static string FrogKill(float x = 100f, float z = 120f) => Shell(x + 10f, z, 14f, 600f);
 
         /// <summary>A machine of the enemy's held where it stands, facing east, and a shell that obliterates it once the
         /// picture draws it there (a machine killed the moment it appears is drawn blending in from the map's corner).</summary>

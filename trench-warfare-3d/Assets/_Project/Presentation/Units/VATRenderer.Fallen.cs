@@ -42,6 +42,10 @@ namespace TW.Presentation.Units
         public int FallenCount => fallenMen.Count;
         /// <summary>The Gag byte of the i'th fallen man, or -1 out of range: for a probe reading the drawn pose, not trusting the plan.</summary>
         public int FallenGag(int i) => i < 0 || i >= fallenMen.Count ? -1 : fallenMen[i].Gag;
+        /// <summary>Which baked figure the i'th fallen man is DRAWN as (0 Soldier, 1 Sniper, 2 Frog), or -1 out of
+        /// range: FigureSources falls back to the Soldier when a bake is missing, so a still of "the frog" can hold a
+        /// rifleman and nothing in the picture says so. A probe reads this, not the archetype it asked for.</summary>
+        public int FallenFigure(int i) => i < 0 || i >= fallenMen.Count ? -1 : fallenMen[i].Figure;
         /// <summary>The roll step (0..31) the i'th fallen man is drawn at now, or -1 out of range.</summary>
         public int FallenRollStep(int i) => i < 0 || i >= fallenMen.Count ? -1 : FallenFlight.RollStep(fallenMen[i].Path, Time.time - fallenMen[i].Born);
         /// <summary>Whether the i'th fallen man exists at all: a probe asks before it reads him.</summary>

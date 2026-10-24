@@ -362,6 +362,9 @@ namespace TW.Editor
                     N(sb, "mark_px", mx); N(sb, "mark_py", my); N(sb, "mark_in_frame", seen ? 1 : 0);
                     N(sb, "mark_px_per_m", perM);
                     N(sb, "mark_gag", vat.FallenGag(markFallen)); N(sb, "mark_roll", vat.FallenRollStep(markFallen));
+                    // which bake was DRAWN (0 Soldier, 1 Sniper, 2 Frog): the honesty check has to travel with the
+                    // picture, or a still of a rifleman passes as a still of the frog
+                    N(sb, "mark_figure", vat.FallenFigure(markFallen));
                 }
             }
             // the warnings the evening of 2026-09-22 would have wanted shouted at it
