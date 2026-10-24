@@ -1,0 +1,118 @@
+atrifle-look-r3-g1-g1-g2-g2 — the same nine stills, scaled to one height before the IoU
+=========================================================================================
+
+Why there is a round g1-g1-g2-g2
+---------------------------------
+The owner's words: "The three readings are 0.763, 0.785 and 0.785. That is the size gap of a
+272-296 px helmet against a 1136-1264 px kneel after centering with no scale, and the 0.6 bar sits
+0.16 under a cluster that only moves 0.022. Scale both masks to one height before the IoU, and set
+the bar just outside that spread. The sniper's 0.235 spread is the lamp (127 noise px in round 3),
+not a kneel a player can see change. Start from lane/show/atrifle-look-r3-g1-g1-g2's tip. Bar outside
+the spread of three captures of the current build."
+
+Nothing about the game changes this round; only the measure does. No Unity, no capture, no editor:
+this folder holds no PNGs or JSONs of its own. It re-measures the nine stills committed at
+f67e6b76ea under `docs/evidence/atrifle-look-r3-g1-g1-g2/` - the same pair-{r}/empty-{r}/floor-{r}
+frames, the same poses.json, every gate upstream of the reading (one frame, one camera, the boxes
+from the capture's own projection, the weather subtraction, the phase and heading gates) unchanged.
+That proves the move from 0.763 to 0.3119 is the scale normalization and not another sim instant.
+
+What changed in the measure
+----------------------------
+`atrifle-look-r3-g1-g1-g2`'s probe centred each mask on its own centroid - translation only, no
+scale, no rotation - before the IoU. But the AT rifleman's mask is 17-18 px tall (272-296 px, a
+crouch behind the parapet) and the Sniper's is 39-43 px tall (1136-1264 px, a kneel standing clear
+of it): three quarters of the 0.76-0.78 reading was that size gap, not shape.
+
+This round adds exactly one step before the IoU: each mask is cropped to its own bounding box,
+resized (bilinear) so its height is NORM_HEIGHT_PX (128), re-thresholded at > 0.5, then centred on
+a common canvas by its own centroid, same as before. `spread()` runs through the same scaled `diff`,
+so the self-spreads are scale-free too.
+
+    round   old reading (no scale)   new reading (scaled to one height)
+    1       0.7628                   0.3119
+    2       0.7848                   0.4124
+    3       0.7847                   0.3697
+
+The reading is resolution-free: NORM_HEIGHT_PX 64 / 128 / 256 give round 1 readings of
+0.3192 / 0.3119 / 0.3118 - the resample's own edge pixels move the number by under 0.01, so 128 was
+not a number the reading happened to need.
+
+THE BAR
+-------
+PASS_DIFF moves from 0.6 to 0.20. The 0.6 lineage (unchanged since 13d1158177) ends here: every
+round back to that commit compared UNSCALED masks, and a scaled reading is not comparable to an
+unscaled one, so no round before this one is a baseline for 0.20.
+
+Derivation, from the three scaled readings of this build: 0.3119 / 0.4124 / 0.3697. Their spread
+(max - min) is 0.1005. 0.3119 - 0.1005 = 0.2114, snapped down to the nearest 0.05, is 0.20 - a
+reading has to fall a whole capture-to-capture spread below the worst of three captures before it
+fails, so the bar sits just outside the spread the owner asked for, not inside it.
+
+Pass needs min(readings) >= PASS_DIFF AND max(spread_readings, spread_at) < PASS_DIFF.
+
+`spread_sniper` is reported and NOT gated. It is 0.2782 here (it was 0.2353 under the old, unscaled
+measure - also not the 0.235 the owner's message quoted from memory, but the same order and the same
+round). The owner ruled it the lamp (127 noise px in round 3's Sniper box, see
+`noise_in_box_px_sniper_pair-3` in `atrifle-look-r3-g1-g1-g2/probe.json`), and the pixels do not
+settle that call either way: the Sniper's KneelIdle phases in this set are 0.65 / 0.25 / 0.98, and
+the three pairwise self-diffs of his SCALED masks are 0.164 (round 1-2), 0.183 (1-3) and 0.278
+(2-3) - even the two rounds that do NOT touch round 3's noisy box differ by 0.16. A man read at
+three live phases of a kneel is a pose difference, not the repeatability of the measure, so it is
+reported (`spread_sniper`, `spread_sniper_above_bar` true) and left out of the pass/fail rather than
+dropped.
+
+The readings
+------------
+    silhouette_diff_readings   [0.3119, 0.4124, 0.3697]
+    silhouette_diff (worst)    0.3119
+    spread_readings            0.1005
+    spread_at                  0.1245
+    spread_sniper               0.2782 (reported, not gated)
+    PASS_DIFF                  0.20
+    bar_headroom = 0.20 - max(spread_readings, spread_at) = 0.20 - 0.1245   0.0755
+
+The worst round clears the bar by 0.0755, and both gated spreads sit under 0.20.
+
+What this set still does not cover (carried over from atrifle-look-r3-g1-g1-g2, plus two new lines)
+-----------------------------------------------------------------------------------------------------
+* **The parapet halves the prone man.** At yaw 180 the AT rifleman lies behind the sandbags and the
+  Sniper kneels clear of them, so the reading is "a prone man half behind bags" against "a kneeling
+  man in the open". That is what the game shows from here, and it is why his mask is a quarter the
+  size of the Sniper's.
+* **The rifle is not legible at zoom 30.** The 1.65 m anti-tank rifle is a few dark pixels. No
+  number here isolates it, so nothing in this set says the weapon reads.
+* **The two men's headings differ by 1.11 rad**, reported as `heading_diff_rad` and NOT gated: one
+  camera yaw cannot be side-on to two men whose headings are snapped to their posts. What IS gated
+  is each man against himself across the three pair stills.
+* **One seed, one ground, one time of day.** Seed 12648430, battlefield 1917, ShelledForest, night
+  with braziers lit. Nothing here says the number holds on another map or in daylight.
+* **Two figures, not two models.** Every infantry archetype except the sniper is drawn as the
+  Soldier figure, so what is measured is the Soldier figure prone against the Sniper figure
+  kneeling - a pose-and-figure difference, not a per-unit model.
+* **Three poses are three poses, not the clip.** Each man was shot at three spaced phases of ONE
+  idle loop. That is a floor for the measure, not a survey of everything he does.
+* **NEW: the reading is of the same order as the Sniper's own phase-to-phase change.** 0.31-0.41
+  against the Sniper's 0.16-0.28 self-spread says "a prone silhouette differs from a kneeling one by
+  about a third of their union", not "they are unmistakable" - the gated bar (0.20) is well clear
+  of both, but a reader should not hear 0.31 and picture two shapes that share almost nothing.
+* **NEW: scaling to one height removes the size gap, not the pose.** A reader who wants "is the AT
+  rifleman recognizably smaller/lower than the Sniper" has to look at `mask_m2_*` in
+  `atrifle-look-r3-g1-g1-g2/probe.json` (0.43-0.47 m2 against 1.81-2.02 m2) - this round's number no
+  longer carries that difference at all.
+
+How to re-run it
+----------------
+    python docs/evidence/atrifle-look-r3-g1-g1-g2-g2/probe.py              # exit 0 on this set
+    python docs/evidence/atrifle-look-r3-g1-g1-g2-g2/probe.py --selftest   # the scaling arithmetic,
+                                                                            # no stills
+
+The probe reads the nine stills and poses.json from `../atrifle-look-r3-g1-g1-g2/` (no copies here)
+and writes `probe.json` beside itself. It needs numpy, scipy and Pillow. `probe.py <another folder>`
+measures another set and prints the report WITHOUT writing probe.json.
+
+Checks
+------
+`python docs/evidence/atrifle-look-r3-g1-g1-g2/probe.py` still exits 0 on its own set unchanged: this
+round reads those stills, it does not touch them, and the old round's reading (0.7628, PASS_DIFF 0.6)
+is exactly what it was.
