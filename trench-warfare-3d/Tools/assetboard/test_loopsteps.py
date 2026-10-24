@@ -447,6 +447,8 @@ def main():
         r += briefs.check_then('It goes back on the queue as it is') + briefs.check_then('Nothing more is built; it stays off the queue')
         if r:
             bad[k] = r
+    rt = loopsteps.park_text('some-unit', kinds['refusals']['rec'], long)
+    case('the refusal park names the refusals, not tries', all('refused' in x and '4 times' in x for x in (rt[0], rt[1], rt[2])) and 'tried 0' not in ' '.join(rt), rt)
     case('every park kind writes a brief the brief tool accepts (title, for, why, options, then lines within its limits)', not bad, bad)
 
     print(f'{sum(results)} of {len(results)} cases behaved')

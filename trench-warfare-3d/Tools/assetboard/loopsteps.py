@@ -610,6 +610,12 @@ def park_text(uid, rec, nxt):
         return (f'{chain_family(uid)}: chain of fix units {depth(uid)} deep' + (f', {len(ids)} units' if len(ids) > 1 else ''), words(say, SAY_MOST - 1),
                 'R0 C0. ' + (f'{len(ids)} units of {chain_family(uid)} went over {CHAIN_DEPTH} fix rounds without a pass; parked, data kept. A puts them all back.' if len(ids) > 1
                              else f'It went over {CHAIN_DEPTH} fix rounds without a pass; parked, data kept. A puts it back.'))
+    if rec.get('refused'):
+        n = len(rec['refused'])
+        return (f'{uid}: refused by the API safety filter {n} times',
+                words(f'The API safety filter refused {uid} {n} times, so the loop took it off the queue; parked, data kept. '
+                      f'Last problem: {words(rec.get("why") or "none recorded", 12)} Its leg said next: {words(nxt or "nothing", 14)}', SAY_MOST - 1),
+                f'R0 C0. Refused by the API safety filter {n} times; parked, data kept. A puts it back.')
     tried = ', '.join(f'{k} {n}x' for k, n in kinds.items())
     say = (f'The relay tried {uid} {len(rec["fails"])} times ({tried}) with nothing changed between tries, so the loop took it off the queue. '
            f'Last problem: {words(rec.get("why") or "none recorded", 12)} Its leg said next: {words(nxt or "nothing", 14)}')
