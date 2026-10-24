@@ -175,5 +175,23 @@ namespace TW.Tests
             Assert.AreEqual(0, FallenFlight.Squash(p, p.A0.End + FallenFlight.WobbleSeconds + 0.01f, 1f), "and himself again after the wobble");
             Assert.Greater(FallenFlight.Squash(p, p.A0.Up * 0.2f, 1f), 0, "stretched on the way up");
         }
+
+        /// <summary>The smallest throw the controller ever writes (AnimationController.MinThrowOut out, MinThrowUp up)
+        /// must still carry him clear of where he fell: through VATRenderer.ThrowPath on a flat plane he comes to rest at
+        /// least ThrowFloorM from his spot. 1.2 m is the 0.906 m calm spread probe.json measured at commit 1b560e9
+        /// (docs/evidence/blast-knockback-death-r2-g1) plus a margin — a number from the pixels, not one worked
+        /// out the way the code works it out, so the arithmetic cannot drift under the measurement and still pass.</summary>
+        const float ThrowFloorM = 1.2f;
+
+        [Test]
+        public void TheSmallestThrowStillCarriesHimClearOfWhereHeFell()
+        {
+            var ground = new Flat { Y = 0f };
+            var fly = new Vector3(TW.Presentation.AnimationController.MinThrowOut, TW.Presentation.AnimationController.MinThrowUp, 0f);
+            var p = VATRenderer.ThrowPath(Here, fly, 1, 0, 0, G, Map, NoWater, ref ground);
+            float moved = Vector2.Distance(new Vector2(Here.x, Here.z), new Vector2(p.Rest.x, p.Rest.z));
+            Assert.GreaterOrEqual(moved, ThrowFloorM, "the floor throw left him inside the calm spread the stills measure");
+        }
+
     }
 }
