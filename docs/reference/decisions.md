@@ -421,6 +421,17 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   no set was committed with the reading, and the lane waits (this leg, because every option changes either a tool,
   the comparison or the owner's band, and all three are his). The numbers, the staging and the per-still counts are
   in `docs/evidence/atrifle-look-r3-g1-g2/frames.txt`, "PART 2".
+- **The jet's `EDGE_BAR` cannot be earned: `near_edge_corr` straddles zero in both builds (2026-10-24, lane
+  `lane/show/flame-jet-opaque-near-2-g1`):** the near-third edge bar is `near_edge_corr_max <= 0.0032`, derived as
+  half the current build's own minimum. Measured over three ages of the pinned clock, the quantity has no stable
+  sign: the eleven-card build reads **+0.0065, +0.0153, +0.0172**, the one-sheet build **-0.0196, +0.0221, +0.0318**.
+  A ceiling of 0.0032 on the worst of three is therefore luck, not a drawing: the near third already hides the plate
+  in both builds, and what is left is noise around zero that no look change steers. Options: (a) **keep the bar
+  exactly as the owner's words set it and report that it cannot be earned** - the default taken here, so the probe
+  keeps exiting 1 on this number alone; (b) measure `abs(corr)` and bar it at the baseline's own maximum (0.0172), a
+  non-regression bar that says "no worse than today"; (c) drop the edge bar and keep the seam and luma bars, since
+  the near third's opacity is already proved by them. (b) and (c) are not built without his answer (this leg,
+  because changing which quantity a bar measures is the owner's call, not the lane's).
 - **The jet's semi-transparent outer rim: no measured reason left to change it (2026-10-20, lane
   `lane/show/flame-jet-opaque-near-2`):** this unit's plan had two parts. Part 1 (pin the burst's birth clock for a
   capture) is built and pushed (`ee49e7ee4b`). Part 2 was to add a solid `Book.JetBody` row and draw the stream's
