@@ -4,10 +4,11 @@ Harsh critic r1 (41/100) fix 1, third try (flame-jet-opaque-near-2-g2, 2026-10-2
 previous round's stills and said the orange tip carries a white loop that reads as a card stroke, not soot. This
 file measures that stroke and the three things that could fake its removal.
 
-Measured on the previous build's still `../flame-jet-opaque-near-2/jet-t2-1.png` (copied in beside this file as
-`before-1.png`), not guessed: the fire mask spans x 631..1218; its LAST THIRD holds 25 591 fire px at mean luma
-140.4, of which 1 217 px (4.76%) are white by the rule below. The last SIXTH holds 0 white px, so the white is not
-the tip glowing hot: it sits inside the orange band, which is what the owner saw.
+Measured on three captures of THIS build (`before-1/2/3.png`, copied in from `jet-t2-1/2/3.png`, so their
+sidecars' `path` field still reads `jet-t2-N.png`), not guessed: the fire mask spans x 631..1139, 509 px wide;
+its LAST THIRD holds 34 948 fire px, of which 3 032 px (8.68%) are white by the rule below. The white is spread
+over the whole stream, 5-15% of the fire in every tenth of it, with its peak past the hot third but short of the
+tip; even the last tenth measures 0.004. See measurements.md part 2 for the per-tenth bins.
 
   tip_white_frac_max  white px / fire px over the last third, at the WORST of the three captures. White is
                       luma >= 215 and r - b <= 45: bright and NOT warm, so the cream crescent of a Core card
@@ -42,13 +43,13 @@ JETS = [os.path.join(HERE, "jet-t2-%d.png" % i) for i in (1, 2, 3)]
 BEFORE = [os.path.join(HERE, "before-%d.png" % i) for i in (1, 2, 3)]
 PLATE = os.path.join(HERE, "bg-t2.png")
 
-# Set from `probe.py --spread` on the before stills, never by hand: they measure 0.0476, 0.0476, 0.0476 (spread
+# Set from `probe.py --spread` on the before stills, never by hand: they measure 0.0868, 0.0868, 0.0868 (spread
 # 0.0000 - the pinned clock makes three sessions render the same frame). The bar is HALF the smallest of them.
 # Halving is what puts it outside that spread: a bar a few thousandths under the baseline would sit inside any
 # honest noise band even though this one measures zero.
-WHITE_BAR = 0.0238
+WHITE_BAR = 0.0434
 SPREAD_BAR = 0.01
-TIP_PX_REF = 25591          # the before median of last-third fire px, from the same --spread run
+TIP_PX_REF = 34948          # the before median of last-third fire px, from the same --spread run
 PX_LO, PX_HI = 0.85, 1.15
 EDGE_BAR = 0.15
 

@@ -1,7 +1,7 @@
 {
   "tip_white_frac_max": 0.0868,
   "tip_white_spread": 0.0,
-  "tip_px_ratio": 1.3656,
+  "tip_px_ratio": 1.0,
   "near_edge_corr_max": 0.0176,
   "tip_white_frac_each": [
     0.0868,
@@ -19,7 +19,7 @@
     0.0176
   ],
   "bars": {
-    "tip_white_frac_max": 0.0238,
+    "tip_white_frac_max": 0.0434,
     "tip_white_spread": 0.01,
     "tip_px_ratio": [
       0.85,

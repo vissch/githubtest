@@ -132,3 +132,61 @@ frame and this number can only ever say "the pin held". It is not evidence that 
 `CoreCool` and the dimmed scraps are committed: they are the half of the owner's 2026-10-19 reversal the core chain
 never got, they are guarded by `FlameJetTipCoolsToSoot`, and they make the picture no worse by any number here.
 They are **not** proven to remove the loop the owner saw.
+
+# Part 3: the baseline restated on this build's own captures (2026-10-24)
+
+No look change is in this commit. Only the baseline stills and the two numbers derived from them move.
+
+## Why the old baseline was false
+
+Part 1 took `before-1/2/3.png` from the previous round's folder on the strength of `git log` alone. Part 2 showed
+by capture that this harness no longer reproduces them. The md5s in this folder settle it:
+
+| File | md5 | What it is |
+|---|---|---|
+| `jet-t2-1/2/3.png` | `ae11fd4b166c1a7f7d93dd5fe98ca545` | three batch editor sessions of today's build |
+| `recapture-unchanged.png` | `ae11fd4b166c1a7f7d93dd5fe98ca545` | **the same picture**, captured from the unchanged tree |
+| `before-1/2/3.png` (as they were) | `7e73f1811f22c658283f9b0f55123dcd` | the previous round's stills, copied in |
+
+The after stills and the unchanged-tree capture being one md5 is the proof that 0.0868 / 34 948 px is **the
+build's** number, not this round's edit. The old 0.0476 / 25 591 px belongs to a harness this checkout no longer
+runs, so every number derived from it — `WHITE_BAR` 0.0238 and `TIP_PX_REF` 25 591 — was measuring nothing.
+
+## The new baseline
+
+`before-1/2/3.png` and their sidecars are now copies of `jet-t2-1/2/3.png` and theirs. The sidecars' `path` field
+therefore still reads `jet-t2-N.png`; a captured sidecar is not edited after the fact, so it is said here instead.
+
+    python probe.py --spread
+    before-1/2/3.png   x 631..1139 (509 px)   near 24 007 px   last-third 34 948 px
+    white 3 032 px  ->  tip_white_frac 0.0868, 0.0868, 0.0868      spread 0.0000
+    half the smallest  0.0434   <- what WHITE_BAR must be
+
+    WHITE_BAR  = 0.0434   = 0.5 * 0.0868, half the smallest of the three
+    TIP_PX_REF = 34 948   the median of last-third fire px over the same three
+
+Both come straight out of that run; nothing is typed by hand. Halving still puts the bar outside the spread of
+three captures of the current build, which is what the owner's words ask for.
+
+The docstring's old claim that the last **sixth** holds 0 white px is deleted: on these stills the white runs the
+whole length of the stream and the last tenth measures 0.004. Part 2's per-tenth bins are the record.
+
+## This is option (a) of the open question
+
+`docs/reference/decisions.md`, "Open: waiting on the owner", asks whether a committed bar may be restated when the
+build no longer reproduces the stills it was derived from. The question is unanswered; option **(a)** — re-derive
+baseline and bar from three captures of today's build — is the stated default, and this part carries it out. If
+the owner picks otherwise, this part is what gets reverted.
+
+## State after part 3
+
+    python docs/evidence/flame-jet-opaque-near-2-g2/probe.py --spread  -> exit 0
+    python docs/evidence/flame-jet-opaque-near-2-g2/probe.py           -> exit 1
+
+    tip_white_frac_max  0.0868   against the bar 0.0434   <- the only bar still failing
+    tip_white_spread    0.0000
+    tip_px_ratio        1.000    (was 1.366 against the false reference)
+    near_edge_corr_max  +0.0176
+
+That is the honest state before the cut: the tip is no longer accused of having shrunk, and the white stroke is
+the one thing left to remove.
