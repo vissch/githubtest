@@ -5,7 +5,8 @@
 // It does NOT use DeathLab.Scene("shell"): that stages the row and queues the shell in one call, so there is no
 // standing frame before the burst. Here each of three captures stands the row, takes a stand still, then shells it
 // and films twelve stills back to back (Gap 0) with Time.captureDeltaTime at 1/60, so the strip samples about every
-// 0.15 s of game time and the flight gets several samples.
+// 0.15 s of game time and the flight gets several samples. A last still follows 1.5 s after the strip,
+// c{c}_settled.png: the frame after the bodies have stopped moving.
 //
 // Every shot is the player's standard view: zoom 30 (T1, the zoom the game is played at), the base yaw pinned first.
 // Night is the scene's own field (GreyboxCorridor is NightMud): TW_STILLS_FIELD is deliberately not read. Rain is off.
@@ -15,7 +16,7 @@
 //             -testResults <out.xml> -logFile <out.log>
 // Environment: TW_STILLS_DIR where the stills go (default %TEMP%/tw-blastthrow: never inside the checkout, whose
 // untracked files land.py would see).
-// It asserts only that the 39 stills landed: it is an instrument; the pictures go to a critique. strip.txt in the
+// It asserts only that the 45 stills landed: it is an instrument; the pictures go to a critique. strip.txt in the
 // stills dir records each still's Time.time, so a reader can say which frame is which moment.
 using System.Collections;
 using System.Collections.Generic;
@@ -140,6 +141,16 @@ namespace TW.Tests
                     strip.AppendLine($"c{c}_{k:00}.png\t{Time.time.ToString("0.###", CultureInfo.InvariantCulture)}");
                     TestContext.Out.WriteLine($"c{c}_{k:00}.png at t={Time.time:0.###}");
                 }
+                // and a frame after they have stopped: ThrowPath's bounce and skid can still be running at the end of
+                // the strip's ~1.8 s window, so let 1.5 s of game time pass (90 frames at 1/60) and take one more
+                for (int f = 0; f < 90; f++) yield return null;
+                string settled = Path.Combine(dir, $"c{c}_settled.png");
+                if (tc != null) tc.BaseYaw = -90f;
+                CaptureRig.Shot(settled, x + 7.5f, z, 30f, 40f, 25f, 1280, 720);
+                yield return Drain(settled);
+                if (File.Exists(settled)) written++;
+                strip.AppendLine($"c{c}_settled.png	{Time.time.ToString("0.###", CultureInfo.InvariantCulture)}");
+                TestContext.Out.WriteLine($"c{c}_settled.png at t={Time.time:0.###}");
                 for (int f = 0; f < 60; f++) yield return null;
             }
             File.WriteAllText(Path.Combine(dir, "strip.txt"), strip.ToString());
@@ -147,7 +158,7 @@ namespace TW.Tests
             Time.captureDeltaTime = 0f;
             yield return new ExitPlayMode();
             TestContext.Out.WriteLine($"wrote {written} stills to {dir}");
-            Assert.That(written, Is.EqualTo(Captures * (StripFrames + 1)), "a still of the strip is missing");
+            Assert.That(written, Is.EqualTo(Captures * (StripFrames + 2)), "a still of the strip is missing");
         }
     }
 }
