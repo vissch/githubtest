@@ -14,6 +14,7 @@ namespace TW.Tests
     {
         const float GroundNight = 0.22895f;   // docs/evidence/gas-smoke-night-g1/probe.json ground_median_night (zoom 30, NightMud)
         const float Threshold = 0.12f;        // the phase's: contrast_median_night >= 0.12
+        const float GroundDay = 0.78017f;     // the same file, smoke_winter_0.ground_median: the dimmest of the three measured day grounds, so the day guard takes the least favourable one
 
         [SetUp] public void SetUp() => Knobs.Clear();
         [TearDown] public void TearDown() => Knobs.Clear();
@@ -36,7 +37,32 @@ namespace TW.Tests
         }
 
         [Test]
-        public void TheOldValuesSetNothing_AndTheDayLookIsUnchanged()
+        public void SmokeScreenReadsByDay()
+        {
+            // Phase gas-smoke-night-g1-g1: by day the bank was painted with the biome's near-white dust and lit, so the
+            // cloud landed at the snow's own luma (contrast 0.020-0.023). FlipbookFx.DayBanks paints it flat, so the
+            // knob's value IS the cloud's modelled luma, as at night.
+            Assert.GreaterOrEqual(CombatFx.BankContrast(CombatFx.ReadSmokeScreenDay(), GroundDay), Threshold,
+                "the smoke screen vanishes into the snow by day");
+
+            // and the guard bites: the old look's own measured day cloud (0.75079, the same probe.json
+            // smoke_winter_0.cloud_median) is under the bar — a white field, which is what this unit fixes.
+            Assert.Less(CombatFx.BankContrast(0.75079f, GroundDay), Threshold,
+                "the old day cloud must be under the bar, or this guard proves nothing");
+
+            Assert.AreEqual("fx.smokeScreenDay", CombatFx.SmokeScreenDayKnob);
+            Assert.AreEqual(CombatFx.BankLuma(CombatFx.SmokeBankDay), CombatFx.DefaultSmokeScreenDay, 1e-6f,
+                "the screen's day default is the grey it is painted at");
+            Assert.AreEqual(0f, CombatFx.OldSmokeScreenDay, 1e-6f, "the old day value must paint nothing");
+            Assert.IsFalse(CombatFx.OldSmokeScreenDay > 0f, "DayBanks' guard is exactly screen > 0");
+
+            Knobs.Clear();
+            Knobs.Set(CombatFx.SmokeScreenDayKnob, "0");
+            Assert.AreEqual(0f, CombatFx.ReadSmokeScreenDay(), 1e-6f);
+        }
+
+        [Test]
+        public void TheOldValuesSetNothing_AndTheGasDayColourIsUnchanged()
         {
             // NightBanks' two guards are exactly these: screen > 0 paints, gas > 1 lifts.
             Assert.IsFalse(CombatFx.OldSmokeScreenNight > 0f, "the old screen value must paint nothing");

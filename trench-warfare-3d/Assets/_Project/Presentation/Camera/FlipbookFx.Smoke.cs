@@ -107,6 +107,17 @@ namespace TW.Presentation.Tactical
             }
         }
 
+        /// <summary>Phase gas-smoke-night-g1-g1: the smoke screen's bank by day (CombatFx.SmokeScreenDayKnob). The same
+        /// flat paint the night screen gets (PaintNight: _Levels (2, 3), so no ink reaches the light band and
+        /// _MainLightColor is never used, _ShadeMood 0 so no field tint), at warm 0, where NightTint is a neutral grey
+        /// whose value is the luma at the drawing's middle ink — so by day the sun cannot bleach the screen into the
+        /// snow. Called after the biome's tints on a day field only (CombatFx.ApplyTints); screen 0 sets nothing.</summary>
+        public void DayBanks(float screen)
+        {
+            if (screen <= 0f) return;
+            PaintNight(mats[(int)Book.SmokeBank], NightTint(screen, 0f));
+        }
+
         public static float SmokeLife(float weight) => Mathf.Lerp(0.6f, 1f, Mathf.Clamp01(weight));
 
         /// <summary>A smoke card's width, height, life and opacity as it is born (height 0: the drawing's own aspect, taken

@@ -41,6 +41,9 @@ namespace TW.Presentation.Tactical
         // screen's bank is painted at a fixed luma and the gas bank is lifted, so neither ability cloud sinks into the
         // night field (FlipbookFx.NightBanks, from ApplyTints; CombatFx.Banks.cs). 0 and 1 = the old look.
         float smokeScreenNight = DefaultSmokeScreenNight, gasNight = DefaultGasNight;
+        // gas-smoke-night-g1-g1: and by day the screen is painted flat too, so the sun cannot bleach it into the snow
+        // (FlipbookFx.DayBanks, from ApplyTints; CombatFx.Banks.cs). 0 = the old look.
+        float smokeScreenDay = DefaultSmokeScreenDay;
         // knobs fx.columnEarth and fx.columnEarthSize (Awake, AOSA C57): on a moonlit field a shell's earth column is drawn
         // opaque dark brown that the moon does not light (FlipbookFx.NightEarth, from ApplyTints), and this much smaller at
         // the standard view, on top of fx.columnScale. 0 and 1 = the old look.
@@ -144,6 +147,7 @@ namespace TW.Presentation.Tactical
             books.Tint(FlipbookFx.Book.GroundRing, t.Dust);
             books.Tint(FlipbookFx.Book.DustPuff, t.Dust);
             books.Tint(FlipbookFx.Book.GasBank, FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid) ? GasBankNight : GasBankDay);   // CombatFx.Banks.cs
+            if (!FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.DayBanks(smokeScreenDay);   // gas-smoke-night-g1-g1: over the GasBank/SmokeBank tints above
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightBanks(smokeScreenNight, gasNight, smokeNightWarm);   // gas-smoke-night: over the GasBank tint above
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight, smokeNightWarm, smokeNightFire);   // AOSA C59/C61: after the biome's smoke tint
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightPlume(smokeNight, smokeNightWarm, smokeNightFire);   // fx.recipes: the plume as the night smoke (the book is drawn with the recipes only)
@@ -217,6 +221,7 @@ namespace TW.Presentation.Tactical
             smokeNightWarm = FlipbookFx.ReadNightWarm();
             smokeNightFire = FlipbookFx.ReadNightFire();
             smokeScreenNight = ReadSmokeScreenNight();
+            smokeScreenDay = ReadSmokeScreenDay();
             gasNight = ReadGasNight();
             columnSoil = FlipbookFx.ReadColumnSoil();
             columnBurstLit = FlipbookFx.ReadColumnBurstLit();

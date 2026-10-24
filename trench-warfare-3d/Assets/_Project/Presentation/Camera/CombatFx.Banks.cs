@@ -40,6 +40,21 @@ namespace TW.Presentation.Tactical
         public static readonly float DefaultSmokeScreenNight = BankLuma(SmokeBankNight);
         public const float DefaultGasNight = 1.08f;
 
+        // Phase: gas-smoke-night-g1-g1 (the owner, 2026-10-24: by day the smoke screen is a white field — contrast 0.020
+        // to 0.023, cloud luma 0.75 against ground 0.78 — so a player at zoom 30 sees no cloud). One knob, read once in
+        // Awake, a day field only (CombatFx.ApplyTints), at its old value 0 drawing today's image bit for bit:
+        //   fx.smokeScreenDay  the luma the smoke screen's bank is painted at by day, at the drawing's middle ink
+        //                      (FlipbookFx.DayBanks -> PaintNight), so the sun cannot bleach it into the snow.
+        //                      0 = the old look (the biome's dust tint, lit by the sun).
+        // Today ApplyTints paints the bank with the biome's t.Dust, which on snow is near-white, and the sun then lights
+        // it, so the cloud lands at the ground's own luma. SmokeBankDay is the mid grey the screen is painted at: a
+        // modelled luma of 0.591, which is contrast 0.138 against the dimmest measured day ground (0.78017,
+        // docs/evidence/gas-smoke-night-g1/probe.json smoke_winter_0.ground_median).
+        public const string SmokeScreenDayKnob = "fx.smokeScreenDay";
+        public static readonly Color SmokeBankDay = new Color(0.61f, 0.59f, 0.55f);
+        public const float OldSmokeScreenDay = 0f;
+        public static readonly float DefaultSmokeScreenDay = BankLuma(SmokeBankDay);
+
         /// <summary>A colour's luma on probe.py's scale (Rec.709, 0 to 1).</summary>
         public static float BankLuma(Color c) => 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
 
@@ -50,6 +65,9 @@ namespace TW.Presentation.Tactical
 
         /// <summary>fx.smokeScreenNight, in [0, 1] (0 = the old look).</summary>
         public static float ReadSmokeScreenNight() => Mathf.Clamp01(Knobs.Get(SmokeScreenNightKnob, DefaultSmokeScreenNight));
+
+        /// <summary>fx.smokeScreenDay, in [0, 1] (0 = the old look).</summary>
+        public static float ReadSmokeScreenDay() => Mathf.Clamp01(Knobs.Get(SmokeScreenDayKnob, DefaultSmokeScreenDay));
 
         /// <summary>fx.gasNight, in [1, 2] (1 = the old look).</summary>
         public static float ReadGasNight() => Mathf.Clamp(Knobs.Get(GasNightKnob, DefaultGasNight), 1f, 2f);
