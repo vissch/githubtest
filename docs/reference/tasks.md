@@ -481,7 +481,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   all for the noise floor;
   `TW_STILLS_DIR`, `TW_BLAST_TAG` (`pre`/`post`), `TW_STILLS_FIELD` (`Winter` by default: the men must read from
   above)). `docs/evidence/blast-knockback-death-r2-g1/probe.py` measures each standing man's distance to the
-  nearest candidate body at +3 s and reports the median per run.
+  nearest candidate body at +3 s and reports the median per run. It takes the men's spots from the harness's own
+  geometry (never from the pixels) and keeps only warm blobs (R - B >= 3.7, the uniform against the ground) that
+  the control does not already hold.
 - **Trap:** read a dead man through `Animation.TryDeath(slot, eventTick)`, never `State[slot]`: events are
   dispatched once per frame after every tick ran, and the slot may hold another man by then.
 

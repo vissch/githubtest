@@ -21,7 +21,7 @@ throw carries a large +x part: 2.1 to 7.4 m across the eighteen deaths, which th
 their direction is 5 : 6.25 and the z part is still the larger one -- `|ThrowX| > |ThrowZ|` is NOT true and is not
 asserted.
 
-The 18 stills
+The 24 stills (18 + the four-moment control, added leg g1-02)
 -------------
     g1_blast1_m1_0.png   g1_blast1_p0_5.png   g1_blast1_p3_0.png    shell, camera on (24, 140.25)
     g1_blast2_m1_0.png   g1_blast2_p0_5.png   g1_blast2_p3_0.png    shell, camera on (48, 236.25)
@@ -84,8 +84,8 @@ So `MAN_AREA_MIN, MAN_AREA_MAX = 62, 3692` -- half the smallest to twice the lar
 fragment at 120 px, so only the ceiling bites; the crater and the scorch read 14 100 to 63 800 px, an order of
 magnitude out.
 
-The verdict: RED, and why
--------------------------
+The verdict before the control and the warmth key (history, 2026-10-24 legs g1-01/02): RED
+-----------------------------------------------------------------------------------------
 `python docs/evidence/blast-knockback-death-r2-g1/probe.py` exits 1 on this set (`probe.json` holds the run):
 
     calm_spread_m   1.678     worst_throw_m  0.0        throw_m 1.865
@@ -147,3 +147,66 @@ The fresh set measures the same build as the one before it: probe.py (unchanged 
 1.739 / 2.527 / 1.638 m against calm 0.369 / 0.060 / 0.201 m, calm_spread_m 1.678, worst_throw_m 0.0 -- within
 0.14 m of the previous capture everywhere. The instrument is repeatable; it is still RED for the two reasons in
 the section above, and the control is the material for fixing it.
+
+
+The method now: men from geometry, bodies from warmth (leg g1-03, 2026-10-24)
+----------------------------------------------------------------------------
+Three changes to `probe.py`, in the order they matter:
+
+1. **The men are no longer found in the pixels.** `spots(path)` returns the six standing places from the
+   scenario's own geometry: `BlastThrowStills` stands man i at `(x, z + i*2.5)` and pins the camera at
+   `(x, z + 6.25)`, so man i is at `(cam_x, cam_z - 6.25 + 2.5*i)`, read from the still's own sidecar. Checked
+   against the pixels: 32 of the 36 spots carry a -1 s blob within 0.79 m. `standing_row`, `row_scale_px_per_m`,
+   `BAND_PX`, `MIN_LATTICE` and the row-scale check are deleted. They were the first false zero: a lattice fit from
+   straight above picks terrain, and blast3's "standing man" was literally the same 141 px clod as its "body"
+   (`d_i` 0.000).
+2. **The bare-ground control** (`<tag>_<run>_b0_0.png`, `CONTROL_M` 0.75 m): a +3 s blob with a control blob that
+   close is the same piece of ground, not a body. It removes 0 to 7 blobs a run now (see the table below) -- far
+   less than the 10-35 measured before the warmth key, because the clutter it was built to remove is cold.
+3. **The warmth key** (`WARM_RB` 3.7, in `blobs()`): a blob's mean colour must be warm by R - B >= 3.7 (0-255).
+   Measured, never tuned: the 22 blobs within 0.6 m of a known standing spot in the three calm -1 s stills run
+   R-B 3.7 to 15.9, mean 9.6; the 134 other blobs of those same frames -- terrain, all of it -- run -24.7 to 28.1,
+   median -0.2, with only the top fifth over 3.7. The bar is the smallest certainly-man value of that set, so the
+   rule cannot drop a man it was measured on. The uniform is warm; churned snow and clods are not. This is what
+   the four red legs were missing: it takes blast1 from 50 man-sized candidate blobs to 6.
+Shape was measured too and does NOT separate: over the same 14 certainly-men, bounding-box fill runs 0.26-0.53 and
+elongation 1.00-1.81, and blast3's offending 509 px blob sits inside both (fill 0.44, elongation 1.19). Do not
+spend another leg on a shape window.
+
+    run      control blobs   warm +3 s blobs in window   removed by control   candidates
+    blast1        0                   6                          0                6
+    blast2        1                   9                          0                9
+    blast3        2                  22                          0               22
+    calm1         0                  16                          0               16
+    calm2         1                  14                          0               14
+    calm3        10                  16                          7                9
+
+The verdict: still RED, and now on the capture alone
+----------------------------------------------------
+`d_i` per spot, metres to the nearest candidate body at +3 s (spot order, not sorted):
+
+    blast1   8.018  6.270  5.180  5.182  4.235  2.326     median 5.181
+    blast2   7.036  6.666  6.972  4.917  3.499  3.218     median 5.792
+    blast3   0.815  2.994  0.869  1.707  2.318  3.309     median 2.012
+    calm1    0.423  0.160  0.165  0.337  0.289  2.236     median 0.313
+    calm2    0.363  0.402  0.059  0.636  0.528  0.173     median 0.382
+    calm3    1.212  0.316  1.023  0.517  0.570  0.141     median 0.543
+
+blast1 and blast2 are exactly what the owner asked for: every man's nearest body is 2.3 to 8.0 m from where he
+stood, against a calm drift of 0.06 to 0.64 m -- a clean order of magnitude, with no baseline constant anywhere.
+Three faults are left, and every one of them is in the capture, not in the measurement:
+  * **blast3 carries other runs' dead.** Its +3 s sidecar reads `fallen` 14 where six men died, and its -1 s one
+    already reads `fallen` 6 before the shell: `VATRenderer.ClearFallen()` does not empty the bodies, so corpses
+    from earlier runs and earlier attempts lie on that patch. They are warm, man-sized and (being spawned after
+    the control was shot, or moved since) not in the control, which is why blast3 shows 22 candidates where
+    blast1 shows 6, and why two of its spots read 0.815 and 0.869 m.
+  * **calm1 spot 5 stands on a cold 5608 px structure.** `drawn_infantry` is 6, so the man is drawn; his mask
+    fragment merges into that structure, whose area is over `MAX_BLOB` 2000 and whose colour is cold (R-B -9.9),
+    so he is dropped twice over and the probe raises "the mask lost a standing man". `Open()` keeps trenches,
+    ladders, wire and bunkers off a patch but not this.
+  * **calm3 spot 0** reads 1.212 m for the same reason in milder form, and calm3's control holds 10 warm blobs
+    where the other five hold 0-2.
+The capture is deterministic: reshooting all 24 stills on this tree reproduced 23 of them byte for byte (only
+`g1_calm1_p3_0.png` differs, the wanderer). So these three are not bad luck to be reshot away -- they need the
+harness fixed: really empty the bodies between runs (or give every run its own untouched patch), and reject a
+patch that holds a large cold structure the way `Open()` already rejects a bunker.
