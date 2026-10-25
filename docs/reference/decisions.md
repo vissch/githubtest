@@ -395,25 +395,25 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   with the rebased branch, overwriting `2e01bfd94`; (2) a leg is given explicit permission to force-push this one
   ref; (3) land directly from this checkout without pushing first (if `land.py` allows it). Default taken: none
   acted on; the rebase stays local on this checkout pending the owner's push.
-- **sapper-look-3-g1: the control cannot be made smaller than the kit signal at this site (2026-10-25, this leg,
-  `lane/show/sapper-look-3-g1`).** `probe.py` was rewritten to measure an aligned window (each frame's own
-  `cx`/foot row, not one frame's stale box), so a walking man's translation is out of the count. That fixed seed
-  1's old 0.0 `kit_frac` (now ~0.02-0.06), but seed 2's corner — a wooden walkway lit by an animated rain-streak
-  highlight right behind the man — gives a control (`spread_max`, the worst pairwise diff among three same-pose
-  Engineer captures) of 0.42-0.66, ten times the kit signal (`kit_frac` 0.02-0.74, overlapping the control rather
-  than clearing it), in two separate capture runs (the match layout is randomized each run, so this is not one bad
-  seed but a repeatable class of site: a toon-shaded surface whose lighting keeps moving under a still man).
-  Restricting the window to the kit band (`CombatFx.SapperKit.cs:37-42`'s top quarter and outer columns, step 6 of
-  the plan) does not help: the band still holds the same lit surface, not just the man. No single `BAR` can sit
-  strictly above `spread_max` and at or below `kit_frac_min` while this site is in the three. Options: (a) have
-  `capture.py` also require each corner's noise (a quick repeat-shot check) to clear some ceiling before it is
-  kept, not just contrast and tall — the fix most in the spirit of the plan's "up to four corners tried" search,
-  but it is a capture.py change the plan's step list for this leg does not include; (b) accept the plan's own
-  stated fallback and leave `BAR` unset / the probe red until a future leg does (a); (c) weight or clip outlier
-  pixels (e.g. ignore the brightest decile per frame) so a moving highlight cannot dominate the count — changes
-  what "changed" means and needs the owner's sign-off since it is no longer a plain pixel diff. Default taken:
-  none — the probe stays red and the leg ends blocked rather than moving `BAR` to meet either number (the plan's
-  own instruction). The measured numbers live with the evidence, in `docs/evidence/sapper-look-3-g1/README.md`; on the committed stills the aligned window brings the control down to 0.022 against a kit signal of 0.004, so the two no longer overlap but still sit the wrong way round.
+- **sapper-look-3-g1: the kit change itself reads near zero at one of the three sites (2026-10-25,
+  `lane/show/sapper-look-3-g1`).** Supersedes this row's earlier finding, which said the control swamped the
+  signal. Option (a) of that row was built: `probe.py` measures an aligned window (each frame's own `cx`/foot row,
+  not one frame's stale box), `CaptureRig.StepHold(ticks)` bounds the released window between two repeat captures
+  to exactly one sim tick inside the engine, and `capture.py`'s corner search now gates each candidate site on its
+  own repeat-shot noise (over 0.02 dropped, up to four corners tried, every number printed). No pixel weighting or
+  outlier clipping was used, so the measurement is still a plain pixel diff — option (c) was never taken and still
+  needs the owner if it is ever wanted. On the re-captured stills the control falls from 0.11-0.61 to 0.0-0.0066
+  and all three seeds hold both men readable (`tall` 135-202 px, `contrast` 0.16-1.33, seed 3's zoom-7 view
+  included). What is left is the other way round: at seed 2 the kit flip itself reads `kit_frac` 0.0012 (band
+  0.0020) while seed 1 reads 0.0355, so `kit_frac_min` 0.0012 sits BELOW seed 1's control 0.0066 and no single
+  `BAR` can satisfy `spread_max < BAR <= kit_frac_min`. Options: (a) find out whether the pack and charges are
+  genuinely hidden at seed 2's pose (a yaw/pitch requirement on the kept corner, or a kit-visibility check in
+  `capture.py` before a corner is accepted) — the next piece of work, and in the spirit of the existing corner
+  search; (b) judge each seed against its own control instead of one global `BAR` (per-seed `kit_frac >
+  k * spread_max`), which changes what the bar means and so is the owner's call; (c) weight or clip outlier pixels,
+  as before, also the owner's call. Default taken: none — `BAR` stays at its fixed 0.01 and the probe stays red,
+  rather than moving `BAR` to meet a number (the plan's own instruction). The measured numbers live with the
+  evidence, in `docs/evidence/sapper-look-3-g1/README.md` and `probe.json`.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is

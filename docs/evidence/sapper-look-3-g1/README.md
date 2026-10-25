@@ -29,11 +29,12 @@ hand-typed crop.
 
 ## Seeds 1 and 2: both men readable, kit change clears the noise floor
 Both are quiet sites (>= 60 m from `CaptureRig.Crowd()`), framed until both men clear CaptureRig's own 0.12
-"unreadable" warning. Every man is read at a size a player can read (`tall_min` 126 px in the 2026-10-25 run,
-50%+ past the tactical camera's 80 px man), but the capture is NOT reproducible run to run: the match on
-`GreyboxCorridor` lays out a different field each Play, so the two quiet sites, the slots and the framing differ,
-and with them the contrast. In the 2026-10-25 run the far man of seed 2 came back at `contrast` 0.0136, under
-CaptureRig's own 0.12 line, so that check is red too. A run that frames both men well is a re-run, not a given.
+"unreadable" warning, and each kept corner also has to clear the search's own noise gate (0.02 on a repeat shot of
+the same pose). In the committed 2026-10-25 run every man is read at a size a player can read (`tall_min` 135.7 px,
+70 % past the tactical camera's 80 px man) and the lowest `contrast` is 0.1618, above the 0.12 line. The capture is
+still NOT reproducible run to run: the match on `GreyboxCorridor` lays out a different field each Play, so the two
+quiet sites, the slots and the framing differ, and with them the contrast. A run that frames both men well is a
+re-run, not a given — these stills are the run that did.
 
 For each seed, `probe.py` makes one measurement, `aligned_frac`. The window's SIZE is taken once from the
 Engineer still's own footprint box for the flipped slot; its ANCHOR is each frame's own centre column and foot
