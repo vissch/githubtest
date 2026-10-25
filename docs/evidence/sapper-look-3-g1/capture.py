@@ -191,11 +191,16 @@ def do_seed(n, mid_x, mid_z, yaw_deg, zoom0, pitch0):
     eng_path = HERE / f'pair-engineer-{n}.png'
     zoom, pitch = find_pose(mid_x, mid_z, yaw_deg, zoom0, pitch0, eng_path, aim_y, left_slot, right_slot)
     print(f'  kept zoom={zoom:.1f} pitch={pitch:.1f}')
-    # a second shot of the SAME still-Engineer pose, no change in between: the repeat-capture noise floor
-    # (docs/evidence/sapper-look-3/README.md), used by probe.py as the bar's provenance
-    noise_path = HERE / f'noise-{n}.png'
-    shot_only(str(noise_path), mid_x, mid_z, zoom, yaw_deg, pitch, aim_y)
     run('return TW.Editor.CaptureRig.Release();', 30)
+    # Two further stills of the SAME still-Engineer pose - nothing changed: not the pose, the camera, the
+    # archetype or the weather clock. Each one goes through a full Release -> 0.25 s wait -> Hold -> shot cycle,
+    # the identical regime the Sapper shot below is taken in, so each repeat costs the man the same one tick of
+    # his own motion the kit shot costs him and the two numbers are comparable. Inside one unbroken Hold the
+    # repeats are pixel-identical by construction (the 0.0 floor of the older evidence, and the same empty zero
+    # the owner threw out), which is an easier control than the thing it judges.
+    for suffix in ('', '-b'):
+        time.sleep(0.25)
+        shoot(str(HERE / f'noise-{n}{suffix}.png'), mid_x, mid_z, zoom, yaw_deg, pitch, aim_y)
     # the sanctioned door for a presentation tool to change the sim: SimHost.WriteWorlds, never a direct world write
     run(f'return {HOST}.WriteWorlds(m => m.World.Archetype[{right_slot}] = {SAPPER});', 30)
     time.sleep(0.25)  # the shortest real wait that reaches a tick (Hold() has not run yet): the draw entry only
