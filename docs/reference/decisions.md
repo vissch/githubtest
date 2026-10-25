@@ -344,7 +344,9 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   the g2 build and lower nothing - the default taken here, nothing was landed and `CombatFx.Banks.cs` is
   reverted; (b) drop `bank_paint_share` from the bars and bar the bank's shape instead (`bank_aspect`, 6.2 on
   the low build against 2.7-4.9 on g2); (c) redraw the bank as one mesh or a few large cards instead of one
-  card per 4 m cell, which is a new look and so a concepts brief first.
+  card per 4 m cell, which is a new look and so a concepts brief first. Pictures of the build as it stands,
+  reshot on the rebased lane: `docs/evidence/ability-fx-captures-r2-2-visual-review/` (the owner asked to see
+  visual results, 2026-10-25).
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
