@@ -395,6 +395,25 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   with the rebased branch, overwriting `2e01bfd94`; (2) a leg is given explicit permission to force-push this one
   ref; (3) land directly from this checkout without pushing first (if `land.py` allows it). Default taken: none
   acted on; the rebase stays local on this checkout pending the owner's push.
+- **sapper-look-3-g1: the control cannot be made smaller than the kit signal at this site (2026-10-25, this leg,
+  `lane/show/sapper-look-3-g1`).** `probe.py` was rewritten to measure an aligned window (each frame's own
+  `cx`/foot row, not one frame's stale box), so a walking man's translation is out of the count. That fixed seed
+  1's old 0.0 `kit_frac` (now ~0.02-0.06), but seed 2's corner — a wooden walkway lit by an animated rain-streak
+  highlight right behind the man — gives a control (`spread_max`, the worst pairwise diff among three same-pose
+  Engineer captures) of 0.42-0.66, ten times the kit signal (`kit_frac` 0.02-0.74, overlapping the control rather
+  than clearing it), in two separate capture runs (the match layout is randomized each run, so this is not one bad
+  seed but a repeatable class of site: a toon-shaded surface whose lighting keeps moving under a still man).
+  Restricting the window to the kit band (`CombatFx.SapperKit.cs:37-42`'s top quarter and outer columns, step 6 of
+  the plan) does not help: the band still holds the same lit surface, not just the man. No single `BAR` can sit
+  strictly above `spread_max` and at or below `kit_frac_min` while this site is in the three. Options: (a) have
+  `capture.py` also require each corner's noise (a quick repeat-shot check) to clear some ceiling before it is
+  kept, not just contrast and tall — the fix most in the spirit of the plan's "up to four corners tried" search,
+  but it is a capture.py change the plan's step list for this leg does not include; (b) accept the plan's own
+  stated fallback and leave `BAR` unset / the probe red until a future leg does (a); (c) weight or clip outlier
+  pixels (e.g. ignore the brightest decile per frame) so a moving highlight cannot dominate the count — changes
+  what "changed" means and needs the owner's sign-off since it is no longer a plain pixel diff. Default taken:
+  none — the probe stays red and the leg ends blocked rather than moving `BAR` to meet either number (the plan's
+  own instruction). See `desk/05/note.md` in this run's leg folder for the measured numbers.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
