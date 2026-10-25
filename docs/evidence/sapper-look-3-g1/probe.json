@@ -2,74 +2,39 @@
   "pairs": [
     {
       "seed": 1,
-      "slot": 15,
+      "slot": 8,
       "box": [
-        858,
-        424,
-        924,
-        585
+        959,
+        353,
+        1025,
+        514
       ],
       "both_readable": true,
       "tall": [
-        127.6,
-        146.16,
-        127.6,
-        146.16
+        135.64,
+        146.41,
+        135.64,
+        146.41
       ],
       "contrast": [
-        0.146,
-        0.4303,
-        0.1516,
-        0.4291
+        1.1345,
+        0.1908,
+        1.0479,
+        0.2008
       ],
-      "kit_frac": 0.0,
-      "noise_frac": 0.5540184453227931
-    },
-    {
-      "seed": 2,
-      "slot": 0,
-      "box": [
-        546,
-        258,
-        602,
-        397
-      ],
-      "both_readable": true,
-      "tall": [
-        126.36,
-        158.56,
-        126.36,
-        158.56
-      ],
-      "contrast": [
-        0.0229,
-        1.3267,
-        0.0136,
-        1.2819
-      ],
-      "kit_frac": 0.05665467625899281,
-      "noise_frac": 0.01682939362795478
+      "kit_frac": 0.004046677959721438,
+      "noise_frac": 0.005081874647092038
     }
   ],
   "seed3_single_man": {
-    "readable_count_engineer": 2,
-    "readable_count_sapper": 2,
-    "tall": [
-      187.55,
-      215.59,
-      187.55,
-      215.59
-    ],
-    "contrast": [
-      0.139,
-      1.8135,
-      0.161,
-      1.7754
-    ]
+    "readable_count_engineer": 0,
+    "readable_count_sapper": 0,
+    "tall": [],
+    "contrast": []
   },
-  "tall_min": 126.36,
-  "contrast_min": 0.0136,
-  "kit_frac_min": 0.0,
-  "noise_frac_max": 0.5540184453227931,
+  "tall_min": 135.64,
+  "contrast_min": 0.1908,
+  "kit_frac_min": 0.004046677959721438,
+  "noise_frac_max": 0.005081874647092038,
   "bar": 0.01
 }
