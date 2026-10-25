@@ -5,10 +5,12 @@
 // Env: TW_STILLS_DIR the folder (default %TEMP%/tw-abilityfx), TW_ABILITYFX_PLATE=1 runs the identical script with the
 // staging call skipped — the plate pass. TW_ABILITYFX_REPS=N (default 1) shoots every subject and band N times over,
 // naming the files subject_band_rN.png, so a bar can be set outside the spread of one build's own captures.
-// The drop ignores TW_ABILITYFX_REPS: it is always six shots a band at ONE paused sim tick (TimeScale 0), three with
-// the canopies open (drop_<band>_r1..r3) and three of the same frozen frame with CombatFx.DropCanopies off
-// (_nochute), so the probe can measure the canopies and not the wake (g2-g3, the owner 2026-10-21: "the probe must
-// fail when the canopies are gone even if the smoke streak remains").
+// The drop ignores TW_ABILITYFX_REPS: it is always three rep pairs a band, each pair at its own paused sim tick
+// (TimeScale 0) with the clock let run 12 frames (8 ticks) between the reps. A pair is the canopies open
+// (drop_<band>_rN) and the same frozen frame with CombatFx.DropCanopies off (_nochute), so the probe can measure the
+// canopies and not the wake (g2-g3, the owner 2026-10-21: "the probe must fail when the canopies are gone even if
+// the smoke streak remains"), over three DIFFERENT ticks (g2-g3-g2, the owner 2026-10-25: "r1, r2 and r3 are tick
+// 154 three times").
 // The drop is the one subject whose plate DOES stage: its 13 paratroopers, their fallen and their fire would otherwise
 // be the whole diff, so the plate drops the same men on the same ticks with CombatFx.DropFx off (the g2 measurement,
 // the owner 2026-10-21: "hold the plate's men, turn the beams off, so the mask is the drop and not the soldiers"). The ability-area disc is off (CombatFx.ShowOverlays), the clock is pinned and
@@ -91,7 +93,8 @@ namespace TW.Tests
                 // the drop's block runs 360 frames so its cards (longest life 5 s = 150 frames) are gone before the
                 // other band stages on a point 34 m away
                 // the peak is 90 frames (3 s of the 5 s warm-up): the canopies are open and well clear of the ground.
-                // At 155 the men are landing and the canopies are gone, which is what g2 photographed.
+                // At 155 the men are landing and the canopies are gone, which is what g2 photographed. The drop's
+                // three reps then run on from 90 in steps of 12 frames, so the last is still well inside the window.
                 default: return (12f, 12f, 90, 360);
             }
         }
@@ -250,41 +253,46 @@ namespace TW.Tests
 
                 if (subject == "drop")
                 {
-                    // The drop is six shots at ONE sim tick: three of the canopies open (r1..r3) and three of the same
-                    // frozen moment with CombatFx.DropCanopies off (_nochute), which is what lets the probe measure the
-                    // canopies alone - the wake and the landing dust are in both, so they cancel.
-                    // TimeScale 0 means no dt reaches the accumulator (SimHost.Update), so the sim cannot step: every
-                    // sidecar of the six carries the same sim_tick. The canopies are drawn per frame off the sim clock,
-                    // so they hold their place while the flag flips.
-                    // every host in the scene, not just the first: the capture rig's sidecar reads the sim tick off the
-                    // host it finds, and a second one left running stepped one tick between the shots (g3, the first
-                    // plate pass: drop_O240_r3 came back on tick 155 against its trio's 154)
-                    foreach (var h in Object.FindObjectsByType<SimHost>(FindObjectsSortMode.None)) h.TimeScale = 0f;
-                    for (int f = 0; f < 2; f++) yield return null;
-                    for (int pass = 0; pass < 2; pass++)
+                    // The drop is three rep pairs a band, each at its OWN paused sim tick: the canopies open
+                    // (drop_<band>_rN.png) and the same frozen frame again with CombatFx.DropCanopies off
+                    // (_nochute), which is what lets the probe measure the canopies alone - the wake and the landing
+                    // dust are in both, so they cancel.
+                    // TimeScale 0 means no dt reaches the accumulator (SimHost.Update), so the sim cannot step while a
+                    // rep's two shots are taken: both carry the same sim_tick. Between reps the clock runs for 12
+                    // frames at captureDeltaTime 1/30, which is 8 sim ticks, so the three reps carry three DIFFERENT
+                    // ticks, all inside the canopy window (open at frame 30, land at 150). The owner, 2026-10-25:
+                    // "r1, r2 and r3 are tick 154 three times" - a spread of one frozen tick is no spread.
+                    // Every host in the scene is paused, not just the first: the capture rig's sidecar reads the sim
+                    // tick off the host it finds, and a second one left running stepped one tick between the shots
+                    // (g3, the first plate pass: drop_O240_r3 came back on tick 155 against its trio's 154).
+                    for (int r = 1; r <= 3; r++)
                     {
-                        if (pass == 1)
+                        foreach (var h in Object.FindObjectsByType<SimHost>(FindObjectsSortMode.None)) h.TimeScale = 0f;
+                        for (int f = 0; f < 2; f++) yield return null;
+                        for (int pass = 0; pass < 2; pass++)
                         {
-                            TW.Presentation.Tactical.CombatFx.DropCanopies = false;
-                            for (int f = 0; f < 2; f++) yield return null;
-                        }
-                        for (int r = 1; r <= 3; r++)
-                        {
-                            // the plate pass writes the _plate trio twice over, the second trio on top of the first, so
-                            // both passes write the same number of frames and no extra file lands
+                            if (pass == 1)
+                            {
+                                TW.Presentation.Tactical.CombatFx.DropCanopies = false;
+                                for (int f = 0; f < 2; f++) yield return null;
+                            }
+                            // the plate pass writes the rep's _plate file twice over, the second shot on top of the
+                            // first, so both passes walk the same yields, step the same sim ticks and write the same
+                            // twelve files
                             string pp = Path.Combine(dir, "drop_" + band + "_r" + r
                                 + (plate ? "_plate" : pass == 1 ? "_nochute" : "") + ".png");
                             CaptureRig.Shot(pp, x, z, zoom, 40f, 25f, 1280, 720, pl.aim);
                             yield return Drain(pp);
                             if (File.Exists(pp)) written++;
+                            // the rig's last shot is still in flight when Drain sees the file: the frame it photographs
+                            // comes a few frames later, so nothing may change until it has gone through (g3: without
+                            // this wait, drop_T1_r3 came back with the canopies off and its _nochute with them on)
+                            for (int f = 0; f < 8; f++) yield return null;
                         }
-                        // the rig's last shot is still in flight when Drain sees the file: the frame it photographs
-                        // comes a few frames later, so nothing may change until it has gone through (g3: without this
-                        // wait, drop_T1_r3 came back with the canopies off and drop_T1_r3_nochute with them on)
-                        for (int f = 0; f < 8; f++) yield return null;
+                        TW.Presentation.Tactical.CombatFx.DropCanopies = true;
+                        foreach (var h in Object.FindObjectsByType<SimHost>(FindObjectsSortMode.None)) h.TimeScale = 1f;
+                        for (int f = 0; f < 12; f++) yield return null;   // 8 sim ticks on to the next rep's moment
                     }
-                    TW.Presentation.Tactical.CombatFx.DropCanopies = true;
-                    foreach (var h in Object.FindObjectsByType<SimHost>(FindObjectsSortMode.None)) h.TimeScale = 1f;
                 }
                 else
                 {
@@ -309,7 +317,8 @@ namespace TW.Tests
             TW.Presentation.Tactical.CombatFx.ShowTracers = true;
             TestContext.Out.WriteLine("wrote " + written + (plate ? " plates to " : " stills to ") + dir);
             yield return new ExitPlayMode();
-            // the drop is always six shots a band and ignores TW_ABILITYFX_REPS; every other subject is reps a band
+            // the drop is always six shots a band (three rep pairs) and ignores TW_ABILITYFX_REPS; every other
+            // subject is reps a band
             bool hasDrop = System.Array.IndexOf(subjects, "drop") >= 0;
             int want = 2 * (subjects.Length - (hasDrop ? 1 : 0)) * reps + (hasDrop ? 12 : 0);
             Assert.AreEqual(want, written, "a still is missing");
