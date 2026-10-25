@@ -303,6 +303,18 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 
 ## Open: waiting on the owner
+- **Does the 0.25 close-range readability bar apply to a frame the man fills? (2026-10-25, lane
+  `lane/show/sapper-lay-mine-anim-g2`):** the sapper's kneel-and-place pair is now shot from 5.1 m instead of 22 m,
+  so his pose carries hundreds of columns instead of 37 — and `contrast_median` collapsed to 0.01, with
+  "men barely separate from the ground", on a picture that by eye is a clearly readable sapper.
+  `CaptureRig.Measure` scores a man as a disc on his chest against a **ring of background around him**; when he
+  fills the frame that ring lands on his own body. Measured alternatives: night with the lamp pushed out of his
+  silhouette 0.153 / 0.197; the Winter day field 0.254 idle but 0.007 laying, and every day frame also trips
+  `Measure`'s night-tuned "brighter than a night scene should be" warning.
+  Options: (a) the bar does not apply to a close set, which is judged on `pose_delta_px` alone; (b) change
+  `Measure` to score the man against the background outside his silhouette bounds, so one bar covers both
+  framings (SHOW lane, its own commit, re-baselines every still's json); (c) keep the far framing and give up the
+  pose resolution the owner asked for. **Default taken: (a)** — the g2 set is judged on `pose_delta_px`.
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
   lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
   is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every

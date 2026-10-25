@@ -276,7 +276,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   BarragePatternTests, SmokeScreenTests, BeamTests, MineTests, SapperTests, AirDropTests. The SHOW side — he kneels
   (`Clip.StandToKneel`) then places (`Clip.KneelInspect`) on `SimEventType.SapperLaying`, in
   `Presentation/Core/AnimationController.cs` — is guarded by `SapperLayMineTests` (`Tests/Show/`), with
-  `SapperLayStills` (`Tests/Stills/`) photographing idle vs mid-lay for `docs/evidence/sapper-lay-mine-anim/`.
+  `SapperLayStills` (`Tests/Stills/`) photographing idle vs mid-lay for `docs/evidence/sapper-lay-mine-anim/` and,
+  framed close with the lamp out of his silhouette, `docs/evidence/sapper-lay-mine-anim-g2/`
+  (`TW_STILLS_DIR`; `TW_STILLS_FRAME_OFFSET`, frames, default 0, shifts both shots later so 0 / 9 / 18 are three
+  different poses of the same kneel).
 - **Laying a mine** is a sapper's errand (2026-09-28): `CommandType.UnitAbility`, `a` = his slot, `b` = the ability id in
   the low byte and `AbilityArgs` above it, `pos` = the point. `MineSystem.Place` stays the system call underneath
   (tests and tools may still call it). DeterminismReplayTests deploys a sapper and orders him by command, so the
