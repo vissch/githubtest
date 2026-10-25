@@ -1,0 +1,30 @@
+{
+  "cur": {
+    "1": {
+      "side": 119,
+      "face_share": 0.0,
+      "pack_parts": 2,
+      "charge_parts": 2,
+      "pack_flood": 0.5348240991311779,
+      "helmet_above_face": false
+    },
+    "2": {
+      "side": 178,
+      "face_share": 0.0,
+      "pack_parts": 2,
+      "charge_parts": 3,
+      "pack_flood": 0.5407776795859108,
+      "helmet_above_face": false
+    },
+    "3": {
+      "side": 238,
+      "face_share": 0.0,
+      "pack_parts": 2,
+      "charge_parts": 3,
+      "pack_flood": 0.5403573193983475,
+      "helmet_above_face": false
+    }
+  },
+  "cur_face_share_spread": 0.0,
+  "cur_pack_flood_spread": 0.005953580454732932
+}
