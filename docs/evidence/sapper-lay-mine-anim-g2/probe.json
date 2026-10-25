@@ -1,0 +1,69 @@
+{
+  "runs": {
+    "run1": {
+      "pose_delta_px": 143.0,
+      "columns": 337,
+      "box": [
+        107,
+        407,
+        520,
+        911
+      ],
+      "blob_px": 66762,
+      "centre_in_box": true,
+      "blown_px_in_box": 1007,
+      "blown_px_in_head": 0
+    },
+    "run2": {
+      "pose_delta_px": 140.0,
+      "columns": 202,
+      "box": [
+        162,
+        443,
+        527,
+        739
+      ],
+      "blob_px": 39315,
+      "centre_in_box": true,
+      "blown_px_in_box": 0,
+      "blown_px_in_head": 0
+    },
+    "run3": {
+      "pose_delta_px": 116.0,
+      "columns": 183,
+      "box": [
+        195,
+        428,
+        534,
+        786
+      ],
+      "blob_px": 29339,
+      "centre_in_box": true,
+      "blown_px_in_box": 0,
+      "blown_px_in_head": 0
+    }
+  },
+  "far_pair": {
+    "pose_delta_px": 10.0,
+    "columns": 60
+  },
+  "base_delta_px": 10.0,
+  "spread": {
+    "pose_delta_px": 27.0,
+    "columns": 154
+  },
+  "bars": {
+    "POSE_DELTA_PX_BAR": {
+      "value": 89.0,
+      "why": "floor(min([143.0, 140.0, 116.0]) - max(spread 27.0, 1)) over the three runs of a9694b1f0f, outside their spread and clear of the far pair's base_delta_px 10.0"
+    },
+    "COLUMNS_BAR": {
+      "value": 29,
+      "why": "floor(min([337, 202, 183]) - max(spread 154, 1)) over the three runs of a9694b1f0f, beating the far pair's 60 columns"
+    },
+    "BLOWN_IN_BOX_BAR": {
+      "value": 1032,
+      "why": "max([1007, 0, 0]) + 25, a ceiling on blown face pixels so the lamp stays out of his silhouette"
+    }
+  }
+}
