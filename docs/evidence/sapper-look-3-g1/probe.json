@@ -3,11 +3,9 @@
     {
       "seed": 1,
       "slot": 8,
-      "box": [
-        959,
-        353,
-        1025,
-        514
+      "window": [
+        66,
+        161
       ],
       "both_readable": true,
       "tall": [
@@ -23,7 +21,19 @@
         0.2008
       ],
       "kit_frac": 0.004046677959721438,
-      "noise_frac": 0.005081874647092038
+      "kit_frac_band": 0.006951180084060782,
+      "control_shots": [
+        "pair-engineer-1.png",
+        "noise-1.png",
+        "noise-1-b.png"
+      ],
+      "spread_max": 0.0220214568040655,
+      "spread_max_band": 0.037827352085354024,
+      "spread_all": [
+        0.005081874647092038,
+        0.0018821757952192735,
+        0.0220214568040655
+      ]
     }
   ],
   "seed3_single_man": {
@@ -35,6 +45,6 @@
   "tall_min": 135.64,
   "contrast_min": 0.1908,
   "kit_frac_min": 0.004046677959721438,
-  "noise_frac_max": 0.005081874647092038,
+  "spread_max": 0.0220214568040655,
   "bar": 0.01
 }

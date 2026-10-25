@@ -29,30 +29,39 @@ Both are quiet sites (>= 60 m from `CaptureRig.Crowd()`), framed until both men 
 and with them the contrast. In the 2026-10-25 run the far man of seed 2 came back at `contrast` 0.0136, under
 CaptureRig's own 0.12 line, so that check is red too. A run that frames both men well is a re-run, not a given.
 
-For each seed, `probe.py` reads the RIGHT man's own footprint box from the sidecar and measures what fraction of
-that box's pixels changed (per-channel, threshold 10):
-- `kit_frac` — Engineer still vs. Sapper still, same pose.
-- the control — the spread between the three Engineer captures of the same pose, measured in the same box.
+For each seed, `probe.py` makes one measurement, `aligned_frac`. The window's SIZE is taken once from the
+Engineer still's own footprint box for the flipped slot; its ANCHOR is each frame's own centre column and foot
+row, read from that frame's own sidecar, clipped to the image and intersected so both crops are one size. A man
+who walked or breathed between two captures is therefore compared to himself and not to the ground he left, while
+his kit stays in the count. Reported per seed:
+- `kit_frac` - Engineer still vs. Sapper still.
+- `spread_max` - the control: the largest pairwise diff among the three captures of the current build
+  (`pair-engineer-N`, `noise-N`, `noise-N-b`), each taken the way the kit shot is taken (`Release` -> tick ->
+  `Hold`).
+- `kit_frac_band` / `spread_max_band` - the same two in the kit band only: the top quarter of the window (the pack
+  above the shoulder) plus the outer 22 % of its columns (the charges past the torso), after
+  `CombatFx.SapperKit.cs:37-42`.
 
-## The control swamps the signal (measured 2026-10-25, and the reason this probe is red)
-The 0.0 floor the earlier version of this page reported was not a floor at all: both its captures sat inside ONE
-unbroken `CaptureRig.Hold`, so they were pixel-identical by construction — the same empty zero the owner threw
-out, and an easier control than the thing it judges. Taken the way the signal is taken (a `Release` -> tick ->
-`Hold` per repeat), the control is **larger than the kit change**:
+`aligned_frac(png_a, png_b, slot, band=False)` is the one public measurement, so `capture.py`'s corner search can
+judge a candidate site by exactly the rule that will judge the evidence.
 
-| seed | kit_frac (Engineer vs Sapper) | spread_max (3 Engineer captures) |
+## Where it stands (measured 2026-10-25 on the committed stills, and why this probe is still red)
+The 0.0 floor an earlier version of this page reported was not a floor at all: both its captures sat inside ONE
+unbroken `CaptureRig.Hold`, so they were pixel-identical by construction - the same empty zero the owner threw
+out. Taken honestly, and now measured in the aligned window:
+
+| seed | kit_frac (band) | spread_max (band) |
 |---|---|---|
-| 1 | 0.000 | 0.613 |
-| 2 | 0.057 | 0.111 |
-| 3 | 0.126 | 0.107 |
+| 1 | 0.0040 (0.0070) | 0.0220 (0.0378) |
+| 2 | no pair: `pair-sapper-2.png` holds no readable man at all | - |
+| 3 | reported only (one man readable at zoom 7) | - |
 
-The cause is the man himself: a Repair-archetype Engineer walks on his own orders, and in the one tick each
-repeat costs him he translates far enough inside his own footprint box that the whole-box diff measures his
-motion, not his kit. `probe.py` is therefore red on this evidence, and `BAR` has NOT been moved to make it green.
-The next step is the plan's own fallback: crop both numbers to the kit band (`CombatFx.SapperKit.cs:37-42` — the
-top quarter of the box, where the pack sits above the shoulder, plus the outer ~22 % of the columns, where the
-charges sit past the torso), where the kit is and the walking legs are not, and report whole-box and kit-band
-side by side.
+Aligning the window took the walking man's translation out of the control: the whole-box numbers on this same
+evidence were 0.11-0.61. What is left is the released time between two repeat shots. Each repeat is its own
+`unity.exe cmd eval` subprocess, so `Release` -> `sleep 0.25` -> `Hold` runs the world and every `_Time`-driven
+shader for seconds, not a tick - the animated rain-streak highlight behind the man. `BAR` has NOT been moved to
+meet either number: shrinking that window to one tick inside the engine, and giving the corner search its own
+noise gate, is the rest of this work.
 
 ## Seed 3: the owner's own zoom-7 view, and the man still lost among the stakes
 Focus (50, 50), zoom 7, yaw 21, pitch 25-42 — the old `sapper-t3` pose. This is the risk the plan called out in
