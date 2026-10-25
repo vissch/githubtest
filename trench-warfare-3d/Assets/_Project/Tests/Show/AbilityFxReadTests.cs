@@ -1,15 +1,18 @@
-// Phase: ability-fx-captures-r3-2-2-g2-g3 - how big an ability's effect must read at each zoom band.
+// Phase: ability-fx-captures-r3-2-2-g2-g3-g2 - how big an ability's effect must read at each zoom band.
 // ability-fx-captures-r3-2-2: how big an ability's effect must read. A fixed share of the frame is not a fair test of
 // a point effect: 3% of an O240 frame is a feature about 85 m across, which no shell burst honestly is. So the floor
 // is a ground footprint, capped at the old share of the frame (R0 C1, a measuring choice taken by the coordinator
 // 2026-10-19, not the owner; the row in docs/reference/decisions.md).
-// g2-g3: the drop is six rows, three captures a band at ONE paused sim tick, and is NOT measured against the
-// footprint. It is shot three times more at that same frozen tick with CombatFx.DropCanopies off (_nochute), so the
-// probe can measure the parachute canopies ALONE: everything else - the biplane's wake, the landing dust - is in
-// both frames and cancels. Each drop row must clear two fixed bars, each 0.8 x the smallest of the three captures
-// of THIS LANE'S TREE (parent bf295b416d):
-//   canopy (still vs nochute)  T1 0.175710 / 0.174276 / 0.174630 -> 0.1394, O240 0.010421 / 0.010485 / 0.009856 -> 0.0078
-//   drop   (still vs plate)    T1 the same three -> 0.1394,              O240 0.020456 / 0.020531 / 0.021010 -> 0.0163
+// g2-g3: the drop is six rows and is NOT measured against the footprint. Each rep is one paused sim tick shot with
+// the canopies open and again with CombatFx.DropCanopies off (_nochute), so the probe can measure the parachute
+// canopies ALONE.
+// g2-g3-g2: the three reps a band are three DIFFERENT ticks (the clock runs 8 sim ticks between them), and the
+// canopy mask counts only pixels that got BRIGHTER and are WHITE (luma 0.5 or more), so the biplane's smoke trail -
+// a flipbook that animates per rendered frame and therefore does not cancel - is not counted as a canopy. Each drop
+// row must clear two fixed bars, each 0.8 x the smallest of the three captures of THIS LANE'S TREE (parent
+// 811691a461), rounded down to four decimals:
+//   canopy (still vs nochute)  T1 0.141145 / 0.141773 / 0.143810 -> 0.1129, O240 0.005526 / 0.005722 / 0.005736 -> 0.0044
+//   drop   (still vs plate)    T1 0.180222 / 0.180858 / 0.247416 -> 0.1441, O240 0.020395 / 0.024625 / 0.023961 -> 0.0163
 using System.Globalization;
 using System.IO;
 using NUnit.Framework;
@@ -20,21 +23,21 @@ namespace TW.Tests
     public class AbilityFxReadTests
     {
         /// <summary>The floor from the goal's rule: at least 400 m^2 of ground (about 20 x 20 m), never stricter than
-        /// 0.10 of the frame. docs/evidence/ability-fx-captures-r3-2-2-g2/probe.py is the authority - it measures the
+        /// 0.10 of the frame. docs/evidence/ability-fx-captures-r3-2-2-g2-g3-g2/probe.py is the authority - it measures the
         /// pixels and writes probe.json; this is the same arithmetic, held against hand sums below.</summary>
         static float Floor(float frameAreaM2) => Mathf.Min(0.10f, 400f / frameAreaM2);
 
         const float Tol = 1e-5f;
 
         /// <summary>The drop's bars a band: 0.8 x the smallest of three captures of this lane's tree (parent
-        /// bf295b416d), rounded down to four decimals, so each bar sits under the whole spread. Measured, not
-        /// derived - the probe's docstring lists the twelve captures. The canopy bar is the owner's test: it is read
-        /// off the still against its nochute, so it goes to zero when the canopies are gone however much wake and
-        /// dust remain.</summary>
-        const float DropBarT1 = 0.1394f;
+        /// 811691a461), rounded down to four decimals, so each bar sits under the whole spread of three different
+        /// ticks. Measured, not derived - the probe's docstring lists the twelve captures. The canopy bar is the
+        /// owner's test: it is read off the still against its nochute, counting only white pixels that got brighter,
+        /// so it goes to zero when the canopies are gone however much wake and smoke trail remain.</summary>
+        const float DropBarT1 = 0.1441f;
         const float DropBarO240 = 0.0163f;
-        const float CanopyBarT1 = 0.1394f;
-        const float CanopyBarO240 = 0.0078f;
+        const float CanopyBarT1 = 0.1129f;
+        const float CanopyBarO240 = 0.0044f;
 
         // [ability-fx-captures-r3-2-2]
         [Test]
@@ -48,7 +51,7 @@ namespace TW.Tests
             Assert.That(Floor(8000f), Is.EqualTo(0.05f).Within(Tol), "8000 m^2 framed: 400 m^2 is a twentieth of it");
             Assert.That(Floor(40000f), Is.EqualTo(0.01f).Within(Tol), "40000 m^2 framed: 400 m^2 is a hundredth of it");
 
-            string dir = Path.GetFullPath(Application.dataPath + "/../../docs/evidence/ability-fx-captures-r3-2-2-g2-g3");
+            string dir = Path.GetFullPath(Application.dataPath + "/../../docs/evidence/ability-fx-captures-r3-2-2-g2-g3-g2");
             string json = Path.Combine(dir, "probe.json");
             Assert.That(File.Exists(json), "probe.json is missing: run probe.py over " + dir);
 
