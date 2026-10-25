@@ -1,0 +1,24 @@
+{
+  "subject": "review:Z005",
+  "looked_at": [
+    "read at origin/claude/trench-warfare-2d-3d-plan-idt7lf (this checkout, lane/show/found, is well behind integration; every line number below is integration's, not the working tree's)",
+    "git diff 7943d2b923141fb34d3fc6a5ae2301ce0e57c932..origin/claude/trench-warfare-2d-3d-plan-idt7lf -- the 12 files (115 insertions, 29 deletions in 8 of them), and git log --oneline over the same range for why",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Ground.cs (whole, 334 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Bodies.cs (whole, 270 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Abilities.cs (whole, 331 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Chunks.cs (whole, 210 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Close.cs (whole, 184 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Deaths.cs (whole, 134 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Banks.cs (whole, 118 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Barrage.cs (whole, 103 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Bursts.cs (whole, 97 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Ambient.cs (whole, 98 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Grenades.cs (whole, 90 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Gags.cs (whole, 193 lines)",
+    "context for the diff, not the unit: trench-warfare-3d/Assets/_Project/Presentation/Core/ViewEye.cs (the once-a-frame zoom read every changed file switched to), trench-warfare-3d/Assets/_Project/Presentation/Camera/GoreScale.cs (the zoom-scaled gore size the Bodies/Gags clod throws now use), the relevant slices of CombatFx.cs (OnSimEvent's wet/melt/damp and BurstLookFor call at ~l.822-840, DustFeetY/ChestOf call at ~l.725, the Update order around DrawBombs/DrawChunks at ~l.1170-1178)",
+    "docs/05-performance-budgets.md, trench-warfare-3d/Assets/_Project/Presentation/Core/FxQuality.cs, CLAUDE.md's show-lane seam rule",
+    "docs/reference/tasks.md and docs/reference/decisions.md (grepped for CombatFx, CloseLife, FootFall, GasBankFirst/SmokeBankFirst, the 2026-10-07 and 2026-09-28 effects rulings) to avoid repeating what is already queued or decided",
+    "every change in the diff traces to its own already-landed, already-tested commit in this same range (b5b6d6b095, 5760a98c8c, c71e01fb4d, 0fdc92c55b, 70e3adb40a, 6fb02f1c35, 6eb17009ad): the DustFeetY/ChestHeight split has ImpactDustFeetTests, the damp-not-wet gate has its own commit message naming the bug it fixes, the Banks consts going public exist only so BurstRecipeTests can name them instead of restating the literals, the unculled machine-rut laying/draw has its own commit with the 2026-10-18 measurement baked into the comment and ViewEye has ViewEyeTests; none of these is a new finding"
+  ],
+  "tasks": []
+}
