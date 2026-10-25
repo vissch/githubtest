@@ -15,10 +15,16 @@ hand-typed crop.
 - `pair-engineer-{1,2,3}.png` / `.json`, `pair-sapper-{1,2,3}.png` / `.json` — the six deliverables.
 - `noise-{1,2,3}.png` / `.json` and `noise-{1,2,3}-b.png` / `.json` — two further shots of the SAME
   still-Engineer pose, nothing changed between them (not the pose, the camera, the archetype or the weather
-  clock). Each goes through a full `Release` -> 0.25 s wait -> `Hold` -> shot cycle, the identical regime the
-  Sapper shot is taken in, so each repeat costs the man the same one tick of his own motion the kit shot costs
-  him. With the Engineer still that is three captures of the current build per seed, and the spread between them
-  is the control.
+  clock). Each goes through `CaptureRig.StepHold(1)`: the world is released, runs for exactly ONE sim tick
+  (0.05 s) inside the engine, and is held again, which is the identical regime the Sapper shot is taken in. So
+  each repeat costs the man the same one tick of his own motion the kit shot costs him. With the Engineer still
+  that is three captures of the current build per seed, and the spread between them is the control. The sidecars
+  carry the sim `tick` beside `frame` to prove it: all four stills of a seed are 4 ticks apart end to end, where
+  `frame` climbs by hundreds because the editor keeps rendering while the world is held.
+- `corner-{1,2,3}.png` / `.json` — the corner search's own noise gate: one extra repeat of the kept pose,
+  measured with `aligned_frac` on the flipped man's window before the corner is accepted. A corner over 0.02 is
+  dropped and the next one tried; if none passes, the quietest tried is re-posed and every corner's number is
+  printed.
 - `probe.py` / `probe.json` — the measurement.
 
 ## Seeds 1 and 2: both men readable, kit change clears the noise floor
@@ -48,20 +54,24 @@ judge a candidate site by exactly the rule that will judge the evidence.
 ## Where it stands (measured 2026-10-25 on the committed stills, and why this probe is still red)
 The 0.0 floor an earlier version of this page reported was not a floor at all: both its captures sat inside ONE
 unbroken `CaptureRig.Hold`, so they were pixel-identical by construction - the same empty zero the owner threw
-out. Taken honestly, and now measured in the aligned window:
+out. The 0.11-0.61 control that replaced it was not a measurement of the build either: it was released time. Each
+repeat was its own `unity.exe cmd eval` subprocess, so `Release` -> `sleep 0.25` -> `Hold` ran the world and every
+`_Time`-driven shader for SECONDS - the animated rain-streak highlight behind the man. `CaptureRig.StepHold`
+bounds that window to one tick inside the engine, and the control falls by 20-100x:
 
-| seed | kit_frac (band) | spread_max (band) |
-|---|---|---|
-| 1 | 0.0040 (0.0070) | 0.0220 (0.0378) |
-| 2 | no pair: `pair-sapper-2.png` holds no readable man at all | - |
-| 3 | reported only (one man readable at zoom 7) | - |
+| seed | kit_frac (band) | spread_max (band) | corner noise |
+|---|---|---|---|
+| 1 | 0.0355 (0.0323) | 0.0066 (0.0063) | 0.00009 |
+| 2 | 0.0012 (0.0020) | 0.0000 (0.0000) | 0.0000 |
+| 3 | reported only (the owner's zoom-7 view) | - | 0.0006 |
 
-Aligning the window took the walking man's translation out of the control: the whole-box numbers on this same
-evidence were 0.11-0.61. What is left is the released time between two repeat shots. Each repeat is its own
-`unity.exe cmd eval` subprocess, so `Release` -> `sleep 0.25` -> `Hold` runs the world and every `_Time`-driven
-shader for seconds, not a tick - the animated rain-streak highlight behind the man. `BAR` has NOT been moved to
-meet either number: shrinking that window to one tick inside the engine, and giving the corner search its own
-noise gate, is the rest of this work.
+All three seeds now hold BOTH men readable — including seed 3, the zoom-7 view among the stakes where the man was
+lost — at `tall` 135-202 px and `contrast` 0.16-1.33, and all four stills of a seed are one tick apart.
+
+The probe is still red, and on a different thing than before: the control no longer swamps the signal (0.0066
+against 0.0355 at seed 1), but the kit change itself reads near zero at seed 2 (0.0012), so no single `BAR` sits
+above every control and below every `kit_frac`. Whether that is the pack and charges genuinely hidden at that
+pose, or the window missing them, is the next piece of work; `BAR` has NOT been moved to meet a number.
 
 ## Seed 3: the owner's own zoom-7 view, and the man still lost among the stakes
 Focus (50, 50), zoom 7, yaw 21, pitch 25-42 — the old `sapper-t3` pose. This is the risk the plan called out in

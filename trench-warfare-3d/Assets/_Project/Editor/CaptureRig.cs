@@ -70,6 +70,37 @@ namespace TW.Editor
             /// from the last one showed the last one's lamps, a frame into their fade.</summary>
             public static bool LampsFade;
 
+            /// <summary>True while a StepHold is still waiting for its ticks; see CaptureRig.StepHold.</summary>
+            public bool Stepping { get; private set; }
+
+            /// <summary>
+            /// Releases the world, waits until the sim has advanced `ticks` ticks, and holds it again — all inside
+            /// the editor, on one frame loop. Measured reason: a Release -> sleep -> Hold cycle driven from python
+            /// is three separate `unity.exe cmd eval` subprocesses, so the world and every _Time-driven shader run
+            /// for SECONDS between two stills of nothing changing. That drift (the animated rain-streak highlight)
+            /// read 0.068-0.66 of the man's window, swamping the 0.017-0.06 the kit change itself is worth. One sim
+            /// tick is 0.05 s (SimConfig.TickRate = 20) and one tick is all a draw entry needs to rebuild, so this
+            /// bounds the released window to that one tick, for the control shots and the kit shot alike.
+            /// </summary>
+            public System.Collections.IEnumerator Step(int ticks, float weatherClock)
+            {
+                Stepping = true;
+                var host = FindFirstObjectByType<SimHost>();
+                long start = host != null && host.Local != null ? (long)host.Local.World.Tick : 0L;   // SimWorld.Tick is uint
+                Release();
+                int budget = 300;   // a sim that ticks nothing must not hang the driver: hold anyway and say so
+                while (budget-- > 0)
+                {
+                    if (host == null || host.Local == null) break;
+                    if ((long)host.Local.World.Tick - start >= ticks) break;
+                    yield return null;
+                }
+                if (budget <= 0)
+                    Debug.LogWarning("[rig] StepHold: " + ticks + " tick(s) did not pass in 300 frames; holding anyway");
+                Hold(weatherClock);
+                Stepping = false;
+            }
+
             public readonly Queue<Shot> Queue = new Queue<Shot>();
             public string Last = "", LastJson = "";
             bool running;
@@ -295,6 +326,10 @@ namespace TW.Editor
             N(sb, "cam_x", cam.transform.position.x); N(sb, "cam_y", cam.transform.position.y); N(sb, "cam_z", cam.transform.position.z);
             N(sb, "cam_pitch", cam.transform.eulerAngles.x); N(sb, "cam_yaw", cam.transform.eulerAngles.y);
             N(sb, "frame", Time.frameCount);
+            // The SIM tick too, not only the frame: while the world is held (Hold/StepHold) the editor keeps
+            // rendering, so `frame` climbs by hundreds between two stills of a world that did not move. The
+            // tick is what says how much world ran between two captures - one tick, for a StepHold(1) pair.
+            N(sb, "tick", host != null && host.Local != null ? host.Local.World.Tick : 0u);
             N(sb, "want_x", shot.Want.x); N(sb, "want_y", shot.Want.y); N(sb, "want_z", shot.Want.z);
             N(sb, "pose_error_m", Vector3.Distance(shot.Want, cam.transform.position));
             N(sb, "luma_mean", mean); N(sb, "luma_p50", p50); N(sb, "luma_p95", p95);
@@ -503,6 +538,19 @@ namespace TW.Editor
             TW.Presentation.Terrain.Atmosphere.PinnedClock = weatherClock;
             return "held at weather clock " + weatherClock.ToString("0.#", CultureInfo.InvariantCulture);
         }
+
+        /// <summary>Hold the world again exactly `ticks` sim ticks from now: one Release, one short wait on the
+        /// rig's own frame loop, one Hold, with no python round trip inside the released window. Poll Stepping()
+        /// until it says "0", then take the still. See Rig.Step for why the released window has to be this short.</summary>
+        public static string StepHold(int ticks = 1, float weatherClock = 120f)
+        {
+            var r = Get();
+            r.StartCoroutine(r.Step(ticks < 1 ? 1 : ticks, weatherClock));
+            return "stepping " + ticks;
+        }
+
+        /// <summary>"1" while a StepHold is still waiting for its ticks, "0" when the world is held again.</summary>
+        public static string Stepping() => rig != null && rig.Stepping ? "1" : "0";
 
         /// <summary>Lets the world run again and gives the weather back its own clock.</summary>
         public static string Release()

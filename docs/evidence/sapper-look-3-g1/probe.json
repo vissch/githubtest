@@ -9,42 +9,87 @@
       ],
       "both_readable": true,
       "tall": [
-        135.64,
+        135.66,
         146.41,
-        135.64,
+        135.66,
         146.41
       ],
       "contrast": [
-        1.1345,
-        0.1908,
-        1.0479,
-        0.2008
+        1.2559,
+        0.1753,
+        1.3296,
+        0.1765
       ],
-      "kit_frac": 0.004046677959721438,
-      "kit_frac_band": 0.006951180084060782,
+      "kit_frac": 0.035479013739883304,
+      "kit_frac_band": 0.032331070158422244,
       "control_shots": [
         "pair-engineer-1.png",
         "noise-1.png",
         "noise-1-b.png"
       ],
-      "spread_max": 0.0220214568040655,
-      "spread_max_band": 0.037827352085354024,
+      "spread_max": 0.006587615283267457,
+      "spread_max_band": 0.006304558680892337,
       "spread_all": [
-        0.005081874647092038,
-        0.0018821757952192735,
-        0.0220214568040655
+        0.000282326369282891,
+        0.00018821757952192734,
+        0.006587615283267457
+      ]
+    },
+    {
+      "seed": 2,
+      "slot": 17,
+      "window": [
+        62,
+        151
+      ],
+      "both_readable": true,
+      "tall": [
+        137.21,
+        137.02,
+        137.21,
+        137.02
+      ],
+      "contrast": [
+        0.2484,
+        0.1644,
+        0.2197,
+        0.1618
+      ],
+      "kit_frac": 0.001174962614825892,
+      "kit_frac_band": 0.002034399852043647,
+      "control_shots": [
+        "pair-engineer-2.png",
+        "noise-2.png",
+        "noise-2-b.png"
+      ],
+      "spread_max": 0.0,
+      "spread_max_band": 0.0,
+      "spread_all": [
+        0.0,
+        0.0,
+        0.0
       ]
     }
   ],
   "seed3_single_man": {
-    "readable_count_engineer": 0,
-    "readable_count_sapper": 0,
-    "tall": [],
-    "contrast": []
+    "readable_count_engineer": 2,
+    "readable_count_sapper": 2,
+    "tall": [
+      202.49,
+      182.36,
+      202.49,
+      182.36
+    ],
+    "contrast": [
+      0.6416,
+      0.261,
+      0.6645,
+      0.256
+    ]
   },
-  "tall_min": 135.64,
-  "contrast_min": 0.1908,
-  "kit_frac_min": 0.004046677959721438,
-  "spread_max": 0.0220214568040655,
+  "tall_min": 135.66,
+  "contrast_min": 0.1618,
+  "kit_frac_min": 0.001174962614825892,
+  "spread_max": 0.006587615283267457,
   "bar": 0.01
 }

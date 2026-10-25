@@ -455,6 +455,8 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.CaptureRig.Series(dir, stem, x, z, zoom, yaw, pitch, count, everyFrames, w, h, aimY)` | Editor/CaptureRig.cs | A run of stills from one pose, `everyFrames` apart, so a thing that only exists over time — a shell's smoke column climbing and leaning off, a body ... |
 | `TW.Editor.CaptureRig.Sheet(dir, stem, outPath, cols, cellW)` | Editor/CaptureRig.cs | Tiles a series into one image, because eight PNGs opened one after another is not a sequence you can see. |
 | `TW.Editor.CaptureRig.Hold(weatherClock)` | Editor/CaptureRig.cs | Stops the clock and pins the weather. |
+| `TW.Editor.CaptureRig.StepHold(ticks, weatherClock)` | Editor/CaptureRig.cs | Hold the world again exactly `ticks` sim ticks from now: one Release, one short wait on the rig's own frame loop, one Hold, with no python round trip ... |
+| `TW.Editor.CaptureRig.Stepping()` | Editor/CaptureRig.cs | "1" while a StepHold is still waiting for its ticks, "0" when the world is held again. |
 | `TW.Editor.CaptureRig.Release()` | Editor/CaptureRig.cs | Lets the world run again and gives the weather back its own clock. |
 | `TW.Editor.CaptureRig.Diff(pathA, pathB, outPath)` | Editor/CaptureRig.cs | Compares two stills pixel for pixel and says what moved. |
 | `TW.Editor.CaptureRig.LastReport()` | Editor/CaptureRig.cs | The measurements from the last still, so a script can read them without opening the file. |

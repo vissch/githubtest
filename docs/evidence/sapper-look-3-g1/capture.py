@@ -25,6 +25,10 @@ EDITOR = Path(os.environ.get('TW_UNITY', r'C:\Program Files\Unity\Hub\Editor\600
 LOG = ROOT / 'Logs' / 'sapper-g1-editor.log'
 SCENE = 'Assets/_Project/Scenes/GreyboxCorridor.unity'
 ENGINEER, SAPPER = 15, 35
+NOISE_GATE = 0.02    # a corner whose own one-tick repeat moves more than this can never give the probe a bar
+
+sys.path.insert(0, str(HERE))
+import probe          # noqa: E402 - the SAME aligned_frac that will judge the evidence, so a corner is judged by it
 
 
 def run(code, timeout=60):
@@ -125,10 +129,32 @@ def shot_only(path, mid_x, mid_z, zoom, yaw, pitch, aim_y):
         time.sleep(0.5)
 
 
-def shoot(path, mid_x, mid_z, zoom, yaw, pitch, aim_y):
+def step_hold(ticks=1):
+    """Hands the whole Release -> wait -> Hold cycle to the engine (CaptureRig.StepHold), so the released window is
+    one sim tick (0.05 s) instead of the several seconds three python round trips cost. That released time, not the
+    measurement, is what made the control (0.068-0.66) swamp the kit signal (0.017-0.06). Returns when held again."""
+    run(f'return TW.Editor.CaptureRig.StepHold({ticks});', 30)
+    for _ in range(100):
+        if str(run('return TW.Editor.CaptureRig.Stepping();', 20)) == '0':
+            return True
+        time.sleep(0.2)
+    print('capture: StepHold never finished stepping')
+    return False
+
+
+def hold():
     run('TW.Editor.CaptureRig.Hold(120f); return 0;', 30)
-    shot_only(path, mid_x, mid_z, zoom, yaw, pitch, aim_y)
+
+
+def release():
     run('return TW.Editor.CaptureRig.Release();', 30)
+
+
+def shoot(path, mid_x, mid_z, zoom, yaw, pitch, aim_y):
+    """One still with exactly one tick of released world before it: the identical regime every control shot and the
+    kit shot are taken in, so their numbers are comparable. Leaves the world held."""
+    step_hold(1)
+    shot_only(path, mid_x, mid_z, zoom, yaw, pitch, aim_y)
 
 
 def sidecar(png_path):
@@ -181,66 +207,105 @@ def clear_pair(left_slot, right_slot):
     run(f'return {HOST}.WriteWorlds(m => {{ m.World.Flags[{left_slot}] &= ~1u; m.World.Flags[{right_slot}] &= ~1u; }});', 30)
 
 
+def corner_noise(eng_png, other_png, slot):
+    """How much this corner moves on its own: probe.py's own aligned_frac between the kept Engineer still and one
+    extra repeat of the SAME pose, on the flipped (right) man's window. Measuring the corner with the instrument
+    that will judge the evidence is the point - a corner whose rain, smoke or fire is louder than a pack and two
+    charges can never give a bar, however good the framing looks."""
+    m = probe.man(probe.sidecar(os.path.basename(str(eng_png))), slot)
+    if m is None:
+        return None
+    box = m['box']
+    probe._WINDOW[slot] = (box[2] - box[0], box[3] - box[1])
+    try:
+        return probe.aligned_frac(os.path.basename(str(other_png)), os.path.basename(str(eng_png)), slot)
+    except (OSError, KeyError):
+        return None
+
+
+def try_site(n, site_x, site_z, yaw_deg, zoom0, pitch0, eng_path):
+    """Spawns the pair at one corner, searches a pose, and measures that corner's own noise. On a kept corner the
+    world is left HELD and the pair alive, ready for the control shots; on any other outcome the caller releases
+    and clears. Returns everything do_seed needs to go on with."""
+    print(f'seed {n}: trying site ({site_x:.1f}, {site_z:.1f}) yaw {yaw_deg}')
+    left_slot, right_slot, lx, lz, rx, rz = spawn_pair(site_x, site_z, yaw_deg)
+    time.sleep(2.0)   # let the sim tick and the renderer build their draw entries, BEFORE the world is held
+    # Re-centre on where the two men ACTUALLY ended up, not where Spawn was asked to put them: a spawn point
+    # inside a prop or trench wall is snapped elsewhere by the sim's own placement, and the first run of this
+    # script photographed one man dead centre and the other off the edge of the frame because the midpoint it
+    # aimed at was never the midpoint of the two real positions.
+    ax, az, bx, bz = (float(v) for v in str(run(
+        f'var a=(UnityEngine.Vector3){HOST}.Presenter.Drawn({left_slot}); var b=(UnityEngine.Vector3){HOST}.Presenter.Drawn({right_slot}); '
+        f'return a.x+","+a.z+","+b.x+","+b.z;')).split(','))
+    mid_x, mid_z = (ax + bx) / 2, (az + bz) / 2
+    aim_y = ground_height(mid_x, mid_z) + 1.2   # chest height off THIS site's terrain, not sea level
+    # Held for the whole search: an autonomous Repair-archetype man walks on his own orders, and a Release between
+    # search attempts (the first two runs of this script) let him wander off in the time python took between calls,
+    # so a later attempt photographed an empty pose that an earlier one had found good.
+    hold()
+    zoom, pitch, ok = find_pose(mid_x, mid_z, yaw_deg, zoom0, pitch0, eng_path, aim_y, left_slot, right_slot)
+    r = {'site': (site_x, site_z), 'ok': ok, 'noise': None, 'mid': (mid_x, mid_z),
+         'zoom': zoom, 'pitch': pitch, 'aim_y': aim_y, 'left': left_slot, 'right': right_slot}
+    if ok:
+        gate_png = HERE / f'corner-{n}.png'
+        shoot(str(gate_png), mid_x, mid_z, zoom, yaw_deg, pitch, aim_y)
+        r['noise'] = corner_noise(eng_path, gate_png, right_slot)
+    print(f'  site ({site_x:.1f}, {site_z:.1f}): kept zoom={zoom:.1f} pitch={pitch:.1f} ok={ok} noise={r["noise"]}')
+    return r
+
+
 def do_seed(n, sites, yaw_deg, zoom0, pitch0):
-    """Tries each site in turn (up to pick_site's four corners) until one frames both men at contrast >= 0.12
-    and tall >= 120; clears the pair and moves to the next corner otherwise. Prints every site tried."""
+    """Tries each site in turn until one frames both men (contrast >= 0.12, tall >= 120) AND is quieter than
+    NOISE_GATE on one repeat of its own pose. Prints every corner's number; if none passes, the quietest tried is
+    re-posed and used, so the evidence is the best corner this map offered rather than the first one that framed."""
     eng_path = HERE / f'pair-engineer-{n}.png'
-    mid_x = mid_z = zoom = pitch = left_slot = right_slot = None
-    ok = False
+    tried, chosen = [], None
     for site_x, site_z in sites:
-        print(f'seed {n}: trying site ({site_x:.1f}, {site_z:.1f}) yaw {yaw_deg}')
-        left_slot, right_slot, lx, lz, rx, rz = spawn_pair(site_x, site_z, yaw_deg)
-        time.sleep(2.0)   # let the sim tick and the renderer build their draw entries, BEFORE the world is held
-        # Re-centre on where the two men ACTUALLY ended up, not where Spawn was asked to put them: a spawn point
-        # inside a prop or trench wall is snapped elsewhere by the sim's own placement, and the first run of this
-        # script photographed one man dead centre and the other off the edge of the frame because the midpoint it
-        # aimed at was never the midpoint of the two real positions.
-        ax, az, bx, bz = (float(v) for v in str(run(
-            f'var a=(UnityEngine.Vector3){HOST}.Presenter.Drawn({left_slot}); var b=(UnityEngine.Vector3){HOST}.Presenter.Drawn({right_slot}); '
-            f'return a.x+","+a.z+","+b.x+","+b.z;')).split(','))
-        mid_x, mid_z = (ax + bx) / 2, (az + bz) / 2
-        aim_y = ground_height(mid_x, mid_z) + 1.2   # chest height off THIS site's terrain, not sea level
-        # Held for the whole search and the repeat shot: an autonomous Repair-archetype man walks on his own orders,
-        # and a Release between search attempts (the first two runs of this script) let him wander off in the time
-        # python took between calls, so a later attempt photographed an empty pose that an earlier one had found good.
-        run('TW.Editor.CaptureRig.Hold(120f); return 0;', 30)
-        zoom, pitch, ok = find_pose(mid_x, mid_z, yaw_deg, zoom0, pitch0, eng_path, aim_y, left_slot, right_slot)
-        print(f'  site ({site_x:.1f}, {site_z:.1f}): kept zoom={zoom:.1f} pitch={pitch:.1f} ok={ok}')
-        run('return TW.Editor.CaptureRig.Release();', 30)
-        if ok:
+        r = try_site(n, site_x, site_z, yaw_deg, zoom0, pitch0, eng_path)
+        tried.append(r)
+        if r['ok'] and r['noise'] is not None and r['noise'] <= NOISE_GATE:
+            chosen = r
             break
-        clear_pair(left_slot, right_slot)
-    if not ok:
-        print(f'seed {n}: no corner cleared contrast 0.12 for both men; keeping the last attempt')
+        release()
+        clear_pair(r['left'], r['right'])
+    print(f'seed {n}: corners tried: '
+          + ', '.join(f'({t["site"][0]:.0f},{t["site"][1]:.0f}) ok={t["ok"]} noise={t["noise"]}' for t in tried))
+    if chosen is None:
+        measured = [t for t in tried if t['noise'] is not None]
+        quietest = min(measured, key=lambda t: t['noise']) if measured else (tried[0] if tried else None)
+        if quietest is None:
+            raise RuntimeError(f'seed {n}: no site could even be tried')
+        print(f'seed {n}: no corner cleared noise {NOISE_GATE}; re-posing the quietest, '
+              f'({quietest["site"][0]:.1f}, {quietest["site"][1]:.1f})')
+        chosen = try_site(n, quietest['site'][0], quietest['site'][1], yaw_deg, zoom0, pitch0, eng_path)
+    mid_x, mid_z = chosen['mid']
+    zoom, pitch, aim_y = chosen['zoom'], chosen['pitch'], chosen['aim_y']
+    left_slot, right_slot = chosen['left'], chosen['right']
     # Two further stills of the SAME still-Engineer pose - nothing changed: not the pose, the camera, the
-    # archetype or the weather clock. Each one goes through a full Release -> 0.25 s wait -> Hold -> shot cycle,
-    # the identical regime the Sapper shot below is taken in, so each repeat costs the man the same one tick of
-    # his own motion the kit shot costs him and the two numbers are comparable. Inside one unbroken Hold the
-    # repeats are pixel-identical by construction (the 0.0 floor of the older evidence, and the same empty zero
-    # the owner threw out), which is an easier control than the thing it judges.
+    # archetype or the weather clock. Each goes through StepHold(1): exactly one tick of released world, the
+    # identical regime the Sapper shot below is taken in, so each repeat costs the man the same one tick of his
+    # own motion the kit shot costs him and the two numbers are comparable. Inside one unbroken Hold the repeats
+    # would be pixel-identical by construction (the 0.0 floor of the older evidence, and the same empty zero the
+    # owner threw out), which is an easier control than the thing it judges.
     for suffix in ('', '-b'):
-        time.sleep(0.25)
         shoot(str(HERE / f'noise-{n}{suffix}.png'), mid_x, mid_z, zoom, yaw_deg, pitch, aim_y)
     # the sanctioned door for a presentation tool to change the sim: SimHost.WriteWorlds, never a direct world write
     run(f'return {HOST}.WriteWorlds(m => m.World.Archetype[{right_slot}] = {SAPPER});', 30)
-    time.sleep(0.25)  # the shortest real wait that reaches a tick (Hold() has not run yet): the draw entry only
-                      # rebuilds on one, and near a firefight (seed 3) a full second is enough for both men to
-                      # react and drift past the margin that framed them a moment before
     sap_path = HERE / f'pair-sapper-{n}.png'
-    # retried in place (same Hold, same pose) rather than once: close to a firefight (seed 3) a man can react
-    # and drift past the margin inside a single real tick, and the NEXT tick often finds him settled again
+    # one tick, because that is all the draw entry needs to rebuild on the new archetype - and retried in place
+    # rather than once: close to a firefight (seed 3) a man can react and drift past the margin inside a single
+    # tick, and the next tick often finds him settled again
     for _ in range(3):
-        run('TW.Editor.CaptureRig.Hold(120f); return 0;', 30)
-        shot_only(str(sap_path), mid_x, mid_z, zoom, yaw_deg, pitch, aim_y)
-        run('return TW.Editor.CaptureRig.Release();', 30)
+        shoot(str(sap_path), mid_x, mid_z, zoom, yaw_deg, pitch, aim_y)
         if framing_ok(sidecar(sap_path), (left_slot, right_slot)):
             break
-        time.sleep(0.25)
+    release()
     # both stills are on disk: clear this seed's two men (UnitFlags.Alive off, through the sanctioned WriteWorlds
     # door) so they stop wandering and cannot clutter a later, more distant seed's frame or its slot numbers
-    run(f'return {HOST}.WriteWorlds(m => {{ m.World.Flags[{left_slot}] &= ~1u; m.World.Flags[{right_slot}] &= ~1u; }});', 30)
+    clear_pair(left_slot, right_slot)
     return {'seed': n, 'zoom': zoom, 'pitch': pitch, 'yaw': yaw_deg, 'focus': [mid_x, mid_z],
-            'left_slot': left_slot, 'right_slot': right_slot}
+            'left_slot': left_slot, 'right_slot': right_slot, 'corner_noise': chosen['noise'],
+            'corners_tried': [{'site': t['site'], 'ok': t['ok'], 'noise': t['noise']} for t in tried]}
 
 
 def main():
