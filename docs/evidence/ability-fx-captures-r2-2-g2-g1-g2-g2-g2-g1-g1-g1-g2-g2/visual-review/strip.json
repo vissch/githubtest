@@ -1,0 +1,59 @@
+{
+  "panels": [
+    {
+      "round": 1,
+      "source": "docs/evidence/ability-fx-captures-r2/gas-t1.jpg",
+      "label": "no bank at all"
+    },
+    {
+      "round": 2,
+      "source": "docs/evidence/ability-fx-captures-r2-2-g2/run1/gas-t1.jpg",
+      "label": "first bank, bars set"
+    },
+    {
+      "round": 3,
+      "source": "docs/evidence/ability-fx-captures-r2-2-g2-g1/run1/gas-t1.jpg",
+      "label": "wide overlapping cards"
+    },
+    {
+      "round": 4,
+      "source": "docs/evidence/ability-fx-captures-r2-2-g2-g1-g2/run1/gas-t1.jpg",
+      "label": "bar the paint in the frame"
+    },
+    {
+      "round": 5,
+      "source": "docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2/run1/gas-t1.jpg",
+      "label": "bar by lift direction, not hue"
+    },
+    {
+      "round": 6,
+      "source": "docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2/run1/gas-t1.jpg",
+      "label": "reject plain night card"
+    },
+    {
+      "round": 7,
+      "source": "docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1/run1/gas-t1.jpg",
+      "label": "new build, every bar re-set"
+    },
+    {
+      "round": 8,
+      "source": "docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1/run1/gas-t1.jpg",
+      "label": "closed-gap build, paint floor 0.70"
+    },
+    {
+      "round": 9,
+      "source": "docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1/run1/gas-t1.jpg",
+      "label": "jitter widened to full cell"
+    },
+    {
+      "round": 10,
+      "source": "docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2/run1/gas-t1.jpg",
+      "label": "stratified jitter, bars re-set"
+    },
+    {
+      "round": 11,
+      "source": "docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g2/moved-run1/gas-t1.jpg",
+      "label": "moved centre (REVERTED)"
+    }
+  ]
+}
