@@ -413,7 +413,7 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   pixels (e.g. ignore the brightest decile per frame) so a moving highlight cannot dominate the count — changes
   what "changed" means and needs the owner's sign-off since it is no longer a plain pixel diff. Default taken:
   none — the probe stays red and the leg ends blocked rather than moving `BAR` to meet either number (the plan's
-  own instruction). See `desk/05/note.md` in this run's leg folder for the measured numbers.
+  own instruction). The measured numbers live with the evidence, in `docs/evidence/sapper-look-3-g1/README.md`; on the committed stills the aligned window brings the control down to 0.022 against a kit signal of 0.004, so the two no longer overlap but still sit the wrong way round.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
