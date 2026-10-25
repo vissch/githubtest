@@ -1,0 +1,27 @@
+{
+  "pose_delta_px": 46.0,
+  "pose_delta_px_bar": 30,
+  "columns": 209,
+  "mine_px": 6883,
+  "mine_px_bar": 5000,
+  "box": [
+    21,
+    424,
+    463,
+    858
+  ],
+  "blob_px": 58677,
+  "men_in_frame": {
+    "idle": 8,
+    "laying": 7,
+    "placed": 7
+  },
+  "contrast_median": {
+    "idle": 0.00335,
+    "laying": 0.00307,
+    "placed": 0.00408
+  },
+  "idle": "idle.png",
+  "laying": "laying.png",
+  "placed": "placed.png"
+}

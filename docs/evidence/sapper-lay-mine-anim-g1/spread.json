@@ -1,0 +1,37 @@
+{
+  "commit": "60d06a12d68442e7041e2f993366df1fd731a426",
+  "note": "SapperLayStills unchanged from this commit: three independent runs, same build, each into a fresh TW_STILLS_DIR. Both the sim and the capture are deterministic here (pinned weather clock, scripted peer/attacks off), so all three runs read identically.",
+  "runs": [
+    {
+      "pose_delta_px": 46.0,
+      "mine_px": 6883,
+      "idle": { "men_in_frame": 8, "contrast_median": 0.00335 },
+      "laying": { "men_in_frame": 7, "contrast_median": 0.00307 },
+      "placed": { "men_in_frame": 7, "contrast_median": 0.00408 }
+    },
+    {
+      "pose_delta_px": 46.0,
+      "mine_px": 6883,
+      "idle": { "men_in_frame": 8, "contrast_median": 0.00335 },
+      "laying": { "men_in_frame": 7, "contrast_median": 0.00307 },
+      "placed": { "men_in_frame": 7, "contrast_median": 0.00408 }
+    },
+    {
+      "pose_delta_px": 46.0,
+      "mine_px": 6883,
+      "idle": { "men_in_frame": 8, "contrast_median": 0.00335 },
+      "laying": { "men_in_frame": 7, "contrast_median": 0.00307 },
+      "placed": { "men_in_frame": 7, "contrast_median": 0.00408 }
+    }
+  ],
+  "bars": {
+    "pose_delta_px": {
+      "value": 30,
+      "why": "min of the three runs is 46.0; 46.0 * 0.8 = 36.8, rounded down to 30. Also >= 3x the old broken framing's 7 px noise floor (21), comfortably clear."
+    },
+    "mine_px": {
+      "value": 5000,
+      "why": "min of the three runs is 6883; 6883 * 0.8 = 5506.4, rounded down to 5000."
+    }
+  }
+}
