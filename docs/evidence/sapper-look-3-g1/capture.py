@@ -87,25 +87,27 @@ def ground_height(x, z):
     return float(run(f'return {HOST}.Local.Map.Height.Sample({x:.2f}f, {z:.2f}f);'))
 
 
-def pick_site(sx, sz, cx, cz, avoid):
-    """A corner at least 60 m from Crowd() and from any site already used this run."""
+def candidate_sites(sx, sz, cx, cz, avoid):
+    """Every corner at least 60 m from Crowd() and from any site already used this run, farthest from the
+    crowd first. Up to four corners; do_seed walks them in order when a corner cannot frame both men."""
     candidates = [(sx * f, sz * g) for f in (0.12, 0.88) for g in (0.12, 0.88)]
     candidates.sort(key=lambda p: -math.hypot(p[0] - cx, p[1] - cz))
-    for p in candidates:
-        if math.hypot(p[0] - cx, p[1] - cz) < 60:
-            continue
-        if all(math.hypot(p[0] - q[0], p[1] - q[1]) >= 30 for q in avoid):
-            return p
-    return candidates[0]
+    out = [p for p in candidates
+           if math.hypot(p[0] - cx, p[1] - cz) >= 60
+           and all(math.hypot(p[0] - q[0], p[1] - q[1]) >= 30 for q in avoid)]
+    return out or candidates
 
 
 def spawn_pair(mid_x, mid_z, yaw_deg):
-    """Two Engineers 2.2 m apart across the view, along the camera's own right vector at this yaw (pitch does not
-    change a horizontal offset). Returns (left_slot, right_slot, left_x, left_z, right_x, right_z)."""
+    """Two Engineers 3.8 m apart across the view, along the camera's own right vector at this yaw (pitch does not
+    change a horizontal offset). CaptureRig.Measure reads a man against a ring from 0.62*tall to 1.00*tall; at
+    127 px tall that ring reaches ~2.6 m out, so the earlier 2.2 m spacing put each man inside the other's own
+    background ring and collapsed both contrast numbers. 1.9 m either side (3.8 m apart) clears that ring with
+    both men still fitting the kept framing. Returns (left_slot, right_slot, left_x, left_z, right_x, right_z)."""
     yaw = math.radians(yaw_deg)
     rx, rz = math.cos(yaw), -math.sin(yaw)
-    lx, lz = mid_x - rx * 1.1, mid_z - rz * 1.1
-    rxp, rzp = mid_x + rx * 1.1, mid_z + rz * 1.1
+    lx, lz = mid_x - rx * 1.9, mid_z - rz * 1.9
+    rxp, rzp = mid_x + rx * 1.9, mid_z + rz * 1.9
     got_l = str(run(f'return TW.Editor.TankCapture.Spawn(0, {ENGINEER}, {lx:.2f}f, {lz:.2f}f, {yaw_deg:.1f}f);'))
     got_r = str(run(f'return TW.Editor.TankCapture.Spawn(0, {ENGINEER}, {rxp:.2f}f, {rzp:.2f}f, {yaw_deg:.1f}f);'))
     if not (got_l.startswith('slot ') and got_r.startswith('slot ')):
@@ -142,7 +144,9 @@ def framing_ok(data, want_slots):
     readable = {m['slot']: m for m in data.get('men', []) if m.get('contrast', -1) != -1}
     if set(readable) != set(want_slots):
         return False
-    return all(readable[s]['tall'] >= 120 for s in want_slots)
+    # CaptureRig's own "men barely separate from the ground: unreadable" line (CaptureRig.cs:322) is the same
+    # 0.12 line probe.py gates on: a pose the search keeps must already clear it, or the probe calls it red later.
+    return all(readable[s]['tall'] >= 120 and readable[s]['contrast'] >= 0.12 for s in want_slots)
 
 
 def find_pose(mid_x, mid_z, yaw_deg, zoom0, pitch0, path, aim_y, left_slot, right_slot):
@@ -157,7 +161,7 @@ def find_pose(mid_x, mid_z, yaw_deg, zoom0, pitch0, path, aim_y, left_slot, righ
         men = {m['slot']: m for m in data.get('men', [])}
         print(f'  attempt {attempt}: zoom={zoom:.1f} pitch={pitch:.1f} men={men}')
         if framing_ok(data, (left_slot, right_slot)):
-            return zoom, pitch
+            return zoom, pitch, True
         if any(s not in men for s in (left_slot, right_slot)):
             zoom = min(20.0, zoom + 3.0)              # missing entirely: pull back, not in
             continue
@@ -168,30 +172,46 @@ def find_pose(mid_x, mid_z, yaw_deg, zoom0, pitch0, path, aim_y, left_slot, righ
             pitch = min(42.0, pitch + 4.0)
         else:
             break
-    return zoom, pitch
+    return zoom, pitch, False
 
 
-def do_seed(n, mid_x, mid_z, yaw_deg, zoom0, pitch0):
-    print(f'seed {n}: focus ({mid_x:.1f}, {mid_z:.1f}) yaw {yaw_deg}')
-    left_slot, right_slot, lx, lz, rx, rz = spawn_pair(mid_x, mid_z, yaw_deg)
-    time.sleep(2.0)   # let the sim tick and the renderer build their draw entries, BEFORE the world is held
-    # Re-centre on where the two men ACTUALLY ended up, not where Spawn was asked to put them: a spawn point
-    # inside a prop or trench wall is snapped elsewhere by the sim's own placement, and the first run of this
-    # script photographed one man dead centre and the other off the edge of the frame because the midpoint it
-    # aimed at was never the midpoint of the two real positions.
-    ax, az, bx, bz = (float(v) for v in str(run(
-        f'var a=(UnityEngine.Vector3){HOST}.Presenter.Drawn({left_slot}); var b=(UnityEngine.Vector3){HOST}.Presenter.Drawn({right_slot}); '
-        f'return a.x+","+a.z+","+b.x+","+b.z;')).split(','))
-    mid_x, mid_z = (ax + bx) / 2, (az + bz) / 2
-    aim_y = ground_height(mid_x, mid_z) + 1.2   # chest height off THIS site's terrain, not sea level
-    # Held for the whole search and the repeat shot: an autonomous Repair-archetype man walks on his own orders,
-    # and a Release between search attempts (the first two runs of this script) let him wander off in the time
-    # python took between calls, so a later attempt photographed an empty pose that an earlier one had found good.
-    run('TW.Editor.CaptureRig.Hold(120f); return 0;', 30)
+def clear_pair(left_slot, right_slot):
+    """Clears a pair through the sanctioned WriteWorlds door, same as the end-of-seed cleanup, so a corner that
+    failed to frame does not leave its men wandering into the next corner's attempt or the next seed's slots."""
+    run(f'return {HOST}.WriteWorlds(m => {{ m.World.Flags[{left_slot}] &= ~1u; m.World.Flags[{right_slot}] &= ~1u; }});', 30)
+
+
+def do_seed(n, sites, yaw_deg, zoom0, pitch0):
+    """Tries each site in turn (up to pick_site's four corners) until one frames both men at contrast >= 0.12
+    and tall >= 120; clears the pair and moves to the next corner otherwise. Prints every site tried."""
     eng_path = HERE / f'pair-engineer-{n}.png'
-    zoom, pitch = find_pose(mid_x, mid_z, yaw_deg, zoom0, pitch0, eng_path, aim_y, left_slot, right_slot)
-    print(f'  kept zoom={zoom:.1f} pitch={pitch:.1f}')
-    run('return TW.Editor.CaptureRig.Release();', 30)
+    mid_x = mid_z = zoom = pitch = left_slot = right_slot = None
+    ok = False
+    for site_x, site_z in sites:
+        print(f'seed {n}: trying site ({site_x:.1f}, {site_z:.1f}) yaw {yaw_deg}')
+        left_slot, right_slot, lx, lz, rx, rz = spawn_pair(site_x, site_z, yaw_deg)
+        time.sleep(2.0)   # let the sim tick and the renderer build their draw entries, BEFORE the world is held
+        # Re-centre on where the two men ACTUALLY ended up, not where Spawn was asked to put them: a spawn point
+        # inside a prop or trench wall is snapped elsewhere by the sim's own placement, and the first run of this
+        # script photographed one man dead centre and the other off the edge of the frame because the midpoint it
+        # aimed at was never the midpoint of the two real positions.
+        ax, az, bx, bz = (float(v) for v in str(run(
+            f'var a=(UnityEngine.Vector3){HOST}.Presenter.Drawn({left_slot}); var b=(UnityEngine.Vector3){HOST}.Presenter.Drawn({right_slot}); '
+            f'return a.x+","+a.z+","+b.x+","+b.z;')).split(','))
+        mid_x, mid_z = (ax + bx) / 2, (az + bz) / 2
+        aim_y = ground_height(mid_x, mid_z) + 1.2   # chest height off THIS site's terrain, not sea level
+        # Held for the whole search and the repeat shot: an autonomous Repair-archetype man walks on his own orders,
+        # and a Release between search attempts (the first two runs of this script) let him wander off in the time
+        # python took between calls, so a later attempt photographed an empty pose that an earlier one had found good.
+        run('TW.Editor.CaptureRig.Hold(120f); return 0;', 30)
+        zoom, pitch, ok = find_pose(mid_x, mid_z, yaw_deg, zoom0, pitch0, eng_path, aim_y, left_slot, right_slot)
+        print(f'  site ({site_x:.1f}, {site_z:.1f}): kept zoom={zoom:.1f} pitch={pitch:.1f} ok={ok}')
+        run('return TW.Editor.CaptureRig.Release();', 30)
+        if ok:
+            break
+        clear_pair(left_slot, right_slot)
+    if not ok:
+        print(f'seed {n}: no corner cleared contrast 0.12 for both men; keeping the last attempt')
     # Two further stills of the SAME still-Engineer pose - nothing changed: not the pose, the camera, the
     # archetype or the weather clock. Each one goes through a full Release -> 0.25 s wait -> Hold -> shot cycle,
     # the identical regime the Sapper shot below is taken in, so each repeat costs the man the same one tick of
@@ -236,13 +256,13 @@ def main():
         run('TW.Editor.CaptureRig.Rig.YawPin = 0f; return 0;', 20)
         sx, sz, cx, cz = map_info()
         print(f'map {sx:.0f} x {sz:.0f}, crowd at ({cx:.1f}, {cz:.1f})')
-        site1 = pick_site(sx, sz, cx, cz, avoid=[])
-        site2 = pick_site(sx, sz, cx, cz, avoid=[site1])
+        sites1 = candidate_sites(sx, sz, cx, cz, avoid=[])
+        sites2 = candidate_sites(sx, sz, cx, cz, avoid=[sites1[0]])
         poses = []
-        poses.append(do_seed(1, site1[0], site1[1], 0.0, 10.0, 25.0))
-        poses.append(do_seed(2, site2[0], site2[1], 90.0, 10.0, 25.0))
-        # seed 3: the owner's own view, the old sapper-t3 pose among the stakes
-        poses.append(do_seed(3, 50.0, 50.0, 21.0, 7.0, 25.0))
+        poses.append(do_seed(1, sites1, 0.0, 10.0, 25.0))
+        poses.append(do_seed(2, sites2, 90.0, 10.0, 25.0))
+        # seed 3: the owner's own view, the old sapper-t3 pose among the stakes; its site is fixed, not searched
+        poses.append(do_seed(3, [(50.0, 50.0)], 21.0, 7.0, 25.0))
         print(json.dumps(poses, indent=2))
     finally:
         run('TW.Editor.CaptureRig.Rig.YawPin = float.NaN; return 0;', 20)
