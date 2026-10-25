@@ -277,7 +277,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   (`Clip.StandToKneel`) then places (`Clip.KneelInspect`) on `SimEventType.SapperLaying`, in
   `Presentation/Core/AnimationController.cs` — is guarded by `SapperLayMineTests` (`Tests/Show/`), with
   `SapperLayStills` (`Tests/Stills/`) photographing idle, mid-kneel and placed (a locked-off close view, a lit cell
-  with nobody else nearby, and a wait for `SapperSystem.Phase` and `SapperSystem.Laid` before each shot).
+  with nobody else nearby, and a wait for `SapperSystem.Phase` and `SapperSystem.Laid` before each shot); measured
+  against the three stills and `docs/evidence/sapper-lay-mine-anim-g1/probe.py` (`python
+  docs/evidence/sapper-lay-mine-anim-g1/probe.py` must exit 0).
 - **Laying a mine** is a sapper's errand (2026-09-28): `CommandType.UnitAbility`, `a` = his slot, `b` = the ability id in
   the low byte and `AbilityArgs` above it, `pos` = the point. `MineSystem.Place` stays the system call underneath
   (tests and tools may still call it). DeterminismReplayTests deploys a sapper and orders him by command, so the
