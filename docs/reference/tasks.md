@@ -967,8 +967,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   rises it 3.2 m over a trench, its link or a wire belt (`MapData.LayerAt` under the hull and 5 m ahead), noses it up
   leaving and down settling, and blows two downwash puffs off the ground as it comes back to cruise. It never lands
   (owner `#d-hopper`) and the sim is untouched: no flight in the sim yet. Tests: HopperHopArcTests; HopperHopStills
-  (`Tests/Stills`, Explicit, needs a graphics device) photographs the cruise and the top of one arc over a trench and
-  the same instants with the renderer off, which `docs/evidence/hopper-hop-arc/probe.py` measures. Trap: the arc
+  (`Tests/Stills`, Explicit, needs a graphics device) photographs the cruise, the top of the arc and the settle back
+  down over a trench, three times each, with the ground rings (`TankRenderer.GroundRings`) off so the mask is the
+  hull and not the cyan selection pill, which `docs/evidence/hopper-hop-arc-g1/probe.py` measures. Trap: the arc
   writes `View.Bob` after `Flair`, which leaves a Hopper's Bob at 0 (its DriveStyle `Chug` is 0) - a `Flair` moved
   after that call would wipe the arc.
 - **Not built yet:** models of their own for the stand-ins and the Breaker, figures of their own for the other foot

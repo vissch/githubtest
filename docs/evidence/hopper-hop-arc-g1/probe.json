@@ -1,0 +1,95 @@
+{
+  "top_px": {
+    "cruise1": 254,
+    "cruise2": 238,
+    "cruise3": 256,
+    "apex1": 185,
+    "apex2": 183,
+    "apex3": 182,
+    "land1": 224,
+    "land2": 224,
+    "land3": 223
+  },
+  "rise_px": {
+    "apex1": 69,
+    "apex2": 55,
+    "apex3": 74,
+    "land1": 30,
+    "land2": 14,
+    "land3": 33
+  },
+  "gap_px": {
+    "1": 39,
+    "2": 41,
+    "3": 41
+  },
+  "spread": {
+    "apex": 3,
+    "land": 1
+  },
+  "worst_spread": 3,
+  "cyan_frac": {
+    "cruise1": 643,
+    "cruise2": 700,
+    "cruise3": 672,
+    "apex1": 723,
+    "apex2": 737,
+    "apex3": 737,
+    "land1": 869,
+    "land2": 890,
+    "land3": 885
+  },
+  "cyan_top10": {
+    "cruise1": 0,
+    "cruise2": 0,
+    "cruise3": 0,
+    "apex1": 0,
+    "apex2": 0,
+    "apex3": 0,
+    "land1": 0,
+    "land2": 0,
+    "land3": 0
+  },
+  "cyan_before": 4552,
+  "zoom": 30,
+  "pose_error_m": {
+    "cruise1": 0,
+    "cruise2": 0,
+    "cruise3": 0,
+    "apex1": 0,
+    "apex2": 0,
+    "apex3": 0,
+    "land1": 0,
+    "land2": 0,
+    "land3": 0
+  },
+  "luma_mean": {
+    "cruise1": 0.17266,
+    "cruise2": 0.1705,
+    "cruise3": 0.17443,
+    "apex1": 0.17255,
+    "apex2": 0.17635,
+    "apex3": 0.17452,
+    "land1": 0.16872,
+    "land2": 0.17337,
+    "land3": 0.16799
+  },
+  "frames": [
+    215,
+    305,
+    395,
+    251,
+    341,
+    431,
+    282,
+    372,
+    462
+  ],
+  "bars": {
+    "APEX_BAR": 20,
+    "LAND_BAR": 10,
+    "GAP_BAR": 35,
+    "CYAN_BAR": 1500,
+    "SPREAD_FACTOR": 4
+  }
+}
