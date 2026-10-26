@@ -38,6 +38,15 @@ namespace TW.Presentation.Tactical
             return new GunLay { Centre = centre, Rotation = Quaternion.LookRotation(facing, Vector3.up), Length = AtRifleLength * scale };
         }
 
+        /// <summary>Is a gun drawn for this man? The three reasons not to, in one place so a still can say "no gun was
+        /// drawn" as a number (CaptureRig writes `at_rifles`): he must be alive, carry one of his own, and not be a
+        /// vehicle wearing an infantry archetype.</summary>
+        public static bool Draws(bool alive, byte archetype, uint flags)
+            => alive && Carries(archetype) && (flags & (uint)UnitFlags.Vehicle) == 0;
+
+        /// <summary>How many guns the last frame drew.</summary>
+        public int AtRiflesDrawn => atRifles.Count;
+
         Mesh atRifleMesh; Material atRifleMat; bool atRifleTried;
         readonly List<Matrix4x4> atRifles = new List<Matrix4x4>(64);
         Matrix4x4[] atRifleBatch = new Matrix4x4[128];
@@ -51,8 +60,7 @@ namespace TW.Presentation.Tactical
             var anim = Host.Animation;
             for (int i = 0; i < w.HighWater; i++)
             {
-                if (!w.IsAlive(i) || !Carries(w.Archetype[i])) continue;
-                if ((w.Flags[i] & (uint)UnitFlags.Vehicle) != 0) continue;
+                if (!Draws(w.IsAlive(i), w.Archetype[i], w.Flags[i])) continue;
                 Vector3 foot = drawnAt != null ? drawnAt(i) : (Vector3)w.Position[i];
                 float yaw = anim != null && anim.Yaw.IsCreated && i < anim.Yaw.Length ? anim.Yaw[i] : w.Yaw[i];
                 var stance = (Stance)(anim != null && Host.UseAnimationController ? anim.State[i].Stance : w.StanceOf[i]);

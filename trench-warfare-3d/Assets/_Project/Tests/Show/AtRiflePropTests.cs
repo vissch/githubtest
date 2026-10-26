@@ -58,6 +58,19 @@ namespace TW.Tests
             Assert.That(grown.Length, Is.EqualTo(small.Length * 2f).Within(1e-4f));
         }
 
+        // atrifle-look-r3-g1-g1-g2-g1: an "empty" plate of the r3-g1-g1-g2 set still had his gun in it, because the man
+        // was parked out of shot and kept alive, so the draw loop still drew it. The three reasons not to draw now live
+        // in CombatFx.Draws, and this is what stops a later edit from drawing a gun for a man who is not there.
+        [Test]
+        public void ADeadAtRiflemanDrawsNoGun()
+        {
+            byte at = InfantryArchetype.AtRifle;
+            Assert.IsTrue(CombatFx.Draws(true, at, 0u), "a living AT rifleman carries his own gun");
+            Assert.IsFalse(CombatFx.Draws(false, at, 0u), "a dead AT rifleman's gun is not drawn");
+            Assert.IsFalse(CombatFx.Draws(true, 0, 0u), "archetype 0 keeps the rifle of his baked figure");
+            Assert.IsFalse(CombatFx.Draws(true, at, (uint)UnitFlags.Vehicle), "a vehicle is not a man with a gun");
+        }
+
         [Test]
         public void OnlyTheAtRiflemanCarriesOne([Values(0, 1, 2, 3)] int arche)
         {

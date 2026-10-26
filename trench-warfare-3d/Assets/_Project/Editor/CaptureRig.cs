@@ -343,6 +343,9 @@ namespace TW.Editor
             float c10 = contrasts.Count > 0 ? contrasts[Mathf.Min(contrasts.Count - 1, (int)(contrasts.Count * 0.10f))] : -1f;
 
             var vat = Object.FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
+            // whether a gun was drawn this frame, and how many: an empty plate that still shows the AT rifleman's gun
+            // used to be something only an eye could catch (-1 when the scene has no CombatFx at all)
+            var combatFx = Object.FindFirstObjectByType<TW.Presentation.Tactical.CombatFx>();
             var sb = new StringBuilder();
             sb.Append("{\n");
             F(sb, "path", Path.GetFileName(shot.Path));
@@ -368,6 +371,7 @@ namespace TW.Editor
             }
             // which squall the shot was taken in: rain wanders over a ~50 s cycle and nothing used to record it, so
             // two captures minutes apart were compared in different weather without anybody knowing
+            N(sb, "at_rifles", combatFx != null ? combatFx.AtRiflesDrawn : -1);
             N(sb, "rain", TW.Presentation.Terrain.Atmosphere.RainNow);
             N(sb, "wind", TW.Presentation.Terrain.Atmosphere.WindNow.magnitude);
             if (vat != null)
