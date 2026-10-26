@@ -45,6 +45,9 @@ namespace TW.Presentation.Tactical
         /// bands (zoom 120-600) otherwise drew 500-2,500 triangles a machine at a few dozen pixels.</summary>
         public float FarLodDistance = 320f;
         public int MaxWrecks = 48;
+        // off for a still's plate: the cyan ring and its pips both hang off QueueDisc, so a mask against a disabled
+        // renderer has to drop the ground ring too or the mask is the pill, not the hull
+        public bool GroundRings = true;
         const float UnlinkedSinkAfter = 75f;   // seconds a hull with no sim wreck prop burns before it sinks away
         public static readonly Vector4 TeamTintB = new Vector4(0.52f, 0.56f, 0.60f, 0.8f);   // field grey
         // the sides' colours (horns, ground ring): blue and red read against the night grade and against each other
@@ -2297,7 +2300,7 @@ namespace TW.Presentation.Tactical
         /// <summary>The contact blob and side ring under a tank: the footprint plus a margin, on the ground, turned with the hull.</summary>
         void QueueDisc(View v, Vector3 eye)
         {
-            if (discMat == null || discCount >= discM.Length || !ShowRings) return;
+            if (discMat == null || discCount >= discM.Length || !ShowRings || !GroundRings) return;   // the gym's switch and the plate captures' (hopper-hop-arc)
             var m = v.Model;
             // a walker has no tracks to measure, so its ring comes from its own footprint (VehicleProfile) instead of
             // the model's default gauge, which is a tank's and swallows a crab
