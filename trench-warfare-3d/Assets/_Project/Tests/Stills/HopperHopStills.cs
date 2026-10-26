@@ -1,19 +1,19 @@
-// Phase: the battle (2026-10-19) — the picture of the Hopper's hop arc (TankRenderer.HopArc.cs).
+// Phase: the battle (2026-10-27) — three real poses of the Hopper's hop arc (TankRenderer.HopArc.cs), each shot
+// three times over one arc.
 //
 // Shaped on WalkerStills.cs; read its header for why a still has to be an EditMode test that enters Play itself
 // (CaptureRig poses the camera on one frame and photographs on the NEXT, so there is no -executeMethod shape for it,
 // and CaptureRig/TankCapture/RiderLab live in the Editor-only TW.Editor).
 //
-// What would go wrong silently: the arc is in the renderer and green in EditMode arithmetic, and the Hopper still
-// reads as a dead-level cruise on screen — too small to see, or hidden behind the hull's own 9 m lift. So this
-// photographs the same locked-off camera at the hull's cruise (phase 0), at the top of one arc (phase 0.5), and
-// that identical held instant a second time, which is the noise floor the probe divides by. Each of those two
-// instants is also shot with the renderer switched off (empty.png, empty_apex.png): one frozen instant with and
-// without the hull, so what differs IS the Hopper and no box is guessed.
+// g0 (4c05d4c0bc) proved the Hopper rises, but apex.png and apex_b.png were the SAME pose photographed twice (both
+// a frozen instant held to measure the rig's own noise floor) and there was no "land" still at all. g1 shoots three
+// actually different poses — cruise (phase ~0), apex (phase ~0.5) and land, the settle back down (phase ~0.8, not
+// 1.0, which looks like the cruise) — three times each, one whole arc per pass, so the bar is set against the
+// spread across three real captures instead of a single sample's noise floor.
 //
 // It is [Explicit] so the ordinary gate skips it: a normal EditMode run must not enter Play. Run it by name, WITH a
 // graphics device (-batchmode, NOT -nographics). Stills go to Captures/hopperhop, never into the checkout tree;
-// they are copied by hand into docs/evidence/hopper-hop-arc/ with their .json sidecars.
+// they are copied by hand into docs/evidence/hopper-hop-arc-g1/ with their .json sidecars.
 using System.Collections;
 using System.IO;
 using NUnit.Framework;
@@ -75,24 +75,20 @@ namespace TW.Tests
             return false;
         }
 
-        /// <summary>One frozen instant photographed with the hull and then WITHOUT it.
+        /// <summary>One frozen instant photographed with the hull and then WITHOUT it (the ground ring off too, so
+        /// the mask against the plate is the hull alone, not the cyan pill).
         ///
         /// The first run shot a single plate before the Hopper was spawned and compared every still with it. That
         /// confounds the measurement: the lamps, the fog and the men move between two instants, so 7% of the frame
         /// differed and the "topmost row of the hull" came out as row 0, the sky. Freeze the clock instead and
         /// toggle the RENDERER (WalkerStills does the same): nothing in the world changes between the two frames
         /// except whether TankRenderer is allowed to submit, so what differs IS the Hopper.</summary>
-        static IEnumerator Pair(string with, string without, TankRenderer tanks, float x, float z, string again = null)
+        static IEnumerator Pair(string with, string without, TankRenderer tanks, float x, float z)
         {
             CaptureRig.Hold(30f);                      // Time.timeScale = 0; frames and LateUpdates still run
             for (int f = 0; f < 5; f++) yield return null;
             CaptureRig.Shot(with, x, z, Zoom, Yaw, Pitch, 1600, 900, AimY);
             yield return Drain(with);
-            if (again != null)
-            {
-                CaptureRig.Shot(again, x, z, Zoom, Yaw, Pitch, 1600, 900, AimY);   // the same held instant twice
-                yield return Drain(again);
-            }
             tanks.enabled = false;
             for (int f = 0; f < 5; f++) yield return null;
             CaptureRig.Shot(without, x, z, Zoom, Yaw, Pitch, 1600, 900, AimY);
@@ -118,14 +114,13 @@ namespace TW.Tests
             if (sky != null) { sky.Rain = 0f; sky.Squalls = 0f; }
             TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;
             Time.captureDeltaTime = 1f / 30f;          // one pinned step a frame, so two runs sample the arc alike
+            Assert.That(TW.Presentation.Terrain.Atmosphere.Current, Is.EqualTo(TW.Presentation.Terrain.Atmosphere.Mood.Night),
+                "the brief asked for night: this is a failure, not a hope");
 
             Assert.That(FindCrossing(Host.Local.Map, out float x, out float z), Is.True, "no trench or wire in the map");
             TestContext.Out.WriteLine($"crossing at ({x:0.0}, {z:0.0}), layer {Host.Local.Map.LayerAt(new float3(x, 0f, z))}");
 
             string dir = Dir();
-            string empty = Path.Combine(dir, "empty.png"), cruise = Path.Combine(dir, "cruise.png");
-            string apex = Path.Combine(dir, "apex.png"), apexB = Path.Combine(dir, "apex_b.png");
-            string emptyApex = Path.Combine(dir, "empty_apex.png");
 
             string spawned = TankCapture.Spawn(0, VehicleArchetype.Hopper, x, z, 0f);
             Assert.That(spawned, Does.StartWith("slot "), "the spawn itself failed: " + spawned);
@@ -137,20 +132,31 @@ namespace TW.Tests
             Assert.That(tanks.Ready, Is.True, "TankRenderer is not drawing: every hull would be missing");
             Assert.That(Host.Local.World.IsAlive(slot), Is.True, "the Hopper died before it was photographed");
 
-            // Phase 0 is the cruise. Wait for the arc to wrap, then photograph: posed this frame, shot the next, so
-            // the hull is one pinned step (1/48 of an arc, 7 cm) off its cruise. That is the "level" picture.
-            for (int f = 0; f < 300 && tanks.HopArcPhaseOf(slot) < 0.6f; f++) yield return null;
-            for (int f = 0; f < 300 && tanks.HopArcPhaseOf(slot) > 0.02f; f++) yield return null;
-            TestContext.Out.WriteLine($"cruise at phase {tanks.HopArcPhaseOf(slot):0.000}");
-            yield return Pair(cruise, empty, tanks, x, z);
+            tanks.GroundRings = false;   // off for the whole run: a still's mask has to be the hull, not the cyan pill
 
-            // Up to the top of the next arc, then FREEZE and shoot the same held instant twice. Frozen, the two
-            // apex stills differ only by what the rig itself cannot repeat: that difference is the noise floor.
-            for (int f = 0; f < 300 && tanks.HopArcPhaseOf(slot) < 0.46f; f++) yield return null;
-            TestContext.Out.WriteLine($"apex at phase {tanks.HopArcPhaseOf(slot):0.000}");
-            yield return Pair(apex, emptyApex, tanks, x, z, apexB);
+            var written = new System.Collections.Generic.List<string>();
+            for (int p = 1; p <= 3; p++)
+            {
+                // wait for a fresh arc to start, then wrap all the way round to it (phase climbs past 0.6, then back
+                // below 0.02), so cruise, apex and land below all land inside this one, same arc.
+                for (int f = 0; f < 300 && tanks.HopArcPhaseOf(slot) < 0.6f; f++) yield return null;
+                for (int f = 0; f < 300 && tanks.HopArcPhaseOf(slot) > 0.02f; f++) yield return null;
 
-            foreach (string p in new[] { empty, cruise, apex, apexB, emptyApex })
+                foreach (var (pose, bar) in new[] { ("cruise", 0.02f), ("apex", 0.46f), ("land", 0.82f) })
+                {
+                    for (int f = 0; f < 300 && tanks.HopArcPhaseOf(slot) < bar; f++) yield return null;
+                    float phase = tanks.HopArcPhaseOf(slot);
+                    TestContext.Out.WriteLine($"pass {p} {pose} at phase {phase:0.000} frame {Time.frameCount}");
+                    string shot = Path.Combine(dir, $"{pose}{p}.png");
+                    string plate = Path.Combine(dir, $"{pose}{p}_plate.png");
+                    yield return Pair(shot, plate, tanks, x, z);
+                    written.Add(shot); written.Add(plate);
+                }
+            }
+
+            tanks.GroundRings = true;
+
+            foreach (string p in written)
             {
                 Assert.That(File.Exists(p), Is.True, p + " was never written");
                 Assert.That(new FileInfo(p).Length, Is.GreaterThan(1000), p + " is empty");
