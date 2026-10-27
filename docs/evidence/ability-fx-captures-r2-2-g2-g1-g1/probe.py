@@ -130,6 +130,57 @@ def height_at(cam, pitch, yaw, ground_y, ndc_x, ndc_y, dist):
     return cam[1] + t * dy - ground_y
 
 
+def ground_point(cam, pitch, yaw, ground_y, ndc_x, ndc_y):
+    """World (x, z) where this pixel's ray crosses y = ground_y, or None if it never does."""
+    dx, dy, dz = ray(ndc_x, ndc_y, pitch, yaw)
+    if dy >= -1e-6:
+        return None
+    t = (ground_y - cam[1]) / dy
+    if t <= 0:
+        return None
+    return cam[0] + t * dx, cam[2] + t * dz
+
+
+def disc_depth(cam, pitch, yaw, ground_y, centre, radius, ndc_x, ndc_y):
+    """Horizontal distance from the camera of the MIDPOINT of this pixel's ray through the vertical prism
+    standing over the horizontal disc (`centre`, `radius`); None if the ray misses the disc.
+
+    The prism is a vertical cylinder of radius `radius` centred at `centre = (x, z)`, unbounded in y: a pixel's
+    ray enters it at one horizontal distance and leaves at another, and the midpoint of that chord is the depth
+    used so a pixel 40 m behind the call centre is not measured as if it stood on the near card's ground — see
+    `measure_t1`. `ground_y` is unused (the prism has no floor or ceiling) but kept so callers can pass the same
+    arguments as `ground_distance`/`height_at`.
+    """
+    dx, dy, dz = ray(ndc_x, ndc_y, pitch, yaw)
+    flat = math.hypot(dx, dz)
+    if flat <= 1e-9:
+        return None
+    ox, oz = cam[0] - centre[0], cam[2] - centre[1]
+    a = dx * dx + dz * dz
+    b = 2.0 * (ox * dx + oz * dz)
+    c = ox * ox + oz * oz - radius * radius
+    disc = b * b - 4.0 * a * c
+    if disc < 0:
+        return None
+    sq = math.sqrt(disc)
+    t1, t2 = (-b - sq) / (2.0 * a), (-b + sq) / (2.0 * a)
+    tmid = (t1 + t2) * 0.5
+    if tmid <= 0:
+        return None
+    return tmid * flat
+
+
+def call_of(run_dir, stem):
+    """The ability call's (x, z) centre for `stem`, from manifest.json; None if that still has none."""
+    path = os.path.join(run_dir, 'manifest.json')
+    if os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            for row in json.load(f).get('stills', []):
+                if row.get('still', '').startswith(stem) and 'x' in row and 'z' in row:
+                    return float(row['x']), float(row['z'])
+    return None
+
+
 def selftest():
     """Hand calculation, worked here and not taken from the code it checks.
 
@@ -139,6 +190,15 @@ def selftest():
       A pixel ONE DEGREE ABOVE centre leaves at 45 - 1 = 44 deg below the horizon. Followed out to the same
       vertical plane, 10 m from the camera, it has dropped 10 * tan(44 deg) = 10 * 0.965689 = 9.65689 m, so it
       stands 10 - 9.65689 = 0.34311 m above the ground.
+
+      THE DISC. A disc of radius 2 m centred on the camera's own ground point, 10 m out — the call centre a
+      bank would sit over. The CENTRE pixel's own ray passes straight through that centre, so it enters the
+      vertical prism over the disc at 8 m and leaves at 12 m: the chord's midpoint is exactly 10.000 m, the
+      same depth the near-plane maths already uses for this one pixel. The near-plane fault is that EVERY
+      pixel of a column is measured at ITS OWN near distance; this probe instead measures the one-degree-up
+      pixel at the disc's 10 m midpoint, exactly as the hand figure above: 0.34311 m. Followed out at only
+      8 m instead (what a pixel whose own near distance is 8 m would have used, the fault this unit fixes), it
+      reads 10 - 8 * tan(44 deg) = 10 - 7.72551 = 2.2745 m — more than six times too tall for the same pixel.
     """
     cam, pitch, yaw = (0.0, 10.0, 0.0), 45.0, 0.0
     tan_v = math.tan(math.radians(FOV_V_DEG * 0.5))
@@ -147,7 +207,19 @@ def selftest():
     one_deg = math.tan(math.radians(1.0)) / tan_v          # one degree up, in ndc
     h = height_at(cam, pitch, yaw, 0.0, 0.0, one_deg, d)
     assert abs(h - 0.34311) < 1e-3, 'one degree up came back %.5f m, hand calculation says 0.34311' % h
-    print('selftest ok: centre pixel 10.000 m out, one degree up %.5f m high (hand: 0.34311)' % h)
+
+    h_near = height_at(cam, pitch, yaw, 0.0, 0.0, one_deg, 8.0)
+    assert abs(h_near - 2.2745) < 1e-3, 'one degree up at 8 m near-plane came back %.5f m, hand says 2.2745' % h_near
+    centre = ground_point(cam, pitch, yaw, 0.0, 0.0, 0.0)      # the camera's own ground point, 10 m out
+    assert centre is not None and abs(centre[1] - 10.0) < 1e-6, 'centre pixel ground point came back %r, wanted z = 10.000' % (centre,)
+    depth = disc_depth(cam, pitch, yaw, 0.0, centre, 2.0, 0.0, 0.0)
+    assert depth is not None and abs(depth - 10.0) < 1e-6, 'disc midpoint under the centre pixel came back %r, wanted 10.000' % depth
+    h_depth = height_at(cam, pitch, yaw, 0.0, 0.0, one_deg, depth)
+    assert abs(h_depth - 0.34311) < 1e-3, 'one degree up at the disc midpoint (10 m) came back %.5f m, hand says 0.34311' % h_depth
+
+    print('selftest ok: centre pixel 10.000 m out, one degree up %.5f m high (hand: 0.34311); '
+          'at the disc midpoint (10 m) %.5f m, at the near plane (8 m) %.4f m (hand: 0.34311 / 2.2745)'
+          % (h, h_depth, h_near))
     return 0
 
 
@@ -364,14 +436,57 @@ def measure_t1(run_dir):
     def ndc(px, py):
         return (2.0 * (px + 0.5) / w - 1.0, 1.0 - 2.0 * (py + 0.5) / h)
 
-    dists = {}
+    dists, gpts = {}, {}
     for px, py in columns.items():
         nx, ny = ndc(px, py)
         d = ground_distance(cam, pitch, yaw, ground, nx, ny)
         if d is not None and 1.0 < d < 2000.0:
             dists[px] = d
+            gp = ground_point(cam, pitch, yaw, ground, nx, ny)
+            if gp is not None:
+                gpts[px] = gp
 
-    heights, low, total, col_heights = [], 0, 0, {}
+    # the disc a deep bank sits over: centred on the ability call (manifest.json), radius estimated from how far
+    # this capture's own near-ground points reach from that centre, clamped so a bad mask cannot blow it out.
+    centre = call_of(run_dir, 'gas-t1')
+    radius = None
+    if centre is not None and gpts:
+        cx, cz = centre
+        far = max(math.hypot(wx - cx, wz - cz) for wx, wz in gpts.values())
+        radius = max(5.0, min(200.0, far))
+
+    heights, low, total, col_heights, miss = [], 0, 0, {}, 0
+    depths_used = []
+    for i, on in enumerate(mask):
+        if not on:
+            continue
+        px, py = i % w, i // w
+        if px not in dists:
+            continue
+        nx, ny = ndc(px, py)
+        depth = None
+        if centre is not None and radius is not None:
+            depth = disc_depth(cam, pitch, yaw, ground, centre, radius, nx, ny)
+        if depth is None:
+            depth = dists[px]
+            miss += 1
+        y = height_at(cam, pitch, yaw, ground, nx, ny, depth)
+        if y is None:
+            continue
+        total += 1
+        depths_used.append(depth)
+        if y <= HEAD_M:
+            low += 1
+        col_heights.setdefault(px, []).append(y)
+    for px, ys in col_heights.items():
+        ys.sort()
+        p45 = ys[min(len(ys) - 1, int(round(0.45 * (len(ys) - 1))))]
+        heights.append(p45)
+    heights.sort()
+
+    # the OLD near-plane maths (g1's, unchanged): kept and reported, never barred, so the two readings sit
+    # side by side (see README.md, "How a depth is taken now").
+    near_heights, near_low, near_total, near_col = [], 0, 0, {}
     for i, on in enumerate(mask):
         if not on:
             continue
@@ -382,45 +497,47 @@ def measure_t1(run_dir):
         y = height_at(cam, pitch, yaw, ground, nx, ny, dists[px])
         if y is None:
             continue
-        total += 1
+        near_total += 1
         if y <= HEAD_M:
-            low += 1
-        col_heights.setdefault(px, []).append(y)
-    for px, ys in col_heights.items():
+            near_low += 1
+        near_col.setdefault(px, []).append(y)
+    for px, ys in near_col.items():
         ys.sort()
-        p45 = ys[min(len(ys) - 1, int(round(0.45 * (len(ys) - 1))))]
-        heights.append(p45)
-    heights.sort()
+        near_heights.append(ys[min(len(ys) - 1, int(round(0.45 * (len(ys) - 1))))])
+    near_heights.sort()
 
     mask_px = sum(1 for on in mask if on)
+    common = {
+        'bank_area_frac': round(mask_px / float(w * h), 4),
+        'mask_px': mask_px, 'mask_px_raw': raw_count, 'mask_px_patch': patch_count,
+        'bank_patch_share': round(patch_count / float(max(raw_count, 1)), 4),
+        'bank_patch_count': n_patches,
+        'bank_fill': shape['bank_fill'], 'bank_run_px': shape['bank_run_px'],
+        'gas_hue_window_px': hue_window_count(img, plate),
+        'bank_depth_m': round(radius, 3) if radius is not None else 0.0,
+        'bank_depth_miss_px': miss,
+    }
+    if near_heights and near_total:
+        near_med_h = near_heights[len(near_heights) // 2]
+        near_dvals = sorted(dists.values())
+        near_med_d = near_dvals[len(near_dvals) // 2]
+        near_frame_h = 2.0 * near_med_d * math.tan(math.radians(FOV_V_DEG * 0.5))
+        common['bank_rise_m_nearplane'] = round(near_med_h, 3)
+    else:
+        common['bank_rise_m_nearplane'] = 0.0
     if not heights or total == 0:
-        return {'bank_low_share': 0.0, 'bank_height_frac': 1.0, 'bank_rise_m': 0.0,
-                'bank_area_frac': round(mask_px / float(w * h), 4),
-                'mask_px': mask_px, 'mask_px_raw': raw_count, 'mask_px_patch': patch_count,
-                'bank_patch_share': round(patch_count / float(max(raw_count, 1)), 4),
-                'bank_patch_count': n_patches,
-                'bank_fill': shape['bank_fill'], 'bank_run_px': shape['bank_run_px'],
-                'gas_hue_window_px': hue_window_count(img, plate)}
+        common.update({'bank_low_share': 0.0, 'bank_height_frac': 1.0, 'bank_rise_m': 0.0})
+        return common
     med_h = heights[len(heights) // 2]
-    dvals = sorted(dists.values())
+    dvals = sorted(depths_used)
     med_d = dvals[len(dvals) // 2]
     frame_h = 2.0 * med_d * math.tan(math.radians(FOV_V_DEG * 0.5))
-    return {
+    common.update({
         'bank_low_share': round(low / float(total), 4),
         'bank_height_frac': round(med_h / frame_h, 4),
         'bank_rise_m': round(med_h, 3),
-        'bank_area_frac': round(mask_px / float(w * h), 4),
-        'mask_px': mask_px,
-        'mask_px_raw': raw_count,
-        'mask_px_patch': patch_count,
-        # the zebra test: one bank is most of the paint in one patch (share) and few patches at all (count)
-        'bank_patch_share': round(patch_count / float(max(raw_count, 1)), 4),
-        'bank_patch_count': n_patches,
-        # bands or one body, measured INSIDE that patch (see `body_shape`)
-        'bank_fill': shape['bank_fill'],
-        'bank_run_px': shape['bank_run_px'],
-        'gas_hue_window_px': hue_window_count(img, plate),
-    }
+    })
+    return common
 
 
 def measure_o240(run_dir):
@@ -478,7 +595,7 @@ def card_rise_m(run_dir, stem):
         if on:
             by_column.setdefault(i % w, []).append(i // w)
     MIN_COLUMN_PX = 8
-    dists = {}
+    dists, gpts = {}, {}
     for px, rows_ in by_column.items():
         if len(rows_) < MIN_COLUMN_PX:
             continue
@@ -486,6 +603,18 @@ def card_rise_m(run_dir, stem):
         d = ground_distance(cam, pitch, yaw, ground, nx, ny)
         if d is not None and 1.0 < d < 2000.0:
             dists[px] = d
+            gp = ground_point(cam, pitch, yaw, ground, nx, ny)
+            if gp is not None:
+                gpts[px] = gp
+
+    # same disc the bank uses (`measure_t1`), only where this card's still has a call centre; a card still with
+    # no manifest centre falls back to the old near-plane maths unchanged (look report only, never barred).
+    centre = call_of(run_dir, stem)
+    radius = None
+    if centre is not None and gpts:
+        cx, cz = centre
+        far = max(math.hypot(wx - cx, wz - cz) for wx, wz in gpts.values())
+        radius = max(5.0, min(200.0, far))
 
     pix = list(img.getdata())
     col_heights, lumas = {}, []
@@ -497,7 +626,12 @@ def card_rise_m(run_dir, stem):
         if px not in dists:
             continue
         nx, ny = ndc(px, py)
-        y = height_at(cam, pitch, yaw, ground, nx, ny, dists[px])
+        depth = None
+        if centre is not None and radius is not None:
+            depth = disc_depth(cam, pitch, yaw, ground, centre, radius, nx, ny)
+        if depth is None:
+            depth = dists[px]
+        y = height_at(cam, pitch, yaw, ground, nx, ny, depth)
         if y is not None:
             col_heights.setdefault(px, []).append(y)
     rises = []

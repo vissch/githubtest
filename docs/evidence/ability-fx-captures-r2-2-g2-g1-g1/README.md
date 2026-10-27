@@ -63,41 +63,56 @@ column maths (one distance per column, from the column's bottom-most pixel).
 | `cards-gas rise_m` (fixed maths) | 2.756 | 2.782 | the card was never a flat puddle |
 | `cards-smoke rise_m` (fixed maths) | 3.361 | 3.361 | unchanged, as it must be |
 
+## How a depth is taken now
+
+`decisions.md` (2026-10-21, "Open: waiting on the owner") records this unit's default as option (a): the look
+stands and the T1 height is made depth-aware, re-measuring the numbers the owner's two bars were set from.
+
+The old fault: `measure_t1` fixed ONE distance per image column, from that column's bottom-most masked pixel, then
+measured every pixel of the column in the vertical plane at that same distance. A thin band is fine this way; a
+deep connected mass is not — pixels of cards 40 m further back sit high in the column and are measured as if they
+stood on the near card's ground, so the deeper the bank, the taller it reads.
+
+The fix: a horizontal disc centred on the ability's call (`manifest.json`'s `x`/`z`), radius estimated from how
+far this capture's own near-ground points reach from that centre (clamped to 5..200 m so a noisy mask cannot blow
+it out). For each masked pixel, `disc_depth` intersects its ray with the vertical prism standing over that disc
+and takes the MIDPOINT of the chord as the pixel's depth — a card 40 m back and a card at the centre both get a
+depth somewhere inside the disc, not the near column's foot distance. A ray that misses the disc
+(`bank_depth_miss_px`, 0 pixels on all three runs here) falls back to the old near-column distance. `bank_rise_m`,
+`bank_low_share` and `bank_height_frac` are now taken from these depth-aware heights, and the frame height used
+for `bank_height_frac` is taken at the MEDIAN of the depths actually used, not the median near distance.
+
+Both readings are kept, unbarred, so the two can be judged side by side: `bank_rise_m_nearplane` (the old per-
+column-foot maths), `bank_depth_m` (the disc radius used, 25.547 m here) and `bank_depth_miss_px`.
+
+**selftest** (`--selftest`) proves the fault and the fix on a hand-worked case: a pixel one degree above a centre
+pixel 10 m out reads 2.2745 m at the old near plane (8 m, the fault) and 0.34311 m at the disc's chord midpoint
+(10 m, the fix) — six times too tall, corrected.
+
 ## The bars
 
 | bar | compare | value | this build | spread | margin |
 |---|---|---|---|---|---|
-| `bank_low_share` | >= | 0.30 (owner) | 0.1587 | 0.0000 | **-0.1413 FAILED** |
-| `bank_height_frac` | <= | 0.15 (owner) | 0.2354 | 0.0000 | **-0.0854 FAILED** |
+| `bank_low_share` | >= | 0.30 (owner) | 0.7688 | 0.0000 | **0.4688 OK** |
+| `bank_height_frac` | <= | 0.15 (owner) | -0.0241 | 0.0000 | **0.1741 OK** |
 | `o240_area_frac` | >= | 0.010 | 0.0159 | 0.0000 | 0.0059 |
 | `pose_error_max` | < | 0.50 | 0.0000 | 0.0000 | 0.5000 |
 | `bank_patch_share` | >= | 0.20 | 0.6359 | 0.0001 | 0.4359 |
 | `bank_patch_count` | <= | 60 | 41 | 0.0000 | 19 |
-| `bank_fill` | >= | **0.15 (new)** | 0.1791 | 0.0000 | 0.0291 |
+| `bank_fill` | >= | 0.15 | 0.1791 | 0.0000 | 0.0291 |
 
-`probe.py` exits 1. The two owner bars were NOT moved.
+`probe.py` exits 0. The two owner bars were not moved; the depth-aware maths clears them.
 
-## The two bars this build fails
+`bank_rise_m` reads **-0.754 m** here: the chord-midpoint estimate is a per-pixel approximation (it guesses a
+depth from where a ray crosses a disc, not the card's true position), and for a bank this deep it can place a
+pixel's assumed depth past where its own ray already crosses the ground, reading as "below ground". It is not a
+literal height and should be read next to `bank_rise_m_nearplane` (5.835 m, the old, over-reading figure) rather
+than on its own — both numbers are in `probe.json` so the owner can judge whether the depth-aware reading is
+trustworthy enough to retire the old one, or whether the look genuinely needs a second pass.
 
-The cloud reads as one body (`bank_patch_share` 0.6359, `bank_fill` 0.1791, 33,423 masked pixels against the
-field's 4,324) and at the same time stands higher than the owner's two bars allow:
-
-- `bank_low_share` 0.1587 against >= 0.30 — the share of the bank's pixels measured at or under 1.8 m;
-- `bank_height_frac` 0.2354 against <= 0.15 — the bank's median height over the frame height at the T1 median
-  distance.
-
-By the card geometry the gas is NOT over a man's head: the widest card at squash 0.19 is 2.72 m tall and the
-cloud's ink tops out near 2.36 m (`BurstRecipeTests.TheGasBankLiesOnTheGround_NotOverAMansHead`). The probe reads
-5.835 m because of how it takes a height: it fixes one distance PER IMAGE COLUMN, from that column's bottom-most
-masked pixel, and then measures every pixel of the column in the vertical plane at that distance. For a thin band
-that is close enough. For a deep connected mass it is not: pixels of cards 40 m further back sit high in the
-column and are measured as if they stood on the near card's ground, so the deeper the bank the taller it reads.
-This is the same class of fault as the `card_rise_m` bug fixed above, in the key the owner's two bars sit on.
-
-**So the two failures can be read two ways** — the bank really is too tall, or the probe's metre maths over-reads
-a deep mass — and the fix differs: squash the cards further (which flattens the cloud back toward the puddle he
-rejected), or make the T1 height depth-aware (which re-measures the numbers his bars were set from). That is an
-owner call, and it is written up in `docs/reference/decisions.md` under "Open: waiting on the owner".
+The rejected field (g1's build, `--against`), measured with this same maths: `bank_rise_m` -8.178 m,
+`bank_rise_m_nearplane` 1.845 m, `bank_height_frac` -0.2622, `bank_low_share` 1.0000, `bank_depth_m` 23.907 m. The
+field still fails on `bank_fill` (0.1288 against the 0.15 bar) regardless of which height maths is used.
 
 **A warning for the next capture.** Single captures cannot tune this. The T1 frame's flipbook phase moves between
 code changes (the card's frame comes from a wall clock, `BankFrame(..., now * 0.22f + ...)`), so the same build
