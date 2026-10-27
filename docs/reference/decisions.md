@@ -304,6 +304,16 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 
 ## Open: waiting on the owner
+- **Does the rebased chlorine bank look right, or does the fix chain go on? (2026-10-27, lane
+  `lane/show/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2-g2`, brief
+  `2026-10-27-the-chlorine-bank-rebased-three-captures`):** the owner's word on the Decide page was "show me
+  visual results". Three captures of the lane rebased onto integration are in
+  `docs/evidence/ability-fx-captures-visual-review-2/` (t1 ticks 557/597/637). The rebase did not change the
+  look: every key sits within 0.0006 of the pre-rebase run. `probe.py` exits 1 on its margin rule only —
+  `o240_area_frac` and `bank_height_frac_lo` clear their bars by 0.0007 less than the runs' spread, bars that
+  were fitted at exactly 1.00x spread. Options: (a) it looks right, stop the chain; (b) change one named thing;
+  (c) shoot a film instead of stills. **Default taken by this lane: no further fix unit, and no bar or code
+  change, until he speaks.**
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
   lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
   is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every
