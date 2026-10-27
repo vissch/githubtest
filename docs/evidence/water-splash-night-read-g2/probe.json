@@ -1,0 +1,36 @@
+{
+  "bands": {
+    "t1": {
+      "splash_px": [
+        2950,
+        3457,
+        3470
+      ],
+      "drift_px": [
+        2573,
+        2502,
+        3130
+      ],
+      "bar": 9390,
+      "pass": false
+    },
+    "o120": {
+      "splash_px": [
+        176,
+        264,
+        268
+      ],
+      "drift_px": [
+        103,
+        102,
+        153
+      ],
+      "bar": 460,
+      "pass": false
+    }
+  },
+  "render_repeat_px": 0,
+  "luma_threshold": 0.02,
+  "window_m": 3.0,
+  "pass": false
+}

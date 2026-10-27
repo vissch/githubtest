@@ -577,6 +577,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `ManRing` 2.8 m, still under the 3 m a shell is clamped to. The ring itself is drawn in `Shaders/TWWater.hlsl`
   (`TWRings`): it opens at 0.22 of its size rather than from a point, its width is sublinear (`0.07 + 0.22 * sqrt`),
   and the pale weight it takes in `TWWaterAlbedo` is 0.92 -- which fattens EVERY ring, a shell's included.
+  The night read of the same entry is in `docs/evidence/water-splash-night-read-g2/`; its `probe.py` counts three
+  independent entries against the water's own drift between phases, not against a frozen frame's zero.
   A capture that shoots the same throw twice to measure its own noise pins the water's animation with
   `WaterRings.PinnedClock` (`ClockToPush`, pushed as `_TWWaterClock`, read as `TW_WTIME` for every `_Time.y` in
   `TWWater.hlsl` and for the drift in `Water_URP.shader`); 0 lets it run),
