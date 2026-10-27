@@ -1,0 +1,61 @@
+{
+  "captures": [
+    {
+      "name": "a1",
+      "core_px": 63,
+      "spread_px": 507,
+      "reach_m": 2.428,
+      "noise_px": 0,
+      "men_in_frame": 2,
+      "changed_px": 829
+    },
+    {
+      "name": "a2",
+      "core_px": 119,
+      "spread_px": 120,
+      "reach_m": 1.772,
+      "noise_px": 0,
+      "men_in_frame": 2,
+      "changed_px": 568
+    },
+    {
+      "name": "a3",
+      "core_px": 194,
+      "spread_px": 402,
+      "reach_m": 2.081,
+      "noise_px": 0,
+      "men_in_frame": 2,
+      "changed_px": 1048
+    }
+  ],
+  "luma_threshold": 0.02,
+  "core_m": 0.75,
+  "ring_m": [
+    1.5,
+    3.0
+  ],
+  "window_m": 3.0,
+  "min_core_px": 63,
+  "max_core_px": 194,
+  "min_spread_px": 120,
+  "max_spread_px": 507,
+  "min_reach_m": 1.772,
+  "max_reach_m": 2.428,
+  "min_noise_px": 0,
+  "max_noise_px": 0,
+  "spread_bar": 2500,
+  "reach_bar": 2.0,
+  "failed": {
+    "a1": [
+      "spread_px 507 < 2500"
+    ],
+    "a2": [
+      "spread_px 120 < 2500",
+      "reach_m 1.772 < 2.0"
+    ],
+    "a3": [
+      "spread_px 402 < 2500"
+    ]
+  },
+  "pass": false
+}

@@ -571,10 +571,22 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   point's own y. **See it**: `AgentScripts/water_entry_fling.cs` (`Tools/tw run eval_file`, in Play in
   GreyboxCorridor) flings a body into the ford with the clock running and shoots the moments either side of the
   landing; `docs/evidence/water-entry-splash-r5/` holds that run and `probe.py`, which counts the splash's pixels.
-  The entry reads at T1 since r6 (harsh critic r1, 60/100): `WaterEntry.Cards` is a pure three-card plan -- a crown
-  (`ManCard` 2.4 m) over the entry point and a wing either side of it (`WingSize` 0.55 of the crown, `WingOut` 0.45 of
-  the ring out along x, the right one mirrored) -- the crown on the `Splash` book, the wings on `Wings`; the ring is
-  `ManRing` 2.8 m, still under the 3 m a shell is clamped to. The ring itself is drawn in `Shaders/TWWater.hlsl`
+  The entry reads at T1 since r6 (harsh critic r1, 60/100): `WaterEntry.Cards` is a pure EIGHT-card plan -- a crown
+  over the entry point (`ManCard` 1.6 m wide, `CrownTall` x that high), a wing either side (`WingSize` of the crown's width, `WingOut`
+  of the ring out along x, the right one mirrored), four droplets thrown up and out on the diagonal (`DropletOut`,
+  `DropletSize`) and a foam skirt (`SkirtSize`, `SkirtAlpha`) lying FLAT on the water; the ring is `ManRing` 2.8 m,
+  still under the 3 m a shell is clamped to. **Every card is drawn from `Book.Splash`** -- the one water-white
+  sheet -- because `CombatFx.ApplyTints` repaints `Wings` and `GroundRing` from `BiomeProfile`, so a card moved off
+  `Splash` turns mud. That is the trap behind the look: eight columns inside one footprint stack into ONE pale blob,
+  which is what the owner saw at night ("one pale blue crystal in the creek"). So the fix is geometry, not a new
+  book: the crown is a column the height of a man (`CrownTall` x its width) rather than a 3 m bale, and the wings,
+  droplets and skirt are pushed far enough out to own screen space of their own (`WingOut` x `ManRing` >=
+  0.5 x (crown + wing), guarded by `TheCrownsLobesDoNotOverlap`). **Measured, not guessed**:
+  `AgentScripts/water_death_night_g1.cs` stages three night deaths in the GreyboxCorridor ford with a body, two
+  live men for scale and a per-moment noise reference, and `docs/evidence/water-splash-night-read-g1/probe.py`
+  counts the changed pixels in the 1.5-3.0 m lobe band around each death. The sizes in the file are the ones that
+  run measured; the band count is still well under that probe's bar (see the open row in
+  `docs/reference/decisions.md`). The ring itself is drawn in `Shaders/TWWater.hlsl`
   (`TWRings`): it opens at 0.22 of its size rather than from a point, its width is sublinear (`0.07 + 0.22 * sqrt`),
   and the pale weight it takes in `TWWaterAlbedo` is 0.92 -- which fattens EVERY ring, a shell's included.
   A capture that shoots the same throw twice to measure its own noise pins the water's animation with
@@ -606,7 +618,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   burst and lobs a man's height), FlipbookOrdinalTests (each `Book` draws its own `Sheets` row), BurstRecipeTests,
   FarGrowTests, GoreScaleTests (the gore's size curve and its cap at zoom 6, 30, 120 and beyond: `GoreScale.cs`),
   WaterEntryTests (DeathInWaterThrowsSplash, DeathOnDryGroundThrowsNoSplash, AHelmetRingsSmallerThanAMan,
-  WaterEntryRingWaitsForLanding, WaterSplashSitsOnTheSurface, ACrownAndTwoWingsGoUp: `WaterEntry.cs`),
+  WaterEntryRingWaitsForLanding, WaterSplashSitsOnTheSurface, ACrownAndTwoWingsGoUp, WaterSplashReadsAtNight,
+  TheCrownsLobesDoNotOverlap (no lobe stacks inside the crown's own half-width, and the foam skirt is Flat):
+  `WaterEntry.cs`),
   WaterRingsClockTests (the pinned water clock wins and `SceneStatics.ResetSession` gives it back: `WaterRings.cs`),
   HitMarkSizeTests (the ground marks' own curve, `HitMarkGrow`, at zoom 6, 30, 120 and 600, and that it is not the
   gore curve: `CombatFx.HitBlood.cs`),

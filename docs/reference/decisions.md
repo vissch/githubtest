@@ -302,6 +302,23 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 
 ## Open: waiting on the owner
+- **The night splash's 2500 px bar cannot be met by a man-scale splash (2026-10-27, lane
+  `lane/show/water-splash-night-read-g1`):** the probe's bar is twice the band count of the OLD build
+  (`docs/evidence/water-splash-night-read-g1/before.json`: 1017-1211 px in the 1.5-3.0 m ring). But those pixels
+  came from the very thing the owner is complaining about: eight cards stacked in one footprint, a crown 3.0 m
+  wide and 6 m tall and a foam column 5.4 m wide and 10.8 m tall, all on the one water-white sheet. Stacking is
+  what lifts a dim sheet over the probe's 0.02 luma threshold, so SPREADING the cards out lowers the band count
+  even as the splash gains the shape the owner asked for. Measured here over four staged runs of three deaths
+  each (crown 1.1 m -> 1.6 m wide, wings 0.6 -> 2.8 m at 2.24 m out, droplets 0.5 -> 1.6 m, flat foam skirt 6 m):
+  the band went 12/28/50 px -> 507/120/402 px, a 4-10x gain in the lobes, and still 5-20x under 2500. The band's
+  whole screen area at zoom 30 is about 6200 px, so 2500 means a THIRD of a 6 m ring lit at night - a spray far
+  bigger than a man. Options: (a) keep the geometry as it stands (a man-high crown, wings and droplets out in the
+  band, a flat foam skirt) and re-cut the probe to measure STRUCTURE - distinct lit clusters outside 1.5 m, or the
+  lobes' share of the whole changed count - instead of a raw pixel count the old blob wins on; (b) keep the 2500
+  bar and grow the splash until it meets it, which means a 6 m bright spray around every drowning man; (c) raise
+  the per-card alpha or `NightGlow` instead, which the plan rules out ("a brighter blob is still a blob").
+  **Default taken this leg: (a) as far as the code goes** - the geometry is landed and measured, the probe is left
+  unchanged and still red, and the lane does not land on it.
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
   lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
   is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every

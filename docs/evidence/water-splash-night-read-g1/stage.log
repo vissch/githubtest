@@ -1,0 +1,18 @@
+figureScale=1.125 night=true pinned=2 prefix=(unset -> a); splash card height per metre of width = 2.000
+men: slot 8 slot 9
+a1 death at (15.00, -0.15, 130.00) waterY=0.150; splash any=True ring=2.800 card=1.600 cardY=0.150
+a1 queued C:/Users/PC/Documents/GitHub/githubtest-relay-work5/docs/evidence/water-splash-night-read-g1/a1.png
+a1-b queued C:/Users/PC/Documents/GitHub/githubtest-relay-work5/docs/evidence/water-splash-night-read-g1/a1-b.png
+a1-nosplash queued C:/Users/PC/Documents/GitHub/githubtest-relay-work5/docs/evidence/water-splash-night-read-g1/a1-nosplash.png
+a1 done, splash back
+a2 death at (17.50, -0.15, 131.00) waterY=0.150; splash any=True ring=2.800 card=1.600 cardY=0.150
+a2 queued C:/Users/PC/Documents/GitHub/githubtest-relay-work5/docs/evidence/water-splash-night-read-g1/a2.png
+a2-b queued C:/Users/PC/Documents/GitHub/githubtest-relay-work5/docs/evidence/water-splash-night-read-g1/a2-b.png
+a2-nosplash queued C:/Users/PC/Documents/GitHub/githubtest-relay-work5/docs/evidence/water-splash-night-read-g1/a2-nosplash.png
+a2 done, splash back
+a3 death at (13.00, -0.15, 129.00) waterY=0.150; splash any=True ring=2.800 card=1.600 cardY=0.150
+a3 queued C:/Users/PC/Documents/GitHub/githubtest-relay-work5/docs/evidence/water-splash-night-read-g1/a3.png
+a3-b queued C:/Users/PC/Documents/GitHub/githubtest-relay-work5/docs/evidence/water-splash-night-read-g1/a3-b.png
+a3-nosplash queued C:/Users/PC/Documents/GitHub/githubtest-relay-work5/docs/evidence/water-splash-night-read-g1/a3-nosplash.png
+a3 done, splash back
+DONE, scene put back; pending=0

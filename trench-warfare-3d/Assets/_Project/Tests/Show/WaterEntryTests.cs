@@ -39,7 +39,7 @@ namespace TW.Tests
             Assert.IsTrue(sp.Any, "a man dying in water splashes");
             Assert.AreEqual(1, rings.Count, "one ring, sized by mass");
             Assert.AreEqual(2.8f, sp.Ring, 1e-4f, "a man's own mass opens his named ring (ManRing, raised for r6)");
-            Assert.AreEqual(3.0f, sp.Card, 1e-4f, "and a crown card to go with it (ManCard, raised for night-read)");
+            Assert.AreEqual(1.6f, sp.Card, 1e-4f, "and a crown card to go with it (ManCard: a column the width of a man, night-read-g1)");
             Assert.Less(sp.Ring, 3f, "under the smallest a shell opens (WaterRings.OnSimEvent)");
         }
 
@@ -101,26 +101,58 @@ namespace TW.Tests
         [Test]
         public void ACrownAndTwoWingsGoUp()
         {
-            // harsh critic r1 fix 1: at night, six staged entries measured 292 px against 118 px of noise, a few
-            // faint streaks, not a man dying knee-deep. Worked by hand from the constants: crown = ManCard 3.0 x
-            // scale 1; wings = WingSize 0.55 x 3.0 = 1.65, sitting WingOut 0.45 x ManRing 2.8 = 1.26 m either side.
+            // water-splash-night-read-g1: worked by hand from the constants, and the sizes are the ones three
+            // staged night runs measured. crown = ManCard 1.6 x scale 1, standing CrownTall 2.0 x that = 3.2 m
+            // high; wings = WingSize 1.75 x 1.6 = 2.8 m wide and WingTall 0.8 x that = 2.24 m high, sitting
+            // WingOut 0.8 x ManRing 2.8 = 2.24 m either side, out in the band the probe reads.
             var buf = new WaterEntry.CardPlan[8];
             Assert.AreEqual(8, WaterEntry.Cards(WaterEntry.ManKg, 1f, buf), "a crown, two wings, four droplets and a foam skirt");
 
             Assert.AreEqual(0f, buf[0].Dx, 1e-4f, "the crown stands over the entry point");
-            Assert.AreEqual(3.0f, buf[0].Size, 1e-4f, "ManCard x scale 1");
-            Assert.AreEqual(-1.26f, buf[1].Dx, 1e-3f, "the left wing, 0.45 x the ring out");
-            Assert.AreEqual(1.26f, buf[2].Dx, 1e-3f, "and the right wing the other side");
-            Assert.AreEqual(1.65f, buf[1].Size, 1e-3f, "a wing is 0.55 of the crown");
-            Assert.AreEqual(1.65f, buf[2].Size, 1e-3f);
+            Assert.AreEqual(1.6f, buf[0].Size, 1e-4f, "ManCard x scale 1");
+            Assert.AreEqual(3.2f, buf[0].Height, 1e-4f, "a column the height of a man, not a 3 m bale");
+            Assert.AreEqual(-2.24f, buf[1].Dx, 1e-3f, "the left wing, 0.8 x the ring out");
+            Assert.AreEqual(2.24f, buf[2].Dx, 1e-3f, "and the right wing the other side");
+            Assert.AreEqual(2.8f, buf[1].Size, 1e-3f, "a wing is 1.75 of the crown's width");
+            Assert.AreEqual(2.8f, buf[2].Size, 1e-3f);
+            Assert.AreEqual(2.24f, buf[1].Height, 1e-3f, "and squat: 0.8 of its own width high");
             Assert.IsFalse(buf[1].Mirror, "one wing as the sheet draws it");
             Assert.IsTrue(buf[2].Mirror, "the other flipped, so it is not the same picture twice");
 
             // half-size thing (scale 0.5): the crown halves, and the wings follow it, not the ring
             Assert.AreEqual(8, WaterEntry.Cards(WaterEntry.ManKg, 0.5f, buf));
-            Assert.AreEqual(1.5f, buf[0].Size, 1e-4f, "the crown takes the caller's scale");
-            Assert.AreEqual(0.825f, buf[1].Size, 1e-3f, "0.55 of that crown");
-            Assert.AreEqual(-1.26f, buf[1].Dx, 1e-3f, "the reach is the ring's, which scale does not touch");
+            Assert.AreEqual(0.8f, buf[0].Size, 1e-4f, "the crown takes the caller's scale");
+            Assert.AreEqual(1.6f, buf[0].Height, 1e-4f, "and so does its height");
+            Assert.AreEqual(1.4f, buf[1].Size, 1e-3f, "1.75 of that crown");
+            Assert.AreEqual(-2.24f, buf[1].Dx, 1e-3f, "the reach is the ring's, which scale does not touch");
+        }
+
+        [Test]
+        public void TheCrownsLobesDoNotOverlap()
+        {
+            // water-splash-night-read-g1: the whole point of the new sizes. Every card is drawn from the ONE
+            // water-white sheet (Book.Splash), so two cards inside one footprint are one pale blob and no lobe is
+            // visible. A lobe owns screen space when its centre is at least half the two widths out from the
+            // crown's centre. Worked by hand: crown 1.6 wide, wing 2.8 -> 2.2 m clear, and WingOut 0.8 x
+            // ManRing 2.8 = 2.24 m; droplet 1.6 -> 1.6 m clear, and the droplets sit on the diagonal at
+            // DropletOut 0.65 x 2.8 = 1.82 m each way, so sqrt(2) x 1.82 = 2.574 m out.
+            var buf = new WaterEntry.CardPlan[8];
+            WaterEntry.Cards(WaterEntry.ManKg, 1f, buf);
+            float crown = buf[0].Size;
+
+            for (int i = 1; i <= 6; i++)
+            {
+                float d = Mathf.Sqrt(buf[i].Dx * buf[i].Dx + buf[i].Dz * buf[i].Dz);
+                float clear = 0.5f * (crown + buf[i].Size);
+                Assert.GreaterOrEqual(d, clear, "card " + i + " must clear the crown's half-width, not stack inside it");
+                Assert.IsFalse(buf[i].Flat, "card " + i + " stands up");
+            }
+            Assert.AreEqual(2.24f, Mathf.Abs(buf[1].Dx), 1e-3f, "the wings 2.24 m out");
+            Assert.AreEqual(2.574f, Mathf.Sqrt(buf[3].Dx * buf[3].Dx + buf[3].Dz * buf[3].Dz), 5e-3f, "the droplets 2.57 m out on the diagonal");
+
+            Assert.IsTrue(buf[7].Flat, "the foam skirt lies flat on the water, not a ninth column in the blob");
+            Assert.AreEqual(6.0f, buf[7].Size, 1e-3f, "SkirtSize 3.75 x the crown's width: a 6 m foam disc");
+            Assert.AreEqual(buf[7].Size, buf[7].Height, 1e-3f, "and round, not a card on edge");
         }
 
         [Test]
@@ -132,11 +164,14 @@ namespace TW.Tests
             int n = WaterEntry.Cards(WaterEntry.ManKg, 1f, buf);
             Assert.AreEqual(8, n, "the crown, two wings, four droplets and the foam skirt");
 
-            float area = 0f;
-            for (int i = 0; i < n; i++) area += buf[i].Size;
-            // r6's crown was 2.4 (ManCard) + 2 x 0.55 x 2.4 (the two wings) = 5.04
-            float r6Area = 2.4f + 2f * 0.55f * 2.4f;
-            Assert.GreaterOrEqual(area, 3f * r6Area, "at least 3x r6's crown and wings");
+            // night-read-g1: the measure is no longer how much card there is (eight cards in one footprint were one
+            // 3 m blob) but how far out the splash reaches. The furthest card's far edge, from the entry point:
+            // the wings at 2.1 m plus their own half-width, against r6's single 1.2 m half-width.
+            float far = 0f;
+            for (int i = 0; i < n; i++)
+                far = Mathf.Max(far, Mathf.Sqrt(buf[i].Dx * buf[i].Dx + buf[i].Dz * buf[i].Dz) + 0.5f * buf[i].Size);
+            Assert.GreaterOrEqual(far, 2f, "the splash reaches past 2 m, out in the band a player can see it in");
+            Assert.Greater(far, 2f * (0.5f * 2.4f), "further out than r6's one card reached at all");
 
             Assert.GreaterOrEqual(WaterEntry.Glow(true), 3f, "night lifts the entry out of the dark");
             Assert.Greater(WaterEntry.Glow(true), WaterEntry.Glow(false), "brighter at night than in daylight");
