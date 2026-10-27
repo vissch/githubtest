@@ -72,8 +72,10 @@ old build gets its best three-run showing, the new one its worst.
                                HARDER, not softened: 1000 of the band's 1650 px, 1.42x the baseline's best showing
                                and far outside its 3 px spread.
   ring_hollow         <= 0.5   mean ring-only lift inside 0.45 r over the mean on the crest annulus, at post
-  crown_top_px_post   <= 10    topmost row above the mark row in the crown box where post - post-nosplash passes
-                               0.02, in pixels: the crown has fallen back into the water
+  crown_top_px_post   <= 10    topmost row above the mark row in the crown box where post-noring - post-nosplash
+                               passes 0.02, in pixels: the crown and its wings have fallen back into the water.
+                               The ring is PARKED in both halves of that pair, because a ring lying flat on the
+                               water shows its far arc above the mark's row and would otherwise pay this bar
   crown_contrast_land >= 0.15  r7's key, unchanged: the crown still stands at the landing frame
 
 The first four are REGRESSION bars: the current build is on the failing side of each, and `--base` proves it over
@@ -189,9 +191,17 @@ def hollow(lift, inside, radius_m):
     return round(im / cm, 3), round(best_r, 3), round(im, 4), round(cm, 4)
 
 
-def crown_top_px(post, post_ref, crown, cy):
-    """How far above the mark's row, in pixels, the crown's own change still reaches at the post frame."""
-    hit = np.abs(post[crown] - post_ref[crown]) > THRESHOLD
+def crown_top_px(post_noring, post_ref, crown, cy):
+    """How far above the mark's row, in pixels, the CARDS' own change still reaches at the post frame.
+
+    The pair is post-noring (ring slots parked, cards kept) against post-nosplash (both gone), so what is measured
+    is the crown and its wings and nothing else. post.png itself will not do: a ring lying flat on the water shows
+    its far arc ABOVE the mark's row on screen - at this projection a 1.4 m ring reaches about 12 px up, and a
+    widened crest more - so measuring post against post-nosplash let the RING pay the crown's bar. It read 22 px
+    with the cards already gone. The bar names the crown, so it measures the crown; the baseline's 53 px is
+    re-measured the same way, from the same committed stills.
+    """
+    hit = np.abs(post_noring[crown] - post_ref[crown]) > THRESHOLD
     rows = np.nonzero(hit)[0] + crown[0].start
     above = rows[rows < int(cy)]
     return int(int(cy) - above.min()) if above.size else 0
@@ -251,7 +261,7 @@ def measure(run):
     px_land = int(((np.abs(land - land_noring) > THRESHOLD) & bandm).sum())
     px_post = int(((np.abs(post - post_noring) > THRESHOLD) & bandm).sum())
     hol, crest_r, inner_lift, crest_lift = hollow(post - post_noring, inside, radius)
-    top_px = crown_top_px(post, post_ref, crown, cy)
+    top_px = crown_top_px(post_noring, post_ref, crown, cy)
 
     t = timings(run)
     return {

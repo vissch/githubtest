@@ -2,6 +2,7 @@
 // water, or a dropped item makes no splash; only shells ring the water"). Proves WaterEntry.Throw rings the water
 // by mass and nothing on dry ground, with books null throughout: no scene, no GPU.
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation;
@@ -141,6 +142,44 @@ namespace TW.Tests
             var warm = WaterEntry.CrownTint(new Color(0.76f, 0.66f, 0.50f));
             Assert.Greater(warm.r, warm.b, "a warm, silty ford's crown is warm too");
             Assert.AreEqual(1f, crown.a, 1e-4f, "the tint carries no alpha of its own");
+        }
+
+        [Test]
+        public void TheCrownIsDownByThePostFrame()
+        {
+            // The owner on r7: "post.png at +0.3 s still holds a white sprite in the water." The capture's post
+            // moment is land + 0.3 s, so 0.30 s is the spec moment itself, not an arithmetic fraction of the old
+            // 0.7 s. The wings stand 1.32 m and sit 1.26 m out, inside the crown box the capture measures, so they
+            // have to fall too - a little later, so the water falls back from the middle outwards.
+            Assert.LessOrEqual(WaterEntry.CrownLife, 0.30f, "the crown is down by the post frame (land + 0.3 s)");
+            Assert.LessOrEqual(WaterEntry.WingLife, 0.45f, "and the wings with it");
+            Assert.Less(WaterEntry.CrownLife, WaterEntry.WingLife, "the crown goes first, the wings after it");
+
+            // and Throw wires each card to its own life, not one life to all three
+            SceneHooks.IsWater = (x, z) => true;
+            var fx = new FlipbookFx();
+            try
+            {
+                Assume.That(fx.Ready, "the flipbook shader and sheets load in the editor");
+                WaterEntry.Throw(fx, new Vector3(12f, 0.1f, 20f), WaterEntry.ManKg);
+                Assert.AreEqual(3, fx.Alive, "a crown and two wings");
+                Assert.AreEqual(FlipbookFx.Book.Crown, fx.CardBook(0), "the first card is the crown");
+                Assert.AreEqual(WaterEntry.CrownLife, fx.CardLife(0), 1e-6f, "the crown card takes the crown's life");
+                for (int i = 1; i < 3; i++)
+                {
+                    Assert.AreEqual(FlipbookFx.Book.Wings, fx.CardBook(i), "the other two are wings");
+                    Assert.AreEqual(WaterEntry.WingLife, fx.CardLife(i), 1e-6f, "a wing takes the wing's life");
+                }
+                Assert.Less(fx.CardLife(0), fx.CardLife(1), "the crown's own card is the shorter-lived one");
+            }
+            finally
+            {
+                // DestroyImmediate: Dispose's Object.Destroy is not allowed in edit mode (ColumnPlayTests)
+                var mats = (Material[])typeof(FlipbookFx).GetField("mats", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(fx);
+                foreach (var m in mats) if (m != null) Object.DestroyImmediate(m);
+                var quad = (Mesh)typeof(FlipbookFx).GetField("quad", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(fx);
+                if (quad != null) Object.DestroyImmediate(quad);
+            }
         }
 
         [Test]

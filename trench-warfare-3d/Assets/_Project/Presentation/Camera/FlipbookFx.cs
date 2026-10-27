@@ -620,6 +620,11 @@ namespace TW.Presentation.Tactical
         /// <summary>The Cut the card at this index holds, for the tests.</summary>
         public float CardCut(int index) => cards[index].Cut;
 
+        /// <summary>The Life the card at this index was added with, and which book it draws, for the tests
+        /// (water entry g2: the crown's card must carry a shorter life than its wings').</summary>
+        public float CardLife(int index) => cards[index].Life;
+        public Book CardBook(int index) => cards[index].Book;
+
         /// <summary>The _BurstLit the Column book's material holds (1 when the book did not load), for the tests.</summary>
         public float ColumnBurstLitNow => mats[(int)Book.Column] != null ? mats[(int)Book.Column].GetFloat("_BurstLit") : 1f;
         readonly int maxCards;   // MaxCards, or the knob flipbook.maxCards (read in the constructor)

@@ -13,8 +13,9 @@ float _TWNow;
 float _TWWaterClock;
 #define TW_WTIME (_TWWaterClock > 0.0 ? _TWWaterClock : _Time.y)
 
-/// Pale expanding rings at a point on the water: two lines a ring, fading as they spread. stir returns how much the
-/// water inside a young ring is stirred up (a wading man or a shell clouds it with silt for as long as the ring lives).
+/// Pale expanding rings at a point on the water: ONE crest and the dark trough just inside it, fading as they
+/// spread. stir returns how much the water inside a young ring is stirred up (a wading man or a shell clouds it
+/// with silt for as long as the ring lives).
 half TWRings(float2 xz, out half stir, out half trough)
 {
     half sum = 0; stir = 0; trough = 0;
@@ -29,7 +30,16 @@ half TWRings(float2 xz, out half stir, out half trough)
         float radius = r.w * (0.22 + 0.78 * sqrt(saturate(age)));
         float width = 0.07 + 0.22 * sqrt(r.w);
         float d = distance(xz, r.xy);
-        half lines = (1.0 - smoothstep(width * 0.6, width, abs(d - radius))) + 0.85 * (1.0 - smoothstep(width * 0.6, width, abs(d - radius * 0.55)));
+        // ONE crest, not two. A second line at radius * 0.55 used to ride inside this one, and on a 2.8 m entry
+        // ring at 19 px/m the two crests and the trough between them land within a dozen pixels of each other: the
+        // owner read the result as "a faint disc", and the capture agreed (ring_hollow 0.745 of the crest's own
+        // lift showing up in the middle, against a bar of 0.5). One crest plus the dark trough at radius * 0.78 is
+        // a ring that opens from a hole. The crest's own profile is widened - full strength out to 0.75 of the
+        // width and gone by 1.8 of it, where it used to be 0.6 and 1.0 - so the band has enough lit pixels for a
+        // p90 to see, without touching `width` itself, which an 8 m shell ring shares. 1.5 was tried first and the
+        // capture measured ring_px_band 965 against a bar of 1000, on the landing frame where the ring is still
+        // only 0.96 m across; 1.8 is what cleared it.
+        half lines = 1.0 - smoothstep(width * 0.9, width * 1.8, abs(d - radius));
         sum += lines * (1.0 - age) * (1.0 - age) * alive;
         stir += (1.0 - smoothstep(radius * 0.35, radius * 0.95 + 0.05, d)) * (1.0 - age) * alive;
         // the hollow just inside the crest. Harsh critic r1: a pale ring on night water moved the luma by 0.019,
@@ -101,7 +111,10 @@ half TWRainSplash(float2 xz)
 /// called "the ring adds nothing", and under the 0.02 the probe counts. Night water is albedo ~0.05 times a dim
 /// moon times (1 - _TWWaterDim): an albedo step of 0.26 arrives on screen as 0.02. A ring that is to READ at night
 /// has to be added after the light, not before it.
-#define TW_RING_LIFT 0.26
+/// g2: the lift was 0.26 and the band's p90 moved 0.058 against a bar of 0.08 - a ring in the right place in the
+/// pipeline, still too faint for the owner to call it a ring. 0.45 is what the capture needed, with the widened
+/// crest above; it is scaled by nothing, because the crest's own falloff already leaves the band's edges alone.
+#define TW_RING_LIFT 0.45
 #define TW_RING_TROUGH 0.45
 
 /// The thrown ring as a value step on the lit colour: a crest brighter than this water and a trough darker than it.

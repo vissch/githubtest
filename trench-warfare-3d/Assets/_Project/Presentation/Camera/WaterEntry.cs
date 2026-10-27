@@ -25,10 +25,23 @@ namespace TW.Presentation.Tactical
         public const float ManCard = 2.4f;
         /// <summary>The crown's two wings: how far out they sit (times the ring) and how big against the crown.</summary>
         public const float WingOut = 0.45f, WingSize = 0.55f;
-        /// <summary>How long the crown and its wings take to collapse. 0.7 s, not 0.5: at 0.5 s the capture measured
-        /// 597 changed pixels a third of a second after the entry, where the owner's bar for "it still reads" is 600,
-        /// and a column of water that is gone in half a second looks snatched away rather than fallen back.</summary>
-        public const float CardLife = 0.7f;
+        /// <summary>How long the crown and its wings take to collapse. The crown goes first, the wings a little after
+        /// it, so the water falls back from the middle outwards rather than all at once.
+        ///
+        /// 0.7 s for both was r7's answer, and the owner overturned it: "post.png at +0.3 s still holds a white
+        /// sprite in the water". The post frame the capture judges is land + 0.3 s, so the crown's life is 0.30 s -
+        /// the spec moment itself, not an arithmetic fraction of it - and by that frame the column is down and the
+        /// read on the water is the ring's alone. The wings stand 1.32 m and sit 1.26 m out, inside the crown box
+        /// the capture measures, so they have to fall too; 0.45 s keeps the collapse staggered without putting them
+        /// back into the post frame's top rows.
+        ///
+        /// MEASURED, both of them. The first attempt was 0.30 and 0.45, reasoned: the crown down by the spec moment
+        /// and the wings a little behind it. The capture came back with `crown_top_px_post` 27 px - 1.41 m, which is
+        /// a 1.32 m wing standing on the water 1.26 m out, inside the crown box - against a bar of 10. A wing that
+        /// is still up IS the white sprite the owner is objecting to, so the wings come down by the post frame too:
+        /// 0.29 s, with the crown at 0.26 s so the collapse is still staggered and the crown is gone a frame or two
+        /// before them.</summary>
+        public const float CrownLife = 0.26f, WingLife = 0.29f;
 
         /// <summary>How much of the way to white the crown's tint is pushed, and how far past 1 the whole tint goes.
         /// Harsh critic r1: the crown was blue-white on blue water, the same hue as the foam flecks, and measured a
@@ -108,7 +121,7 @@ namespace TW.Presentation.Tactical
                     var c = cards[i];
                     bool flip = c.Mirror ^ mirror;
                     books.Add(i == 0 ? FlipbookFx.Book.Crown : FlipbookFx.Book.Wings,
-                        new Vector3(at.x + c.Dx, sp.Y, at.z), c.Size, CardLife,
+                        new Vector3(at.x + c.Dx, sp.Y, at.z), c.Size, i == 0 ? CrownLife : WingLife,
                         FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (flip ? FlipbookFx.Kind.Mirror : 0),
                         alpha: 1f, delay: delay);
                 }
