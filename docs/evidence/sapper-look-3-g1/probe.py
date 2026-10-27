@@ -17,6 +17,10 @@ is why seed 1 read 0.004 - the window had drifted off the man.)
 - the `_band` numbers beside each: the same measurement restricted to the kit band - the top quarter of the window
   plus the outer 22 % of its columns, which is where CombatFx.SapperKit.cs:37-42 puts the pack above the shoulder
   line and the two charges past the torso's width.
+- the `_grown` numbers beside each: the same measurement over the GROWN window - a box-width of columns added each
+  side and half a box-height of rows above, so the count covers several times the man's own area. Nothing is gated
+  on them. They exist so the committed numbers rule out "the window missed the pack" as the reason a kit reads
+  near zero: where the grown number is as small as the plain one, the kit is not visible anywhere near the man.
 
 Seed 3 is the owner's own zoom-7 view among the stakes; at that zoom CaptureRig's margin rule only ever holds one
 of the two men readable, so it is reported, not compared.
@@ -35,6 +39,7 @@ THRESHOLD = 10          # per-channel abs diff above which a pixel counts as "ch
 BAR = 0.01              # the window must change more than this fraction of its pixels to count as a real kit change
 BAND_TOP = 0.25         # top quarter of the window: the pack above the shoulder
 BAND_SIDE = 0.22        # outer fraction of the columns on each side: the charges past the torso
+GROWN = (1.0, 0.5)      # the grown window: +1.0*w of columns each side, +0.5*h of rows above (clipped as usual)
 
 _WINDOW = {}            # slot -> (w, h), the window size taken once from the Engineer still
 
@@ -55,6 +60,13 @@ def man(data, slot):
     return None
 
 
+def grown_size(w, h):
+    """The window three times the man's own area: a box-width of columns added each side and half a box-height of
+    rows above. Reported only - nothing is gated on it. It exists so the committed numbers, and not an argument,
+    rule out the window having missed the pack and the charges."""
+    return (w + 2 * int(round(GROWN[0] * w)), h + int(round(GROWN[1] * h)))
+
+
 def anchored_rect(png, slot, w, h):
     """The window of size (w, h) hung on this frame's OWN anchor: its centre column and its foot row."""
     m = man(sidecar(png), slot)
@@ -69,10 +81,13 @@ def in_band(x, y, w, h):
     return y < h * BAND_TOP or x < w * BAND_SIDE or x >= w * (1.0 - BAND_SIDE)
 
 
-def aligned_frac(png_a, png_b, slot, band=False):
+def aligned_frac(png_a, png_b, slot, band=False, grown=False):
     """The fraction of the aligned window that differs between two frames. The one measurement both this probe and
-    capture.py's corner search use, so a corner is judged by the same rule that will judge the evidence."""
+    capture.py's corner search use, so a corner is judged by the same rule that will judge the evidence. With
+    grown=True the same measurement is taken over the GROWN window (see grown_size); band and grown do not mix."""
     w, h = _WINDOW[slot]
+    if grown:
+        w, h = grown_size(w, h)
     ra, rb = anchored_rect(png_a, slot, w, h), anchored_rect(png_b, slot, w, h)
     if ra is None or rb is None:
         return None
@@ -127,7 +142,7 @@ def pair_measure(n):
 
     control = [c for c in (eng, f"noise-{n}.png", f"noise-{n}-b.png")
                if os.path.exists(os.path.join(HERE, c))]
-    spread, spread_band = [], []
+    spread, spread_band, spread_grown = [], [], []
     for i in range(len(control)):
         for j in range(i + 1, len(control)):
             f = aligned_frac(control[i], control[j], slot)
@@ -136,6 +151,9 @@ def pair_measure(n):
             f = aligned_frac(control[i], control[j], slot, band=True)
             if f is not None:
                 spread_band.append(f)
+            f = aligned_frac(control[i], control[j], slot, grown=True)
+            if f is not None:
+                spread_grown.append(f)
     return {
         "seed": n, "slot": slot, "window": _WINDOW[slot],
         "both_readable": len(eng_men) == 2 and len(sap_men) == 2,
@@ -143,9 +161,12 @@ def pair_measure(n):
         "contrast": [m["contrast"] for m in eng_men.values()] + [m["contrast"] for m in sap_men.values()],
         "kit_frac": aligned_frac(sap, eng, slot),
         "kit_frac_band": aligned_frac(sap, eng, slot, band=True),
+        "kit_frac_grown": aligned_frac(sap, eng, slot, grown=True),
+        "grown_window": list(grown_size(*_WINDOW[slot])),
         "control_shots": control,
         "spread_max": max(spread) if spread else None,
         "spread_max_band": max(spread_band) if spread_band else None,
+        "spread_max_grown": max(spread_grown) if spread_grown else None,
         "spread_all": spread,
     }
 
@@ -173,6 +194,7 @@ def main():
     contrast_all = [c for p in pairs if p for c in p["contrast"]] + seed3["contrast"]
     kit_fracs = [p["kit_frac"] for p in pairs if p and p["kit_frac"] is not None]
     spreads = [p["spread_max"] for p in pairs if p and p["spread_max"] is not None]
+    kit_fracs_grown = [p["kit_frac_grown"] for p in pairs if p and p["kit_frac_grown"] is not None]
 
     probe = {
         "pairs": [p for p in pairs if p],
@@ -181,6 +203,8 @@ def main():
         "contrast_min": min(contrast_all) if contrast_all else -1,
         "kit_frac_min": min(kit_fracs) if kit_fracs else -1,
         "spread_max": max(spreads) if spreads else -1,
+        # reported only, never gated: see aligned_frac's grown window
+        "kit_frac_grown_min": min(kit_fracs_grown) if kit_fracs_grown else -1,
         "bar": BAR,
     }
     with open(os.path.join(HERE, "probe.json"), "w", encoding="utf-8") as f:
@@ -190,6 +214,8 @@ def main():
     for p in probe["pairs"]:
         print(f"seed {p['seed']}: kit_frac={p['kit_frac']} (band {p['kit_frac_band']})  "
               f"spread_max={p['spread_max']} (band {p['spread_max_band']})")
+        print(f"         grown {p['grown_window']}: kit_frac_grown={p['kit_frac_grown']}  "
+              f"spread_max_grown={p['spread_max_grown']}")
 
     if probe["tall_min"] < 120:
         print(f"FAIL tall_min {probe['tall_min']} < 120")
