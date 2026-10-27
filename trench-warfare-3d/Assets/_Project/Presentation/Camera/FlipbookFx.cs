@@ -73,6 +73,9 @@ namespace TW.Presentation.Tactical
             // water entry r7 (harsh critic r1: "the crown is blue-white on blue water"): the column's own drawing,
             // mostly its own ink rather than the moon's dim light, so a tint can carry a value step over the foam
             Crown,        // the crown a body or a dropped thing throws up entering water
+            // water entry r7-g1 (the owner: "body then crown then fallen foam"): the foam that falls back onto the
+            // water, the ground ring's drawing laid flat on the surface - flat, so it reads as WIDTH at every zoom
+            Foam,         // the fallen foam a water entry leaves lying on the surface
             Count
         }
 
@@ -220,6 +223,7 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "SparkFan", Cols = 4, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Ink = new Vector2(0.05f, 0.95f), Fill = 0.90f },
             new Sheet { Name = "WreckSmoke", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Cycle = true, Erode = true, Deep = true, Mood = 0.3f, Lit = 0.5f, RampIn = 0.1f, Tint = new Color(0.21f, 0.2f, 0.19f), Low = 0.11f, High = 1.20f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.43f },   // MineSmoke
             new Sheet { Name = "Column", Cols = 4, Rows = 4, Frames = 16, Tint = new Color(0.95f, 0.98f, 1.02f), Low = 0.22f, High = 0.80f },   // Crown: the Splash book's own drawing, its window opened down to 0.22 so more of the card inks, and its VALUE carried by the tint CombatFx.ApplyTints paints (WaterEntry.CrownTint). Lit was tried at 0.35, on the reasoning that at night `lit` is the moon's dim colour: the capture came back 0.019 DARKER than the water, because the drawing's own ink is the dark half of the card. Measured, not reasoned.
+            new Sheet { Name = "GroundRing", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 0f, Ground = true, Mood = 0.45f, Tint = new Color(0.95f, 0.98f, 1.02f), Low = 0.22f, High = 0.81f, Ink = new Vector2(0.12f, 0.88f), Fill = 0.94f },   // Foam: the ground ring's drawing and grid, lying on the water. Lit is LEFT OFF where GroundRing has 0.75, for the reason the Crown row records: at night `lit` is the moon's dim colour. Measured, r7-g1: Lit 0.75 AND a 1.24x brighter tint were both captured and both changed the foam's pixels by nothing at all (the box's percentiles came back identical to three decimals), so the flat, Ground-drawn card takes neither this row's Lit nor the tint ApplyTints paints: its value is the drawing's own. Low is opened to 0.22 as the Crown's is, so more of the card inks.
         };
 
         /// <summary>IN-5 (VFX pass): how much wider a burst's far-reading parts are drawn at a zoom: 1 up to FarGrowFrom,

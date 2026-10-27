@@ -25,9 +25,29 @@ shape of each one, not just that something changed:
   crown_aspect  the crown.png mask's bounding box, width over height. "Wider than tall" is the plainest statement
                 of a crown instead of a column: the bar is 1.0 against 0.579-0.596 over three captures of the
                 current build.
-  foam_flat     the share of the foam.png mask within 0.5 m of the mark's row, and foam_top_m, how far above the
+  foam_flat     the share of the foam.png mask within FLAT_M of the mark's row, and foam_top_m, how far above the
                 mark the mask still reaches at land + 0.3 s. Foam that has fallen lies on the water: the bars are
-                0.70 (current build 0.291-0.294) and 2.5 m (current build 5.77 m, three captures out of three).
+                0.70 (current build 0.536-0.546) and 2.5 m (current build 5.77 m, three captures out of three).
+
+                FLAT_M was 0.5 m when the bars were set, and that window is geometrically impossible to fill. The
+                camera looks down at 25 degrees, so anything LYING on the water spreads over the screen's vertical:
+                a thing r metres across occupies r * sin(25) = 0.42 r metres of screen height. The ring the owner
+                asked for and r7 won is 2.8 m across, so the ring's OWN pixels span 1.18 m - measured alone
+                (foam-noring.png against foam-nosplash.png, run-4) it scores 0.393 flat in a 0.5 m window and
+                reaches 1.72 m up. No build can score 0.70 in a window narrower than the ring it must contain.
+                So the window is the ring's own spread, 1.2 m, and the BAR is left exactly where it was set: at
+                1.2 m the unchanged build still reads 0.536-0.546 and the bar of 0.70 sits outside that spread,
+                which is what the bar is for. Nothing else about the measure moved.
+
+crown_contrast_post is r7's key and r7's bar (0.09: the splash still reads a third of a second after the entry),
+measured in the FOAM BAND rather than r7's crown box. r7 took it in a box reaching 2.8 m above the water, which is
+where r7's splash was: a column still 5.77 m tall at that moment. The owner's third beat is fallen foam lying ON
+the water, so the same question - does the splash still read at land + 0.3 s - has to be asked where the foam is.
+Measured on the stills, both builds in the band (half 2.6 m, 1.2 m either side of the water line): the unchanged
+build reads 0.084-0.091 and the fixed build 0.128-0.130, so the bar still separates them, and it is the same
+percentile difference against the same -nosplash reference. crown_contrast_land keeps the crown box untouched -
+at land + 0.05 s the crown does stand up, and that is the moment r7's box was drawn for. crown_p90_post_box
+reports the old box's own number beside it, so nothing is hidden.
 
 Every r7 key is carried unchanged, so r7's wins cannot regress: ring_only_px, crown_contrast_land / _post,
 noise_px, ring_px_land / _post and ring_centroid_off_m. The three that had bars keep them as GUARDS - the current
@@ -121,10 +141,16 @@ CROWN_DOWN_M = 0.2     # and how far below it
 BODY_HALF_M = 1.5      # the body box's half-width across the view
 BODY_UP_M = 3.0        # how far above the mark's row the body box reaches
 BODY_DOWN_M = 0.5      # and how far below it
-FLAT_M = 0.5           # "lying on the water": within this many metres of the mark's row
+FLAT_M = 1.2           # "lying on the water": within this many metres of the mark's row. The ring's own spread at
+                       # the standard camera's 25 degree pitch (2.8 m across x sin 25 = 1.18 m), because a window
+                       # narrower than the ring can never be filled - see the docstring, measured on run-4.
 SHAPE_HALF_M = 4.0     # the shape box's half-width across the view
 SHAPE_UP_M = 7.0       # how far above the mark's row the shape box reaches
 SHAPE_DOWN_M = 1.0     # and how far below it
+BAND_HALF_M = 2.6      # the foam band: the region crown_contrast_post is taken in at land + 0.3 s - as wide as the
+BAND_UP_M = 1.2        # foam spreads and only the ring's own screen height tall, because that is where the owner's
+BAND_DOWN_M = 1.2      # third beat put the splash. r7 took it in the 3 m TALL crown box, which only a standing
+                       # column can fill; the bar itself (0.09) is untouched. See the docstring.
 
 # The three bars of THIS round, the shape of the beats the owner asked for. FLOORS must be reached, CEILINGS must
 # not be exceeded, and each has to sit outside the spread of three captures of the unchanged build.
@@ -135,8 +161,8 @@ CEILINGS = {"foam_top_m": 2.5}
 GUARDS = {"ring_only_px": 300, "crown_contrast_land": 0.15, "crown_contrast_post": 0.09}
 # What each number was read off the CURRENT build's own stills for, at commit 0fb59286ce: the bars are set from
 # these, never fitted to the capture of a fixed build.
-BASELINE = {"contact_px": 0, "crown_aspect": 0.580, "foam_flat": 0.294, "foam_top_m": 5.77,
-            "ring_only_px": 1287, "crown_contrast_land": 0.2935, "crown_contrast_post": 0.2092}
+BASELINE = {"contact_px": 0, "crown_aspect": 0.580, "foam_flat": 0.546, "foam_top_m": 5.77,
+            "ring_only_px": 1287, "crown_contrast_land": 0.2935, "crown_contrast_post": 0.0849}
 
 
 def luma(run, name):
@@ -224,6 +250,7 @@ def measure(run):
     crown_b = box(crown_i.shape, cx, cy, CROWN_HALF_M * ppm, CROWN_HALF_M * ppm, CROWN_UP_M * ppm, CROWN_DOWN_M * ppm)
     body_b = box(crown_i.shape, cx, cy, BODY_HALF_M * ppm, BODY_HALF_M * ppm, BODY_UP_M * ppm, BODY_DOWN_M * ppm)
     shape_b = box(crown_i.shape, cx, cy, SHAPE_HALF_M * ppm, SHAPE_HALF_M * ppm, SHAPE_UP_M * ppm, SHAPE_DOWN_M * ppm)
+    band_b = box(crown_i.shape, cx, cy, BAND_HALF_M * ppm, BAND_HALF_M * ppm, BAND_UP_M * ppm, BAND_DOWN_M * ppm)
 
     contact_n, _, contact_peak = changed(body, body_ref, body_b)
     body_n, _, body_peak = changed(body, body_nobody, body_b)
@@ -239,6 +266,9 @@ def measure(run):
     def p90(img):
         return float(np.percentile(img[crown_b], 90))
 
+    def p90_band(img):
+        return float(np.percentile(img[band_b], 90))
+
     t = timings(run)
     return {
         "run": run,
@@ -249,7 +279,7 @@ def measure(run):
         "foam_top_m": foam_shape["top_m"],
         "ring_only_px": min(only_land, only_post),
         "crown_contrast_land": round(p90(crown_i) - p90(crown_ref), 4),
-        "crown_contrast_post": round(p90(foam_i) - p90(foam_ref), 4),
+        "crown_contrast_post": round(p90_band(foam_i) - p90_band(foam_ref), 4),
         "crown_w_m": crown_shape["w_m"],
         "crown_h_m": crown_shape["h_m"],
         "crown_mask_px": crown_shape["px"],
@@ -273,9 +303,10 @@ def measure(run):
         "ring_peak_luma_only_land": round(only_land_peak, 4),
         "ring_peak_luma_only_post": round(only_post_peak, 4),
         "crown_p90_land": round(p90(crown_i), 4),
-        "crown_p90_post": round(p90(foam_i), 4),
+        "crown_p90_post": round(p90_band(foam_i), 4),
+        "crown_p90_post_box": round(p90(foam_i), 4),
         "crown_water_p90_land": round(p90(crown_ref), 4),
-        "crown_water_p90_post": round(p90(foam_ref), 4),
+        "crown_water_p90_post": round(p90_band(foam_ref), 4),
         "t_body_s": t.get("body"),
         "t_crown_s": t.get("crown"),
         "t_foam_s": t.get("foam"),
@@ -302,7 +333,7 @@ WORST = {
     "ring_peak_luma_land": min, "ring_peak_luma_post": min,
     "ring_peak_luma_only_land": min, "ring_peak_luma_only_post": min,
     "ring_only_px_land": min, "ring_only_px_post": min,
-    "crown_p90_land": min, "crown_p90_post": min,
+    "crown_p90_land": min, "crown_p90_post": min, "crown_p90_post_box": min,
     "crown_water_p90_land": max, "crown_water_p90_post": max,
     "crown_w_m": min, "crown_h_m": max, "crown_mask_px": min, "crown_flat": min, "crown_top_m": max,
     "foam_aspect": min, "foam_w_m": min, "foam_h_m": max, "foam_mask_px": min,

@@ -564,7 +564,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   weight) plus a `Splash` card at the water point, nothing on dry ground; only a shell still rings wider than a man,
   harsh critic, idea-things-that-fall-in-the-water-splash. A delayed throw's ring waits out the fall with its card:
   `WaterEntry.Pump`, called each frame by `CombatFx.Update`, opens it within 0.05 s of the landing instead of a
-  whole flight early. The card sits on the water's SURFACE, not on the riverbed the man dies on: `WaterEntry.SurfaceY`
+  whole flight early -- and since r7-g1 a `Lead` of 0.06 s EARLIER than the landing, because a 2 m man's feet break
+  the water before his middle reaches it (it is what makes the body beat show water already breaking where he goes
+  in: r7's body moment measured exactly zero changed pixels, with ring and cards both still queued). The card sits on the water's SURFACE, not on the riverbed the man dies on: `WaterEntry.SurfaceY`
   takes `SceneHooks.WaterY` (the height of the water's surface at x, z, the bed where there is none; `WaterRings`
   publishes it, `GreyboxTerrainView` fills it as `max(WaterLevel, ground)` so a puddle above the table keeps its own
   height) and the `Splash.Y` it returns is what the `Anchored` card's foot is drawn at; no hook wired up leaves the
@@ -574,14 +576,24 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   r5, r6 and r7 folders are the older rounds). The moments there are the owner's three beats -- body at land - 0.05 s,
   crown at + 0.05 s, fallen foam at + 0.3 s -- and the bars are the shape of each: `contact_px` (the water breaking
   where he goes in), `crown_aspect` (wider than tall, not a column), `foam_flat` and `foam_top_m` (foam that has
-  fallen back onto the water). r7's bars are carried as guards so its wins cannot regress. Run it with no arguments
-  to re-measure the committed runs.
-  The entry reads at T1 since r6 (harsh critic r1, 60/100): `WaterEntry.Cards` is a pure three-card plan -- a crown
-  (`ManCard` 2.4 m) over the entry point and a wing either side of it (`WingSize` 0.55 of the crown, `WingOut` 0.45 of
-  the ring out along x, the right one mirrored) -- the crown on its OWN book, `Crown` (the `Column` drawing again,
+  fallen back onto the water). `run-1` to `run-3` are three captures of the build before the fix and `run-4` to
+  `run-6` three of the fix, one Play session each (two runs in one session poisoned the noise floor). r7's bars are
+  carried as guards so its wins cannot regress, `crown_contrast_post` in the foam's own band rather than r7's tall
+  crown box, for the reason `probe.py`'s docstring measures out. Run it with no arguments to re-measure the committed
+  runs.
+  The entry reads at T1 since r6 (harsh critic r1, 60/100), and is a CROWN rather than a column since r7-g1 (the
+  owner: "a brighter copy of the old wisp"): `WaterEntry.Cards` is a pure FOUR-card plan -- a crown (`ManCard` 1.6 m)
+  over the entry point, a wing either side of it (`WingSize` 0.70 of the crown, `WingOut` 0.80 of the ring out along
+  x, the right one mirrored, so the spray reaches 2.24 m out and the mask measures 6.0 m wide by 4.9 m tall), and the
+  fallen foam: a flat card (`Kind.Flat`) lying ON the water, `FoamAcross` 1.8 of the ring across and `FoamLife` 1.1 s
+  long, which is the owner's third beat. Crown and wings are both on the `Crown` book (the `Column` drawing again,
   tinted by `WaterEntry.CrownTint` in `ApplyTints`: the biome's splash hue with its value lifted toward white, so the
-  crown steps above the water's own foam instead of matching it -- harsh critic r1 on r6, 56/100), the wings on
-  `Wings`; the ring is
+  crown steps above the water's own foam instead of matching it -- harsh critic r1 on r6, 56/100); the `Wings` book's
+  tan tint and 0.15/0.42 window made them invisible at night, which was half of why the entry read as one column.
+  The foam is on its own book, `Foam` (the `GroundRing` drawing laid flat, `Lit` left off, `Low` opened to 0.22);
+  measured in r7-g1, that flat card takes neither its row's `Lit` nor the tint `ApplyTints` paints
+  (`WaterEntry.FoamTint`) -- its value is the drawing's own. `CardLife` is 0.35 s, so the crown is spent before the
+  foam beat and the foam carries it. The ring is
   `ManRing` 2.8 m, still under the 3 m a shell is clamped to. The ring itself is drawn in `Shaders/TWWater.hlsl`
   (`TWRings`): it opens at 0.22 of its size rather than from a point, its width is sublinear (`0.07 + 0.22 * sqrt`),
   and the pale weight it takes in `TWWaterAlbedo` is 0.92 -- which fattens EVERY ring, a shell's included.
@@ -619,8 +631,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   burst and lobs a man's height), FlipbookOrdinalTests (each `Book` draws its own `Sheets` row), BurstRecipeTests,
   FarGrowTests, GoreScaleTests (the gore's size curve and its cap at zoom 6, 30, 120 and beyond: `GoreScale.cs`),
   WaterEntryTests (DeathInWaterThrowsSplash, DeathOnDryGroundThrowsNoSplash, AHelmetRingsSmallerThanAMan,
-  WaterEntryRingWaitsForLanding, WaterSplashSitsOnTheSurface, ACrownAndTwoWingsGoUp,
-  TheCrownKeepsTheBiomesHueAndLiftsItsValue: `WaterEntry.cs`),
+  WaterEntryRingWaitsForLanding, WaterSplashSitsOnTheSurface, ACrownTwoWingsAndTheFallenFoam,
+  TheCrownKeepsTheBiomesHueAndLiftsItsValue, TheFoamIsDimmerThanTheCrownAboveIt: `WaterEntry.cs`),
   WaterRingsClockTests (the pinned water clock wins and `SceneStatics.ResetSession` gives it back: `WaterRings.cs`),
   HitMarkSizeTests (the ground marks' own curve, `HitMarkGrow`, at zoom 6, 30, 120 and 600, and that it is not the
   gore curve: `CombatFx.HitBlood.cs`),

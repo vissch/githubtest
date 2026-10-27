@@ -123,6 +123,7 @@ namespace TW.Presentation.Tactical
             // the standard camera, while this stands up to 11 m out of the water for a second and a half
             books.Tint(FlipbookFx.Book.Splash, t.Splash);
             books.Tint(FlipbookFx.Book.Crown, WaterEntry.CrownTint(t.Splash));   // water entry r7: the biome's splash hue with its value lifted, so the crown stands above its own foam at night
+            books.Tint(FlipbookFx.Book.Foam, WaterEntry.FoamTint(t.Splash));     // r7-g1: the same lift, less of it, so the crown still reads brighter than the foam it falls into
             books.Tint(FlipbookFx.Book.Column, t.Column);
             books.Tint(FlipbookFx.Book.Wings, t.Column);
             books.Tint(FlipbookFx.Book.Spurt, t.Dust);

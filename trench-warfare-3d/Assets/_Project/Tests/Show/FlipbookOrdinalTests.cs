@@ -24,6 +24,7 @@ namespace TW.Tests
                 string name = FlipbookFx.SheetName(b);
                 if (b == Book.MineSmoke) { Assert.AreEqual("WreckSmoke", name, "the mine's smoke is the wreck's drawing, tinted black"); continue; }
                 if (b == Book.Crown) { Assert.AreEqual("Column", name, "the water entry's crown is the column's drawing, lit by itself"); continue; }
+                if (b == Book.Foam) { Assert.AreEqual("GroundRing", name, "the water entry's fallen foam is the ground ring's drawing, laid flat on the water"); continue; }
                 Assert.IsTrue(name == b.ToString() || name == "Fire" + b, $"Book.{b} is row {(int)b}, which draws {name}: the Sheets row there is another book's");
             }
         }
