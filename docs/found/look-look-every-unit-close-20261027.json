@@ -1,0 +1,48 @@
+{
+  "subject": "look:every-unit-close",
+  "looked_at": [
+    "trench-warfare-3d/Captures/units1027/frames.txt (130 lines: 38 units x 2 stills at zoom 8 yaw 21 and zoom 14 yaw 111, pitch 25, clock HELD, ticks 37729-40079, +1 reference rifleman)",
+    "trench-warfare-3d/Captures/units1027/*.json (all 76 sidecars: luma_mean, blown_frac, black_frac, contrast_median, contrast_p10, men_in_frame, warnings)",
+    "trench-warfare-3d/Captures/units1027/00-Rifle-a.png (control, zoom 8, tick 37729)",
+    "trench-warfare-3d/Captures/units1027/27-ATRifle-a.png (zoom 8, tick 39482, black_frac 0.755)",
+    "trench-warfare-3d/Captures/units1027/33-Whippet-a.png (zoom 8, tick 39812, black_frac 0.774, luma_mean 0.039)",
+    "trench-warfare-3d/Captures/units1027/29-MarkIV-b.png (zoom 14, tick 39581)",
+    "trench-warfare-3d/Captures/units1027/09-Pavise-b.png (zoom 14, tick 38199, contrast_median 2.177)",
+    "trench-warfare-3d/Captures/units1027/motion/00-Rifle-sheet.png (8 frames)",
+    "trench-warfare-3d/Captures/units1027/fails.txt (empty: no shot failed)",
+    "docs/found/look-look-every-unit-close-20261016.json",
+    "docs/found/look-look-every-unit-close-20261019.json",
+    "docs/reference/decisions.md (the Proving Ground, stand-in and one-size rows)",
+    "docs/reference/tasks.md (the Proving Ground rows)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TacticalCamera.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs (StandIns)"
+  ],
+  "tasks": [
+    {
+      "title": "Fade or dodge geometry between the close camera and its focus",
+      "why": "MEASURED. At the close view (zoom 8, pitch 25, yaw 21) nothing between the camera and the unit it frames is faded, culled or dodged: TacticalCamera.cs only clamps Zoom to ZoomMin 6 and sets nearClipPlane 0.2 (:33, :160, :182), it never asks what stands in the way. On 38 close stills the median black_frac is 0.427 and 12 frames are over 0.45: 33-Whippet-a 0.774 and 27-ATRifle-a 0.755 are a neighbouring hull filling the whole frame, clipped through, with no silhouette, no ground and no unit visible at all. The player can zoom two steps closer than the rig did, so in the game it is worse. The cost: at the zoom the game sells its models at, a third of a crowded field shows the inside of someone else's tank instead of the unit under the cursor. The quiet second cost is that every close capture of a crowded field is worthless as evidence, which is how this unit's last two rounds were judged.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TacticalCamera.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "Re-run the same 38-unit close set (zoom 8, pitch 25, yaw 21) on the same seed: every -a sidecar has black_frac < 0.30 (today: median 0.427, 12 of 38 over 0.45, worst 33-Whippet-a 0.774) and men_in_frame >= 1 on all 38 (today 12 frames show only the reference man or none).",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Men against the wet mud: readability has worsened again",
+      "why": "MEASURED, and a repeat of the 2026-10-16 and 2026-10-19 rounds, reported only because it is measurably worse. The sidecar warning 'men barely separate from the ground: unreadable' now fires on 21 of 76 stills, against 16 of 76 on 2026-10-19 and 14 of 76 on 2026-10-16: +31 % in eight days, a steady climb over three rounds. Nine of the 21 are in the clean yaw-111 views, which are not blocked by anything: 23-Hopper-b contrast_median 0.041, 26-Sentry-b 0.060, 24-Mercy-b 0.068, 22-Croaker-b 0.073, 01-Assault-b 0.078, 29-MarkIV-b 0.085, against the 0.306 median of that view. In 00-Rifle-a and frames 05-07 of 00-Rifle-sheet.png the near mud carries a blue-white wet sheen brighter than the olive men standing on it, so the eye reads the ground first and the soldier last; on the crest he disappears entirely. The cost: at the zoom the player fights at, he cannot tell his own men from the mud, and the trend says each change makes it a little worse.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Shaders/Toon_URP.shader",
+        "trench-warfare-3d/Assets/_Project/Presentation/Core/UnitLook.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "Re-run the same 76-still set: at most 8 stills carry the 'men barely separate from the ground' warning (today 21 of 76; 16 on 2026-10-19, 14 on 2026-10-16) and no yaw-111 still has contrast_median below 0.12 (today nine are under it, worst 23-Hopper-b 0.041).",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
