@@ -41,6 +41,11 @@ namespace TW.Presentation.Tactical
         /// photographs the cruise and the top of one arc instead of guessing at frame numbers.</summary>
         public float HopArcPhaseOf(int slot) => views.TryGetValue(slot, out var v) ? v.HopArcPhase : 0f;
 
+        /// <summary>How many arcs this Hopper has finished: it rises by one on the frame the arc wraps, which is the
+        /// frame the downwash dust is spawned. A stills test cannot see `landed` otherwise, so it could not
+        /// photograph the land frame at all.</summary>
+        public int HopArcLandingsOf(int slot) => views.TryGetValue(slot, out var v) ? v.HopArcLandings : 0;
+
         /// <summary>The scene half: read the ground under and ahead of the hull, step the arc, and write the bob and
         /// nose tilt the root matrix reads. Runs after Flair, which leaves a Hopper's Bob at 0 (DriveStyle Chug = 0).</summary>
         void HopArcPose(View v, float dt)
@@ -57,6 +62,7 @@ namespace TW.Presentation.Tactical
             v.HopArcPhase = HopArcStep(v.HopArcPhase, crossing, dt, out bool landed);
             v.Bob = HopArcRise(v.HopArcPhase);
             v.HopTilt = HopArcTilt(v.HopArcPhase);
+            if (landed) v.HopArcLandings++;
             if (landed && books != null && books.Ready)
             {
                 // downwash from 9 m, not a landing: the same two puffs as the toad's, at half the weight

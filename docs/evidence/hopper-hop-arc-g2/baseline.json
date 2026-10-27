@@ -1,0 +1,53 @@
+{
+  "stills": {
+    "base_1": {
+      "hull_top": 242,
+      "hull_bottom": 458,
+      "dust_px": 554,
+      "mask_px": 35227
+    },
+    "base_2": {
+      "hull_top": 234,
+      "hull_bottom": 458,
+      "dust_px": 549,
+      "mask_px": 33768
+    },
+    "base_3": {
+      "hull_top": 244,
+      "hull_bottom": 461,
+      "dust_px": 569,
+      "mask_px": 35336
+    }
+  },
+  "dust_px": [
+    554,
+    549,
+    569
+  ],
+  "min": 549,
+  "max": 569,
+  "spread": 20,
+  "delta": 30,
+  "row_min": 8,
+  "gap": 4,
+  "empty_run": 24,
+  "zoom_in_sidecars": [
+    30
+  ],
+  "pose_error_m": {
+    "base_1": 0,
+    "base_1_empty": 0,
+    "base_2": 0,
+    "base_2_empty": 0,
+    "base_3": 0,
+    "base_3_empty": 0
+  },
+  "luma_mean": {
+    "base_1": 0.1738,
+    "base_1_empty": 0.1752,
+    "base_2": 0.1751,
+    "base_2_empty": 0.1757,
+    "base_3": 0.1739,
+    "base_3_empty": 0.1754
+  }
+}

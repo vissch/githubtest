@@ -129,6 +129,9 @@ namespace TW.Presentation.Tactical
             public float HopPhase, HopTilt, Spin, SpinAngle;
             /// <summary>A Hopper's place in its hop arc over a trench or wire (0 cruising; TankRenderer.HopArc.cs).</summary>
             public float HopArcPhase;
+            /// <summary>How many times its arc has wrapped (TankRenderer.HopArc.cs sets `landed` on that one frame):
+            /// what a stills test waits on to photograph the land frame itself.</summary>
+            public int HopArcLandings;
             public int BarrelTurn, BarrelFrame;   // which barrel cluster fires, and the frame it last changed
             /// <summary>A hopper's height as a share of its sculpt's (1 at rest): it flattens as it lands and gathers, stretches
             /// at the top of a hop, and breathes when it sits. Its width and length give way so its bulk stays.</summary>
