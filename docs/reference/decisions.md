@@ -296,6 +296,18 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **The chlorine bank missing from the stills is a capture-path fault: (a).** To the open question "The chlorine bank is not in the picture at all" (four CaptureRig stills in GreyboxCorridor at night hold no bank, while the sim took every call and `CombatFx.gasCards` held up to 133 packed cards) the owner picked option (a): treat it as a capture-path fault and have SHOW find why the GasBank book (the only `Bank`/`Deep` sheet) misses `CaptureRig`'s own `Camera.Render()`. It is the default that changes no look: the bank is not grown, brightened or unsquashed (option (b)), and it is not left alone (option (c)). Pictures and numbers: `docs/evidence/ability-fx-captures-r2/`. Carried by the lane `lane/show/ability-fx-captures-r2-2`. (owner, 2026-10-19) **Closed by `ability-fx-captures-r2-2`:** the bank was never missing — it is drawn, reaches `CaptureRig`'s `Camera.Render()`, and covers 11% of the T1 frame; the fault was `probe.py`'s own hue test, which at night could read only 193 of the 101,253 pixels that actually changed from the plate. No look changed. `docs/evidence/ability-fx-captures-r2/probe.json` is green. |
 
 ## Open: waiting on the owner
+- **This lane cannot be rebased onto integration without redoing another unit's gas-bank card work (2026-10-27,
+  lane `lane/show/ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g1`):** the fire-and-smoke removal the owner
+  asked for on 2026-10-26 is built, gate-green and pushed on this lane. The lane is 181 commits behind the
+  integration branch, and replaying its 29 commits conflicts in
+  `Presentation/Camera/CombatFx.Banks.cs`: integration already carries a different version of the gas bank's cards
+  than this lane's rounds built, so resolving it is a look judgement on the bank, not a mechanical merge. (The doc
+  conflicts are mechanical: `decisions.md` keeps every row, the `gen:` blocks in `tasks.md` are regenerated.)
+  Options: (a) the gas-bank rounds' owner rebases that lane first and settles which bank cards win, then the
+  fire-and-smoke commit rides on top - the default taken here, since this leg must not redesign another unit's
+  look; (b) the fire-and-smoke commit is cherry-picked alone onto a fresh lane off integration and lands without
+  the gas-bank rounds; (c) land the gas-bank rounds as they are and keep integration's bank. Nothing is landed on
+  it; the lane is pushed and unrebased.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
