@@ -1,0 +1,154 @@
+THE AT RIFLEMAN, RE-STAGED WITH NO FIRE IN THE FRAME        (2026-10-27, atrifle-restage-no-fire-2)
+====================================================
+
+WHY THIS SET EXISTS
+-------------------
+The owner's answer on the Decide page to "The AT rifleman's readability shot: clear the fire, or move the camera
+in" was: re-stage with no fire in the frame. r3-g1 measured the prone AT rifleman at 0.7655 against the Sniper,
+but the fires owned the largest moving blob in every plate and their motion sat inside the masks. This set is
+r3-g1 again, one camera, one place, the same two men - with the fires taken out of the world instead of out of
+the arithmetic.
+
+
+WHAT CHANGED FROM r3-g1, AND ONLY THAT
+--------------------------------------
+The fires. The editor was started with
+
+  TW_KNOBS=lights.maxFires=0,lights.maxTorches=0,look.moreFires=0
+
+in its environment. That is the right lever and not Knobs.Set: Knobs.ResetSession drops every override when Play
+ends and re-reads the environment, and NightLights reads these three once in Start. Lanterns and trench lamps are
+lamps, not fire, and stay lit; the frame did not go dark enough to trip the readability warning - every one of
+the fifteen sidecars reads warnings [].
+
+Everything else is r3-g1 line for line: scene GreyboxCorridor, VfxLab.Rain(0), the AT rifleman at (50, 25) and
+the Sniper at (45, 25), Hp pinned on every write, CaptureRig.Rig.YawPin = 0, Hold(120) before every shot,
+Release() after, and the SAME camera for all fifteen stills - focus (47.5, 25), zoom 30, yaw 180, pitch 22,
+1600x900. Three rounds of five, three live poses.
+
+
+THE FRAME SAYS IT ITSELF
+------------------------
+No flame was counted by eye. Every still carries flames_in_frame, which CaptureRig works out from the capture's
+own matrices over every flame foot NightLights placed, the small torches included, and the three knobs beside
+it. All fifteen read:
+
+  flames_in_frame 0   knob_maxFires 0   knob_maxTorches 0   knob_moreFires 0
+
+probe.py in this folder is r3-g1's probe with one gate added: a sidecar that does not read 0 on all four fails
+the set outright (exit 2). The rest of its gates are untouched, so the two readings are comparable.
+
+CombatFx still lights muzzle flashes and burning wrecks at run time, so flames_in_frame speaks for the static
+flame meshes only. Nobody is shooting in these stills and nothing burns in them: the count and the picture agree.
+
+
+THE STAGING, AND THE SIX THINGS r3-g1'S RECIPE DID NOT SURVIVE
+--------------------------------------------------------------
+Each one was found by a probe failure on this battle, not guessed at. The driver is rounds.py in the leg folder,
+every eval line and its answer in evals.log there.
+
+1. THE SLOT IS NOT FIXED. TankCapture.Spawn handed back slot 12 / slot 0 on one run and slot 4 / slot 12 on the
+   next. r3-g1's hard-coded 12 and 0 staged the wrong men. The driver now reads the slot out of Spawn's answer.
+
+2. A PLATE MUST HOLD NOBODY, AND THE CIRCLE WAS TOO SMALL. r3-g1 cleared alive men within 120 m, once, and moved
+   0. This battle walked a man into floor-2 at that radius. The clearing now reaches 400 m - as far as the
+   presenter draws - and runs before every write, not once.
+
+3. A CORPSE IS DRAWN TOO. r3-g1's clearing skipped Hp <= 0. The plates that still failed held a fallen man, not
+   a walker. The clearing takes every infantry slot, alive or dead; only the position moves, Hp is untouched.
+
+4. THE CLEARING AND THE FREEZE MUST BE ONE EVAL. As two, the sim ran on between them and spawned a man into
+   floor-1. One eval now sweeps and sets TimeScale=0 together.
+
+Two more, about the pose rather than the frame:
+
+5. THE PHASE AT THE SHOT IS NOT THE PHASE YOU ASKED FOR. r3-g1's fixed spells (0.4 / 1.2 / 2.0 s) gave 0.60,
+   0.91, 0.61 on this battle - one pose, and two pixel-identical AT masks. The staging writes themselves run the
+   sim on. The driver now nudges and re-stages until the prone man's phase is 0.12 clear of every phase already
+   shot, and it reads the phase back AFTER the capture to prove it did not drift: 0.72 -> 0.72, 0.93 -> 0.93,
+   0.20 -> 0.20.
+
+6. A MAN WRITTEN HOME SPENDS A MOMENT GETTING UP. A Sniper still caught in that moment is a different man: one
+   such still alone pushed the spread to 0.8058 and sank the set. The driver now waits for his post's own idle
+   clip before his still. Round 1 settled on KneelAimedIdle, rounds 2 and 3 on KneelIdle.
+
+The eval lines, verbatim and in order:
+
+  UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/_Project/Scenes/GreyboxCorridor.unity"); UnityEditor.EditorApplication.isPlaying = true; return "play";
+  return TW.Editor.VfxLab.Rain(0f);
+  return TW.Editor.SimProbe.Match();
+  return TW.Editor.TankCapture.Spawn(0, 27, 50f, 11f, 21f);    // -> "slot 12", read back, not assumed
+  return TW.Editor.TankCapture.Spawn(0, 3, 56f, 25f, 21f);     // -> "slot 0",  read back, not assumed
+  TW.Editor.CaptureRig.Rig.YawPin = 0f; return "yaw pinned to world";
+  // the clearing, before every write and once more together with the freeze:
+  var h=...; h.TimeScale=1f; int moved=0; h.WriteWorlds(m=>{ var p0=new Unity.Mathematics.float3(47.5f,0f,25f); for (int i=0;i<m.World.Hp.Length;i++){ if(i==12||i==0) continue; if(!TW.Sim.InfantryArchetype.IsInfantry(m.World.Archetype[i])) continue; if(Unity.Mathematics.math.distance(m.World.Position[i],p0)>400f) continue; m.World.Position[i]=new Unity.Mathematics.float3(-5000f,0f,-5000f); m.World.Speed[i]=0f; moved++; } }); return moved;
+  // three times, the sim RUNNING (the presenter will not move a frozen man), Hp pinned every time:
+  var h=...; h.TimeScale=1f; h.WriteWorlds(m=>{ m.World.Position[12]=new Unity.Mathematics.float3(50f,0f,25f); m.World.Speed[12]=0f; m.World.Hp[12]=90f; ... }); return 0;
+  return TW.Editor.CaptureRig.Hold(120f);
+  return TW.Editor.CaptureRig.Shot("<dir>/pair-1.png", 47.5f, 25f, 30f, 180f, 22f, 1600, 900);
+  return TW.Editor.CaptureRig.Release();
+
+A man moved off the map keeps his Hp: he is alive but out of frame, men_in_frame skips him, and he can be
+brought home without restarting Play. The first sweep moved 3582 slots; every later one 0 or 1.
+
+
+THE FIFTEEN STILLS
+------------------
+In this order, one Hold(120) each: empty-{r} (plate A), pair-{r}, at-{r}, sniper-{r}, floor-{r} (plate B). A and
+B bracket the round's three man stills, so |empty-r - floor-r| is exactly the fire motion those three masks
+carry - and with no fire it is now only the weather.
+
+  pair-1/2/3.png    both men, one camera, one moment. men_in_frame 2.
+  at-1/2/3.png      the Sniper off the map; the AT rifleman alone. men_in_frame 1.
+  sniper-1/2/3.png  the AT rifleman off the map; the Sniper alone. men_in_frame 1.
+  empty-1/2/3.png   both off the map: plate A for that round. men_in_frame 0.
+  floor-1/2/3.png   both off the map again: plate B. men_in_frame 0.
+
+A man's mask is |single - empty| for the SAME round, so the plate shares the camera, the weather clock and the
+few seconds of the still it is subtracted from, and it holds nobody.
+
+The sidecars, as read back (no number here is typed):
+
+  still       men_in_frame  drawn_infantry  flames_in_frame  knob maxFires/maxTorches/moreFires  luma_p50  warnings
+  pair-1            2             2                0                    0 / 0 / 0                0.11424     []
+  pair-2            2             2                0                    0 / 0 / 0                0.11404     []
+  pair-3            2             2                0                    0 / 0 / 0                0.11432     []
+  at-1              1             1                0                    0 / 0 / 0                0.11487     []
+  at-2              1             1                0                    0 / 0 / 0                0.11486     []
+  at-3              1             1                0                    0 / 0 / 0                0.11487     []
+  sniper-1          1             1                0                    0 / 0 / 0                0.11432     []
+  sniper-2          1             1                0                    0 / 0 / 0                0.11432     []
+  sniper-3          1             1                0                    0 / 0 / 0                0.11349     []
+  empty-1           0             0                0                    0 / 0 / 0                0.11494     []
+  empty-2           0             0                0                    0 / 0 / 0                0.11406     []
+  empty-3           0             0                0                    0 / 0 / 0                0.11489     []
+  floor-1           0             0                0                    0 / 0 / 0                0.11367     []
+  floor-2           0             0                0                    0 / 0 / 0                0.11516     []
+  floor-3           0             0                0                    0 / 0 / 0                0.11371     []
+
+Every sidecar also reads cam_yaw 180, zoom 30, pitch 22, focus (47.5, 25), 1600x900, rain 0 and pose_error_m 0 -
+the probe fails the set if any one of them differs from the first.
+
+
+THE READING
+-----------
+  python docs/evidence/atrifle-restage-no-fire-2/probe.py   ->  exit 0
+  verdict: the prone AT rifleman reads as his own man
+
+  silhouette_diff       0.6019     (the three readings: 0.7715, 0.6019, 0.6701 - the worst is quoted)
+  the bar               0.6
+  spread_at             0.1047
+  spread_sniper         0.4701
+  spread_max            0.4701     (must stay under 0.6)
+  at_phases             0.72, 0.93, 0.20     gap at least 0.21
+  px_per_m              25.001     disagreement between the two men 0.0004
+
+0.6019 against r3-g1's 0.7655. The same two men, the same camera, the same bar: taking the fire out of the frame
+costs 0.16 of the reading, and it clears 0.6 by 0.002. That is the honest number and it is not rounded up. The
+bar was not moved to fit it, and the margin is thin enough that the next re-stage of this pair should expect to
+land either side of it.
+
+Why it falls: in r3-g1 the firelight raked the prone man from the side and gave his silhouette edges the plate
+did not have. Without it he is lit by lanterns and sky alone, and he reads less distinct against the Sniper -
+while still reading as his own man. The spread is wider too (0.4701 against r3-g1's 0.2655), carried entirely by
+the Sniper: his kneeling idle changes his outline more from round to round than the prone man's does.
