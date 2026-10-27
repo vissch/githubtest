@@ -15,11 +15,16 @@ passes every gate: the still FAILS with the reason, not a number borrowed from t
     tan(fov/2) = zoom * tan 30 / dist                          (CaptureRig.Pose, CaptureRig.cs:167);
     px_per_m  = h / (2 * dist * tan(fov/2))                    pixels per metre on the focus plane;
     vpm       = px_per_m * cos(cam_pitch)                      pixels per metre of WORLD HEIGHT.
-Each still is aimed at ground level under the man (aimY), so the frame centre is his feet-in-the-mud, and his legs
-stand DeathGags.PlantLegsAboveM = 0.905 m above it: `legs_px_expected` -- the PRIOR used only to size the window
-and the shape gates, never reported as a finding.
+The frame centre is NOT assumed to be his feet. Each still must carry a companion `plant_N.man.json` with the
+planted man's rest position as DeathLab.Planted() reported it; the aim point of the shot is read back from the
+sidecar (aimY = cam_y - run * tan(cam_pitch)), and his feet row is cy_man = h/2 + (aimY - man_y) * vpm. Without
+that file the still FAILS: the probe will not borrow the frame centre as a prior it cannot check. (The two stills
+of 2026-10-27 were taken with the default aim, aimY 0.000, while the man rested at y -1.48 -- 35 px lower than the
+centre row.) His legs stand DeathGags.PlantLegsAboveM = 0.905 m above his feet: `legs_px_expected` -- the PRIOR
+used only to size the window and the shape gates, never reported as a finding. The geometry only sizes and places
+the window; it never measures.
 
-Window per still: +-1.2 m either side of the frame centre column, 0.05..1.35 m above the centre row.
+Window per still: +-1.2 m either side of the frame centre column, 0.05..1.35 m above the man's feet row.
 Mask gates (all must pass, else FAIL "no mask"):
   - area  >= 0.25 * (0.9 m x 0.35 m in px)
   - bbox height >= 0.5 * legs_px_expected
@@ -28,11 +33,13 @@ Mask gates (all must pass, else FAIL "no mask"):
 contrast = |median luma of the mask pixels - median luma of the ring 1.3..2.3 * legs_px_measured around the mask
 centroid (mask pixels excluded)| / (ring + 0.02)   -- same ratio shape as CaptureRig's, so the numbers compare.
 
+Exactly three captures are required: fewer and the probe exits 1 rather than scoring whatever is on disk.
+
 BAR = 0.10 (docs/reference/workflow.md section 6: on this scale 0.4 means you can find the man, 0.1 means he is
 mud). The probe also fails if the bar sits inside the spread of the three captures' own contrast values -- a pass
 would then mean nothing more than noise.
 """
-import json, math, os, statistics, sys
+import json, math, os, shutil, statistics, sys, tempfile
 
 from PIL import Image
 
@@ -170,9 +177,21 @@ def find_mask(lum, w, h, cx, cy, px_per_m, vpm, legs_px_expected):
     return best, win, gate(best)
 
 
+def aim_y(s):
+    """The world height the shot was aimed at, read back from the pose CaptureRig recorded."""
+    run = math.hypot(s["cam_x"] - s["focus_x"], s["cam_z"] - s["focus_z"])
+    return s["cam_y"] - run * math.tan(math.radians(s["cam_pitch"]))
+
+
 def probe(png, write_mask):
-    side = os.path.splitext(png)[0] + ".json"
+    stem = os.path.splitext(png)[0]
+    side = stem + ".json"
     s = json.load(open(side, encoding="utf-8"))
+    man_path = stem + ".man.json"
+    if not os.path.exists(man_path):
+        return {"still": os.path.basename(png), "ok": False, "contrast": None,
+                "reason": "no man position recorded (%s)" % os.path.basename(man_path)}
+    m = json.load(open(man_path, encoding="utf-8"))
     img = Image.open(png).convert("RGB")
     w, h = img.size
     pixels = list(img.getdata())
@@ -180,13 +199,22 @@ def probe(png, write_mask):
 
     dist, px_per_m, vpm = geometry(s, h)
     legs_px_expected = LEGS_M * vpm
-    cx, cy = w // 2, h // 2
-
-    mask, win, reason = find_mask(lum, w, h, cx, cy, px_per_m, vpm, legs_px_expected)
+    cx = w // 2
+    aimY = aim_y(s)
+    cy = int(round(h / 2.0 + (aimY - m["y"]) * vpm))
     base = {
         "still": os.path.basename(png), "legs_px_expected": round(legs_px_expected, 1),
-        "px_per_m": round(px_per_m, 2), "vpm": round(vpm, 2), "window": win,
+        "px_per_m": round(px_per_m, 2), "vpm": round(vpm, 2),
+        "aim_y": round(aimY, 3), "man_y": m["y"], "feet_row": cy,
     }
+    off = max(abs(m["x"] - s["focus_x"]), abs(m["z"] - s["focus_z"]))
+    if off > 0.5:
+        base.update({"ok": False, "contrast": None, "window": None,
+                     "reason": "the still is not aimed at the man (%.2f m off in x z)" % off})
+        return base
+
+    mask, win, reason = find_mask(lum, w, h, cx, cy, px_per_m, vpm, legs_px_expected)
+    base["window"] = win
 
     if reason is not None:
         base.update({"ok": False, "reason": reason, "contrast": None})
@@ -257,7 +285,8 @@ def selftest():
     def sidecar_for(ppm):
         dist = 100.0
         zoom = H / (2.0 * ppm * math.tan(math.radians(30.0)))
-        return {"cam_x": 0.0, "cam_z": -dist, "focus_x": 0.0, "focus_z": 0.0, "cam_pitch": 0.0, "zoom": zoom}
+        return {"cam_x": 0.0, "cam_y": 0.0, "cam_z": -dist, "focus_x": 0.0, "focus_z": 0.0,
+                "cam_pitch": 0.0, "zoom": zoom}
 
     sc = sidecar_for(PPM)
     cy = H // 2
@@ -282,6 +311,12 @@ def selftest():
     img_d = make(W, H, 0.18, (W // 2 - 15, py0, 30, 6), 0.30)
     cases.append(("fail-shape", img_d, sc, 0.18, None))
 
+    # (e) the same legs patch 35 px BELOW the frame centre, with the man recorded 35/PPM m under the aim point:
+    # the window must follow him down and find it. The un-offset window cannot see this patch at all.
+    OFFSET_PX = 35
+    img_e = make(W, H, 0.18, (px0, py0 + OFFSET_PX, patch_w, patch_h), 0.30)
+    cases.append(("pass-offset", img_e, sc, 0.18, 0.30))
+
     ok = True
     for name, img, sc_data, bg_l, patch_l in cases:
         w, h = img.size
@@ -289,8 +324,17 @@ def selftest():
         dist, px_per_m, vpm = geometry(sc_data, h)
         cx, cy = w // 2, h // 2
         legs_exp = LEGS_M * vpm
+        if name == "pass-offset":
+            # the man rests OFFSET_PX below the aim point: cy is the feet row probe() would compute for him
+            man_y = aim_y(sc_data) - OFFSET_PX / vpm
+            cy = int(round(h / 2.0 + (aim_y(sc_data) - man_y) * vpm))
+            _, _, blind_reason = find_mask(lum, w, h, cx, h // 2, px_per_m, vpm, legs_exp)
+            if blind_reason is None:
+                print("SELFTEST %-14s FAIL  the un-offset window found something: the offset proves nothing" % name)
+                ok = False
+                continue
         mask, win, reason = find_mask(lum, w, h, cx, cy, px_per_m, vpm, legs_exp)
-        if name == "pass":
+        if name in ("pass", "pass-offset"):
             expect = round(abs(patch_l - bg_l) / (bg_l + 0.02), 3)
             got_fail = reason is not None
             if got_fail:
@@ -324,6 +368,20 @@ def selftest():
             good = reason is not None and (("no mask" in reason) if name == "fail-no-mask" else ("width" in reason or "height" in reason))
             print("SELFTEST %-14s %-4s reason=%s" % (name, "PASS" if good else "FAIL", reason))
             ok = ok and good
+
+    # (f) a still with a sidecar but no .man.json: probe() must FAIL, not fall back to the frame centre
+    tmp = tempfile.mkdtemp(prefix="plantprobe")
+    try:
+        png = os.path.join(tmp, "plant_9.png")
+        make(W, H, 0.18, (px0, py0, patch_w, patch_h), 0.30).save(png)
+        with open(os.path.join(tmp, "plant_9.json"), "w", encoding="utf-8") as fh:
+            json.dump(sc, fh)
+        got = probe(png, False)
+        good = (not got["ok"]) and "no man position recorded" in got["reason"]
+        print("SELFTEST %-14s %-4s reason=%s" % ("fail-no-man", "PASS" if good else "FAIL", got["reason"]))
+        ok = ok and good
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
     return 0 if ok else 1
 
 
@@ -337,9 +395,10 @@ def main():
     if "--dir" in argv:
         directory = argv[argv.index("--dir") + 1]
 
-    stills = sorted(f for f in os.listdir(directory) if f.startswith("plant_") and f.endswith(".png"))
-    if not stills:
-        print("no plant_*.png in " + directory, file=sys.stderr)
+    stills = sorted(f for f in os.listdir(directory)
+                    if f.startswith("plant_") and f.endswith(".png"))
+    if len(stills) != 3:
+        print("need three captures, found %d" % len(stills), file=sys.stderr)
         return 1
     old_here = globals()["HERE"]
     try:
