@@ -1,0 +1,222 @@
+[
+  {
+    "sheet": "sheet-t1",
+    "cell": [
+      0,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/run1/gas-t1-plate.jpg",
+    "sha1": "0b1bdea822b6bb689fe8e1ae51e634aaefa810c9",
+    "caption": "run1  t1=557  no gas (plate)",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-t1",
+    "cell": [
+      0,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/run1/gas-t1.jpg",
+    "sha1": "b0f86603bcef34d9ff39bc6973eb284033ef4e77",
+    "caption": "run1  t1=557  gas  bank_paint_share=0.2037",
+    "key": "bank_paint_share"
+  },
+  {
+    "sheet": "sheet-t1",
+    "cell": [
+      1,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/run2/gas-t1-plate.jpg",
+    "sha1": "1013383c5f602e96518a18693ce5910421a7bdce",
+    "caption": "run2  t1=597  no gas (plate)",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-t1",
+    "cell": [
+      1,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/run2/gas-t1.jpg",
+    "sha1": "2c10a8878f365abacac8f8526b0b0407ea8d3547",
+    "caption": "run2  t1=597  gas  bank_paint_share=0.1886",
+    "key": "bank_paint_share"
+  },
+  {
+    "sheet": "sheet-t1",
+    "cell": [
+      2,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/run3/gas-t1-plate.jpg",
+    "sha1": "0281f0e21dd38d52c055c7576874fe805b76a728",
+    "caption": "run3  t1=637  no gas (plate)",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-t1",
+    "cell": [
+      2,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/run3/gas-t1.jpg",
+    "sha1": "b78fedab44fff440714f8ad38d5718c75d70aa57",
+    "caption": "run3  t1=637  gas  bank_paint_share=0.2152",
+    "key": "bank_paint_share"
+  },
+  {
+    "sheet": "sheet-o240",
+    "cell": [
+      0,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/run1/gas-o240-plate.jpg",
+    "sha1": "24acc7d70cebb1d280a3867fa045fb81ac3ef6cd",
+    "caption": "run1  o240=249  no gas (plate)",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-o240",
+    "cell": [
+      0,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/run1/gas-o240.jpg",
+    "sha1": "ae1ead262a8a35326086e04d9d2f14ac12d5d27a",
+    "caption": "run1  o240=249  gas  o240_area_frac=0.0171  bank_width_m=8.986",
+    "key": "o240_area_frac"
+  },
+  {
+    "sheet": "sheet-o240",
+    "cell": [
+      1,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/run2/gas-o240-plate.jpg",
+    "sha1": "b9ca19155946ddb413a96549c1fa26110e82b6e6",
+    "caption": "run2  o240=269  no gas (plate)",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-o240",
+    "cell": [
+      1,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/run2/gas-o240.jpg",
+    "sha1": "795e1cb34533af7e09daf944dfab8e6d6c6797cb",
+    "caption": "run2  o240=269  gas  o240_area_frac=0.0193  bank_width_m=8.963",
+    "key": "o240_area_frac"
+  },
+  {
+    "sheet": "sheet-o240",
+    "cell": [
+      2,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/run3/gas-o240-plate.jpg",
+    "sha1": "a2a3dcc061e90c867002103329df7057e3a63ef8",
+    "caption": "run3  o240=289  no gas (plate)",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-o240",
+    "cell": [
+      2,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/run3/gas-o240.jpg",
+    "sha1": "36259d7a56b289f60f1eadbe3ee95ccf292eb374",
+    "caption": "run3  o240=289  gas  o240_area_frac=0.0195  bank_width_m=8.405",
+    "key": "o240_area_frac"
+  },
+  {
+    "sheet": "sheet-cards",
+    "cell": [
+      0,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1/cards/cards-plate.jpg",
+    "sha1": "bc24697052c50a9ee8e222c659dc881386085167",
+    "caption": "plate (no FX)",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-cards",
+    "cell": [
+      0,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1/cards/cards-gas.jpg",
+    "sha1": "75e9a2fefab1861d41eefd4a8d5510f262f2b9ee",
+    "caption": "gas -- accepted",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-cards",
+    "cell": [
+      1,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1/cards/cards-smoke.jpg",
+    "sha1": "ffa395fbffa6e68f12d74c207d62cea1b45c12bc",
+    "caption": "smoke -- rejected",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-cards",
+    "cell": [
+      1,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1/cards/cards-puff.jpg",
+    "sha1": "5a2bd01228ed4215ff5a303f69f22fc9705770f1",
+    "caption": "puff -- rejected",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-before-after",
+    "cell": [
+      0,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2/run1/gas-t1.jpg",
+    "sha1": "28aa2613ec3bc117484a7a8123d716fbac39f989",
+    "caption": "BEFORE (pale sheet)  t1=557  bank_paint_share=0.1855  bank_aspect=4.918",
+    "key": "bank_paint_share"
+  },
+  {
+    "sheet": "sheet-before-after",
+    "cell": [
+      0,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2/run1/gas-o240.jpg",
+    "sha1": "2b8530cf58a110a7cb71ab966f01f89345baddd0",
+    "caption": "BEFORE (pale sheet)  o240=249  bank_patch_count=10",
+    "key": "bank_patch_count"
+  },
+  {
+    "sheet": "sheet-before-after",
+    "cell": [
+      1,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/run1/gas-t1.jpg",
+    "sha1": "b0f86603bcef34d9ff39bc6973eb284033ef4e77",
+    "caption": "AFTER (this build)  t1=557  bank_paint_share=0.2037  bank_aspect=3.452",
+    "key": "bank_paint_share"
+  },
+  {
+    "sheet": "sheet-before-after",
+    "cell": [
+      1,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g2-g2/run1/gas-o240.jpg",
+    "sha1": "ae1ead262a8a35326086e04d9d2f14ac12d5d27a",
+    "caption": "AFTER (this build)  o240=249  bank_patch_count=5",
+    "key": "bank_patch_count"
+  }
+]
