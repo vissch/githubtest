@@ -75,7 +75,10 @@ def _label_for(folder):
             clouds = str(clouds_val)
         if low_val is not None:
             low_share = "%.4g" % low_val if isinstance(low_val, float) else str(low_val)
-    return "%s  clouds=%s low=%s" % (short, clouds, low_share)
+    tag = ""
+    if not os.path.isdir(os.path.join(folder, "run1")) and os.path.isdir(os.path.join(folder, "run-today")):
+        tag = " HEAD not landed"   # the skirt breaks the floor; this is not the look of the landed bank
+    return "%s  clouds=%s low=%s%s" % (short, clouds, low_share, tag)
 
 
 def _tile(panels, cols=COLS):
@@ -107,6 +110,8 @@ def build_run_sheet(still_name, out_name):
     panels = []
     for folder in _ordered_chain_folders():
         jpg = os.path.join(folder, "run1", still_name)
+        if not os.path.isfile(jpg):
+            jpg = os.path.join(folder, "run-today", still_name)   # HEAD's own fresh shot, no keeper run yet
         if not os.path.isfile(jpg):
             continue
         img = Image.open(jpg).convert("RGB")

@@ -11,8 +11,12 @@ chain made them, so he can look instead of read.
 - **`sheet-t1.png`** — every unit's `run1/gas-t1.jpg` (the close camera, where the "one cloud or a man's-head
   pool" question is argued), oldest unit top-left, one panel per unit. `t1_visible_clouds` (or `t1_cloud_count`
   where the newer key does not exist yet) and `green_low_share` from that unit's `probe.json` are printed under
-  each panel; a dash where the unit's schema does not carry that number. Built from 8 of the chain's 9 folders —
-  the newest, `ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2-g1-g1`, has shot no captures yet.
+  each panel; a dash where the unit's schema does not carry that number. 9 panels: the newest unit,
+  `ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2-g1-g1`, had shot no keeper captures (its skirt never earned a
+  bar), so its panel is a fresh `GasBankStills` gas + plate pass of HEAD as this leg found it, in `run-today/`
+  rather than `run1/`, labelled "HEAD not landed": it carries `GasPuffSkirtWide` 2.2 / `GasPuffSkirtStand` 0.07,
+  which breaks the owner's 0.30 `green_low_share` floor and was never landed, so this panel is not the look of
+  the landed bank — only the closest look anyone has put in front of him yet.
 - **`sheet-o240.png`** — the same units' `run1/gas-o240.jpg` (the far camera).
 - **`sheet-cards.png`** — the five isolation stills (gas, gaspuff, puff, smoke, plate) of the newest unit that
   has a `cards/` folder, `ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2-g1`.
