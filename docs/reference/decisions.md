@@ -310,6 +310,13 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   back toward the puddle he rejected; (c) move the two bars to this build's values, which this leg will not do
   on its own because they are his. Neither (a) nor (b) can be judged from one capture: the card's flipbook frame
   comes from a wall clock, so only a triple of runs of one unchanged binary is comparable (see that README).
+  **Default (a) carried out (2026-10-27, `lane/show/ability-fx-captures-r2-2-g2-g1-g1`):** the T1 height is now
+  depth-aware (a disc over the ability's call centre, chord-midpoint depth per pixel; `docs/evidence/ability-fx-captures-r2-2-g2-g1-g1/README.md`,
+  "How a depth is taken now"). The probe now exits 0: `bank_low_share` 0.7688 (was 0.1587) against >= 0.30,
+  `bank_height_frac` -0.0241 (was 0.2354) against <= 0.15, both at spread 0.0000. The honest caveat: the new
+  `bank_rise_m` itself reads -0.754 m, an artefact of the chord-midpoint approximation on a bank this deep, not a
+  literal height; the old per-column reading (5.835 m) is kept alongside it as `bank_rise_m_nearplane` for
+  comparison. This row stays open for him to judge whether the depth-aware reading is trustworthy.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
