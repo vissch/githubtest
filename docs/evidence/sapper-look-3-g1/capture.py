@@ -25,6 +25,7 @@ EDITOR = Path(os.environ.get('TW_UNITY', r'C:\Program Files\Unity\Hub\Editor\600
 LOG = ROOT / 'Logs' / 'sapper-g1-editor.log'
 SCENE = 'Assets/_Project/Scenes/GreyboxCorridor.unity'
 ENGINEER, SAPPER = 15, 35
+SET_TRIES = 3        # whole capture sets tried at one kept site before it is given up on (see do_seed)
 NOISE_GATE = 0.02    # a corner whose own one-tick repeat moves more than this can never give the probe a bar
 
 sys.path.insert(0, str(HERE))
@@ -91,10 +92,19 @@ def ground_height(x, z):
     return float(run(f'return {HOST}.Local.Map.Height.Sample({x:.2f}f, {z:.2f}f);'))
 
 
+SITE_TRIES = 5       # how many places one seed may stand in before it settles for the best it saw
+GRID = (0.12, 0.5, 0.88)
+
+
 def candidate_sites(sx, sz, cx, cz, avoid):
-    """Every corner at least 60 m from Crowd() and from any site already used this run, farthest from the
-    crowd first. Up to four corners; do_seed walks them in order when a corner cannot frame both men."""
-    candidates = [(sx * f, sz * g) for f in (0.12, 0.88) for g in (0.12, 0.88)]
+    """Every point of a 3x3 grid over the map at least 60 m from Crowd() and from any site already used this run,
+    farthest from the crowd first. Four corners were not enough: the thing do_seed now rejects is a site too dark
+    for the kit to read, so the search needs more than four places to stand. The whole ordered list is returned;
+    do_seed's SITE_TRIES cap counts only the sites it actually photographs, because a site that cannot frame two
+    men at all costs a pose sweep and no shots. In the 2026-10-27 run whose crowd sat in the south, farthest-first
+    put all five allowed sites on the empty far edge, every one of them unframeable, and the seed ended with no
+    pair at all."""
+    candidates = [(sx * f, sz * g) for f in GRID for g in GRID]
     candidates.sort(key=lambda p: -math.hypot(p[0] - cx, p[1] - cz))
     out = [p for p in candidates
            if math.hypot(p[0] - cx, p[1] - cz) >= 60
@@ -254,33 +264,26 @@ def try_site(n, site_x, site_z, yaw_deg, zoom0, pitch0, eng_path):
     return r
 
 
-def do_seed(n, sites, yaw_deg, zoom0, pitch0):
-    """Tries each site in turn until one frames both men (contrast >= 0.12, tall >= 120) AND is quieter than
-    NOISE_GATE on one repeat of its own pose. Prints every corner's number; if none passes, the quietest tried is
-    re-posed and used, so the evidence is the best corner this map offered rather than the first one that framed."""
-    eng_path = HERE / f'pair-engineer-{n}.png'
-    tried, chosen = [], None
-    for site_x, site_z in sites:
-        r = try_site(n, site_x, site_z, yaw_deg, zoom0, pitch0, eng_path)
-        tried.append(r)
-        if r['ok'] and r['noise'] is not None and r['noise'] <= NOISE_GATE:
-            chosen = r
-            break
-        release()
-        clear_pair(r['left'], r['right'])
-    print(f'seed {n}: corners tried: '
-          + ', '.join(f'({t["site"][0]:.0f},{t["site"][1]:.0f}) ok={t["ok"]} noise={t["noise"]}' for t in tried))
-    if chosen is None:
-        measured = [t for t in tried if t['noise'] is not None]
-        quietest = min(measured, key=lambda t: t['noise']) if measured else (tried[0] if tried else None)
-        if quietest is None:
-            raise RuntimeError(f'seed {n}: no site could even be tried')
-        print(f'seed {n}: no corner cleared noise {NOISE_GATE}; re-posing the quietest, '
-              f'({quietest["site"][0]:.1f}, {quietest["site"][1]:.1f})')
-        chosen = try_site(n, quietest['site'][0], quietest['site'][1], yaw_deg, zoom0, pitch0, eng_path)
+def site_passes(r):
+    """probe.py's own verdict for one site: `spread_max < BAR <= kit_frac`. A site is kept only when the kit
+    change is bigger than the bar AND the site's own three captures of the unchanged build are quieter than it -
+    the exact line probe.main() gates on, so a kept site is one the probe will call green."""
+    return (r['kit_frac'] is not None and r['spread_max'] is not None
+            and r['spread_max'] < probe.BAR <= r['kit_frac'])
+
+
+def capture_set(n, chosen, yaw_deg):
+    """The whole capture of one site, once its pose is kept: the two further control stills of the *unchanged*
+    Engineer pose, the sanctioned WriteWorlds flip of the right man to Sapper, and the retried Sapper still.
+    Returns `(kit_frac, spread_max)` for this site, both measured with `probe.aligned_frac` on the stills just
+    taken - the very numbers the probe will read, so a site is accepted on the probe's own verdict
+    (`site_passes`). The world is left HELD and the pair alive; the caller releases and clears.
+
+    No flip back is needed: the control shots are all taken before the flip."""
     mid_x, mid_z = chosen['mid']
     zoom, pitch, aim_y = chosen['zoom'], chosen['pitch'], chosen['aim_y']
     left_slot, right_slot = chosen['left'], chosen['right']
+    eng_path = HERE / f'pair-engineer-{n}.png'
     # Two further stills of the SAME still-Engineer pose - nothing changed: not the pose, the camera, the
     # archetype or the weather clock. Each goes through StepHold(1): exactly one tick of released world, the
     # identical regime the Sapper shot below is taken in, so each repeat costs the man the same one tick of his
@@ -299,13 +302,124 @@ def do_seed(n, sites, yaw_deg, zoom0, pitch0):
         shoot(str(sap_path), mid_x, mid_z, zoom, yaw_deg, pitch, aim_y)
         if framing_ok(sidecar(sap_path), (left_slot, right_slot)):
             break
+    m = probe.man(probe.sidecar(eng_path.name), right_slot)
+    if m is None:
+        return None, None
+    box = m['box']
+    probe._WINDOW[right_slot] = (box[2] - box[0], box[3] - box[1])
+    # The site is judged on BOTH halves of the probe's own rule, measured on the stills just taken: the kit
+    # signal, and the control - the largest pairwise diff among the three captures of the unchanged build. The
+    # single-repeat corner gate above cannot see this: at seed 1's first kept site it read 0.0035 while the real
+    # spread over the three control shots was 0.0315, which swamped a kit signal of 0.0174. Nothing is weighted
+    # and BAR is not moved; the site is simply accepted on the number the probe will read.
+    control = [f'noise-{n}.png', f'noise-{n}-b.png', eng_path.name]
+    try:
+        kit = probe.aligned_frac(sap_path.name, eng_path.name, right_slot)
+        spread = [probe.aligned_frac(control[i], control[j], right_slot)
+                  for i in range(len(control)) for j in range(i + 1, len(control))]
+    except (OSError, KeyError):
+        return None, None
+    spread = [v for v in spread if v is not None]
+    return kit, (max(spread) if spread else None)
+
+
+def do_seed(n, sites, yaw_deg, zoom0, pitch0, kit_gate=True):
+    """Tries each site in turn and keeps the first that passes all three rules: framing (contrast >= 0.12,
+    tall >= 120), the site's own one-repeat noise (<= NOISE_GATE), and - the rule this leg adds - the probe's own
+    verdict on the site, `spread_max < probe.BAR <= kit_frac` (`site_passes`). The whole capture therefore happens inside the site loop, because the kit
+    gate cannot be judged before the flip has been photographed. A dark site where a pack and two charges move no
+    pixel is now rejected like any other unusable site, instead of being the one the evidence is stuck with.
+
+    Prints every site's `ok`, `noise`, `kit_frac` and `spread_max`. If no site clears the kit gate, the site with
+    the widest `kit_frac - spread_max` margin is re-captured and kept, the finding is printed, and the probe stays
+    red.
+
+    `kit_gate=False` is seed 3, the owner's fixed zoom-7 view among the stakes: it is reported, not compared."""
+    tried, chosen, shot_sites = [], None, 0
+    for site_x, site_z in sites:
+        if shot_sites >= SITE_TRIES:
+            print(f'seed {n}: {SITE_TRIES} sites photographed, the cap; stopping the search here')
+            break
+        r = try_site(n, site_x, site_z, yaw_deg, zoom0, pitch0, HERE / f'pair-engineer-{n}.png')
+        r['kit_frac'] = None
+        quiet = r['noise'] is not None and r['noise'] <= NOISE_GATE
+        r['spread_max'] = None
+        if r['ok'] and (quiet or not kit_gate):
+            # Up to SET_TRIES whole capture sets at this site. `spread_max` turns out to be a property of one
+            # shot SET, not of the site: at (79,33) in the 2026-10-27 run the single-repeat noise read 0.0022
+            # while the three control shots of that set spread 0.37, and the next set at the same site read
+            # 0.060. So a set whose own control is louder than the bar is re-shot, exactly as the Sapper still
+            # is already re-shot when the man drifts past the margin. Nothing is weighted and BAR is not moved:
+            # the kept set is simply one the probe will read as green.
+            shot_sites += 1
+            for _ in range(SET_TRIES):
+                r['kit_frac'], r['spread_max'] = capture_set(n, r, yaw_deg)
+                if site_passes(r) or not kit_gate:
+                    break
+        tried.append(r)
+        print(f'  site ({site_x:.1f}, {site_z:.1f}): ok={r["ok"]} noise={r["noise"]} '
+              f'kit_frac={r["kit_frac"]} spread_max={r["spread_max"]}')
+        if r['ok'] and quiet and not kit_gate:
+            chosen = r
+            break
+        if r['ok'] and quiet and site_passes(r):
+            chosen = r
+            break
+        release()
+        clear_pair(r['left'], r['right'])
+    print(f'seed {n}: sites tried: '
+          + ', '.join(f'({t["site"][0]:.0f},{t["site"][1]:.0f}) ok={t["ok"]} noise={t["noise"]} '
+                      f'kit={t["kit_frac"]} spread={t["spread_max"]}' for t in tried))
+    if chosen is None:
+        # Nothing cleared the kit gate. Keep the best kit signal this map offered rather than the last site tried,
+        # so the committed stills are the strongest case the map can make, and say so out loud.
+        # "best" is the site that came closest to the probe's rule: among those whose kit half passed
+        # (kit_frac >= BAR), the quietest control; otherwise the loudest kit signal. Picking the widest
+        # kit - spread margin instead re-captured a site reading 0.52 against a control of 0.37, which is a
+        # louder frame, not a better one. A site never photographed falls back to the quietest single repeat.
+        with_kit = [t for t in tried if t['kit_frac'] is not None and t['spread_max'] is not None]
+        kit_ok = [t for t in with_kit if t['kit_frac'] >= probe.BAR]
+        quiet = [t for t in tried if t['noise'] is not None]
+        best = (min(kit_ok, key=lambda t: t['spread_max']) if kit_ok
+                else max(with_kit, key=lambda t: t['kit_frac']) if with_kit
+                else min(quiet, key=lambda t: t['noise']) if quiet
+                else tried[0] if tried else None)
+        if best is None:
+            raise RuntimeError(f'seed {n}: no site could even be tried')
+        print(f'seed {n}: NO SITE CLEARED THE KIT GATE (bar {probe.BAR}); re-capturing the best, '
+              f'({best["site"][0]:.1f}, {best["site"][1]:.1f}) with kit_frac={best["kit_frac"]}')
+        # The re-pose is its own roll of the dice: a site that framed two men a minute ago can fail to frame them
+        # now, because both men have walked on their own orders in between. When that happens the seed used to be
+        # left with no readable flip at all and the probe reported "no readable Engineer->Sapper flip" - a worse
+        # result than the red number the seed had already earned. So the fallback walks `best` first and then
+        # every other site that framed, and stops at the first one that yields a flip to measure.
+        chosen = None
+        for cand in [best] + [t for t in tried if t is not best and t['ok']]:
+            chosen = try_site(n, cand['site'][0], cand['site'][1], yaw_deg, zoom0, pitch0,
+                              HERE / f'pair-engineer-{n}.png')
+            chosen['kit_frac'], chosen['spread_max'] = None, None
+            if chosen['ok']:
+                for _ in range(SET_TRIES):
+                    chosen['kit_frac'], chosen['spread_max'] = capture_set(n, chosen, yaw_deg)
+                    if site_passes(chosen):
+                        break
+            print(f'seed {n}: re-captured ({cand["site"][0]:.1f}, {cand["site"][1]:.1f}) '
+                  f'kit_frac={chosen["kit_frac"]} spread_max={chosen["spread_max"]}')
+            if chosen['kit_frac'] is not None:
+                break
+            release()
+            clear_pair(chosen['left'], chosen['right'])
     release()
     # both stills are on disk: clear this seed's two men (UnitFlags.Alive off, through the sanctioned WriteWorlds
     # door) so they stop wandering and cannot clutter a later, more distant seed's frame or its slot numbers
-    clear_pair(left_slot, right_slot)
-    return {'seed': n, 'zoom': zoom, 'pitch': pitch, 'yaw': yaw_deg, 'focus': [mid_x, mid_z],
-            'left_slot': left_slot, 'right_slot': right_slot, 'corner_noise': chosen['noise'],
-            'corners_tried': [{'site': t['site'], 'ok': t['ok'], 'noise': t['noise']} for t in tried]}
+    clear_pair(chosen['left'], chosen['right'])
+    return {'seed': n, 'zoom': chosen['zoom'], 'pitch': chosen['pitch'], 'yaw': yaw_deg,
+            'focus': list(chosen['mid']), 'site': list(chosen['site']),
+            'left_slot': chosen['left'], 'right_slot': chosen['right'],
+            'corner_noise': chosen['noise'], 'kit_frac': chosen['kit_frac'],
+            'spread_max': chosen['spread_max'],
+            'sites_tried': [{'site': t['site'], 'ok': t['ok'], 'noise': t['noise'],
+                             'kit_frac': t['kit_frac'], 'spread_max': t['spread_max']} for t in tried]}
 
 
 def main():
@@ -327,7 +441,7 @@ def main():
         poses.append(do_seed(1, sites1, 0.0, 10.0, 25.0))
         poses.append(do_seed(2, sites2, 90.0, 10.0, 25.0))
         # seed 3: the owner's own view, the old sapper-t3 pose among the stakes; its site is fixed, not searched
-        poses.append(do_seed(3, [(50.0, 50.0)], 21.0, 7.0, 25.0))
+        poses.append(do_seed(3, [(50.0, 50.0)], 21.0, 7.0, 25.0, kit_gate=False))
         print(json.dumps(poses, indent=2))
     finally:
         run('TW.Editor.CaptureRig.Rig.YawPin = float.NaN; return 0;', 20)
