@@ -1,0 +1,25 @@
+Two rocketed men planted head first in the mud (DeathGag.Planted), one man per shell, captured fresh against the
+current build in GreyboxCorridor at the standard zoom (T1: zoom 30, yaw +21, pitch 25, 1600x900), 2026-10-27. Each
+is taken one second after that man lands (DeathLab.Planted() polled to find landsAt, the still taken at landsAt+1s),
+the editor running live (not paused-and-stepped, unlike the first five). Each shot is aimed at ground level under
+the man (aimY = RenderGround.Sample at his resting x z).
+
+Getting even two is the finding: DeathGag.Planted is a coin flip (DeathGags.PlantShare = 0.5) among throws over
+PlantMinHigh = 5 m that are not a heap and not in a trench, and a heap (two or more deaths within a tick's
+PileRadius) forces Fountain instead -- so every retry near x ~89.5, where the sim always parks the dead, piles onto
+the last corpse and locks the gag off for the rest of that play session. Dozens of single-man shells across several
+fresh play sessions produced exactly two Planted deaths that landed on ground above the water line; a third was not
+found inside the time this leg could spend driving the editor by hand. See note.md for the budget this cost and
+what the next leg should do differently (a scripted multi-session driver, not an interactive retry loop).
+
+plant_1.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 89.50 151.00, fresh capture, legs upright and kicking.
+  CaptureRig's own sidecar already flags it: "men barely separate from the ground: unreadable" (contrast_median
+  0.03032). The probe's mask gates fail here too (area 1 px, nowhere near the size of a leg).
+plant_2.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 89.50 132.52, fresh capture, legs upright and kicking,
+  y -1.48 (close to the water line, a weaker case than plant_1 but still above water enough to resolve geometry).
+  Sidecar: "men barely separate from the ground: unreadable" (contrast_median 0.04921). The probe finds no shape
+  that clears the gates (whatever splits out is as wide as the window, not a pair of legs).
+
+Both independent signals -- CaptureRig's own contrast_median AND this probe's mask gates -- agree the gag does not
+read at T1 on these two fresh captures. No plant_3.png: a third Planted death was not captured in this leg's time;
+see note.md.
