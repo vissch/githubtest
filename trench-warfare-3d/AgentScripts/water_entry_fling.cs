@@ -61,7 +61,7 @@
 // is photographed is the shipped path.
 // The first free run-N, so a capture never overwrites an earlier one: three runs prove the current build and three
 // the fixed one, and the probe reads a set of run folders by name.
-var root = "C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r7/";
+var root = "C:/Users/PC/Documents/GitHub/githubtest-relay-work/docs/evidence/water-entry-splash-r7-g2/";
 int runNo = 1;
 while (System.IO.Directory.Exists(root + "run-" + runNo)) runNo++;
 var dir = root + "run-" + runNo + "/";
