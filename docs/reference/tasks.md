@@ -169,7 +169,12 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   on `paint_frac` but by hue; `docs/evidence/ability-fx-captures-r2-2-g2-g1/probe.py` is the one before that, which
   barred against the raw plate difference and shot its three runs on one frame;
   `docs/evidence/ability-fx-captures-r2-2-g2/probe.py` is the one before that, which a zebra of separate cards
-  passed; `docs/evidence/ability-fx-captures-r2/probe.py` is the single-capture one);
+  passed; `docs/evidence/ability-fx-captures-r2/probe.py` is the single-capture one).
+  `docs/evidence/ability-fx-captures-r2-2-visual-review/sheet.py` is the PICTURE of the same captures, for a person
+  rather than a bar: per run the gas still, its no-gas plate and the plate difference boosted x4 side by side, with
+  the probe's own largest patch outlined and labelled in metres, plus a contact sheet of the three runs
+  (`--selftest` checks the gas paint and every PNG). It imports its numbers from that folder's frozen `probe.py`,
+  so the picture and `probe.json` cannot disagree;
   `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
