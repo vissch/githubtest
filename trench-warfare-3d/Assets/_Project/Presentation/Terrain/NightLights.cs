@@ -368,7 +368,7 @@ namespace TW.Presentation.Terrain
         }
 
         // dugout stoves smoke and rained-on fires steam (CombatFx draws the puffs)
-        internal static void HearthSmoke(IReadOnlyList<BattlefieldComposer.Site> sites, int step,
+        public static void HearthSmoke(IReadOnlyList<BattlefieldComposer.Site> sites, int step,
                                          IReadOnlyList<Vector3> feet, IReadOnlyList<Vector4> shapes, List<Vector3> into)
         {
             into.Clear();
