@@ -63,9 +63,14 @@ namespace TW.Presentation.Terrain
         readonly List<float> lanternLevel = new List<float>();
         readonly List<Vector3> lanternHome = new List<Vector3>();
         readonly List<Vector3> firePoints = new List<Vector3>();
+        // every drawn flame card's foot, the small ones too: FirePoints keeps only the big ones, and a still that
+        // must prove no fire is in the frame has to count the little torch flames as well
+        readonly List<Vector3> flamePoints = new List<Vector3>();
         /// <summary>Where the lamps hang and the big fires burn, once built (SmallLife puts moths and ash there).</summary>
         public IReadOnlyList<Vector3> LampPoints => lanternHome;
         public IReadOnlyList<Vector3> FirePoints => firePoints;
+        /// <summary>Every flame card's foot, big and small (CaptureRig's flames_in_frame reads it).</summary>
+        public IReadOnlyList<Vector3> FlamePoints => flamePoints;
         public bool Built => built;
         readonly List<Object> owned = new List<Object>();
         float lastShot, nextFlare, flareBorn = -100f;
@@ -363,6 +368,8 @@ namespace TW.Presentation.Terrain
             for (int i = 0; i < flameFeet.Count; i += 2) if (flameShapes[i].x > 1f) SceneHooks.SmokeSources.Add(flameFeet[i] + Vector3.up * 1.8f);
             firePoints.Clear();
             for (int i = 0; i < flameFeet.Count; i++) if (flameShapes[i].x > 1f) firePoints.Add(flameFeet[i]);
+            flamePoints.Clear();
+            flamePoints.AddRange(flameFeet);
             if (flameFeet.Count > 0) AddFlameMesh(flameFeet, flameShapes);
             var host = new GameObject("Night glows") { hideFlags = HideFlags.DontSave };
             host.transform.SetParent(transform, false);

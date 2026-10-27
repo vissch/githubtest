@@ -59,6 +59,16 @@ namespace TW.Editor
             return true;
         }
 
+        /// <summary>Is a flame's foot inside this image? "No fire in the frame" is a claim about the picture, so
+        /// it is measured the same way a man is: the flame's foot put through the capture's own two matrices.
+        /// Wider than a man's box downwards — a flame's foot can sit below the bottom edge with its plume still
+        /// in view, so anything from one flame-height above the top edge counts. Pure arithmetic, testable off-screen.</summary>
+        public static bool FlameInFrame(Matrix4x4 worldToCamera, Matrix4x4 projection, int w, int h, Vector3 foot)
+        {
+            if (!ManBox(worldToCamera, projection, w, h, foot, out float imgX, out float imgY, out float tallPx)) return false;
+            return imgX >= 0f && imgX <= w && imgY >= -tallPx && imgY <= h;
+        }
+
         /// <summary>
         /// Runs last in the frame (after the camera, the presenter and the renderers have all had their LateUpdate),
         /// so what it photographs is what those systems just prepared.
@@ -358,6 +368,18 @@ namespace TW.Editor
             N(sb, "luma_mean", mean); N(sb, "luma_p50", p50); N(sb, "luma_p95", p95);
             N(sb, "blown_frac", blown / (float)px.Length); N(sb, "black_frac", black / (float)px.Length);
             N(sb, "men_in_frame", inFrame); N(sb, "contrast_median", cMed); N(sb, "contrast_p10", c10);
+            // whether a flame is in the picture, counted and not asserted: the r3-g1 set was staged "without fire"
+            // and the braziers owned the frame, and nothing in the capture could say so. The knobs beside it say
+            // WHY there is no fire, so a still carries its own staging and not just a zero.
+            int flamesIn = 0;
+            var night = Object.FindFirstObjectByType<TW.Presentation.Terrain.NightLights>();
+            if (night != null && cam != null)
+                foreach (var foot in night.FlamePoints)
+                    if (FlameInFrame(cam.worldToCameraMatrix, boxProj, w, h, foot)) flamesIn++;
+            N(sb, "flames_in_frame", flamesIn);
+            N(sb, "knob_maxFires", Knobs.Get("lights.maxFires", 5));
+            N(sb, "knob_maxTorches", Knobs.Get("lights.maxTorches", 6));
+            N(sb, "knob_moreFires", Knobs.Get("look.moreFires", (float)TW.Presentation.Terrain.NightLights.DefaultMoreFires));
             // flat keys, one set per drawn man, not a nested array: this project reads its own json with
             // CaptureRig.Number, which finds a key and takes the number up to the next comma or newline
             for (int i = 0; i < boxes.Count; i++)

@@ -67,6 +67,27 @@ namespace TW.Tests
             Assert.That(imgX, Is.EqualTo(800f).Within(1f));
         }
 
+        /// <summary>A flame whose foot lands inside the image is in the frame. Same worked example as the man
+        /// box above: a foot at (0, 0, 10) lands at imgX 800, imgY 449.5 on a 1600x900 frame — well inside.</summary>
+        [Test]
+        public void FlameInFrameCountsAFootInsideTheImage()
+        {
+            var projection = Matrix4x4.Perspective(60f, 16f / 9f, 0.1f, 1000f);
+            var view = Matrix4x4.Scale(new Vector3(1f, 1f, -1f));
+
+            Assert.That(CaptureRig.FlameInFrame(view, projection, 1600, 900, new Vector3(0f, 0f, 10f)), Is.True);
+        }
+
+        /// <summary>A flame behind the camera is not in the picture, however its numbers project.</summary>
+        [Test]
+        public void FlameInFrameSkipsAFootBehindTheCamera()
+        {
+            var projection = Matrix4x4.Perspective(60f, 16f / 9f, 0.1f, 1000f);
+            var view = Matrix4x4.Scale(new Vector3(1f, 1f, -1f));
+
+            Assert.That(CaptureRig.FlameInFrame(view, projection, 1600, 900, new Vector3(0f, 0f, -10f)), Is.False);
+        }
+
         /// <summary>The horizontal half of the same hand computation, and the reason Measure builds its own
         /// projection instead of reading the camera's. A man 2 m to the right at 10 m, 60 deg vertical fov:
         /// through the IMAGE's 16:9 he sits 2 / (10 * tan 30 * 16/9) of a half-frame right of the middle, so
