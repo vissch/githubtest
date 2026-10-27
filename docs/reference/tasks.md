@@ -144,7 +144,25 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `docs/evidence/ability-fx-captures-r2/` and the open question in `decisions.md`. The pipeline's `run_tests` selects
   no [Explicit] test, so run it as its own batch launch: `Unity.exe -batchmode -projectPath <checkout>/trench-warfare-3d
   -runTests -testPlatform EditMode -testFilter GasBankStills -testResults <xml> -logFile <log>`).
-  `docs/evidence/ability-fx-captures-r2/probe.py` measures those stills in metres (`--pack <capture dir>`, `--selftest`).
+  GasBankCards (`Tests/Stills/GasBankCards.cs`, Explicit, a graphics device: the isolation still behind GasBankStills
+  - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, five stills at one pose, gas, smoke,
+  puff, gaspuff (the close camera's standing `Book.GasPuff` at frame 16, drawn at the full card width like the smoke
+  card: a look reading of the book, while the FIELD puff keeps `CombatFx.GasPuffStand` 0.32) and a plate -
+  so a blank still accuses one book and not the sim, the field, the cache and the capture path at once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g2-g1/probe.py` measures those stills: it COUNTS THE GREEN the gas
+  added over the plate (not a brightness test), in metres, bars the rise, bars the height from BOTH sides (a
+  ceiling, so the puff is not a wall, and a floor, so it is not a flat sheet), and refuses two runs that
+  photographed the same frame, barred against the SPREAD of three captures of one build at three different
+  `TW_GAS_WAIT_FRAMES`. It counts O240's green as connected clouds, not one area fraction
+  It also bars the gaspuff CARD over three fresh GasBankCards sets at three `TW_CARDS_WAIT_FRAMES`: its rise in
+  metres, its aspect, and its rise over the smoke card's
+  (`--calibrate`, `--selftest`, `--pack`; `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g2/probe.py`,
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1/probe.py`,
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2/probe.py`,
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2/probe.py`,
+  `docs/evidence/ability-fx-captures-r2-2-g2/probe.py` and
+  `docs/evidence/ability-fx-captures-r2/probe.py` are its predecessors);
+  `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
   `CaptureRig.Stress(1000, path)` runs 120 real seconds with no fixed tick or hash: never the same fight twice.
@@ -1136,6 +1154,6 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 - **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
 - **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BannerFireFitTests, BannerFireInkTests, BannerFrontLegsTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BullfrogLegsTests, BurstRecipeTests, CameraCloseFitTests, CampaignProfileTests, CaptureRigMeasureTests, ColumnLightTests, ColumnPlayTests, ColumnWidthTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, EventPumpDispatchTests, FallenFlightTests, FarGrowTests, FigurePartsTests, FlipbookOrdinalTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GoreScaleTests, GrenadeLookTests, GunFxTests, GunMuzzleLookTests, GymCatalogueTests, HitMarkSizeTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, ImpactDustFeetTests, InfantryFiringTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineMuzzleTests, MachineSocketTests, ModelCutTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RealLampSetTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, SimHostCatchUpTests, StaticLifecycleTests, StormThunderTests, TacticalCameraSeatTests, TankDiscRingTests, TerrainChunkPassTests, TickAllocationTests, TracerGlowTests, TracerMuzzleTests, TracerSideBySideTests, TrackDustTests, TrenchSectionTests, UnitOneSizeTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatFallenReuseTests, VatTintTests, VehicleDeathTests, ViewEyeTests, ViewGroundTests, WalkerJointTests, WalkerUnchangedTests, WreckModelTests
 - **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, BurstOptionsTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DataBakerTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, LockstepFrameValidationTests, LockstepHashLabelTests, LockstepSteppedTickTests, MeleeTests, MineTests, OfficerTests, PerfMarkersTests, PlaytestMapTests, PropIndexTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, ReplayGuardTests, SapperTests, SectorControlTests, ShieldTests, SimHashTests, SimMathTests, SimStubTests, SlotHashBoundTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckDecayTests, WreckRecordTests
-- **Stills:** BenchRuns, DeathStills, EffectFilmStills, GasBankStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
+- **Stills:** BenchRuns, DeathStills, EffectFilmStills, GasBankCards, GasBankStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
 - **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FeedbackCaptureTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, MetaCameraTests, MetaPickTests, NarrowsTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
 <!-- /gen:tests -->
