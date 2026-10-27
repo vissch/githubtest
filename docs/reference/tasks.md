@@ -161,6 +161,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `docs/evidence/ability-fx-captures-r2-2-g2/probe.py` and
   `docs/evidence/ability-fx-captures-r2/probe.py` are its predecessors);
   `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`).
+  To LOOK at the gas rather than measure it, all eight rounds of the chain tiled side by side with their own
+  numbers as captions: `docs/evidence/ability-fx-captures-r2-2-visual-review-8/` (`sheets/before-after.png` first -
+  the night stills raw, their no-gas plates, and the difference boosted x4, which is the only panel a person can
+  read; `sheet.py` redraws them from the committed stills, `sheet.py --verify` checks every source sha1).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
   `CaptureRig.Stress(1000, path)` runs 120 real seconds with no fixed tick or hash: never the same fight twice.

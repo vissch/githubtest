@@ -1,0 +1,306 @@
+{
+ "diff_boost": 4,
+ "rounds": [
+  "ability-fx-captures-r2",
+  "ability-fx-captures-r2-2-g2",
+  "ability-fx-captures-r2-2-g2-g2",
+  "ability-fx-captures-r2-2-g2-g2-g2",
+  "ability-fx-captures-r2-2-g2-g2-g2-g1",
+  "ability-fx-captures-r2-2-g2-g2-g2-g1-g1",
+  "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2",
+  "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2"
+ ],
+ "tile_counts": {
+  "before-after.png": 6,
+  "chain-o240.png": 8,
+  "chain-t1.png": 8
+ },
+ "tiles": [
+  {
+   "caption": "ability-fx-captures-r2 | T1 frame - | height_frac 0.1352  low_share 0.324 | rise_m -",
+   "cell": "r0c0",
+   "numbers": {
+    "green_height_frac": 0.1352,
+    "green_low_share": 0.324,
+    "green_rise_m": null,
+    "t1_frame": null
+   },
+   "sha1": "e2d689d4a1ecfb33e4a705da0c6ff393883f4595",
+   "sheet": "chain-t1.png",
+   "source": "ability-fx-captures-r2/gas-t1.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2 | T1 frame - | height_frac 0.095  low_share 0.4267 | rise_m 2.149",
+   "cell": "r0c1",
+   "numbers": {
+    "green_height_frac": 0.095,
+    "green_low_share": 0.4267,
+    "green_rise_m": 2.149,
+    "t1_frame": null
+   },
+   "sha1": "971390338d136f6e68095791dd0332eb30ed2d43",
+   "sheet": "chain-t1.png",
+   "source": "ability-fx-captures-r2-2-g2/run1/gas-t1.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2 | T1 frame 804 | height_frac 0.0116  low_share 1 | rise_m 0.359",
+   "cell": "r0c2",
+   "numbers": {
+    "green_height_frac": 0.0116,
+    "green_low_share": 1.0,
+    "green_rise_m": 0.359,
+    "t1_frame": 804
+   },
+   "sha1": "c49028a5af0f7ba9c30328b490accb24c84fc3e3",
+   "sheet": "chain-t1.png",
+   "source": "ability-fx-captures-r2-2-g2-g2/run1/gas-t1.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2-g2 | T1 frame 804 | height_frac 0.0116  low_share 1 | rise_m 0.359",
+   "cell": "r0c3",
+   "numbers": {
+    "green_height_frac": 0.0116,
+    "green_low_share": 1.0,
+    "green_rise_m": 0.359,
+    "t1_frame": 804
+   },
+   "sha1": "c49028a5af0f7ba9c30328b490accb24c84fc3e3",
+   "sheet": "chain-t1.png",
+   "source": "ability-fx-captures-r2-2-g2-g2-g2/run1/gas-t1.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2-g2-g1 | T1 frame 804 | height_frac 0.0768  low_share 0.4136 | rise_m 2.38",
+   "cell": "r1c0",
+   "numbers": {
+    "green_height_frac": 0.0768,
+    "green_low_share": 0.4136,
+    "green_rise_m": 2.38,
+    "t1_frame": 804
+   },
+   "sha1": "97c5517a1d624d757ec2862530cd11e0cb4d0a29",
+   "sheet": "chain-t1.png",
+   "source": "ability-fx-captures-r2-2-g2-g2-g2-g1/run1/gas-t1.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1 | T1 frame 804 | height_frac 0.095  low_share 0.3462 | rise_m 2.575",
+   "cell": "r1c1",
+   "numbers": {
+    "green_height_frac": 0.095,
+    "green_low_share": 0.3462,
+    "green_rise_m": 2.575,
+    "t1_frame": 804
+   },
+   "sha1": "468246afdd9afc6c6a3053a888a53fface04c2fb",
+   "sheet": "chain-t1.png",
+   "source": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1/run1/gas-t1.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2 | T1 frame 804 | height_frac 0.095  low_share 0.3462 | rise_m 2.575",
+   "cell": "r1c2",
+   "numbers": {
+    "green_height_frac": 0.095,
+    "green_low_share": 0.3462,
+    "green_rise_m": 2.575,
+    "t1_frame": 804
+   },
+   "sha1": "f377c0f0a438633eaba669fef0aec6296ee0c969",
+   "sheet": "chain-t1.png",
+   "source": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2/run1/gas-t1.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2 | T1 frame 804 | height_frac 0.0836  low_share 0.3045 | rise_m 2.653",
+   "cell": "r1c3",
+   "numbers": {
+    "green_height_frac": 0.0836,
+    "green_low_share": 0.3045,
+    "green_rise_m": 2.653,
+    "t1_frame": 804
+   },
+   "sha1": "a78ed758077273ac3a573de2b236985550cc50aa",
+   "sheet": "chain-t1.png",
+   "source": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2/run1/gas-t1.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2 | T1 frame - | height_frac 0.1352  low_share 0.324 | rise_m -",
+   "cell": "r0c0",
+   "numbers": {
+    "green_height_frac": 0.1352,
+    "green_low_share": 0.324,
+    "green_rise_m": null,
+    "t1_frame": null
+   },
+   "sha1": "8ea5dba48b74e0726f3815b4a41701f0dcf19dd9",
+   "sheet": "chain-o240.png",
+   "source": "ability-fx-captures-r2/gas-o240.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2 | T1 frame - | height_frac 0.095  low_share 0.4267 | rise_m 2.149",
+   "cell": "r0c1",
+   "numbers": {
+    "green_height_frac": 0.095,
+    "green_low_share": 0.4267,
+    "green_rise_m": 2.149,
+    "t1_frame": null
+   },
+   "sha1": "d4735a25879d01d9322d352c9fc1bf9796e68a9f",
+   "sheet": "chain-o240.png",
+   "source": "ability-fx-captures-r2-2-g2/run1/gas-o240.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2 | T1 frame 804 | height_frac 0.0116  low_share 1 | rise_m 0.359",
+   "cell": "r0c2",
+   "numbers": {
+    "green_height_frac": 0.0116,
+    "green_low_share": 1.0,
+    "green_rise_m": 0.359,
+    "t1_frame": 804
+   },
+   "sha1": "82b79216a1508f5ad35b1a27864aef90a442b466",
+   "sheet": "chain-o240.png",
+   "source": "ability-fx-captures-r2-2-g2-g2/run1/gas-o240.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2-g2 | T1 frame 804 | height_frac 0.0116  low_share 1 | rise_m 0.359",
+   "cell": "r0c3",
+   "numbers": {
+    "green_height_frac": 0.0116,
+    "green_low_share": 1.0,
+    "green_rise_m": 0.359,
+    "t1_frame": 804
+   },
+   "sha1": "82b79216a1508f5ad35b1a27864aef90a442b466",
+   "sheet": "chain-o240.png",
+   "source": "ability-fx-captures-r2-2-g2-g2-g2/run1/gas-o240.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2-g2-g1 | T1 frame 804 | height_frac 0.0768  low_share 0.4136 | rise_m 2.38",
+   "cell": "r1c0",
+   "numbers": {
+    "green_height_frac": 0.0768,
+    "green_low_share": 0.4136,
+    "green_rise_m": 2.38,
+    "t1_frame": 804
+   },
+   "sha1": "4121c47bf6ffaa5c2bbee0da35a40c87408964ac",
+   "sheet": "chain-o240.png",
+   "source": "ability-fx-captures-r2-2-g2-g2-g2-g1/run1/gas-o240.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1 | T1 frame 804 | height_frac 0.095  low_share 0.3462 | rise_m 2.575",
+   "cell": "r1c1",
+   "numbers": {
+    "green_height_frac": 0.095,
+    "green_low_share": 0.3462,
+    "green_rise_m": 2.575,
+    "t1_frame": 804
+   },
+   "sha1": "4121c47bf6ffaa5c2bbee0da35a40c87408964ac",
+   "sheet": "chain-o240.png",
+   "source": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1/run1/gas-o240.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2 | T1 frame 804 | height_frac 0.095  low_share 0.3462 | rise_m 2.575",
+   "cell": "r1c2",
+   "numbers": {
+    "green_height_frac": 0.095,
+    "green_low_share": 0.3462,
+    "green_rise_m": 2.575,
+    "t1_frame": 804
+   },
+   "sha1": "88abd8476facf9389cede249fec0eab35427ddaf",
+   "sheet": "chain-o240.png",
+   "source": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2/run1/gas-o240.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2 | T1 frame 804 | height_frac 0.0836  low_share 0.3045 | rise_m 2.653",
+   "cell": "r1c3",
+   "numbers": {
+    "green_height_frac": 0.0836,
+    "green_low_share": 0.3045,
+    "green_rise_m": 2.653,
+    "t1_frame": 804
+   },
+   "sha1": "88abd8476facf9389cede249fec0eab35427ddaf",
+   "sheet": "chain-o240.png",
+   "source": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2/run1/gas-o240.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2  gas-t1 | T1 frame - | height_frac 0.1352  low_share 0.324 | rise_m -",
+   "cell": "r0c0",
+   "numbers": {
+    "green_height_frac": 0.1352,
+    "green_low_share": 0.324,
+    "green_rise_m": null,
+    "t1_frame": null
+   },
+   "sha1": "e2d689d4a1ecfb33e4a705da0c6ff393883f4595",
+   "sheet": "before-after.png",
+   "source": "ability-fx-captures-r2/gas-t1.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2  gas-t1-plate (no gas) | T1 frame - | height_frac 0.1352  low_share 0.324 | rise_m -",
+   "cell": "r0c1",
+   "numbers": {
+    "green_height_frac": 0.1352,
+    "green_low_share": 0.324,
+    "green_rise_m": null,
+    "t1_frame": null
+   },
+   "sha1": "44dd94bd3ac5c3385853b7355b34a66c956bcb6b",
+   "sheet": "before-after.png",
+   "source": "ability-fx-captures-r2/gas-t1-plate.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2  plate difference x4 | T1 frame - | height_frac 0.1352  low_share 0.324 | rise_m -",
+   "cell": "r0c2",
+   "numbers": {
+    "green_height_frac": 0.1352,
+    "green_low_share": 0.324,
+    "green_rise_m": null,
+    "t1_frame": null
+   },
+   "sha1": "e2d689d4a1ecfb33e4a705da0c6ff393883f4595",
+   "sheet": "before-after.png",
+   "source": "ability-fx-captures-r2/gas-t1.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2  gas-t1 | T1 frame 804 | height_frac 0.0836  low_share 0.3045 | rise_m 2.653",
+   "cell": "r1c0",
+   "numbers": {
+    "green_height_frac": 0.0836,
+    "green_low_share": 0.3045,
+    "green_rise_m": 2.653,
+    "t1_frame": 804
+   },
+   "sha1": "a78ed758077273ac3a573de2b236985550cc50aa",
+   "sheet": "before-after.png",
+   "source": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2/run1/gas-t1.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2  gas-t1-plate (no gas) | T1 frame 804 | height_frac 0.0836  low_share 0.3045 | rise_m 2.653",
+   "cell": "r1c1",
+   "numbers": {
+    "green_height_frac": 0.0836,
+    "green_low_share": 0.3045,
+    "green_rise_m": 2.653,
+    "t1_frame": 804
+   },
+   "sha1": "aa952e90a12635f2cb97179e269244ca84e6757e",
+   "sheet": "before-after.png",
+   "source": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2/run1/gas-t1-plate.jpg"
+  },
+  {
+   "caption": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2  plate difference x4 | T1 frame 804 | height_frac 0.0836  low_share 0.3045 | rise_m 2.653",
+   "cell": "r1c2",
+   "numbers": {
+    "green_height_frac": 0.0836,
+    "green_low_share": 0.3045,
+    "green_rise_m": 2.653,
+    "t1_frame": 804
+   },
+   "sha1": "a78ed758077273ac3a573de2b236985550cc50aa",
+   "sheet": "before-after.png",
+   "source": "ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g2/run1/gas-t1.jpg"
+  }
+ ]
+}
