@@ -190,7 +190,6 @@ namespace TW.Presentation.Tactical
                 if (batch.Count > 0) Flush(kind == 5 || kind == 8 ? cube : kind == 6 ? sphere : puff, rpC);
             }
             DrawBirds(now, bounds);
-            Ambient(now);
             var lens = Camera.main; if (lens != null) CloseLife(now, lens);
             impactsThisFrame = 0;
             muzzleSmokeThisFrame = 0;

@@ -71,7 +71,7 @@ namespace TW.Presentation.Tactical
         const float MarkerSegment = 6f;   // a corridor marker is drawn in pieces this long, each on its own ground sample
         static readonly int WetId = Shader.PropertyToID("_TWWet");
         static readonly int WindGlobalId = Shader.PropertyToID("_TWWind");
-        float lastFlock = -10f, nextKick, nextSmoke; int impactsThisFrame, kickCursor;
+        float lastFlock = -10f; int impactsThisFrame;
         int muzzleSmokeThisFrame;   // the gun-fire pass: the muzzle's own cloud, capped a frame beside the impacts
         Material waterMat, birdMat;
         int tintEpoch = -1;   // which SceneTints.Epoch these materials were last painted for

@@ -565,7 +565,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   state machine: point, or press-drag-release with patterns and snapping; `TestPanel` drives it),
   `Presentation/Camera/CombatFx.Chunks.cs` (thrown dirt, splinters, smoke balls, cook-offs),
   `Presentation/Camera/CombatFx.Bodies.cs` (gibs, tree breaks, muzzle and chest positions),
-  `Presentation/Camera/CombatFx.Ambient.cs` (birds, ambient smoke), `Presentation/Camera/CameraShake.cs`,
+  `Presentation/Camera/CombatFx.Ambient.cs` (birds), `Presentation/Camera/CameraShake.cs`,
   `Presentation/Camera/FlipbookFx.cs` + `Shaders/Flipbook_URP.shader` (painted flipbooks, textures in `Resources/VFX/`).
   `CombatFx` is one partial class: an event arrives in `CombatFx.cs` and is handed to the part that draws it.
   **Colours:** sixteen books' tints (Splash, Column, Wings, Spurt, Puff, Smoke, and the VFX pass's MortarBurst, ShellFall,
@@ -1068,11 +1068,10 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | SceneHooks member | Set by | Read / called by |
 |---|---|---|
 | `CloseUp` | CaptureRig, PerfBench, TacticalCamera | Atmosphere, BattlefieldProps, CombatFx, CombatFx.Bursts, CombatFx.Chunks, CombatFx.Close, CombatFx.Grenades, CombatFx.Ground, NightLights, PropDestruction, SmallLife |
-| `IsWater` | WaterRings | CombatFx, CombatFx.Ambient, CombatFx.Chunks, CombatFx.Ground, CombatFx.Mines, NightLights, TankRenderer |
+| `IsWater` | WaterRings | CombatFx, CombatFx.Chunks, CombatFx.Ground, CombatFx.Mines, NightLights, TankRenderer |
 | `AddRing` | WaterRings | CombatFx, CombatFx.Chunks, LandingCraftView, TankRenderer |
 | `Sparks` | CombatFx | CombatFx.Abilities, Flamethrower, NightLights, TankRenderer, TankRenderer.Fizzers |
 | `AimPreview` | TestPanel | CombatFx.Abilities |
-| `SmokeSources` | NightLights | CombatFx.Ambient |
 | `TanksDrawn` | TankRenderer | CombatFx, CombatFx.Ground, VATRenderer |
 | `VehicleTracks` | TankRenderer | CombatFx.Ground |
 | `VehicleGunPort` | TankRenderer | CombatFx.Bodies |

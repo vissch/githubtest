@@ -1,4 +1,4 @@
-// Phase: tooling (2026-09-25) — a static written during a match must be put back when the match ends, or be here
+﻿// Phase: tooling (2026-09-25) — a static written during a match must be put back when the match ends, or be here
 // with the reason it need not be.
 //
 // The project does not reload the domain when the editor leaves Play, so every static a match wrote survives into
@@ -123,12 +123,10 @@ namespace TW.Tests
             SceneHooks.CloseUp = 1f;
             SceneHooks.TanksDrawn = true;
             SceneHooks.Sparks = (at, n) => { };
-            SceneHooks.SmokeSources.Add(Vector3.one);
             SceneStatics.ResetSession();
             Assert.That(SceneHooks.CloseUp, Is.EqualTo(0f));
             Assert.That(SceneHooks.TanksDrawn, Is.False);
             Assert.That(SceneHooks.Sparks, Is.Null);
-            Assert.That(SceneHooks.SmokeSources, Is.Empty);
         }
     }
 }

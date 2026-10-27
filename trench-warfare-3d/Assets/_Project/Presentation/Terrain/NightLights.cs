@@ -348,10 +348,6 @@ namespace TW.Presentation.Terrain
             AddGlowMesh(fireHost, fireGlow, fireCentres.ToArray(), fireShapes.ToArray(), fireColors.ToArray());
             foreach (var l in lanterns) { lanternBase.Add(l.intensity); lanternLevel.Add(l.intensity); lanternHome.Add(l.transform.position); }
             BuiltLamps(map);   // which lamps stand by water (NightLights.RealLamps.cs)
-            // dugout stoves smoke and rained-on fires steam (CombatFx draws the puffs)
-            SceneHooks.SmokeSources.Clear();
-            for (int i = 0; i < sites.Count && SceneHooks.SmokeSources.Count < 8; i += step) SceneHooks.SmokeSources.Add(sites[i].Position + sites[i].Rotation * new Vector3(-.8f, 0f, -.6f) + Vector3.up * 2.3f);
-            for (int i = 0; i < flameFeet.Count; i += 2) if (flameShapes[i].x > 1f) SceneHooks.SmokeSources.Add(flameFeet[i] + Vector3.up * 1.8f);
             firePoints.Clear();
             for (int i = 0; i < flameFeet.Count; i++) if (flameShapes[i].x > 1f) firePoints.Add(flameFeet[i]);
             if (flameFeet.Count > 0) AddFlameMesh(flameFeet, flameShapes);
@@ -425,7 +421,6 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalColor(HearthColorId, Color.clear);
             ClearPools();
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
-            SceneHooks.SmokeSources.Clear();
             SceneHooks.Flash = null;
             SceneHooks.FireLight = null;
             SceneHooks.MachineGlows = null; SceneHooks.MachineLight = null; SceneHooks.LampOut = null;

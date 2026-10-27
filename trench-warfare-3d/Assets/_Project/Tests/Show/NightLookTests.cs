@@ -1,6 +1,8 @@
-// Phase: A5d (2026-09-29, the owner's night look) — the knobs that draw today's night at 0, and what they do past it.
+﻿// Phase: A5d (2026-09-29, the owner's night look) — the knobs that draw today's night at 0, and what they do past it.
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
+using TW.Presentation;
 using TW.Presentation.Terrain;
 
 namespace TW.Tests
@@ -94,6 +96,17 @@ namespace TW.Tests
                 Assert.AreEqual(NightLights.MaxFirePools, lights.FirePools, "a field of fires stops at the cap");
             }
             finally { Object.DestroyImmediate(go); }
+        }
+        [Test]
+        public void TheChimneysAndTheFeetMakeNoFireOrSmoke()
+        {
+            // owner's decision, 2026-10-26: "remove the fire and smoke from the chimneys and the feet". The chimney
+            // puffs, the puffs at the flames' feet and the mud kicked at running men's feet are gone, and with them
+            // the hook and the emitter that drew them. The flames themselves, their lights and their glows stay.
+            Assert.That(typeof(SceneHooks).GetField("SmokeSources", BindingFlags.Public | BindingFlags.Static), Is.Null,
+                "SceneHooks.SmokeSources is gone: the owner's decision of 2026-10-26 took the chimney and flame-foot puffs out");
+            Assert.That(typeof(TW.Presentation.Tactical.CombatFx).GetMethod("Ambient", BindingFlags.NonPublic | BindingFlags.Instance), Is.Null,
+                "CombatFx.Ambient is gone: the owner's decision of 2026-10-26 took the ambient puffs and the foot kick out");
         }
     }
 }

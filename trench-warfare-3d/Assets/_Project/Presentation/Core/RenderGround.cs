@@ -110,8 +110,6 @@ namespace TW.Presentation
         /// <summary>What the player is aiming now, for the effects to draw (the disc or the corridor): false when nothing is
         /// armed or the cursor is off the map. (The aim's owner sets it: TestPanel today; CombatFx.Abilities draws.)</summary>
         public static TW.Presentation.Tactical.TryAimShape AimPreview;
-        /// <summary>Places that smoke or steam gently: dugout chimneys, fires in the rain. (NightLights fills it, CombatFx draws.)</summary>
-        public static readonly System.Collections.Generic.List<UnityEngine.Vector3> SmokeSources = new System.Collections.Generic.List<UnityEngine.Vector3>();
         /// <summary>The tanks are drawn from their parts, with their own exhaust, sparks and wrecks: the box vehicle and the
         /// generic vehicle effects stand down. (TankRenderer)</summary>
         public static bool TanksDrawn;
@@ -164,7 +162,7 @@ namespace TW.Presentation
         /// (SceneStatics.ResetSession): on a scene load the new scene's components have already wired theirs.</summary>
         public static void Reset()
         {
-            CloseUp = 0f; TanksDrawn = false; SmokeSources.Clear();
+            CloseUp = 0f; TanksDrawn = false;
             IsWater = null; AddRing = null; Sparks = null; Biplane = null; VehicleTracks = null; VehicleGunPort = null;
             DrawnWreck = null; IsTankSlot = null; Flash = null; FireLight = null; FirePool = null; CookOff = null; FootFall = null; AimPreview = null;
             MachineGlows = null; MachineLight = null; LampOut = null; Standing = null;

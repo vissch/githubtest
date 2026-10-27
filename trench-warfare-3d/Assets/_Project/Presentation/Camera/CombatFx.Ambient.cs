@@ -1,5 +1,5 @@
 ﻿// Phase: B1 / C4 (implemented) — part of CombatFx (see CombatFx.cs for the event dispatch and the shared pools):
-// birds put up by shell bursts, and the ambient smoke of the field. Pool: birds (MaxBirds).
+// birds put up by shell bursts. Pool: birds (MaxBirds).
 using System.Collections.Generic;
 using UnityEngine;
 using TW.Sim;
@@ -62,37 +62,5 @@ namespace TW.Presentation.Tactical
             if (batch.Count > 0) Flush(cube, rp);
         }
 
-        /// <summary>Running men kick up mud, and chimneys and rained-on fires smoke: a few small chunks a step, near the view only.</summary>
-        void Ambient(float now)
-        {
-            var cam = Camera.main; if (cam == null) return;
-            Vector3 look = ViewGround.Point(cam.transform);
-            if (now >= nextKick)
-            {
-                nextKick = now + 0.2f;
-                var w = Host.Local.World; int found = 0;
-                for (int n = 0; n < w.HighWater && n < 300 && found < 5 && chunks.Count < 480; n++)
-                {
-                    int i = (kickCursor + n) % w.HighWater;
-                    if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0) continue;
-                    var v = w.Velocity[i]; if (v.x * v.x + v.z * v.z < 4f) continue;
-                    var p = w.Position[i]; float dx = p.x - look.x, dz = p.z - look.z; if (dx * dx + dz * dz > 60f * 60f) continue;
-                    Vector3 at = new Vector3(p.x, RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.05f, p.z);
-                    if (SceneHooks.IsWater != null && SceneHooks.IsWater(at.x, at.z)) Throw(at + Vector3.up * 0.3f, 1, 4, 2.2f, 0.04f); else Throw(at, 1, 0, 1.7f, 0.045f);
-                    found++; kickCursor = i + 1;
-                }
-                if (found < 5 && w.HighWater > 0) kickCursor = (kickCursor + 300) % w.HighWater;
-            }
-            if (now >= nextSmoke)
-            {
-                nextSmoke = now + 0.45f;
-                for (int s = 0; s < SceneHooks.SmokeSources.Count && chunks.Count < 460; s++)
-                {
-                    Vector3 at = SceneHooks.SmokeSources[s];
-                    if ((at - look).sqrMagnitude > 110f * 110f) continue;
-                    chunks.Add(new Chunk { Pos = at, Vel = new Vector3(UnityEngine.Random.Range(-0.2f, 0.2f), 0.9f, UnityEngine.Random.Range(-0.2f, 0.2f)), Born = now, Life = UnityEngine.Random.Range(2.4f, 3.6f), Size = 0.22f, Kind = 2 });
-                }
-            }
-        }
     }
 }
