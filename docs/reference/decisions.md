@@ -308,7 +308,8 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   is barred and `probe.py` keeps exiting 1 until he answers; (b) bar it against the smoke card on a mask that is
   the card's own drawing, not the plate difference (a probe change, no look change); (c) spend real look change on
   it - a different `PuffFrame`, a narrower band, or a new sheet drawn with more shading. Numbers, the cel table and
-  the pictures: `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g2-g1-g2/README.md`.
+  the pictures: `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g2-g1-g2/README.md`, three labelled contact
+  sheets at `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g2-g1-g2/look/`.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below

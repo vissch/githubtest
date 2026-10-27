@@ -1,5 +1,16 @@
 # ability-fx-captures-r2-2-g2-g2-g2-g1-g2-g1-g2: the GasPuff card's volume, part 2 of 3, 2026-10-23
 
+## Look at these
+
+Three contact sheets of the 27 captures already in this folder, built by `sheets.py`, for the owner's "show me
+visual results":
+
+- `look/1-sheet-cards.png` — the 15 card captures (5 books x 3 sets, 5 cols x 3 rows). `cards1`/`cards2`/`cards3`
+  were shot on this exact tree (`36f7564b8a`, the `Lit = 1` build): the green gaspuff mound at full volume.
+- `look/2-sheet-t1.png` — the 6 T1 field captures (gas and plate, 3 runs, 3 cols x 2 rows). `run1`/`run2`/`run3`
+  were shot before that change (`dac6af7a73`), so the close puff here is the older look, not `Lit = 1`.
+- `look/3-sheet-o240.png` — the 6 O240 field captures, same `run1`-`run3`, same older `dac6af7a73` look.
+
 **`python probe.py` exits 1.** Every other bar clears; the fourth card bar, `cards_gaspuff_ink_relief`, still has
 no bar. Part 1 (the band) took it 0.1276 -> ~0.145; part 2 (`Lit`) takes it to **0.1708 / 0.1671 / 0.1686** - and
 that spends both levers the row has, still under the 0.20 floor. **Part 3 is an owner decision, not a code step**
@@ -115,6 +126,8 @@ suit the number, or narrowing the band off its own measurement, are both owner c
   200/215/230). The field draw is not touched by this unit.
 - `cards1/`, `cards2/`, `cards3/` - **shot fresh in part 2**, on `Lit = 1`.
 - `probe.json` - the runs' numbers, the frames, the full card report and `BAR_VALUES`.
+- `sheets.py` - read-only PIL, builds the three contact sheets above into `look/` from the captures already here;
+  `--check` re-renders and asserts the tile count.
 
 ## The capture recipe
 
