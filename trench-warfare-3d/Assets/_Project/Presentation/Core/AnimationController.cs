@@ -787,9 +787,10 @@ namespace TW.Presentation
                 if (flat) gait = math.abs(rel) > 2.27f ? Clip.CrawlBack : Clip.Crawl;
                 else if (depth > 0.5f) { gait = Clip.Wade; env = " wading"; }
                 else if (wire && speed < 2.2f) { gait = Clip.WireCross; env = " through the wire"; }
-                // crouched and shooting as he goes: FireStoop, authored at 1 m/s (the rate clamp covers 0.6 to 1.6); above
-                // that the crouched run wins, nobody fires at that pace
-                else if (inTrench || simStance == Stance.Crouch) gait = firing && speed < 2.2f ? Clip.FireStoop : speed > 1.8f ? Clip.CrouchRun : supp > 40f ? Clip.StoopLow : Clip.StoopWalk;
+                // crouched and shooting as he goes: FireStoop and StoopWalk are authored at 1 m/s, so the rate clamp
+                // (0.6 to 1.6) can only carry the ground up to 1.6 m/s; above that CrouchRun (authored 2.4, clamp
+                // reaches it from 1.44) is the only crouched clip whose feet still match the ground, firing or not
+                else if (inTrench || simStance == Stance.Crouch) gait = speed > 1.6f ? Clip.CrouchRun : firing ? Clip.FireStoop : supp > 40f ? Clip.StoopLow : Clip.StoopWalk;
                 else if (arche == 2 && speed < 2.2f && target < 0) { gait = Clip.MGCarry; env = " carrying the gun"; }
                 else if ((simStance == Stance.Sprint && speed > 2.2f) || speed > 3.6f) gait = firing && arche == 1 ? Clip.FireSprint : Clip.Sprint;
                 else if (speed > 2.2f) gait = math.abs(rel) > 2.27f && arche <= 1 ? Clip.RunBack : firing && math.abs(rel) < 0.87f ? Clip.FireRun : Clip.Run;
