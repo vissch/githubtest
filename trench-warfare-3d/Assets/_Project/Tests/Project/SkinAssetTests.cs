@@ -170,5 +170,97 @@ namespace TW.Tests
                 $"figure_cover painted={coverPainted} placeholder={coverPlaceholder}: not a 3x clear");
             Assert.That(coverPainted, Is.GreaterThanOrEqualTo(0.30f), $"figure_cover={coverPainted} misses the 0.30 floor");
         }
+
+        // Mirrors docs/evidence/sapper-look-3-g2-g2/probe.py's pack_blob: the largest connected component of
+        // pack-tone pixels inside a disc of radius 0.40*side centred on the square, shaped like a satchel
+        // (area share 0.015-0.12, taller than wide, mostly filled, off the midline). 0f if none passes.
+        const float ShapeThreshold = 24f;
+        const float DiscRadiusFraction = 0.40f;
+        static readonly (float Lo, float Hi) PackBlobArea = (0.015f, 0.12f);
+        static readonly (float Lo, float Hi) PackBlobAspect = (1.3f, 3.5f);
+        const float PackBlobFillMin = 0.6f;
+        const float PackBlobOffMidMin = 0.10f;
+
+        static bool[,] DiscMask(int w, int h)
+        {
+            float side = Mathf.Min(w, h), cx = (w - 1) / 2f, cy = (h - 1) / 2f, r = DiscRadiusFraction * side;
+            var mask = new bool[w, h];
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+                mask[x, y] = (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r;
+            return mask;
+        }
+
+        static bool[,] ToneHits(Color32[] px, int w, int h, bool[,] mask, Color32 tone)
+        {
+            var hit = new bool[w, h];
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+            {
+                if (!mask[x, y]) continue;
+                var c = px[y * w + x];
+                int d = Mathf.Max(Mathf.Abs(c.r - tone.r), Mathf.Abs(c.g - tone.g), Mathf.Abs(c.b - tone.b));
+                if (d <= ShapeThreshold) hit[x, y] = true;
+            }
+            return hit;
+        }
+
+        static System.Collections.Generic.List<System.Collections.Generic.List<(int X, int Y)>> ConnectedComponents(bool[,] hit, int w, int h)
+        {
+            var seen = new bool[w, h];
+            var components = new System.Collections.Generic.List<System.Collections.Generic.List<(int X, int Y)>>();
+            for (int sy = 0; sy < h; sy++) for (int sx = 0; sx < w; sx++)
+            {
+                if (!hit[sx, sy] || seen[sx, sy]) continue;
+                var cells = new System.Collections.Generic.List<(int X, int Y)>();
+                var stack = new System.Collections.Generic.Stack<(int X, int Y)>();
+                stack.Push((sx, sy)); seen[sx, sy] = true;
+                while (stack.Count > 0)
+                {
+                    var (x, y) = stack.Pop();
+                    cells.Add((x, y));
+                    foreach (var (nx, ny) in new[] { (x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1) })
+                        if (nx >= 0 && nx < w && ny >= 0 && ny < h && hit[nx, ny] && !seen[nx, ny]) { seen[nx, ny] = true; stack.Push((nx, ny)); }
+                }
+                components.Add(cells);
+            }
+            return components;
+        }
+
+        static float PackBlob(Color32[] px, int w, int h)
+        {
+            float side = Mathf.Min(w, h), area = w * h;
+            var mask = DiscMask(w, h);
+            var hit = ToneHits(px, w, h, mask, ProbePack);
+            float best = 0f;
+            foreach (var cells in ConnectedComponents(hit, w, h))
+            {
+                float share = cells.Count / area;
+                if (share < PackBlobArea.Lo || share > PackBlobArea.Hi) continue;
+                int x0 = int.MaxValue, y0 = int.MaxValue, x1 = int.MinValue, y1 = int.MinValue;
+                foreach (var (x, y) in cells) { x0 = Mathf.Min(x0, x); y0 = Mathf.Min(y0, y); x1 = Mathf.Max(x1, x); y1 = Mathf.Max(y1, y); }
+                int bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+                if (bw <= 0) continue;
+                float aspect = bh / (float)bw;
+                if (aspect < PackBlobAspect.Lo || aspect > PackBlobAspect.Hi) continue;
+                float fill = cells.Count / (float)(bw * bh);
+                if (fill < PackBlobFillMin) continue;
+                float cx = (x0 + x1) / 2f;
+                if (Mathf.Abs(cx / side - 0.5f) < PackBlobOffMidMin) continue;
+                if (share > best) best = share;
+            }
+            return best;
+        }
+
+        [Test]
+        public void TheSapperPackReadsAsAPack()
+        {
+            int s = SkinSpec.PortraitSize;
+            var painted = UiSkinGenerator.PaintSapperPortrait();
+            var placeholder = UiSkinGenerator.PaintPortraitPlaceholder("Sapper");
+
+            float blobPainted = PackBlob(painted, s, s), blobPlaceholder = PackBlob(placeholder, s, s);
+
+            Assert.That(blobPainted, Is.GreaterThan(0f), $"pack_blob={blobPainted}: the satchel does not read as a pack-shaped blob");
+            Assert.That(blobPlaceholder, Is.EqualTo(0f), $"pack_blob={blobPlaceholder} on the '?' placeholder, which draws no pack tone at all");
+        }
     }
 }

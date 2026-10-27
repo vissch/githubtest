@@ -26,8 +26,14 @@ Engineer/Sapper, not a typed-in number. kit_share and figure_cover must still ag
 the three captures, and portrait-Assault (the control card from here on; the Engineer is repainted in a
 later part) must show zero drift between captures.
 
-Later parts add card-sap-*.png / card-eng-*.png (the repainted portraits) and raise bars for the gated
-scalars; this script already knows how to score any capture, so later parts only add to main().
+Part 2 adds card-sap-{1,2,3}.png (the repainted Sapper, PaintSapperPortrait's torso now a plate tone with
+the satchel the only pack-tone block): pack_blob and charge_on_pack must be > 0 in every one (the base max
+is 0.0, so any positive floor sits outside the base spread), pack_blob must also stay <= 0.12 so a later
+flood cannot pass the same bar, and portrait-Assault must show zero drift between card-base-1 and
+card-sap-1 (the repaint touches only the Sapper's own portrait).
+
+Later parts add card-eng-*.png (the repainted Engineer) and raise its own bars; this script already knows
+how to score any capture, so later parts only add to main().
 """
 import json
 import os
@@ -287,30 +293,40 @@ def score(square):
     }
 
 
-def main():
-    sap_squares = {}
-    assault_squares = {}
+def _load(stem):
+    squares_sap = {}
+    squares_assault = {}
     for i in (1, 2, 3):
-        png = os.path.join(HERE, f"card-base-{i}.png")
+        png = os.path.join(HERE, f"{stem}-{i}.png")
         js = png + ".json"
-        sap_squares[i] = portrait_square(png, js, "portrait-Sapper")
-        assault_squares[i] = portrait_square(png, js, "portrait-Assault")
+        squares_sap[i] = portrait_square(png, js, "portrait-Sapper")
+        squares_assault[i] = portrait_square(png, js, "portrait-Assault")
+    return squares_sap, squares_assault
 
-    sap_scores = {i: score(sap_squares[i]) for i in (1, 2, 3)}
 
-    kit_vals = [sap_scores[i]["kit_share"] for i in (1, 2, 3)]
-    cover_vals = [sap_scores[i]["figure_cover"] for i in (1, 2, 3)]
+def main():
+    base_sap, base_assault = _load("card-base")
+    sap_sap, sap_assault = _load("card-sap")
+
+    base_scores = {i: score(base_sap[i]) for i in (1, 2, 3)}
+    sap_scores = {i: score(sap_sap[i]) for i in (1, 2, 3)}
+
+    kit_vals = [base_scores[i]["kit_share"] for i in (1, 2, 3)]
+    cover_vals = [base_scores[i]["figure_cover"] for i in (1, 2, 3)]
     kit_spread = max(kit_vals) - min(kit_vals)
     cover_spread = max(cover_vals) - min(cover_vals)
 
     pairs = [(1, 2), (1, 3), (2, 3)]
-    assault_drift = {f"{a}-{b}": diff_px(assault_squares[a], assault_squares[b]) for a, b in pairs}
+    assault_drift = {f"{a}-{b}": diff_px(base_assault[a], base_assault[b]) for a, b in pairs}
+    assault_drift_base_sap = diff_px(base_assault[1], sap_assault[1])
 
     probe = {
-        "card_base": sap_scores,
+        "card_base": base_scores,
+        "card_sap": sap_scores,
         "kit_share_base_spread": kit_spread,
         "figure_cover_base_spread": cover_spread,
         "assault_drift_px": assault_drift,
+        "assault_drift_px_base1_sap1": assault_drift_base_sap,
     }
     with open(os.path.join(HERE, "probe.json"), "w", encoding="utf-8") as f:
         json.dump(probe, f, indent=2)
@@ -327,12 +343,24 @@ def main():
         if drift != 0:
             print(f"FAIL assault_drift_px[{pair}]: {drift} != 0")
             failed = True
+    if assault_drift_base_sap != 0:
+        print(f"FAIL assault_drift_px_base1_sap1: {assault_drift_base_sap} != 0")
+        failed = True
     for i in (1, 2, 3):
         for key in ("pack_blob", "charge_on_pack", "person_taper"):
-            val = sap_scores[i][key]
+            val = base_scores[i][key]
             if val != 0.0:
                 print(f"FAIL card_base[{i}][{key}]: {val} != 0.0")
                 failed = True
+    for i in (1, 2, 3):
+        pb = sap_scores[i]["pack_blob"]
+        cop = sap_scores[i]["charge_on_pack"]
+        if not (0.0 < pb <= 0.12):
+            print(f"FAIL card_sap[{i}][pack_blob]: {pb} not in (0.0, 0.12]")
+            failed = True
+        if not (cop > 0.0):
+            print(f"FAIL card_sap[{i}][charge_on_pack]: {cop} <= 0.0")
+            failed = True
 
     return 1 if failed else 0
 

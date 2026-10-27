@@ -524,16 +524,18 @@ namespace TW.Editor
             c.Glyph(Sdf.Circle(cx, headCy + 3f * u, 9f * u), Plate400, EdgeDark);
             c.Glyph(Sdf.Sub(Sdf.Circle(cx, headCy, 11f * u), Sdf.Box(cx, headCy + 11f * u, 16f * u, 6f * u)), Plate500, EdgeDark);
             c.Glyph(Sdf.Capsule(cx - 15f * u, headCy + 3f * u, cx + 15f * u, headCy + 3f * u, 2.6f * u), Plate500, EdgeDark);
-            // shoulders and chest: a canvas slab in pack tone across the lower disc, clipped to the disc so no
-            // square corner shows past the ring (the old Plate700 slab here was darker than the disc itself)
+            // shoulders and chest: a plate-tone slab across the lower disc, clipped to the disc so no square
+            // corner shows past the ring (lighter than the disc's own fill so figure_cover still clears the
+            // floor; pack tone is now reserved for the satchel block alone, so it stops flooding the whole torso)
             float torsoCy = cy + 20f * u;
-            c.Glyph(Intersect(Sdf.Box(cx, torsoCy, 30f * u, 24f * u), disc), pack, EdgeDark);
-            // the satchel over one shoulder, a solid block past the body line, with two waxed charges on it and a
-            // dark gap between each pair so the pieces do not fuse at card size
-            float satCx = cx + 23f * u;
-            c.Glyph(Intersect(Sdf.Box(satCx, torsoCy - 2f * u, 9f * u, 16f * u), disc), pack, EdgeDark);
-            c.Glyph(Sdf.Box(satCx, torsoCy - 9f * u, 6f * u, 3.5f * u), charge, EdgeDark);
-            c.Glyph(Sdf.Box(satCx, torsoCy + 6f * u, 6f * u, 3.5f * u), charge, EdgeDark);
+            c.Glyph(Intersect(Sdf.Box(cx, torsoCy, 30f * u, 24f * u), disc), Plate400, EdgeDark);
+            // the satchel over one shoulder, a 9u x 16u pack-tone block sized and placed to sit whole inside the
+            // probe's own gating disc (0.40*side) rather than clipped against it into an odd shape, with two
+            // waxed charges on it and a dark gap between each pair so the pieces do not fuse at card size
+            float satCx = cx + 11f * u, satCy = cy + 6f * u;
+            c.Glyph(Sdf.Box(satCx, satCy, 4.5f * u, 8f * u), pack, EdgeDark);
+            c.Glyph(Sdf.Box(satCx, satCy - 4.5f * u, 1.8f * u, 1.8f * u), charge, EdgeDark);
+            c.Glyph(Sdf.Box(satCx, satCy + 4.5f * u, 1.8f * u, 1.8f * u), charge, EdgeDark);
             return c.Px;
         }
 
