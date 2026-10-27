@@ -464,9 +464,8 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   stills' pose, frames 341/356/371 - all `gas-o240`); (b) the owner relaxes `green_low_share`'s 0.30 floor, or
   its spread-vs-margin rule, for a build whose T1 look is known to vary with wait; (c) re-shoot after a
   production change that smooths `gas-t1`'s look across waits, so the two bands merge. Default taken: none built;
-  `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g2-g1-g1-g2/probe.py` (the gap guard, `o240_mask`,
-  `move_report`) and its captures at the closest-passing triple (130/190/250, which clears every O240 bar and
-  fails only the three T1 ones above) are left in the lane, uncommitted, for the next leg or the owner's pick.
+  the probe and its captures at the closest-passing triple (130/190/250, which clears every O240 bar and
+  fails only the three T1 ones above) were never committed; redo the sweep above to reproduce them.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
