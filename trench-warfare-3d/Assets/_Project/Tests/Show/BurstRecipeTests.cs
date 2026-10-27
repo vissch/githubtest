@@ -266,6 +266,36 @@ namespace TW.Tests
             Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
         }
         [Test]
+        public void TheGasBankRidgeOnlyLowersACard()
+        {
+            // r2-3-g1-g2 step 1: the ridge is the merged tiers' height lever. It must never RAISE a card, or the man
+            // rule (TheGasBankLiesOnTheGround_NotOverAMansHead) could be broken by a wave crest.
+            for (float x = 0f; x <= 200f; x += 1f)
+            for (float z = 0f; z <= 200f; z += 1f)
+            {
+                float lift = CombatFx.GasBankRidge(x, z);
+                Assert.GreaterOrEqual(lift, CombatFx.GasBankRidgeFloor - 1e-5f, "never below the floor");
+                Assert.LessOrEqual(lift, 1f + 1e-5f, "never above full height, so a card is only ever lowered");
+            }
+        }
+        [Test]
+        public void TheGasBankRidgeReachesBothEnds()
+        {
+            // From the trig, not from the code: at a 44 m wave x = 11 is a quarter wave (sin = 1, full height) and
+            // x = 33 is three quarters (sin = -1, the floor).
+            Assert.AreEqual(1f, CombatFx.GasBankRidge(11f, 0f), 1e-4f, "a crest is a card at its full height");
+            Assert.AreEqual(CombatFx.GasBankRidgeFloor, CombatFx.GasBankRidge(33f, 0f), 1e-4f, "a trough is a card at the floor");
+        }
+        [Test]
+        public void TheGasBankRidgeCanReachTheSideBar()
+        {
+            // The lever's reach in metres, against the bar it has to clear on the roughest seed. Both numbers are
+            // given, not computed: 0.6428 is SIDE_BAR in probe.py, 2.698 m the worst baseline ground_relief_m
+            // (baseline/baseline.json, s2). The mass card is 28 m wide and the sheet draws its bottom third.
+            float reachM = (1f - CombatFx.GasBankRidgeFloor) * 28f * CombatFx.GasBankSquash / 3f;
+            Assert.GreaterOrEqual(reachM, 0.6428f * 2.698f, "the ridge can move the side silhouette far enough to meet the side bar");
+        }
+        [Test]
         public void TheGasBankDoesNotErode_SoItsEdgeStaysSoft()
         {
             // r2-3-g1 step 4: Erode rebuilt the alpha as (tex.a - threshold) / 0.45, a 2.2x gain that flattened the

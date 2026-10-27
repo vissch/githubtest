@@ -26,6 +26,14 @@ namespace TW.Presentation.Tactical
         public const float GasBankThin = 0.95f, GasBankFull = 1f;
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.75 tops out at 1.75 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.75f;
+        /// <summary>The lowest a MERGED gas card is drawn, as a share of its full height (r2-3-g1-g2 step 1).</summary>
+        public const float GasBankRidgeFloor = 0.55f;
+        /// <summary>How long the ridge wave is, in metres: longer than the 28 m mass card, shorter than the bank in the side frame.</summary>
+        public const float GasBankRidgeWaveM = 44f;
+        /// <summary>How tall a merged card stands at a place, as a share of its full height: a fixed world-space wave,
+        /// so whole regions are lowered coherently. It only ever LOWERS a card, so the man rule holds untouched.</summary>
+        public static float GasBankRidge(float x, float z) => Mathf.Lerp(GasBankRidgeFloor, 1f, 0.5f + 0.5f *
+            Mathf.Sin((x + 0.6f * z) * (6.2832f / GasBankRidgeWaveM)));
         public static readonly Color GasBankNight = new Color(0.78f, 0.86f, 0.22f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -150,8 +158,9 @@ namespace TW.Presentation.Tactical
                 float h3 = ((blk.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
                 float width = 17f * step;
+                float lift = GasBankRidge(cx, cz);
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((blk.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(cx, ground - 0.10f, cz), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(blk.Thick)));
+                gasCards.Add(FlipbookFx.Pack(new Vector3(cx, ground - 0.10f, cz), width, width * GasBankSquash * lift, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(blk.Thick)));
             }
             foreach (var kv in gasMasses)
             {
@@ -160,10 +169,11 @@ namespace TW.Presentation.Tactical
                 float h3 = ((mass.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
                 float width = 28f * step;
+                float lift = GasBankRidge(cx, cz);
                 float fullness = Mathf.Clamp01(mass.Count / 16f);
                 float alpha = GasBankAlpha(mass.Thick) * Mathf.Lerp(0.5f, 1f, fullness);
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((mass.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(cx, ground - 0.10f, cz), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, alpha));
+                gasCards.Add(FlipbookFx.Pack(new Vector3(cx, ground - 0.10f, cz), width, width * GasBankSquash * lift, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, alpha));
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }
