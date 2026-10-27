@@ -1,0 +1,47 @@
+{
+  "captures": [
+    {
+      "name": "before-a",
+      "core_px": 290,
+      "spread_px": 1190,
+      "reach_m": 2.943,
+      "noise_px": 0,
+      "men_in_frame": 2,
+      "changed_px": 1985
+    },
+    {
+      "name": "before-b",
+      "core_px": 502,
+      "spread_px": 1211,
+      "reach_m": 2.917,
+      "noise_px": 0,
+      "men_in_frame": 2,
+      "changed_px": 2540
+    },
+    {
+      "name": "before-c",
+      "core_px": 485,
+      "spread_px": 1017,
+      "reach_m": 2.917,
+      "noise_px": 0,
+      "men_in_frame": 2,
+      "changed_px": 2303
+    }
+  ],
+  "luma_threshold": 0.02,
+  "core_m": 0.75,
+  "ring_m": [
+    1.5,
+    3.0
+  ],
+  "window_m": 3.0,
+  "min_core_px": 290,
+  "max_core_px": 502,
+  "min_spread_px": 1017,
+  "max_spread_px": 1211,
+  "min_reach_m": 2.917,
+  "max_reach_m": 2.943,
+  "min_noise_px": 0,
+  "max_noise_px": 0,
+  "note": "a record of the unchanged build; no bar is applied"
+}
