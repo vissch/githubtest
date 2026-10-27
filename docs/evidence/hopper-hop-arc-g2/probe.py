@@ -31,8 +31,12 @@ Two modes:
                  all six base sidecars say zoom 30, pose_error_m < POSE_BAR, and luma_mean < NIGHT_BAR (night read
                  from the pixels, not typed in).
     (no flag)    reads land_1..3 and baseline.json. The bar is NOT a number chosen here: it is the top of the
-                 baseline spread plus that spread again, so a pass cannot be run-to-run noise of the old build.
-                 Exit 0 when every land_N beats that bar, and the land sidecars pass the same camera/night checks.
+                 baseline spread plus FOUR times that spread, so a pass cannot be run-to-run noise of the old
+                 build; and on top of that the worst land still must hold twice the baseline's best, so a pass
+                 means dust you can see, not a few hundred pixels more. Exit 0 when every land_N clears both,
+                 the land sidecars pass the same camera/night checks, and all twelve cameras (both runs, stills
+                 and plates) stand within CAM_BAR metres of each other -- which is also the proof that the two
+                 runs found the SAME crossing, so the two sets are comparable at all.
 """
 import json
 import os
@@ -50,7 +54,9 @@ EMPTY_RUN = 24     # consecutive rows under ROW_MIN that end the hull block (a t
 ZOOM = 30
 POSE_BAR = 0.1
 NIGHT_BAR = 0.35   # luma_mean of a night frame (the hopper-hop-arc stills came out at 0.17)
-SPREAD_FACTOR = 1  # the bar sits one whole baseline spread above the baseline's top
+SPREAD_FACTOR = 4  # the bar sits four whole baseline spreads above the baseline's top
+DOUBLE = 2         # and the land stills must hold at least this many times the baseline's worst ground
+CAM_BAR = 0.01     # metres the twelve cameras may differ by: the same locked-off pose, so the same crossing
 
 
 def sidecar(stem):
@@ -106,6 +112,24 @@ def cameras_ok(stems, out):
     if not night_ok:
         print("a still is not night (luma_mean >= %s): %s" % (NIGHT_BAR, out["luma_mean"]), file=sys.stderr)
     return zoom_ok and pose_ok and night_ok
+
+
+def cameras_match(stems, out):
+    """All twelve sidecars -- both runs, each still and its plate -- stood at one camera. If the second run had
+    found a different crossing the rig would have aimed somewhere else, and the two sets would measure two
+    different pieces of ground."""
+    pos = {}
+    for s in stems:
+        c = sidecar(s)
+        pos[s] = [round(float(c.get(k, -9e9)), 4) for k in ("cam_x", "cam_y", "cam_z")]
+    out["cam_xyz"] = pos
+    spans = [max(v[i] for v in pos.values()) - min(v[i] for v in pos.values()) for i in range(3)]
+    out["cam_span_m"] = [round(v, 4) for v in spans]
+    ok = all(v < CAM_BAR for v in spans)
+    if not ok:
+        print("the two runs did not stand at one camera (span %s m over %s): a different crossing was found"
+              % (out["cam_span_m"], sorted(pos)), file=sys.stderr)
+    return ok
 
 
 def read(prefix):
@@ -169,7 +193,7 @@ def main():
     if got is None:
         return 1
     vals = [got[s]["dust_px"] for s in stems]
-    bar = base["max"] + SPREAD_FACTOR * base["spread"]
+    bar = max(base["max"] + SPREAD_FACTOR * base["spread"], DOUBLE * base["max"])
     out = {
         "stills": got,
         "dust_px": vals,
@@ -177,18 +201,21 @@ def main():
         "max": max(vals),
         "spread": max(vals) - min(vals),
         "bar": bar,
+        "bar_spread": base["max"] + SPREAD_FACTOR * base["spread"],
+        "bar_double": DOUBLE * base["max"],
         "baseline": {k: base[k] for k in ("dust_px", "min", "max", "spread")},
         "delta": DELTA,
         "row_min": ROW_MIN,
         "gap": GAP,
         "empty_run": EMPTY_RUN,
     }
-    ok = cameras_ok(stems, out) and min(vals) > bar
+    all_twelve = ["%s_%d%s" % (p, n, w) for p in ("base", "land") for n in (1, 2, 3) for w in ("", "_empty")]
+    ok = cameras_ok(stems, out) and cameras_match(all_twelve, out) and min(vals) >= bar
     save("probe.json", out)
     for k in ("dust_px", "min", "max", "spread", "bar", "baseline"):
         print(k, out[k])
-    if min(vals) <= bar:
-        print("the dust on the ground is inside the old build's spread: %s against bar %s"
+    if min(vals) < bar:
+        print("the dust on the ground does not clear the bar: %s against bar %s"
               % (vals, bar), file=sys.stderr)
     print("PASS" if ok else "FAIL")
     return 0 if ok else 1

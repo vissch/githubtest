@@ -965,14 +965,19 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **The Hopper's hop arc (2026-10-19, presentation only):** the Hopper cruises 9 m up (`TankRenderer.Machines`'
   `FlyerLift`, `HoverPose`) and answered nothing on the ground below it. `Presentation/Camera/TankRenderer.HopArc.cs`
   rises it 3.2 m over a trench, its link or a wire belt (`MapData.LayerAt` under the hull and 5 m ahead), noses it up
-  leaving and down settling, and blows two downwash puffs off the ground as it comes back to cruise. It never lands
+  leaving and down settling, and drops a dust puff on the ground as it comes back to cruise: one `DustPuff` card at
+  the trench lip (`TankRenderer.HopArcLipOffset`, a pure static the renderer feeds from 11 ground samples over 10 m
+  along the hull's forward, so the first flip crossing-to-open is the lip) plus two side `Puff` cards for width. The
+  first build used two alpha-0.2 puffs under the hull and the owner read the ground as clean at night. It never lands
   (owner `#d-hopper`) and the sim is untouched: no flight in the sim yet. Tests: HopperHopArcTests; HopperHopStills
   (`Tests/Stills`, Explicit, needs a graphics device) photographs the cruise and the top of one arc over a trench and
   the same instants with the renderer off, which `docs/evidence/hopper-hop-arc/probe.py` measures. HopperLandStills
   (same folder and rules) photographs the LAND frame itself three times at night - `TankRenderer.HopArcLandingsOf`
   exists for it to wait on, since `landed` lives one frame inside the renderer - and
-  `docs/evidence/hopper-hop-arc-g2/probe.py` counts the changed pixels on the ground under the hull, with the spread
-  of three captures of the build before the dust as its bar (`--baseline` writes that bar into `baseline.json`). Trap: the arc
+  `docs/evidence/hopper-hop-arc-g2/probe.py` counts the changed pixels on the ground under the hull, against the
+  spread of three captures of the build before the dust (`--baseline` writes that into `baseline.json`): the land
+  stills must clear its top by four spreads AND hold twice its best, and all twelve sidecars must agree on the
+  camera, which is what proves both runs found the same crossing. Trap: the arc
   writes `View.Bob` after `Flair`, which leaves a Hopper's Bob at 0 (its DriveStyle `Chug` is 0) - a `Flair` moved
   after that call would wipe the arc.
 - **Not built yet:** models of their own for the stand-ins and the Breaker, figures of their own for the other foot
