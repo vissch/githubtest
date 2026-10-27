@@ -1,7 +1,7 @@
 {
  "bars": {
   "gas_side_height_m": 1.6,
-  "o240_hue_dist_deg": 69.8,
+  "o240_hue_dist_deg": 32.1,
   "side_edge_soft_px": 21.0,
   "t1_changed_frac": 0.08,
   "texture_var_drop": 0.4

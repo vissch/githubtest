@@ -111,7 +111,21 @@ SIDE_FOOT_DEPTH_M = 10.0
 # governs and the bar is rounded DOWN from the arithmetic so rounding never moves it inside the spread. Never
 # lowered below the owner's bar (`o240_hue_dist_deg` only; `gas_side_height_m` has none), never widened to make a
 # run green. Set from the capture of commit 2ba27d4 (the build the owner accepted); see README.md, "The bars".
-BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 69.8, 'gas_side_height_m': 1.6,
+#
+# r2-3-g2-g1: the owner accepted the thinner side's overview colour as it reads ("Accept the color as it now
+# reads and move the target to match", decisions.md 2026-10-27) and asked the target moved to match, not the ink
+# raised and reshot. So `o240_hue_dist_deg` moves DOWN - the one bar in this file that does - from 69.8 to 32.1.
+# 32.1 is this file's own floor rule applied to THIS build's own three captures (73e7ed7694 / 812ffbff10):
+# min(seeds) - margin = 37.15 - 5.0 = 32.15, rounded DOWN to 32.1. Same rule, same 5 deg margin as every other
+# floor here; only the input (this build's spread, not the baseline's) changed, on the owner's word.
+# This may stand below the derived 38.0 (32.14 baseline + 5) only because he accepted the colour: `OWNER_BARS`
+# keeps 25.0 and 32.1 still clears it, so "never lowered below the owner's bar" still holds; what gives way is
+# the `BASELINE_MAX + margin` floor alone, and only on his say.
+# 32.1 still bites: the build the critic threw out (baseline.json) reads 20.52 / 32.14 / 8.26 deg, and a bar is
+# met only when ALL THREE seeds clear it, so that build still fails 32.1 on two of its three seeds.
+# `BASELINE_MAX['o240_hue_dist_deg']` stays 32.14 - it records the baseline's own reading, not a bar, and is not
+# touched by this change.
+BARS = {'t1_changed_frac': 0.08, 'texture_var_drop': 0.40, 'o240_hue_dist_deg': 32.1, 'gas_side_height_m': 1.6,
         'side_edge_soft_px': 21.0}
 # CEILINGS are the other direction: a reading that must stay AT OR BELOW its bar. One bank has a limited
 # footprint, so `side_blob_frac` is capped; set max(seeds) + margin, rounded UP, the same way round as a floor.
