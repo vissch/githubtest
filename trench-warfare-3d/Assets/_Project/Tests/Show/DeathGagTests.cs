@@ -126,6 +126,50 @@ namespace TW.Tests
             Assert.AreEqual(2, rec.Gag.Bounces);
         }
 
+        // [Z004] a tank shell's death jigs: any vehicle killer read as a machine gun and punted a heavy hit as a jig
+        [Test]
+        public void AHeavyHitPuntsEvenWhenTheKillerIsAVehicle()
+        {
+            float3 fly = float3.zero; Clip clip = Clip.DeathBack; float yaw = 0f;
+            var g = Input(DeathKind.Shot);
+            g.MachineGun = true; g.Heavy = true;   // exactly what AnimationController.Gags hands over for a tank's main gun
+            var plan = DeathGags.Choose(g, 1f, ref fly, ref clip, ref yaw);
+            Assert.AreEqual(DeathGag.Punt, plan.Gag, "[Z004] a tank shell punts him, it does not jig him");
+            float far = math.length(fly.xz);
+            Assert.GreaterOrEqual(far, 4.9f, "[Z004] a tank shell punts him, it does not jig him");
+            Assert.LessOrEqual(far, 9.1f, "[Z004] a tank shell punts him, it does not jig him");
+            Assert.GreaterOrEqual(fly.y, 1.4f, "[Z004] a tank shell punts him, it does not jig him");
+            Assert.That(plan.Flips == 1 || plan.Flips == 2, "[Z004] a tank shell punts him, it does not jig him");
+            Assert.AreEqual(2, plan.Bounces, "[Z004] a tank shell punts him, it does not jig him");
+            Assert.AreEqual(Clip.DeathThrown, clip, "[Z004] a tank shell punts him, it does not jig him");
+
+            fly = float3.zero; clip = Clip.DeathBack; yaw = 0f;
+            var jig = Input(DeathKind.Shot);
+            jig.MachineGun = true; jig.Heavy = false;   // a real machine gunner's kill still jigs
+            plan = DeathGags.Choose(jig, 1f, ref fly, ref clip, ref yaw);
+            Assert.AreEqual(DeathGag.Jig, plan.Gag, "[Z004] a real machine gunner's kill still jigs");
+            Assert.GreaterOrEqual(plan.Delay, 0.35f, "[Z004] a real machine gunner's kill still jigs");
+            Assert.LessOrEqual(plan.Delay, 0.6f, "[Z004] a real machine gunner's kill still jigs");
+            Assert.LessOrEqual(math.length(fly.xz), 5.1f, "[Z004] a real machine gunner's kill still jigs");
+        }
+
+        // [Z004] a tank shell's death jigs: a tank's main gun must land as a punt, whoever the ladder's killer is
+        [Test]
+        public void ATanksMainGunPuntsHimNotJigsHim()
+        {
+            using var r = new Rig(1f);
+            int man = r.Man(Here);
+            int tank = r.Tank(Here + new float3(30f, 0f, 0f));
+            r.Tick(); uint at = r.W.Tick;
+            r.W.Events.Add(r.W.Tick, SimEventType.Hit, tank, man, r.W.Position[man], new float3(-1f, 0f, 0f), 90f);   // a heavy hit (> 0.4 of his hp)
+            r.W.Despawn(man, tank, new float3(-1f, 0f, 0f));
+            r.Tick();
+            var rec = r.Record(man, at);
+            Assert.AreEqual(DeathGag.Punt, rec.Gag.Gag, "[Z004] the heavy hit the player watched must land as a punt");
+            Assert.AreEqual(Clip.DeathThrown, rec.Clip, "[Z004] the heavy hit the player watched must land as a punt");
+            Assert.Less(rec.ThrowX, -4.9f, "[Z004] the heavy hit the player watched must land as a punt");
+        }
+
         [Test]
         public void AMachineGunJigsHimOnTheSpotFirst()
         {

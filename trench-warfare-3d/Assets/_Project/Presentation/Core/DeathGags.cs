@@ -205,7 +205,8 @@ namespace TW.Presentation
                 return Capped(ref plan, ref fly);
             }
             float farShot, highShot; int flips; int bounces; float skid;
-            if (g.MachineGun)
+            // a heavy hit always punts, whoever fired it: a tank's main gun must not read as a machine gun's jig
+            if (g.MachineGun && !g.Heavy)
             {
                 plan.Gag = DeathGag.Jig;
                 plan.Delay = Towards(0f, Range(s, t, 941u, 0.35f, 0.6f), a); plan.Jig = 0.3f * math.min(1f, a);
