@@ -1,0 +1,97 @@
+{
+  "plate_px": {
+    "night_1": 11424,
+    "night_2": 11425,
+    "night_3": 11424
+  },
+  "cover": {
+    "night_1": 0.9999,
+    "night_2": 1.0,
+    "night_3": 0.9999
+  },
+  "diff_all": {
+    "night_1": 18575,
+    "night_2": 18558,
+    "night_3": 18603
+  },
+  "plate_px_min": 11424,
+  "plate_px_max": 11425,
+  "plate_px_spread": 1,
+  "noise_px": 0,
+  "bar": 10281,
+  "silhouette_px": 11425,
+  "px_per_m": 136.0,
+  "foot_gap_m": 0.0,
+  "threshold_per_channel": 6,
+  "cover_floor": 0.5,
+  "spread_allowed": 0.05,
+  "bar_m": 0.5,
+  "mask_tolerance_per_channel": 40,
+  "mask": {
+    "file": "mask.png",
+    "magenta": {
+      "count": 11425,
+      "top": 448,
+      "bottom": 636,
+      "centre": [
+        542.0,
+        960.0
+      ]
+    },
+    "cyan": {
+      "count": 1344,
+      "top": 567,
+      "bottom": 635,
+      "centre": [
+        601.0,
+        943.5
+      ]
+    }
+  },
+  "unmasked_mask_colours": {
+    "night_1": {
+      "magenta": 0,
+      "cyan": 0
+    },
+    "night_2": {
+      "magenta": 0,
+      "cyan": 0
+    },
+    "night_3": {
+      "magenta": 0,
+      "cyan": 0
+    },
+    "off_1": {
+      "magenta": 0,
+      "cyan": 0
+    },
+    "off_2": {
+      "magenta": 0,
+      "cyan": 0
+    },
+    "off_3": {
+      "magenta": 0,
+      "cyan": 0
+    }
+  },
+  "fallen": 2,
+  "drawn_infantry": 0,
+  "pose_error_m": {
+    "mask": 0,
+    "night_1": 0,
+    "night_2": 0,
+    "night_3": 0,
+    "off_1": 0,
+    "off_2": 0,
+    "off_3": 0
+  },
+  "checks": {
+    "spread_within_5pct_of_min": true,
+    "bar_outside_the_spread": true,
+    "bar_above_the_flicker": true,
+    "every_capture_over_the_bar": true,
+    "every_capture_covers_half_the_plate": true,
+    "no_mask_colour_in_the_unmasked_stills": true
+  },
+  "pass": true
+}

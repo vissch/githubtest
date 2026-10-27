@@ -1,0 +1,71 @@
+sentry-look-r4-2-g2 capture  2026-10-27 02:07:18
+scene Assets/_Project/Scenes/GreyboxCorridor.unity  pose zoom=7.5 yaw=21.0 pitch=13.0 1920x1080
+open the battle scene and enter Play
+  scene      -> opened
+  loaded     -> GreyboxCorridor
+stage the Sentry
+  place      -> slot=5 men=1 foes=8 at=float3(45f, 0f, 6f) tick=1215
+let him step, aim and set his plate down
+  state      -> tick=1830 alive=True hp=158.8 sockets=True barrel_yaw=-22.6 unit_yaw=-17.7 target=-1 spot_set=True spot_foot=(44.86, 2.52, 6.40) spot_fwd=(-0.51, 0.00, 0.86) fallen=0 drawn=1 pos=float3(50.64209f, 0f, 30.6946f) mask=False
+stop the clock and clear the frame: everything after this is one frozen instant
+  stage      -> held at weather clock 120 yaw=-166.6 spot=(44.86, 2.52, 6.40) at=float3(46.14182f, 0f, 4.256014f)
+  clear      -> stood 10 men 80 m off
+  state_staged -> tick=1892 alive=True hp=158.8 sockets=True barrel_yaw=-22.7 unit_yaw=-17.7 target=-1 spot_set=True spot_foot=(44.86, 2.52, 6.40) spot_fwd=(-0.51, 0.00, 0.86) fallen=0 drawn=1 pos=float3(46.14182f, 0f, 4.256014f) mask=False
+pin the one camera pose, by measuring
+  shot_pick  -> held: held at weather clock 120 | yaw=-166.6 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\pick.png
+  yaw  -166.6 ->      0 magenta px
+  shot_pick  -> held: held at weather clock 120 | yaw=-136.6 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\pick.png
+  yaw  -136.6 ->      0 magenta px
+  shot_pick  -> held: held at weather clock 120 | yaw=-106.6 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\pick.png
+  yaw  -106.6 ->  11145 magenta px
+  shot_pick  -> held: held at weather clock 120 | yaw=-76.6 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\pick.png
+  yaw   -76.6 ->   8789 magenta px
+  shot_pick  -> held: held at weather clock 120 | yaw=-46.6 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\pick.png
+  yaw   -46.6 ->   3450 magenta px
+  shot_pick  -> held: held at weather clock 120 | yaw=-16.6 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\pick.png
+  yaw   -16.6 ->   3217 magenta px
+  shot_pick  -> held: held at weather clock 120 | yaw=13.4 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\pick.png
+  yaw    13.4 ->   8098 magenta px
+  shot_pick  -> held: held at weather clock 120 | yaw=43.4 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\pick.png
+  yaw    43.4 ->  11699 magenta px
+  shot_pick  -> held: held at weather clock 120 | yaw=73.4 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\pick.png
+  yaw    73.4 ->      0 magenta px
+  shot_pick  -> held: held at weather clock 120 | yaw=103.4 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\pick.png
+  yaw   103.4 ->   8848 magenta px
+  shot_pick  -> held: held at weather clock 120 | yaw=133.4 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\pick.png
+  yaw   133.4 ->   4115 magenta px
+  shot_pick  -> held: held at weather clock 120 | yaw=163.4 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\pick.png
+  yaw   163.4 ->   3788 magenta px
+  shot_pick  -> held: held at weather clock 120 | yaw=21.0 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\pick.png
+  yaw    21.0 ->   9039 magenta px
+  pinned yaw -> 43.4 deg (11699 magenta px)
+he reaches the frozen instant alive, his plate down, the frame his alone
+  state_t    -> tick=1892 alive=True hp=158.8 sockets=True barrel_yaw=-22.7 unit_yaw=-17.7 target=-1 spot_set=True spot_foot=(44.86, 2.52, 6.40) spot_fwd=(-0.51, 0.00, 0.86) fallen=0 drawn=1 pos=float3(46.14182f, 0f, 4.256014f) mask=True
+  before     -> fallen=0.0 drawn=1.0
+kill him for real: the sim's own Death event, collected in the same eval
+  despawn    -> despawned slot=5 killer=13 at=78.7 m alive=False archetype=26 held at weather clock 120
+  kill_path  -> despawn_collect
+  watch      -> tick=1892 alive=False death_tick=1892 since=0 archetype=26 spot_set=True fallen=2 drawn=0 act=held at weather clock 120
+  state_dead -> tick=1892 alive=False hp=0.0 sockets=True barrel_yaw=-22.7 unit_yaw=-17.7 target=-1 spot_set=True spot_foot=(44.86, 2.52, 6.40) spot_fwd=(-0.51, 0.00, 0.86) fallen=2 drawn=0 pos=float3(46.14182f, 0f, 4.256014f) mask=True
+  after      -> fallen=2.0 drawn=0.0
+still 1 of 7: the masked silhouette, the plate's own pixels
+  shot_mask  -> held: held at weather clock 120 | yaw=43.4 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\mask.png
+  mask        -> mask.png (2391 KB) mask=True plate=True pose_error_m=0 men_in_frame=0
+pair 1 of 3: the night look, then the same instant with no plate
+  shot_night_1 -> held: held at weather clock 120 | yaw=43.4 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\night_1.png
+  night_1     -> night_1.png (2370 KB) mask=False plate=True pose_error_m=0 men_in_frame=0
+  shot_off_1 -> held: held at weather clock 120 | yaw=43.4 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\off_1.png
+  off_1       -> off_1.png (2375 KB) mask=False plate=False pose_error_m=0 men_in_frame=0
+pair 2 of 3: the night look, then the same instant with no plate
+  shot_night_2 -> held: held at weather clock 120 | yaw=43.4 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\night_2.png
+  night_2     -> night_2.png (2359 KB) mask=False plate=True pose_error_m=0 men_in_frame=0
+  shot_off_2 -> held: held at weather clock 120 | yaw=43.4 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\off_2.png
+  off_2       -> off_2.png (2390 KB) mask=False plate=False pose_error_m=0 men_in_frame=0
+pair 3 of 3: the night look, then the same instant with no plate
+  shot_night_3 -> held: held at weather clock 120 | yaw=43.4 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\night_3.png
+  night_3     -> night_3.png (2382 KB) mask=False plate=True pose_error_m=0 men_in_frame=0
+  shot_off_3 -> held: held at weather clock 120 | yaw=43.4 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2\off_3.png
+  off_3       -> off_3.png (2449 KB) mask=False plate=False pose_error_m=0 men_in_frame=0
+  state_held -> tick=1892 alive=False hp=0.0 sockets=True barrel_yaw=-22.7 unit_yaw=-17.7 target=-1 spot_set=True spot_foot=(44.86, 2.52, 6.40) spot_fwd=(-0.51, 0.00, 0.86) fallen=2 drawn=1 pos=float3(46.14182f, 0f, 4.256014f) mask=False
+  release    -> released
+done: mask.png, night_1..3.png, off_1..3.png and their sidecars are in C:\Users\PC\Documents\GitHub\githubtest-relay-work4\docs\evidence\sentry-look-r4-2-g2

@@ -36,6 +36,14 @@ namespace TW.Presentation.Tactical
         /// them can be measured in pixels (docs/evidence/sentry-look-r2). Off in play.
         /// </summary>
         public bool PlateMask;
+
+        /// <summary>
+        /// When this is on, no plate is drawn, but it is still emplaced: the spot is decided exactly as before, so
+        /// turning it off again puts the plate back in the same place. It is here for a difference pair of unmasked
+        /// stills - the same frozen instant with the plate and without it, which is the only way to measure a
+        /// dirt-coloured box in a dirt-coloured night (docs/evidence/sentry-look-r4-2-g2). Off in play.
+        /// </summary>
+        public bool PlateOff;
         Material maskPlateMat, maskBarMat;
 
         /// <summary>
@@ -137,6 +145,7 @@ namespace TW.Presentation.Tactical
                 men++;
             }
             if (batch.Count == 0) return;
+            if (PlateOff) return;              // after the emplacement loop, so the spot stays and the plate comes back where he put it
             if (!PlateMask)
             {
                 Flush(cube, new RenderParams(dirtMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
