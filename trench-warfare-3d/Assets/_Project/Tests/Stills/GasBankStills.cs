@@ -115,6 +115,16 @@ namespace TW.Tests
         /// gives for zoom 16, yaw 40, pitch 8 (every side sidecar reads cam 41.26 m out, cam_yaw 310). ClearView
         /// walks that line.</summary>
         const float SideStandM = 41.3f;
+        /// <summary>The knobs that switch the fires off for the whole pass, in both passes: the owner asked for no
+        /// fire and no smoke on the chimneys and the feet (2026-10-27). NightLights reads all three at Start, so with
+        /// them at 0 flameFeet stays empty and there is no flame mesh, no fire glow card, no fire light, no fire pool
+        /// and no fire entry in SceneHooks.SmokeSources. It must reach the editor as TW_KNOBS, not Knobs.Set: Start
+        /// runs inside EnterPlayMode, before Shoot gets control, and the domain reload drops any static set before it.
+        /// Suppressed in the harness and not in production, and in BOTH passes, for the reason drawers_off is: a thing
+        /// drawn in the gas pass and not the plate pass stops the plate subtracting.</summary>
+        const string FireKnobs = "lights.maxFires=0;lights.maxTorches=0;look.moreFires=0";
+        /// <summary>TW_KNOBS as it was before the pass, put back where CameraShake.Strength is.</summary>
+        static string knobsWas;
         /// <summary>The side camera looks back along cam_yaw 310, so it stands on bearing 130 from the patch.</summary>
         const float SideStandBearingDeg = 130f;
         /// <summary>The corridor widths ClearView tries between the side lens and the patch, widest first. A wire
@@ -145,6 +155,9 @@ namespace TW.Tests
             HudBootstrap.Disabled = true;
             ShellBoot.Disabled = true;
             EditorSceneManager.OpenScene(Scene, OpenSceneMode.Single);
+            knobsWas = System.Environment.GetEnvironmentVariable("TW_KNOBS");
+            System.Environment.SetEnvironmentVariable("TW_KNOBS",
+                string.IsNullOrEmpty(knobsWas) ? FireKnobs : knobsWas + ";" + FireKnobs);   // ';' separates, a later entry wins
             yield return new EnterPlayMode();
             yield return Shoot();     // a fresh enumerator after the reload (WalkerStills' lesson)
         }
@@ -166,6 +179,12 @@ namespace TW.Tests
             TestContext.Out.WriteLine((plate ? "PLATE pass" : "GAS pass") + " into " + dir);
 
             CombatFx.ShowOverlays = false;            // the yellow ability-area disc is gas-coloured: it would be counted as gas
+            SceneHooks.SmokeSources.Clear();          // the dugout stoves on the chimneys: no knob covers them, and nothing refills the list after NightLights.Build
+            var night = Object.FindFirstObjectByType<TW.Presentation.Terrain.NightLights>();
+            var flames = night == null ? null : night.transform.Find("Flames");
+            if (flames != null) flames.gameObject.SetActive(false);   // a belt for a Play that did not reload the domain, so TW_KNOBS was read in the old one
+            Assert.That(SceneHooks.SmokeSources.Count, Is.EqualTo(0), "a smoke source is left: the chimneys would puff into the capture");
+            Assert.That(flames == null || !flames.gameObject.activeSelf, Is.True, "the flame mesh is still drawn: the feet would burn in the capture");
             CameraShake.Strength = 0f; CameraShake.Reset();
             Host.ScriptedPeer = false; Host.PeerAttacks = false;
             Host.WriteWorlds(m => { var b = m.World.GetSystem<AmbientBombardmentSystem>(); if (b != null) b.ShellsPerMinute = 0f; });
@@ -258,6 +277,7 @@ namespace TW.Tests
             Time.captureDeltaTime = 0f;
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
             CameraShake.Strength = 1f;                // a player setting: put it back
+            System.Environment.SetEnvironmentVariable("TW_KNOBS", knobsWas);   // Knobs.ResetSession re-reads it when Play ends
             CombatFx.ShowOverlays = true;
             DrawersOn();                              // a belt: the side blocks put them back themselves
             File.WriteAllText(Path.Combine(dir, plate ? "manifest-plate.json" : "manifest.json"),
@@ -367,6 +387,8 @@ namespace TW.Tests
               .Append(", \"books_ready\": ").Append(ready ? "true" : "false")
               .Append(", \"draw_calls\": ").Append(FrameBudget.DrawCalls)
               .Append(", \"drawers_off\": ").Append(band == "side" ? "true" : "false")
+              .Append(", \"fires_off\": true")
+              .Append(", \"smoke_sources\": ").Append(SceneHooks.SmokeSources.Count)
               .Append(", \"hulls_near\": ").Append(hullsNear)
               .Append(", \"calls\": [");
             for (int i = 0; i < answers.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(answers[i]).Append('"');
