@@ -180,6 +180,21 @@ def selftest():
         'the point 0.34311 m high came back at %r, hand calculation says ndc_y 0.0788' % (up,)
     print('selftest ok: centre pixel 10.000 m out, one degree up %.5f m high (hand: 0.34311); '
           'to_ndc gives (%.3f, %.3f) and ndc_y %.4f (hand: 0.0788)' % (h, centre[0], centre[1], up[1]))
+
+    side_path = os.path.join(HERE, 't1-after-1.json')
+    with open(side_path, encoding='utf-8') as f:
+        side = json.load(f)
+    win = window(side, 1280, 720)
+    assert win is not None, 'window() on t1-after-1.json returned None'
+    near_c = max(win['cols'], key=lambda c: win['cols'][c][1])        # the column holding the near rim
+    far_c = min(win['cols'], key=lambda c: win['cols'][c][0])         # the column holding the far rim
+    near_band, far_band = win['cols'][near_c], win['cols'][far_c]
+    assert abs(near_band[1] - win['y1']) <= 1.0, \
+        'near rim column bottom %.2f, box y1 %d (want within 1 px)' % (near_band[1], win['y1'])
+    assert abs(far_band[0] - win['y0']) <= 1.0, \
+        'far rim column top %.2f, box y0 %d (want within 1 px)' % (far_band[0], win['y0'])
+    print('selftest ok: silhouette near rim column %d bottom %.2f (box y1 %d), far rim column %d top %.2f '
+          '(box y0 %d)' % (near_c, near_band[1], win['y1'], far_c, far_band[0], win['y0']))
     return 0
 
 
@@ -260,10 +275,36 @@ def footprint_radius(gas_cells, gas_cells_near=-1):
     return min(R_MAX_M, max(R_MIN_M, r))
 
 
-def window(side, w, h):
-    """The pixel box of the bank's footprint, plus its near and far rim distance.
+def silhouette_cols(xs, ys, x0, x1, lift_px):
+    """Per-column band of the rim polygon (xs, ys): `{c: (y_top, y_bot)}` for c in x0..x1.
 
-    Returns (x0, y0, x1, y1, d_near, d_far, radius), the box in pixel coordinates and clamped to the frame.
+    Scan-converts the (possibly open, when a rim point was dropped behind the camera) polygon edge by
+    edge: for each column `c`, the polygon's edges crossing the vertical line x = c give its y-extent
+    there. `lift_px` (the same 2 m WINDOW_LIFT_M the box uses) is subtracted from y_top only, so the
+    silhouette gets the same upward grow as the box did.
+    """
+    n = len(xs)
+    cols = {}
+    for i in range(n):
+        xa, ya, xb, yb = xs[i], ys[i], xs[(i + 1) % n], ys[(i + 1) % n]
+        if xa == xb:
+            continue
+        lo, hi = (xa, xb) if xa < xb else (xb, xa)
+        c0, c1 = max(x0, int(math.ceil(lo))), min(x1, int(math.floor(hi)))
+        for c in range(c0, c1 + 1):
+            t = (c - xa) / (xb - xa)
+            y = ya + t * (yb - ya)
+            top, bot = cols.get(c, (y, y))
+            cols[c] = (min(top, y), max(bot, y))
+    return {c: (top - lift_px, bot) for c, (top, bot) in cols.items()}
+
+
+def window(side, w, h):
+    """The pixel box of the bank's footprint, plus its near/far rim distance and column silhouette.
+
+    Returns {x0, y0, x1, y1, d_near, d_far, radius, cols}, the box in pixel coordinates (clamped to the
+    frame) and, per column `c` in x0..x1, `cols[c] = (y_top, y_bot)`: the rim polygon's own y-extent at
+    that column, grown upward by the same lift as the box. The box is unchanged by this; `cols` is new.
     """
     cam = (side['cam_x'], side['cam_y'], side['cam_z'])
     pitch, yaw = side['cam_pitch'], side['cam_yaw']
@@ -298,7 +339,9 @@ def window(side, w, h):
     y1 = min(h - 1, int(math.ceil(max(ys))))
     if x1 < x0 or y1 < y0:
         return None
-    return x0, y0, x1, y1, max(1.0, d_centre - r), d_centre + r, r
+    cols = silhouette_cols(xs, ys, x0, x1, lift_px)
+    return {'x0': x0, 'y0': y0, 'x1': x1, 'y1': y1, 'd_near': max(1.0, d_centre - r), 'd_far': d_centre + r,
+            'radius': r, 'cols': cols}
 
 
 def measure(stem, plate_stem):
@@ -320,7 +363,8 @@ def measure(stem, plate_stem):
                     'bank_height_m': 99.0, 'stripe_frac': round(mask_px / float(FRAME_PX), 5),
                     'window_px': 0, 'bank_px': 0})
         return out
-    x0, y0, x1, y1, d_near, d_far, radius = win
+    x0, y0, x1, y1 = win['x0'], win['y0'], win['x1'], win['y1']
+    d_near, d_far, radius, cols = win['d_near'], win['d_far'], win['radius'], win['cols']
     win_px = (x1 - x0 + 1) * (y1 - y0 + 1)
 
     cam = (side['cam_x'], side['cam_y'], side['cam_z'])
@@ -348,22 +392,32 @@ def measure(stem, plate_stem):
     inside = sorted(dist[i] for i in paint)
     out['bank_contrast_p50'] = round(inside[len(inside) // 2], 2)
 
-    low, mins = 0, []
+    low, mins, sil_px = 0, [], 0
     for i in paint:
         px, py = i % w, i // w
         nx, ny = 2.0 * (px + 0.5) / w - 1.0, 1.0 - 2.0 * (py + 0.5) / h
         d_pix = ground_distance(cam, pitch, yaw, ground, nx, ny)
         if d_pix is not None and d_near <= d_pix <= d_far:
             low += 1
-            mins.append(0.0)                      # its ground crossing is inside the footprint: it can be flat
+        band = cols.get(px)
+        in_sil = band is not None and band[0] <= py <= band[1]
+        if in_sil:
+            sil_px += 1
+        if d_pix is not None and d_pix <= d_far:
+            if in_sil:
+                mins.append(0.0)                  # its ground crossing is inside the footprint: it can be flat
             continue
-        if d_pix is not None and d_pix < d_near:
-            mins.append(0.0)                      # in front of the footprint, still on the ground somewhere
+        if not in_sil:
             continue
         y = height_at(cam, pitch, yaw, ground, nx, ny, d_far)
         mins.append(max(0.0, y if y is not None else 0.0))
-    mins.sort()
     out['low_share'] = round(low / float(len(paint)), 4)
+    out['sil_px'] = sil_px
+    out['height_px'] = len(mins)
+    if not mins:
+        out['bank_height_m'] = 99.0
+        return out
+    mins.sort()
     out['bank_height_m'] = round(mins[min(len(mins) - 1, int(round(0.95 * (len(mins) - 1))))], 3)
     return out
 

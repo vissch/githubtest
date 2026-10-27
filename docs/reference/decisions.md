@@ -313,7 +313,12 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   (the before takes read 0.000 either way); (c) the far field is faded by distance so the bank reads near the
   focus and not at the frame's rim, which is a new mechanism in `DrawGasBank` and a look the owner has not seen;
   (d) the contrast bar stands and the height bar moves - **not taken**, the bars are frozen by his own word.
-  No sim change in any option.
+  No sim change in any option. (b) is built (2026-10-27, this lane): `bank_height_m` is the p95 inside the
+  footprint's projected silhouette, the box's upper corners no longer count as bank height; measured on the same
+  three stills of `39a3acd9fd`, height 1.368/1.312/1.119 -> 0.000/0.000/0.000, the share of silhouette paint over
+  1 m 1.90%/1.90%/1.42%, and the other five numbers unchanged. No bar moved, nothing reshot, no look change.
+  Taken because the leg's done-when is the probe at exit 0 and (a) leaves it red; the owner can overturn it for
+  (c) and nothing is landed on it.
 - **What is the chlorine bank's footprint, for the probe that measures it? (2026-10-20, ability-fx-captures-r2-2-g1-g2):**
   the owner's word on g1 was "count the paint a player sees, keep it on the ground". The new probe counts paint only
   inside the bank's footprint, a disc round the gas centre sized from the run's `gas_cells`. But `gas_cells` counts

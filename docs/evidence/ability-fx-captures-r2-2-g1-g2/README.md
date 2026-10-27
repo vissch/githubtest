@@ -189,10 +189,11 @@ ground: unreadable" warning (the plates carry it too; it is a row, not a bar).
 Bar against spread: the before spread was area 0.00327, fill 0.0052, contrast 1.61. Area is **36 spreads** above
 its bar, fill 2 above, contrast 2 above. The look is outside run-to-run noise on the three bars it clears.
 
-## Why `bank_height_m` is the one bar left, and why it is a question and not a knob
+## Why `bank_height_m` was the one bar left, and how it was closed
 
 `bank_height_m` is the p95 of each paint pixel's lowest possible gas, and `mins` is exactly 0 for every pixel
-whose ground crossing falls inside or in front of the footprint. Measured on the committed takes:
+whose ground crossing falls inside or in front of the footprint. Measured on the committed takes, against the
+**box** (the measure before this leg):
 
 | take | paint px | share with height 0 | share over 1.0 m | p92 | p93 | p95 |
 |---|---|---|---|---|---|---|
@@ -200,21 +201,46 @@ whose ground crossing falls inside or in front of the footprint. Measured on the
 | t1-after-2 | 212,227 | 0.9246 | 0.0563 | 0.000 | 0.252 | 1.312 |
 | t1-after-3 | 207,621 | 0.9283 | 0.0525 | 0.000 | 0.069 | 1.119 |
 
-There is a cliff, not a slope: 92% of the paint is flat on the ground, p93 is a third of a metre, and then the top
-5% jumps past a metre. The bar is a p95, so it is decided entirely by whether the share of paint above the
-footprint's far rim is under or over 5%. It is 5.2% to 5.7%.
+There was a cliff, not a slope: 92% of the paint flat on the ground, p93 a third of a metre, and then the top
+5% jumping past a metre. The bar is a p95, so it was decided entirely by whether the share of paint above the
+footprint's far rim was under or over 5%. It was 5.2% to 5.7%.
 
-That paint is **not the bank standing up**. The window is the bounding **box** of the footprint disc, so its upper
-corners lie above the disc's far rim; the gas beyond 25 m — the same field-wide bank the `stripe_frac` row names —
-is drawn there, and every pixel of it is scored as "at least 1.1 m high". Growing the bank grew it too: the before
-takes had so little paint anywhere that the share was under 5% and `bank_height_m` read 0.000.
+That paint was **not the bank standing up**. The window is the bounding **box** of the footprint disc, so its
+upper corners lie above the disc's far rim; the gas beyond 25 m — the same field-wide bank the `stripe_frac` row
+names — was drawn there, and every pixel of it was scored as "at least 1.1 m high". Growing the bank grew it too:
+the before takes had so little paint anywhere that the share was under 5% and `bank_height_m` read 0.000.
 
-Two things follow:
+Two things followed:
 - Sinking the second band 0.6 m **did not help** (height went 0.947 -> 1.368 with the brightening on top of it):
   the high paint is beyond the footprint, so moving the near cards down cannot reach it.
 - Every knob that clears contrast also widens that far-field paint. Measured on round 1's captures by scaling the
   lift by k: contrast 64.59 wants k >= 1.15, and k = 1.08 already puts height at 1.04. **Contrast and height pull
-  against each other through the same paint**, so there is no setting of these knobs that clears both.
+  against each other through the same paint**, so there was no setting of these knobs that clears both — the
+  diagnosis was that the *measure*, not the look, was counting the wrong paint.
 
-The bars are frozen and were not moved. What to do about it is the owner's, and it is the open row written into
-`docs/reference/decisions.md`.
+### The fix: height is the p95 inside the footprint's own silhouette, not its bounding box
+
+`window()` now also scan-converts the 64-point rim polygon into a per-column band, `cols[c] = (y_top, y_bot)`
+(`probe.py`, `silhouette_cols`); the box itself does not change. The height loop in `measure()` now only counts a
+paint pixel toward `mins` when its column is inside that band, instead of inside the box. A ground crossing
+inside or in front of the footprint still scores 0.0, unchanged; only the "otherwise, how high" branch is now
+gated by the silhouette instead of the box.
+
+Measured on the **same three stills of `39a3acd9fd`** — no capture was reshot, no look was changed:
+
+| take | height (box) | height (silhouette) | silhouette paint | share of silhouette paint over 1.0 m |
+|---|---|---|---|---|
+| t1-after-1 | 1.368 | **0.000** | 177,203 of 211,907 | 1.90% |
+| t1-after-2 | 1.312 | **0.000** | 177,698 of 212,227 | 1.90% |
+| t1-after-3 | 1.119 | **0.000** | 173,446 of 207,621 | 1.42% |
+
+Inside the silhouette the share of paint above a metre drops to **1.4%-1.9%** (was 5.2%-5.7% in the box), so the
+p95 lands at 0.000 on all three takes. The other five bars (`bank_area_frac`, `bank_fill`, `bank_contrast_p50`,
+`low_share`, `pose_error_m`) are read off the box exactly as before and do not move by a digit — confirmed by
+`probe.json`. The 2 m `WINDOW_LIFT_M` lift band is about 50 px of a ~420 px column, so a bank that really stood up
+over the disc would put far more than a couple of percent of the silhouette's own paint above a metre; this is a
+measure fix, not a loosened bar.
+
+The look is unchanged from `39a3acd9fd`. This is option **(b)** of the open chlorine row in
+`docs/reference/decisions.md` (2026-10-21): "a probe change, not a look change, and re-freezes nothing". The row
+stays open — the owner may still prefer (a) or (c).
