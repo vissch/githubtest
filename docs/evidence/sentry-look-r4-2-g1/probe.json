@@ -1,0 +1,157 @@
+{
+  "diff_threshold_of_255": 12,
+  "noise_multiplier": 3.0,
+  "grow_m": 1.2,
+  "at_gun_m": 2.0,
+  "edge_px": 8,
+  "seeds": [
+    {
+      "seed": 1,
+      "foes": 6,
+      "tick": 3237,
+      "yaw": -120.6,
+      "kill_path": "despawn_collect",
+      "stand_back_m": 0.6,
+      "px_per_m": 134.0,
+      "plate_bbox": [
+        451,
+        563,
+        897,
+        1022
+      ],
+      "gun_box": [
+        290,
+        724,
+        736,
+        1183
+      ],
+      "grow_px": 161,
+      "noise": {
+        "night_t-night_t2": 0,
+        "night_t-night_t3": 0,
+        "night_t2-night_t3": 0
+      },
+      "noise_max": 0,
+      "change": 13174,
+      "change_bbox": [
+        373,
+        642,
+        841,
+        1036
+      ],
+      "centroid_m_from_plate": 0.09,
+      "edge_clear_px": 373,
+      "floor_px": 4579,
+      "bar": 4579,
+      "fallen_before": 0,
+      "fallen_after": 1,
+      "checks": {
+        "fallen_before_is_0": true,
+        "fallen_after_at_least_1": true,
+        "change_over_bar": true,
+        "at_the_gun": true,
+        "stays_in_frame": true
+      },
+      "pass": true
+    },
+    {
+      "seed": 2,
+      "foes": 8,
+      "tick": 2007,
+      "yaw": -117.0,
+      "kill_path": "despawn_collect",
+      "stand_back_m": 0.6,
+      "px_per_m": 132.0,
+      "plate_bbox": [
+        451,
+        599,
+        897,
+        1022
+      ],
+      "gun_box": [
+        293,
+        757,
+        739,
+        1180
+      ],
+      "grow_px": 158,
+      "noise": {
+        "night_t-night_t2": 0,
+        "night_t-night_t3": 0,
+        "night_t2-night_t3": 0
+      },
+      "noise_max": 0,
+      "change": 13208,
+      "change_bbox": [
+        377,
+        642,
+        841,
+        1055
+      ],
+      "centroid_m_from_plate": 0.149,
+      "edge_clear_px": 377,
+      "floor_px": 4443,
+      "bar": 4443,
+      "fallen_before": 0,
+      "fallen_after": 1,
+      "checks": {
+        "fallen_before_is_0": true,
+        "fallen_after_at_least_1": true,
+        "change_over_bar": true,
+        "at_the_gun": true,
+        "stays_in_frame": true
+      },
+      "pass": true
+    },
+    {
+      "seed": 3,
+      "foes": 10,
+      "tick": 2396,
+      "yaw": -139.2,
+      "kill_path": "despawn_collect",
+      "stand_back_m": 0.6,
+      "px_per_m": 180.0,
+      "plate_bbox": [
+        446,
+        636,
+        904,
+        1013
+      ],
+      "gun_box": [
+        230,
+        852,
+        688,
+        1229
+      ],
+      "grow_px": 216,
+      "noise": {
+        "night_t-night_t2": 0,
+        "night_t-night_t3": 0,
+        "night_t2-night_t3": 0
+      },
+      "noise_max": 0,
+      "change": 7873,
+      "change_bbox": [
+        414,
+        645,
+        846,
+        1002
+      ],
+      "centroid_m_from_plate": 0.264,
+      "edge_clear_px": 414,
+      "floor_px": 8262,
+      "bar": 8262,
+      "fallen_before": 0,
+      "fallen_after": 2,
+      "checks": {
+        "fallen_before_is_0": true,
+        "fallen_after_at_least_1": true,
+        "change_over_bar": false,
+        "at_the_gun": true,
+        "stays_in_frame": true
+      },
+      "pass": false
+    }
+  ],
+  "pass": false
+}

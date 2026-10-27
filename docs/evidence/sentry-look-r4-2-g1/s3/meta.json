@@ -1,0 +1,24 @@
+{
+  "seed": 3,
+  "foes": 10,
+  "stand_back_m": 0.6,
+  "kill_path": "despawn_collect",
+  "zoom": 7.5,
+  "pitch": 13.0,
+  "width": 1920,
+  "height": 1080,
+  "yaw": -139.2,
+  "plate_face_deg": -79.2,
+  "tick": 2396,
+  "slot": 14,
+  "man_x": 45.18,
+  "man_z": 6.04,
+  "plate_foot": [
+    44.59,
+    6.15
+  ],
+  "fallen_before": 0,
+  "drawn_before": 1,
+  "fallen_after": 2,
+  "drawn_after": 0
+}
