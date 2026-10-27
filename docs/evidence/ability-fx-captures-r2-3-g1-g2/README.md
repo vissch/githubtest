@@ -47,6 +47,55 @@ at its 77.37 m plane, centre pixel, is 10.87328 - 77.37*tan(8 deg) - 2.7679 = **
 under the ground at this pitch, which is why only p90 - p10 is ever read off it, never an absolute height - and the
 vectorised distance grid the trim uses is checked against the scalar `ground_distance` at three pixels.
 
+## The capture and the denominator, part 2 (2026-10-27)
+
+Two faults of the same class as the one part 1 corrected, both found by reading the committed evidence, neither a
+look change and no bar widened.
+
+**The capture was contaminated.** The old `manifest.json` reads `gas_cells_before` 681 / 657 / 511 out of
+`gas_cells` 775 / 678 / 550 on the T1 and side rows: 88 per cent of the gas in the frame the probe measured was
+the O240 block's leftover, whose five calls paint a 160 m line of gas round the seed. `DrainFrames` ran only
+*between* seeds, never between the O240 block and the T1 block of the same seed. The harness's own rule for a
+non-zero `gas_cells_before` is to lengthen the drain, so the same constant now runs there too, in both passes, so
+the two stay frame-for-frame and the plate keeps subtracting. Re-shot: `gas_cells_before` is **0 on every row**
+and `gas_cells` is **66-70**, this seed's own bank, instead of 550-775.
+
+**The denominator measured ten times the area the numerator can see.** `ground_relief_m` is p90 - p10 of the
+render ground over *every* gassed cell - 550-772 cells, 8,800-12,350 m2, the whole 160 m line. The numerator reads
+only the trimmed slab: `SIDE_PLANE_WINDOW_M` 10 m either side of the seed plane, and no wider than the frame is
+there (61 m at zoom 30), some 1,200 m2. On the old s0 the slab was flat (`side_bank_relief_m` 0.099 m) while the
+line's ground moved 1.96 m, so the bar asked a bank standing on flat ground to undulate 1.26 m under a 1.75 m card
+ceiling. That is the arithmetic the three previous shoots kept hitting.
+
+The side manifest row now carries the gassed cells themselves (`gas_cells_xzy`, x / z / ground y at 3 decimals,
+about 20 KB), and `probe.py`'s `slab_ground` keeps the ones inside the slab - a cell whose own distance from the
+camera is within the window of the seed plane's distance AND whose offset across the view axis is inside the
+frame's half-width there. `side_ground_relief_m` is that set's relief; the whole-field number stays beside it as
+`side_field_relief_m`, for the record, and is never the denominator. `--selftest` gained the hand calculation of
+step 5: four cells at a 77.37 m plane, half-width 77.37 * 0.394124 = 30.49 m, two kept, **relief 2.000 m** against
+8.000 m over all four.
+
+Two hard rows were added to `main`, both before any measuring: every `t1` and `side` manifest row must read
+`gas_cells_before` 0, and every side row must carry `gas_cells_xzy`. Either missing is MISSED and a non-zero exit,
+never a silent fall back to the contaminated denominator.
+
+**The re-shot numbers of the committed ridge look (2026-10-27, both passes clean):**
+
+| | s0 | s1 | s2 |
+|---|---|---|---|
+| `side_ground_cells` (was 550-772) | 45 | 46 | 45 |
+| `side_ground_relief_m`, the slab | 1.187 | 1.037 | 0.841 |
+| `side_field_relief_m`, the whole line | 1.791 | 0.880 | 1.323 |
+| `side_bank_relief_m` | 0.089 | 0.041 | 0.399 |
+| `side_relief_ratio` (bar 0.6428) | 0.0752 | 0.0395 | **0.4743** |
+
+Every slab relief is over the 0.5 m under which the ratio stops being trustworthy, so the measure stands. The
+worst seed moved 0.0214 -> 0.0395 and the best 0.3321 -> 0.4743: the honest denominator makes the gap smaller but
+does not close it - the committed ridge still reaches an eighth of the bar on its worst seed. `texture_var_drop`
+0.6594-0.7359 is still over its 0.6421 ceiling and `t1_gap_frac` 0.2954-0.4336 over its 0.3559 bar. No look
+changed in this part, and `SIDE_BAR` is untouched: it was set from a baseline shot through the same contaminated
+capture, so re-setting it needs its own re-shot baseline, which is not this part.
+
 ## The drop ceiling
 
 `texture_var_drop` keeps its 0.40 floor and gains a ceiling, `DROP_CEILING`, checked `max(got) <= DROP_CEILING`.
@@ -92,8 +141,9 @@ The baseline run is the control and exits 1: it misses both bars it sets, meets 
 | `probe.py` | the measure: g1's four bars (regression, unchanged) plus `side_relief_ratio` and `DROP_CEILING`. `--selftest`, `--pack`, `--dir`, `--out` unchanged in shape |
 | `baseline/` + `baseline.json` | three seeds, three bands, of the build **before** this round's fix (`f427286f0d`) - the control both new bars are set against |
 
-The root of this folder holds the 18 "after" stills of the committed ridge look (2026-10-27, see below);
-`probe.py` with no arguments measures them and exits 1.
+The root of this folder holds the 18 "after" stills of the committed ridge look, **re-shot on 2026-10-27 through
+the corrected capture** (`gas_cells_before` 0 on every row); `probe.py` with no arguments measures them and
+exits 1.
 
 ```bash
 TW_STILLS_DIR=<dir> Unity.exe -batchmode -projectPath trench-warfare-3d -runTests -testPlatform EditMode \
@@ -117,6 +167,7 @@ python docs/evidence/ability-fx-captures-r2-3-g1-g2/probe.py --pack <dir>
 | round 2, wave 64 m | the same, longer still | 0.0229 (s1) | 0.6790 (s1) | worse again, and the drop climbs back toward the baseline |
 | round 2, wave 64 m / floor 0.45 | the same, cards lowered further | 0.0226 (s1) | 0.7262 (s1) | no gain; `t1_gap_frac` 0.3958, the worst of the four |
 | landed, round 2 | the ridge itself (44 m, floor 0.55), **shot as evidence only** | 0.0505 (s0) | 0.6505 (s1) | an eighth of the 0.6428 bar; option (a) stands, see `decisions.md` |
+| part 2 of the denominator, 2026-10-27 | the capture drained between blocks and the denominator cut to the slab; **no look change** | 0.0395 (s1) | 0.7359 (s2) | the same ridge, honestly measured: 88% of the old gas was the overview's leftover |
 
 ## Why part 2 landed no look change (2026-10-21)
 

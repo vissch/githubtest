@@ -163,6 +163,12 @@ namespace TW.Tests
                 for (int k = -2; k <= 2; k++) far.Add(new Vector2(x, Mathf.Clamp(z + k * 40f, 20f, size.y - 20f)));
                 yield return Block(dir, "gas-o240" + tail, "o240", tc, x, z, 240f, 25f, far, plate, map);
 
+                // g1-g2 part 2 step 1: the O240 block's five calls paint a 160 m line of gas round this seed, and
+                // until now nothing drained it before the T1 block of the SAME seed - so the T1 and side stills read
+                // gas_cells_before 511-681 out of 775, i.e. 88 per cent of the gas the probe measured was the
+                // overview's leftover. The same DrainFrames constant, in both passes, so the two stay frame-for-frame.
+                for (int f = 0; f < DrainFrames; f++) yield return null;
+
                 // two stills of the SAME cloud: the play pose, and a side view at the lowest pitch a player can
                 // tilt to. Both sit inside the block's BlockFrames pad (the block spends ~250), so the pass
                 // timeline, the seed patches and the plate's frame-for-frame match are untouched.
@@ -199,7 +205,8 @@ namespace TW.Tests
             // the field as it stands BEFORE this block's first call: anything here is a leftover from the previous
             // seed, not this seed's gas, and it goes into the manifest row rather than being silently counted
             int cellsBefore; float maxBefore; float reliefBefore; int groundCellsBefore;
-            FieldRead(map, out cellsBefore, out maxBefore, out reliefBefore, out groundCellsBefore);
+            List<Vector3> gassedBefore;
+            FieldRead(map, out cellsBefore, out maxBefore, out reliefBefore, out groundCellsBefore, out gassedBefore);
             foreach (var p in points)
             {
                 if (!plate)
@@ -253,7 +260,8 @@ namespace TW.Tests
                 // set - so whether the cards exist in the captured frame was still unknown, and it is the first fork.
                 // FieldRead says why the field itself is read through reflection.
                 int cells; float fieldMax; float groundRelief; int groundCells;
-                FieldRead(map, out cells, out fieldMax, out groundRelief, out groundCells);
+                List<Vector3> gassed;
+                FieldRead(map, out cells, out fieldMax, out groundRelief, out groundCells, out gassed);
                 yield return null;                               // one frame on, so gasCards holds the list of a drawn frame
                 int cards = Cards(); float recipes = Recipes(); bool ready = Books();
 
@@ -281,7 +289,21 @@ namespace TW.Tests
                   .Append(", \"draw_calls\": ").Append(FrameBudget.DrawCalls)
                   .Append(", \"calls\": [");
                 for (int i = 0; i < answers.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(answers[i]).Append('"');
-                sb.Append("] }");
+                sb.Append(']');
+                // g1-g2 part 2 step 2: the gassed cells themselves, on the SIDE row only (about 20 KB). The side
+                // measure's denominator must be the ground inside the slab the camera can see at the seed plane,
+                // not the ground under the whole 160 m line, and the camera model lives in probe.py with its own
+                // selftest - so the cells go there rather than a second copy of the ray maths living here.
+                if (shotBand == "side")
+                {
+                    sb.Append(", \"gas_cells_xzy\": [");
+                    for (int i = 0; i < gassed.Count; i++)
+                        sb.Append(i > 0 ? ", [" : "[").Append(gassed[i].x.ToString("0.###")).Append(", ")
+                          .Append(gassed[i].y.ToString("0.###")).Append(", ")
+                          .Append(gassed[i].z.ToString("0.###")).Append(']');
+                    sb.Append(']');
+                }
+                sb.Append(" }");
                 rows.Add(sb.ToString());
             }
 
@@ -306,9 +328,10 @@ namespace TW.Tests
         /// <remarks>r2-3-g1-g2 step 2: it also samples the render ground at the centre of every cell it counts and
         /// gives back that set's p90 - p10, which IS "the ground under the bank" - the gassed cells are the bank's
         /// own footprint - and so the honest denominator of the side still's relief ratio.</remarks>
-        static void FieldRead(MapData map, out int cells, out float fieldMax, out float groundRelief, out int groundCells)
+        static void FieldRead(MapData map, out int cells, out float fieldMax, out float groundRelief,
+                              out int groundCells, out List<Vector3> gassed)
         {
-            cells = 0; fieldMax = 0f; groundRelief = 0f; groundCells = 0;
+            cells = 0; fieldMax = 0f; groundRelief = 0f; groundCells = 0; gassed = new List<Vector3>(1024);
             object local = Host.Local;
             if (local == null) return;
             object gasField = local.GetType().GetProperty("Gas")?.GetValue(local)
@@ -330,7 +353,9 @@ namespace TW.Tests
                 // per-card jitter): the centre of the cell.
                 if (width <= 0 || map == null) continue;
                 float gx = (i % width + 0.5f) * cs, gz = (i / width + 0.5f) * cs;
-                grounds.Add(RenderGround.Sample(map, gx, gz));
+                float gy = RenderGround.Sample(map, gx, gz);
+                grounds.Add(gy);
+                gassed.Add(new Vector3(gx, gz, gy));
             }
             groundCells = grounds.Count;
             if (groundCells < 2) return;

@@ -371,6 +371,23 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   stands taller (option (b)) can give it. **Option (a) still stands and nothing is landed**; the ridge itself is
   committed but shot only as evidence, and the 18 stills of it, both manifests and `probe.json` are now in
   `docs/evidence/ability-fx-captures-r2-3-g1-g2/` beside the control.
+  **Update, 2026-10-27 (the same lane, the denominator part 2): every shoot above was measured through a
+  contaminated capture and a denominator ten times too wide. Both are corrected; the gap narrows and does not
+  close.** The T1 and side rows of every shoot read `gas_cells_before` 511-681 out of `gas_cells` 550-775, so 88
+  per cent of the gas the probe measured was the O240 block's leftover - its five calls paint a 160 m line round
+  the seed and `DrainFrames` ran only between seeds, never between the two blocks of one seed. And
+  `ground_relief_m`, the denominator, was p90 - p10 over all 550-772 gassed cells (some 10,000 m2 of that line)
+  while the numerator reads only the trimmed slab at the seed plane (some 1,200 m2), so the bar asked a bank
+  standing on flat ground to undulate 1.26 m under a 1.75 m card ceiling. The drain now runs between the blocks
+  too (same constant, both passes), the side manifest row carries the gassed cells themselves (`gas_cells_xzy`),
+  and `probe.py` restricts the denominator to the cells inside the slab the camera sees, with the whole-field
+  number kept beside it as `side_field_relief_m` and two hard rows that refuse to measure a dirty capture at all.
+  Re-shot, both passes clean (`gas_cells_before` 0, `gas_cells` 66-70, `side_ground_cells` 45-46 against 550-772):
+  the slab ground moves 1.187 / 1.037 / 0.841 m - all over the 0.5 m the ratio needs - and `side_relief_ratio` is
+  **0.0752 / 0.0395 / 0.4743** against the 0.6428 bar, where the same look read 0.0505 / 0.2517 / 0.3489 before.
+  The worst seed is still an eighth of the bar. **Nothing is landed and no bar moved**; `SIDE_BAR` itself was set
+  from a baseline shot through the same contaminated capture, so re-setting it needs its own re-shot baseline,
+  which is the next step of the same lane. Option (a) still stands.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below

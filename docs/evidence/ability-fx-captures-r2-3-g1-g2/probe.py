@@ -311,6 +311,23 @@ def selftest():
         got_px = grid[py, px]
         assert (want is None and not np.isfinite(got_px)) or abs(got_px - want) < 1e-6,             'the distance grid at (%d, %d) is %r, the scalar says %r' % (py, px, got_px, want)
 
+    # g1-g2 part 2 step 5: the slab restriction, worked by hand outside the code it checks.
+    # Camera (0, 10, 0), yaw 0, pitch 8; the seed plane is 77.37 m out. tan_h = tan(12.5 deg) * 16/9 = 0.394124,
+    # so the frame's half-width at that plane is 77.37 * 0.394124 = 30.49 m.
+    #   A (10, 80, y 3.0)   80.62 m out,  3.25 m off the plane, 10 m across  -> KEPT
+    #   B (0, 95, y 9.0)    95.00 m out, 17.63 m off the plane,  0 m across  -> dropped (outside the window)
+    #   C (40, 66.8, y 9.0) 77.86 m out,  0.49 m off the plane, 40 m across  -> dropped (outside the frame)
+    #   D (-5, 76, y 1.0)   76.16 m out,  1.21 m off the plane,  5 m across  -> KEPT
+    # Kept heights [1.0, 3.0]: relief is p10 (sorted index 0) to p90 (index 1) = 3.0 - 1.0 = 2.000 m.
+    four = [(10.0, 80.0, 3.0), (0.0, 95.0, 9.0), (40.0, 66.8, 9.0), (-5.0, 76.0, 1.0)]
+    kept = slab_ground(four, (0.0, 0.0), (0.0, 77.37), 77.37)
+    assert sorted(kept) == [1.0, 3.0], 'the slab kept %r, the hand calculation says [1.0, 3.0]' % sorted(kept)
+    slab_r = relief(kept)
+    assert abs(slab_r - 2.000) < 1e-9, 'the slab relief came back %.4f m, hand calculation says 2.000' % slab_r
+    whole = relief([c[2] for c in four])
+    assert abs(whole - 8.0) < 1e-9, 'the whole-field relief of the four is %.4f, hand says 8.0' % whole
+    assert abs(whole - slab_r) > 1e-6, 'the denominator is the whole field again: %.4f' % whole
+
     print('selftest ok: centre pixel 10.000 m out, one degree up %.5f m high (hand: 0.34311);' % h)
     print('             stripes -> flat grey is a texture drop of %.3f (hand: 1.000);' % drop)
     print('             red/green %.1f deg, red/magenta %.1f deg (hand: 120, 60)' % (rg, rm))
@@ -318,6 +335,9 @@ def selftest():
     print('             side plane at 77.37 m, pitch 8: %.3f m (hand: -2.770), grid matches the scalar;' % h_side)
     print('             20x20 square with a 4x4 hole, R=3: gap_frac %.4f (hand: 0.0400); no hole: %.4f (hand: 0.0)'
           % (gap_sq, gap_solid))
+    print('             the slab at 77.37 m, half-width 30.49 m: 2 of 4 cells kept, relief %.3f m (hand: 2.000),'
+          % slab_r)
+    print('             against %.3f m over the whole field (hand: 8.000), which is NOT the denominator' % whole)
     return 0
 
 
@@ -510,6 +530,36 @@ def relief(values):
     return float(hi - lo)
 
 
+def slab_ground(cells, cam_xz, seed_xz, dist):
+    """The ground heights of the gassed cells that lie INSIDE the slab the side numerator can see.
+
+    g1-g2 part 2 step 3. `ground_relief_m` in the manifest row is p90 - p10 over every gassed cell - 550-772 cells,
+    8,800-12,350 m2, the whole 160 m line the O240 block paints. The numerator reads only the trimmed slab:
+    `SIDE_PLANE_WINDOW_M` either side of the seed plane, and no wider than the frame is at that plane (about 61 m
+    at zoom 30), i.e. some 1,200 m2. A denominator measuring ten times the area the numerator can see asked a bank
+    standing on flat ground to undulate 1.26 m under a 1.75 m card ceiling. A cell is kept when its own distance
+    from the camera is within the window of the seed plane's distance AND its offset across the view axis is
+    inside the frame's half-width at that plane.
+    """
+    ux, uz = seed_xz[0] - cam_xz[0], seed_xz[1] - cam_xz[1]
+    n = math.hypot(ux, uz)
+    if n < 1e-9:
+        return []
+    ux, uz = ux / n, uz / n
+    tan_h = math.tan(math.radians(FOV_V_DEG * 0.5)) * ASPECT
+    half_w = dist * tan_h
+    out = []
+    for cell in cells:
+        cx, cz, cy = float(cell[0]), float(cell[1]), float(cell[2])
+        dx, dz = cx - cam_xz[0], cz - cam_xz[1]
+        if abs(math.hypot(dx, dz) - dist) > SIDE_PLANE_WINDOW_M:
+            continue
+        if abs(dx * -uz + dz * ux) > half_w:
+            continue
+        out.append(cy)
+    return out
+
+
 def ground_distance_grid(cam, pitch, yaw, ground_y, h, w):
     """`ground_distance` for every pixel of an h x w frame at once (NaN where the ray never crosses the ground).
 
@@ -545,9 +595,10 @@ def measure_side(d, seed):
 
     The numerator is the trimmed blob's TOP edge, each column turned into a height in the seed's own vertical
     plane (at 8 degrees a metre of distance error is about 0.01 m of height, so the fixed plane is well
-    conditioned there while a per-pixel distance is not). The denominator is NOT a pixel reading at all: it is
-    `ground_relief_m` from the still's manifest row, the render ground sampled at the centre of every gassed cell,
-    which is the ground under the bank by construction. `side_base_m` stays as a sanity row: the bank's foot lies
+    conditioned there while a per-pixel distance is not). The denominator is NOT a pixel reading at all: it is the
+    render ground at the centre of the gassed cells the manifest row carries (`gas_cells_xzy`), restricted by
+    `slab_ground` to the cells inside the slab the numerator can see. The whole-field number the row also carries
+    is kept beside it as `side_field_relief_m`, for the record, and is never the denominator. `side_base_m` stays as a sanity row: the bank's foot lies
     on the ground, so its median must be near 0.
     """
     stem = 'gas-side-s%d' % seed
@@ -559,8 +610,8 @@ def measure_side(d, seed):
     row = row_of(d, stem)
     tops, bases = [], []
     blob = np.zeros(mask.shape, dtype=bool)
-    ground_relief = float(row.get('ground_relief_m', 0.0)) if row is not None else 0.0
-    ground_cells = int(row.get('ground_cells', 0)) if row is not None else 0
+    field_relief = float(row.get('ground_relief_m', 0.0)) if row is not None else 0.0
+    ground_relief, ground_cells = 0.0, 0
     dist = 0.0
     if row is not None and mask.any():
         ground = float(row.get('ground_y', 0.0))
@@ -572,6 +623,10 @@ def measure_side(d, seed):
         near_plane = np.abs(per_px - dist) <= SIDE_PLANE_WINDOW_M
         near_plane &= np.isfinite(per_px)
         blob = largest_blob(mask & near_plane)
+        # the denominator: the ground of the gassed cells inside the slab this frame reads, never the whole line
+        slab = slab_ground(row.get('gas_cells_xzy') or [], (cam[0], cam[2]),
+                           (float(row.get('x', 0.0)), float(row.get('z', 0.0))), dist)
+        ground_relief, ground_cells = relief(slab), len(slab)
         ys, xs = np.nonzero(blob)
         for px in np.unique(xs):
             rows_ = ys[xs == px]
@@ -590,6 +645,7 @@ def measure_side(d, seed):
             {'side_bank_relief_m': round(bank_relief, 3),
              'side_ground_relief_m': round(ground_relief, 3),
              'side_ground_cells': ground_cells,
+             'side_field_relief_m': round(field_relief, 3),
              'side_plane_m': round(dist, 2),
              'side_top_m': round(float(np.median(tops)), 3) if tops else 0.0,
              'side_base_m': round(float(np.median(bases)), 3) if bases else 0.0,
@@ -742,6 +798,24 @@ def main():
     gone = missing(d)
     if gone:
         print('missing, so nothing can be measured: ' + ', '.join(gone))
+        return 1
+
+    # g1-g2 part 2 step 4: two hard rows, before any measuring. A capture whose frames still hold the previous
+    # block's gas, or one whose side rows carry no cells to build the denominator from, is not a measurement and
+    # is never reported as one.
+    dirty = [r.get('still', '?') for name in ('manifest.json', 'manifest-plate.json')
+             for r in json.load(open(os.path.join(d, name), encoding='utf-8')).get('stills', [])
+             if r.get('band') in ('t1', 'side') and int(r.get('gas_cells_before', -1)) != 0]
+    if dirty:
+        print('gas_cells_before   want == 0 on every t1 and side row  MISSED  (%d dirty: %s)'
+              % (len(dirty), ', '.join(dirty[:6])))
+        return 1
+    print('gas_cells_before   want == 0 on every t1 and side row  OK')
+    noc = [r.get('still', '?') for name in ('manifest.json',)
+           for r in json.load(open(os.path.join(d, name), encoding='utf-8')).get('stills', [])
+           if r.get('band') == 'side' and not r.get('gas_cells_xzy')]
+    if noc:
+        print('gas_cells_xzy      want on every side row  MISSED  (%s)' % ', '.join(noc))
         return 1
 
     bars = {k: [] for k in list(BARS) + ['t1_gap_frac', 'side_relief_ratio']}
