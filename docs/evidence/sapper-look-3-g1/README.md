@@ -71,8 +71,27 @@ lost — at `tall` 135-202 px and `contrast` 0.16-1.33, and all four stills of a
 
 The probe is still red, and on a different thing than before: the control no longer swamps the signal (0.0066
 against 0.0355 at seed 1), but the kit change itself reads near zero at seed 2 (0.0012), so no single `BAR` sits
-above every control and below every `kit_frac`. Whether that is the pack and charges genuinely hidden at that
-pose, or the window missing them, is the next piece of work; `BAR` has NOT been moved to meet a number.
+above every control and below every `kit_frac`. `BAR` has NOT been moved to meet a number.
+
+### The window is not the reason (measured 2026-10-27 on these same stills)
+The one remaining doubt was that the window had simply missed the pack and the charges at seed 2. It had not.
+`probe.py` now also reports the GROWN window (`kit_frac_grown`, `spread_max_grown`, `GROWN = (1.0, 0.5)`): a
+box-width of columns added each side and half a box-height of rows above, several times the man's own area, so
+anything the kit puts near him is inside the count. Nothing is gated on these numbers.
+
+| seed | grown window | changed pixels there | grown control |
+|---|---|---|---|
+| 1 | 198 x 241 | 0.0166 | 0.0025 |
+| 2 | 186 x 227 | **0.0012** | 0.0009 |
+| 3 | (reported only) | 0.0217, from a static-box count of the same stills | - |
+
+At seed 2 the whole of that grown region moves 0.0012 — a tenth of seed 1 and barely above its own control —
+while the rest of that same frame moved more than any other seed's (65,563 changed pixels image-wide). The flipped
+man there reads `contrast` 0.1644: a man barely separate from dark mud. A dark pack and dark charges over a dark
+man move no pixel past the 10-level threshold, anywhere near him. So at a dark site the Sapper and the Engineer
+are the same silhouette, and that is the look, not the measurement: the window is ruled out as the cause.
+Whether the kit should read in darkness where the man himself does not is a look question for the owner — the open
+`sapper-look-3-g1` row in `docs/reference/decisions.md`.
 
 ## Seed 3: the owner's own zoom-7 view, and the man still lost among the stakes
 Focus (50, 50), zoom 7, yaw 21, pitch 25-42 — the old `sapper-t3` pose. This is the risk the plan called out in

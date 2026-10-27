@@ -395,25 +395,25 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   with the rebased branch, overwriting `2e01bfd94`; (2) a leg is given explicit permission to force-push this one
   ref; (3) land directly from this checkout without pushing first (if `land.py` allows it). Default taken: none
   acted on; the rebase stays local on this checkout pending the owner's push.
-- **sapper-look-3-g1: the kit change itself reads near zero at one of the three sites (2026-10-25,
-  `lane/show/sapper-look-3-g1`).** Supersedes this row's earlier finding, which said the control swamped the
-  signal. Option (a) of that row was built: `probe.py` measures an aligned window (each frame's own `cx`/foot row,
-  not one frame's stale box), `CaptureRig.StepHold(ticks)` bounds the released window between two repeat captures
-  to exactly one sim tick inside the engine, and `capture.py`'s corner search now gates each candidate site on its
-  own repeat-shot noise (over 0.02 dropped, up to four corners tried, every number printed). No pixel weighting or
-  outlier clipping was used, so the measurement is still a plain pixel diff — option (c) was never taken and still
-  needs the owner if it is ever wanted. On the re-captured stills the control falls from 0.11-0.61 to 0.0-0.0066
-  and all three seeds hold both men readable (`tall` 135-202 px, `contrast` 0.16-1.33, seed 3's zoom-7 view
-  included). What is left is the other way round: at seed 2 the kit flip itself reads `kit_frac` 0.0012 (band
-  0.0020) while seed 1 reads 0.0355, so `kit_frac_min` 0.0012 sits BELOW seed 1's control 0.0066 and no single
-  `BAR` can satisfy `spread_max < BAR <= kit_frac_min`. Options: (a) find out whether the pack and charges are
-  genuinely hidden at seed 2's pose (a yaw/pitch requirement on the kept corner, or a kit-visibility check in
-  `capture.py` before a corner is accepted) — the next piece of work, and in the spirit of the existing corner
-  search; (b) judge each seed against its own control instead of one global `BAR` (per-seed `kit_frac >
-  k * spread_max`), which changes what the bar means and so is the owner's call; (c) weight or clip outlier pixels,
-  as before, also the owner's call. Default taken: none — `BAR` stays at its fixed 0.01 and the probe stays red,
-  rather than moving `BAR` to meet a number (the plan's own instruction). The measured numbers live with the
-  evidence, in `docs/evidence/sapper-look-3-g1/README.md` and `probe.json`.
+- **sapper-look-3-g1: at a dark site the Sapper's kit does not read at all, and only the owner can say whether it
+  should (2026-10-27, `lane/show/sapper-look-3-g1`).** Supersedes this row's earlier findings (first the control
+  swamping the signal, then the kit reading near zero at seed 2 with the cause unknown). Option (a) of the earlier
+  row — find out whether the pack and charges are genuinely hidden at seed 2's pose — was taken, and they are.
+  `probe.py` now also reports a GROWN window (`GROWN = (1.0, 0.5)`: a box-width of columns added each side, half a
+  box-height of rows above, several times the man's own area; reported, never gated). On the committed stills the
+  grown count is 0.0166 at seed 1 and 0.0012 at seed 2 — a tenth of seed 1 and barely over seed 2's own grown
+  control of 0.0009 — while that same seed-2 frame moved more pixels image-wide (65,563) than any other seed's. So
+  it is not the window: the flipped man there reads `contrast` 0.1644, a man barely separate from dark mud, and a
+  dark pack over a dark man moves no pixel past the 10-level threshold anywhere near him. The Sapper and the
+  Engineer are the same silhouette in darkness. No pixel weighting or outlier clipping was used; the measurement is
+  still a plain pixel diff. The one question left is a LOOK question, not a measurement one: **should the Sapper's
+  kit read in the dark, where the man himself barely does?** A yes is a look change — kit materials, size or
+  sockets — so by the character-sim role brief it needs concepts for the owner to pick from first, and it was not
+  built here. The untaken options also stay the owner's: (b) judge each seed against its own control instead of one
+  global `BAR` (`kit_frac > k * spread_max`), which changes what the bar means; (c) weight or clip outlier pixels.
+  Default taken: none — `BAR` stays at its fixed 0.01 and the probe stays red, rather than moving `BAR` to meet a
+  number. The measured numbers live with the evidence, in `docs/evidence/sapper-look-3-g1/README.md` and
+  `probe.json`.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
