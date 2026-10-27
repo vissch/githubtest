@@ -1,0 +1,28 @@
+{
+ "cloud": {
+  "bank_area_frac": 0.3285,
+  "bank_contrast_p50": 66.46,
+  "bank_dist_m": 51.91,
+  "bank_height_m": 7.76,
+  "bank_px": 302743,
+  "columns": 1280,
+  "frame_height_m": 23.02,
+  "height_frac": 0.3371,
+  "low_share": 0.1093,
+  "pose_error_m": 0.0
+ },
+ "diff_frac": 0.31764,
+ "ok": true,
+ "patches": {
+  "bank_area_frac": 0.03243,
+  "bank_contrast_p50": 62.3,
+  "bank_dist_m": 70.12,
+  "bank_height_m": 1.791,
+  "bank_px": 29885,
+  "columns": 691,
+  "frame_height_m": 31.09,
+  "height_frac": 0.0576,
+  "low_share": 0.4556,
+  "pose_error_m": 0.0
+ }
+}

@@ -341,6 +341,14 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   this run: nothing is landed on it and the lane is blocked.
   **Closed by `ability-fx-captures-r2-2`** (see "How units move and fight", 2026-10-19 and 2026-10-20 rows above):
   the bank was never missing, and at the owner's request it was then grown and brightened.
+- **The chlorine bank at night: flat green patches, or a new sheet for a rolling cloud?** The owner, on the
+  Decide page: "i need visuals to decide, give me visuals". Visuals are ready:
+  `docs/evidence/chlorine-bank-visual-comps/comp-t1.jpg`, the zoom-30 night frame shot twice off the same tick —
+  (a) today's build, flat patches, `bank_area_frac` 0.0324; (b) a rolling cloud, drawn with the SmokeBank sheet as
+  a stand-in for art that does not exist yet, `bank_area_frac` 0.3285 (no bar: a visual, not a measured claim). A
+  yes to (b) buys a new sheet (`Tools/firebooks.py`, a `Book`/`Sheets` row, `FlipbookOrdinalTests`), not the
+  stand-in. The capture switch (`CombatFx.GasBankCloud`) is off by default and the build is unchanged. Carried by
+  the lane `lane/show/ability-fx-captures-r2-2-g1`.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
