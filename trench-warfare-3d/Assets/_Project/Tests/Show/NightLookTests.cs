@@ -1,6 +1,7 @@
 // Phase: A5d (2026-09-29, the owner's night look) — the knobs that draw today's night at 0, and what they do past it.
 using NUnit.Framework;
 using UnityEngine;
+using TW.Presentation;
 using TW.Presentation.Terrain;
 using TW.Presentation.Tactical;
 
@@ -141,6 +142,31 @@ namespace TW.Tests
                 Assert.AreEqual(NightLights.MaxFirePools, lights.FirePools, "a field of fires stops at the cap");
             }
             finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void CutFires_TakesTheChimneysAndTheFeetOutOfThePicture()
+        {
+            // the owner's answer, 2026-10-27: no fire or smoke FX from the chimneys or the feet in the capture.
+            // 0 is the goal's own number, not a reading of what the code computes.
+            var go = new GameObject("NightLookTests fires");
+            try
+            {
+                var lights = go.AddComponent<NightLights>();
+                SceneHooks.SmokeSources.Clear();
+                SceneHooks.SmokeSources.Add(new Vector3(1f, 2.3f, 3f));
+                SceneHooks.SmokeSources.Add(new Vector3(4f, 1.8f, 5f));
+                lights.CutFires();
+                Assert.AreEqual(0, SceneHooks.SmokeSources.Count, "no chimney or fire smoke left");
+                Assert.AreEqual(0, lights.FirePoints.Count, "no fire point left for the ash");
+                Assert.IsTrue(lights.FiresOut, "the switch stays on");
+
+                SceneHooks.SmokeSources.Add(new Vector3(6f, 2.3f, 7f));   // a late Build filling them again
+                lights.CutFires();
+                Assert.AreEqual(0, SceneHooks.SmokeSources.Count, "and a second call takes them out again");
+                Assert.AreEqual(0, lights.FirePoints.Count);
+            }
+            finally { SceneHooks.SmokeSources.Clear(); Object.DestroyImmediate(go); }
         }
     }
 }

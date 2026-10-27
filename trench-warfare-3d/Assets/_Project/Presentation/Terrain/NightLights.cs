@@ -67,6 +67,11 @@ namespace TW.Presentation.Terrain
         public IReadOnlyList<Vector3> LampPoints => lanternHome;
         public IReadOnlyList<Vector3> FirePoints => firePoints;
         public bool Built => built;
+        // the drawn flames, and the capture switch that takes them out (CutFires)
+        MeshRenderer flames;
+        bool firesOut;
+        /// <summary>True once <see cref="CutFires"/> was called: the chimneys and the flame feet are out of the picture.</summary>
+        public bool FiresOut => firesOut;
         readonly List<Object> owned = new List<Object>();
         float lastShot, nextFlare, flareBorn = -100f;
         float shotStagger = ShotStagger.DefaultSpread;   // knob fx.shotStagger (Start): a shot's light comes on with its flare (CombatFx)
@@ -400,6 +405,20 @@ namespace TW.Presentation.Terrain
             host.AddComponent<MeshFilter>().sharedMesh = mesh;
             var r = host.AddComponent<MeshRenderer>();
             r.sharedMaterial = material; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+            flames = r;
+            if (firesOut) EnforceFiresOut();   // Build ran after the harness asked for the fires out
+        }
+
+        /// <summary>Take the dugout-stove chimneys and the flame feet out of the picture: a capture switch, like
+        /// <see cref="CutLamps"/>. The lanterns, torch posts, glow cards, hearth light and horizon fires stay.
+        /// Idempotent, and kept enforced in <c>Update</c> because <c>Build</c> runs lazily, frames into Play.</summary>
+        public void CutFires() { firesOut = true; EnforceFiresOut(); }
+
+        void EnforceFiresOut()
+        {
+            if (flames != null && flames.enabled) flames.enabled = false;   // the drawn fire
+            if (SceneHooks.SmokeSources.Count > 0) SceneHooks.SmokeSources.Clear();   // the chimney and fire smoke (CombatFx.Ambient)
+            if (firePoints.Count > 0) firePoints.Clear();   // the ash motes over the fires (SmallLife)
         }
 
         static float Tile(float x, float z, int period)
@@ -522,6 +541,7 @@ namespace TW.Presentation.Terrain
                 var props = GetComponent<BattlefieldProps>();
                 if (props != null && props.Sites.Count > 0) { Build(props.Sites, props.LanternPoints); built = true; }
             }
+            if (firesOut) EnforceFiresOut();
             for (int i = 0; i < lanterns.Count; i++)
             {
                 float t = Time.time * 7f + lanternPhase[i];

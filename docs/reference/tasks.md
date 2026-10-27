@@ -143,7 +143,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   frames the cloud is waited out before the shot (default 200, clamped to 120..300), which is how three runs of one
   build land on three different frames. It records in `manifest.json` whether the sim TOOK each call, which is how
   2026-10-19 found that every call was taken, and the capture frame's own `gas_cells`, `gas_cards`, `recipes`,
-  `books_ready` and `draw_calls`, which found the bank is drawn after all: `docs/evidence/ability-fx-captures-r2/`.
+  `books_ready`, `hearth_fx`, `fires_out` and `draw_calls`, which found the bank is drawn after all: `docs/evidence/ability-fx-captures-r2/`.
   The pipeline's `run_tests` selects
   no [Explicit] test, so run it as its own batch launch: `Unity.exe -batchmode -projectPath <checkout>/trench-warfare-3d
   -runTests -testPlatform EditMode -testFilter GasBankStills -testResults <xml> -logFile <log>`).
@@ -151,6 +151,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, five stills at one pose, gas, smoke,
   puff, gaspuff (the close camera's standing `Book.GasPuff`, at `CombatFx.GasPuffStand` and frame 16) and a plate -
   so a blank still accuses one book and not the sim, the field, the cache and the capture path at once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
+  Both sets cut the dugout-stove chimneys and the flame feet before the shot (`NightLights.CutFires`, the owner's
+  answer of 2026-10-27: no fire or smoke FX there), and GasBankStills records the proof in `manifest.json` as
+  `hearth_fx` (smoke sources plus fire points at the photographed frame, 0) and `fires_out`.
   `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1/probe.py` measures those stills: it COUNTS THE GREEN the gas
   added over the plate (not a brightness test), in metres, bars the rise, bars the height from BOTH sides (a
   ceiling, so the puff is not a wall, and a floor, so it is not a flat sheet), and refuses two runs that
@@ -777,6 +780,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   to the rest, nearest the middle of the picture, `NightLights.PoolKey`; 0: nearest the camera, seen or not, as before).
   `CaptureRig` cuts the lamps as it poses a still (`NightLights.CutLamps`; `CaptureRig.Rig.LampsFade` leaves the fade
   running for a row of stills along a moving view).
+  `NightLights.CutFires` is the same kind of capture switch for the fires: it disables the flame mesh, clears
+  `SceneHooks.SmokeSources` and clears `FirePoints` (so no chimney smoke and no ash), stays enforced in `Update`
+  because `Build` runs lazily, and leaves the lanterns, torch posts, glow cards, hearth light and horizon fires.
   The rule stands aside where no pools are drawn (by day, `look.pools` 0). A lamp that is out is `lampOut`, not
   `Light.enabled` (that now says whether its light is real at the moment). The night exactly as before:
   `lights.realLamps=43,look.poolsByView=0`.

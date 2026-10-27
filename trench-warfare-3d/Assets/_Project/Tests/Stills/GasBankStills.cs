@@ -108,6 +108,10 @@ namespace TW.Tests
             var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
             if (sky != null) { sky.Rain = 0f; sky.Squalls = 0f; }
             TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;   // the owner's night look
+            // the owner's answer, 2026-10-27: the chimneys and the feet emit no fire or smoke in these captures
+            var night = Object.FindFirstObjectByType<TW.Presentation.Terrain.NightLights>();
+            if (night != null) night.CutFires();
+            TestContext.Out.WriteLine("fires out: " + (night != null ? night.FiresOut.ToString() : "no NightLights"));
             Time.captureDeltaTime = 1f / 30f;
 
             var tc = Object.FindFirstObjectByType<TacticalCamera>();
@@ -239,6 +243,8 @@ namespace TW.Tests
               .Append(", \"gas_cards\": ").Append(cards)
               .Append(", \"recipes\": ").Append(recipes.ToString("0.##"))
               .Append(", \"books_ready\": ").Append(ready ? "true" : "false")
+              .Append(", \"hearth_fx\": ").Append(HearthFx())
+              .Append(", \"fires_out\": ").Append(FiresOut() ? "true" : "false")
               .Append(", \"draw_calls\": ").Append(FrameBudget.DrawCalls)
               .Append(", \"calls\": [");
             for (int i = 0; i < answers.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(answers[i]).Append('"');
@@ -252,6 +258,20 @@ namespace TW.Tests
         /// bank's card list, its recipe switch and its books are all private and none of them is worth a public
         /// surface for one diagnostic.</summary>
         static CombatFx Fx => Object.FindFirstObjectByType<CombatFx>();
+
+        /// <summary>How much chimney and fire FX the photographed frame still holds: the smoke sources CombatFx puffs
+        /// from plus the fire points SmallLife ashes over. 0 once NightLights.CutFires has run.</summary>
+        static int HearthFx()
+        {
+            var night = Object.FindFirstObjectByType<TW.Presentation.Terrain.NightLights>();
+            return SceneHooks.SmokeSources.Count + (night != null ? night.FirePoints.Count : 0);
+        }
+
+        static bool FiresOut()
+        {
+            var night = Object.FindFirstObjectByType<TW.Presentation.Terrain.NightLights>();
+            return night != null && night.FiresOut;
+        }
 
         const BindingFlags Hidden = BindingFlags.Instance | BindingFlags.NonPublic;
 

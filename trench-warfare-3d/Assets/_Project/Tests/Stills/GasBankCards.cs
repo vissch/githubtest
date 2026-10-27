@@ -113,6 +113,10 @@ namespace TW.Tests
             var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
             if (sky != null) { sky.Rain = 0f; sky.Squalls = 0f; }
             TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;   // the owner's night look, as GasBankStills shoots
+            // the owner's answer, 2026-10-27: the chimneys and the feet emit no fire or smoke in these captures
+            var night = Object.FindFirstObjectByType<TW.Presentation.Terrain.NightLights>();
+            if (night != null) night.CutFires();
+            TestContext.Out.WriteLine("fires out: " + (night != null ? night.FiresOut.ToString() : "no NightLights"));
             Time.captureDeltaTime = 1f / 30f;
 
             var tc = Object.FindFirstObjectByType<TacticalCamera>();
