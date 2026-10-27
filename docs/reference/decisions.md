@@ -673,6 +673,20 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   stays at workflow.md's documented 0.10, unchanged either way. `probe.py` itself is finished and selftested
   (`--selftest` passes 4/4); what is unresolved is the look, not the tool. See
   `docs/evidence/rocketed-man-planted-g2/frames.txt` and the leg's note.md for the capture log.
+- **Withdrawn 2026-10-27 — the planted man's two FAILs were a probe bug, not a look finding
+  (rocketed-man-planted-g2):** the question asked here on 2026-10-27 (does the planted gag need a read fix at T1?)
+  is withdrawn unanswered; nothing was landed on it, so nothing is undone. Why: both g2 stills were taken with the
+  default aim, and at zoom 30 `close` is 0, so `CaptureRig` aimed at world **y = 0.000** (`cam_y - run *
+  tan(pitch)` from each sidecar), not at the ground under the man. `frames.txt` records plant_2's man resting at
+  **y -1.48**. The probe assumed the frame centre was his feet-in-the-mud and searched 0.05..1.35 m above row 450 —
+  rows 418..449, about **35 px too high**. A pixel dump of `plant_2.png` shows the legs plainly where the corrected
+  window falls: a bright column about 6 px wide and 20 px tall at x 791..800, rows 460..480 (luma ~0.30-0.40) on a
+  mud field at ~0.18, i.e. a contrast around 0.5..0.9, far over the BAR of 0.10. CaptureRig's own
+  `contrast_median` (0.030, 0.049) is a whole-frame statistic over all men in the shot, not a measurement of these
+  legs, so it is not a second signal about the gag. The probe is being fixed to place its window on the man's
+  recorded rest position (a per-still man-position sidecar written beside each still at capture time) and to
+  require three captures; if the corrected probe
+  still finds the gag under the bar, a fresh question is asked then, with the corrected numbers.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
