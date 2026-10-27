@@ -1,0 +1,96 @@
+{
+  "image": [
+    1920,
+    1080
+  ],
+  "yaw": 21.0,
+  "bands": {
+    "t3": {
+      "pose_check_m": 13.3059,
+      "fov": 40.741,
+      "zoom": 7.5,
+      "pitch": 13,
+      "men": {
+        "sentry": {
+          "foot": [
+            960.0,
+            960.45
+          ],
+          "head": [
+            960.0,
+            853.28
+          ],
+          "slot": 14
+        }
+      },
+      "plate_back_m": 0.0,
+      "plate_foot_in_stills": [
+        40.257,
+        1.988,
+        11.702
+      ],
+      "sentry": "sentry_t3.png",
+      "mg": "mg_t3.png",
+      "mg2": "mg2_t3.png",
+      "empty": "empty_t3.png"
+    },
+    "t1": {
+      "pose_check_m": 0.0,
+      "fov": 25.0,
+      "zoom": 30,
+      "pitch": 25,
+      "men": {
+        "sentry": {
+          "foot": [
+            960.0,
+            483.7
+          ],
+          "head": [
+            960.0,
+            427.9
+          ],
+          "slot": 14
+        }
+      },
+      "plate_back_m": 0.0,
+      "plate_foot_in_stills": [
+        40.261,
+        1.987,
+        11.703
+      ],
+      "sentry": "sentry_t1.png",
+      "mg": "mg_t1.png",
+      "mg2": "mg2_t1.png",
+      "empty": "empty_t1.png"
+    },
+    "o120": {
+      "pose_check_m": 0.0001,
+      "fov": 25.0,
+      "zoom": 120,
+      "pitch": 55,
+      "men": {
+        "sentry": {
+          "foot": [
+            960.0,
+            531.14
+          ],
+          "head": [
+            960.0,
+            522.46
+          ],
+          "slot": 14
+        }
+      },
+      "plate_back_m": 0.6569,
+      "plate_foot_in_stills": [
+        40.257,
+        1.988,
+        11.701
+      ],
+      "sentry": "sentry_o120.png",
+      "mg": "mg_o120.png",
+      "mg2": "mg2_o120.png",
+      "empty": "empty_o120.png"
+    }
+  }
+}

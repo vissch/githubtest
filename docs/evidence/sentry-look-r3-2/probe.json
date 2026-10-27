@@ -1,0 +1,97 @@
+{
+  "xor_t3": 0.0834,
+  "xor_t1": 0.1765,
+  "xor_o120": 0.2564,
+  "xor_control_max": 0.0286,
+  "plate_ground_contrast_t3": 0.036,
+  "xor_control_t3": 0.0047,
+  "xor_control_t1": 0.0286,
+  "xor_control_o120": 0.0,
+  "thresholds": {
+    "xor": 0.15,
+    "xor_control_max": 0.03,
+    "plate_ground_contrast_t3": 0.1
+  },
+  "settings": {
+    "luma_cut": 0.07059,
+    "ring_px": [
+      2,
+      6
+    ],
+    "pad_px": 8,
+    "magenta": "r > g+40 and b > g+40 and min(r,b) > 60",
+    "cyan": "g > r+40 and b > r+40 and min(g,b) > 60"
+  },
+  "bands": {
+    "t3": {
+      "xor": 0.0834,
+      "xor_control": 0.0047,
+      "sentry_px": 3470,
+      "mg_px": 3587,
+      "mg2_px": 3586,
+      "union_px": 3682,
+      "xor_px": 307,
+      "control_union_px": 3595,
+      "control_xor_px": 17,
+      "box": [
+        162,
+        89
+      ],
+      "box_at": [
+        846,
+        924
+      ],
+      "pose_check_m": 13.3059
+    },
+    "t1": {
+      "xor": 0.1765,
+      "xor_control": 0.0286,
+      "sentry_px": 514,
+      "mg_px": 447,
+      "mg2_px": 450,
+      "union_px": 527,
+      "xor_px": 93,
+      "control_union_px": 455,
+      "control_xor_px": 13,
+      "box": [
+        100,
+        61
+      ],
+      "box_at": [
+        423,
+        935
+      ],
+      "pose_check_m": 0.0
+    },
+    "o120": {
+      "xor": 0.2564,
+      "xor_control": 0.0,
+      "sentry_px": 35,
+      "mg_px": 33,
+      "mg2_px": 33,
+      "union_px": 39,
+      "xor_px": 10,
+      "control_union_px": 33,
+      "control_xor_px": 0,
+      "box": [
+        24,
+        22
+      ],
+      "box_at": [
+        514,
+        951
+      ],
+      "pose_check_m": 0.0001
+    }
+  },
+  "plate_t3": {
+    "plate_px": 807,
+    "expected_px": 1102,
+    "px_per_m_from_bar": 44.44,
+    "measured_px": 625,
+    "ring_px": 477,
+    "mean_luma_plate": 0.0854,
+    "mean_luma_ground_ring": 0.1214
+  },
+  "pass": false
+}
