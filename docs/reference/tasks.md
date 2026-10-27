@@ -155,7 +155,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   barred against the raw plate difference and shot its three runs on one frame;
   `docs/evidence/ability-fx-captures-r2-2-g2/probe.py` is the one before that, which a zebra of separate cards
   passed; `docs/evidence/ability-fx-captures-r2/probe.py` is the single-capture one);
-  `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`).
+  `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`);
+  the whole chain's own committed stills are laid out as pictures in
+  `docs/evidence/ability-fx-captures-r2-2-visual-proof/` (`sheet.py`, no new captures).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
   `CaptureRig.Stress(1000, path)` runs 120 real seconds with no fixed tick or hash: never the same fight twice.
