@@ -1,0 +1,222 @@
+[
+  {
+    "sheet": "sheet-t1",
+    "cell": [
+      0,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/run1/gas-t1-plate.jpg",
+    "sha1": "cae435c9a51e760d8e878a4835317a91d1692a72",
+    "caption": "run1  t1=557  no gas (plate)",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-t1",
+    "cell": [
+      0,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/run1/gas-t1.jpg",
+    "sha1": "32e9741e807331e4e7bdfbb64014e897862ce21b",
+    "caption": "run1  t1=557  gas  gas_green_share=0.4828",
+    "key": "gas_green_share"
+  },
+  {
+    "sheet": "sheet-t1",
+    "cell": [
+      1,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/run2/gas-t1-plate.jpg",
+    "sha1": "1013383c5f602e96518a18693ce5910421a7bdce",
+    "caption": "run2  t1=597  no gas (plate)",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-t1",
+    "cell": [
+      1,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/run2/gas-t1.jpg",
+    "sha1": "5f485ca215f5229eb2926a0af38c6fe18f922f58",
+    "caption": "run2  t1=597  gas  gas_green_share=0.4431",
+    "key": "gas_green_share"
+  },
+  {
+    "sheet": "sheet-t1",
+    "cell": [
+      2,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/run3/gas-t1-plate.jpg",
+    "sha1": "0281f0e21dd38d52c055c7576874fe805b76a728",
+    "caption": "run3  t1=637  no gas (plate)",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-t1",
+    "cell": [
+      2,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/run3/gas-t1.jpg",
+    "sha1": "ab752a0bf8e42ffd70f8a9fcea9805568377b146",
+    "caption": "run3  t1=637  gas  gas_green_share=0.4478",
+    "key": "gas_green_share"
+  },
+  {
+    "sheet": "sheet-o240",
+    "cell": [
+      0,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/run1/gas-o240-plate.jpg",
+    "sha1": "65c637110b4bad149a925ad1c73f75d4c5e7a1fd",
+    "caption": "run1  o240=249  no gas (plate)",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-o240",
+    "cell": [
+      0,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/run1/gas-o240.jpg",
+    "sha1": "614eabf4aae8e20e731d160433b2bd583b9c406b",
+    "caption": "run1  o240=249  gas  o240_dark_frac=0.0093  bank_width_m=31.248",
+    "key": "o240_dark_frac"
+  },
+  {
+    "sheet": "sheet-o240",
+    "cell": [
+      1,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/run2/gas-o240-plate.jpg",
+    "sha1": "b9ca19155946ddb413a96549c1fa26110e82b6e6",
+    "caption": "run2  o240=269  no gas (plate)",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-o240",
+    "cell": [
+      1,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/run2/gas-o240.jpg",
+    "sha1": "9ce4c54a9e631c0246ade32e90d2d0fb751cf68e",
+    "caption": "run2  o240=269  gas  o240_dark_frac=0.0000  bank_width_m=35.778",
+    "key": "o240_dark_frac"
+  },
+  {
+    "sheet": "sheet-o240",
+    "cell": [
+      2,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/run3/gas-o240-plate.jpg",
+    "sha1": "6ee40f84208d19a95d717db7c4a5088462c5d89a",
+    "caption": "run3  o240=289  no gas (plate)",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-o240",
+    "cell": [
+      2,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/run3/gas-o240.jpg",
+    "sha1": "f463be42b35522bad1909820d494d82ab2514028",
+    "caption": "run3  o240=289  gas  o240_dark_frac=0.0000  bank_width_m=35.911",
+    "key": "o240_dark_frac"
+  },
+  {
+    "sheet": "sheet-cards",
+    "cell": [
+      0,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1/cards/cards-plate.jpg",
+    "sha1": "bc24697052c50a9ee8e222c659dc881386085167",
+    "caption": "plate (no FX)",
+    "key": ""
+  },
+  {
+    "sheet": "sheet-cards",
+    "cell": [
+      0,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1/cards/cards-gas.jpg",
+    "sha1": "75e9a2fefab1861d41eefd4a8d5510f262f2b9ee",
+    "caption": "gas -- accepted",
+    "key": "gas_green_share"
+  },
+  {
+    "sheet": "sheet-cards",
+    "cell": [
+      1,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1/cards/cards-smoke.jpg",
+    "sha1": "ffa395fbffa6e68f12d74c207d62cea1b45c12bc",
+    "caption": "smoke -- rejected (0.0908)",
+    "key": "gas_green_share"
+  },
+  {
+    "sheet": "sheet-cards",
+    "cell": [
+      1,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1/cards/cards-puff.jpg",
+    "sha1": "5a2bd01228ed4215ff5a303f69f22fc9705770f1",
+    "caption": "puff -- rejected (0.1076)",
+    "key": "gas_green_share"
+  },
+  {
+    "sheet": "sheet-before-after",
+    "cell": [
+      0,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1/run1/gas-t1.jpg",
+    "sha1": "b67421bac1b51815705f1fb70b1015cf71e619ca",
+    "caption": "BEFORE (striped build)  t1=557  gas_green_share=0.4357",
+    "key": "gas_green_share"
+  },
+  {
+    "sheet": "sheet-before-after",
+    "cell": [
+      0,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1/run1/gas-o240.jpg",
+    "sha1": "a40056a047a165233b68a360934857e17067b987",
+    "caption": "BEFORE (striped build)  o240=249  o240_dark_frac=0.1415",
+    "key": "o240_dark_frac"
+  },
+  {
+    "sheet": "sheet-before-after",
+    "cell": [
+      1,
+      0
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/run1/gas-t1.jpg",
+    "sha1": "32e9741e807331e4e7bdfbb64014e897862ce21b",
+    "caption": "AFTER (this round)  t1=557  gas_green_share=0.4828",
+    "key": "gas_green_share"
+  },
+  {
+    "sheet": "sheet-before-after",
+    "cell": [
+      1,
+      1
+    ],
+    "source": "../ability-fx-captures-r2-2-g2-g1-g2-g2-g2-g1-g1-g1-g2-g1-g1-g1-g2/run1/gas-o240.jpg",
+    "sha1": "614eabf4aae8e20e731d160433b2bd583b9c406b",
+    "caption": "AFTER (this round)  o240=249  o240_dark_frac=0.0093",
+    "key": "o240_dark_frac"
+  }
+]
