@@ -1,4 +1,0 @@
-FAIL: sniper-1: the largest blob in his box is 1434 px, over the frame's own ceiling of 1252 px (2.0 m2) - too big to be a man
-FAIL: sniper-2: the largest blob in his box is 1625 px, over the frame's own ceiling of 1252 px (2.0 m2) - too big to be a man
-FAIL: sniper-3: the largest blob in his box is 1560 px, over the frame's own ceiling of 1252 px (2.0 m2) - too big to be a man
-FAIL: the AT rifleman's ProneIdle phases [0.95, 0.92, 0.89] come within 0.030 of each other, want 0.05 - this is one pose

@@ -339,33 +339,26 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   them.
 - **No staged place puts the prone AT rifleman in front of the bags with ZERO weather pixels in his box
   (2026-10-20, lane `lane/show/atrifle-look-r3-g1-g2`, part 1 of the plan):** the owner's first ask is met and
+| 2026-10-27 | **Accept the small weather speck in the prone AT rifleman's box, and finish him at cand9, (51, 27).** The owner, to "The prone rifleman: keep a small weather speck, or stage him again": "Accept the small speck and finish him at this spot, the leg's own pick". `staging.py`'s gate moves from zero weather pixels in a man's box to at most 1% of its area (`MAX_NOISE_RATIO`, `docs/evidence/atrifle-look-r3-g1-g2/staging.py`): cand9 clears it at 50/8748 px (0.57%) in his own box and 34/8295 (0.41%) in the kneel's, cand2 and cand1 also clear it, and among the two tied at heading 0.00 rad cand9 is kept for the larger mask ratio (0.811 over cand2's 0.648). This answers only the weather half of the open question below; the kneeling reference man's reading (part 2, `spread_sniper` 0.7303) is untouched and still waits on the owner. Taken up on `lane/show/atrifle-look-r3-g1-g2` as `[accept-weather-speck-rifleman]`. (owner, Decide page, answering the 2026-10-20 open question below) |
+
+## Open: waiting on the owner
+- **The prone AT rifleman's weather speck is answered (2026-10-27): the kneeling reference man's reading is not
+  (2026-10-20, lane `lane/show/atrifle-look-r3-g1-g2`, part 1 of the plan).** The owner's first ask is met and
   measured. Staged in front of the parapet at (51, 27) the prone man masks 936 px against the kneeling Sniper's
   1154 px - a ratio of 0.811 where he asked for half, against 286-383 px behind the bags - both men stay in one
   frame from one camera (zoom 30, yaw 180), the two boxes never overlap, and a one-metre staging hop along the
   Sniper's own drawn yaw brings the heading difference down to 0.00 rad from the fixed 1.11 rad he threw out
   (`docs/evidence/atrifle-look-r3-g1-g2/staging.json`, `frames.txt`, twelve candidates x four stills committed).
-  His second ask is not met: not one of the twelve candidates has zero weather pixels inside his box. The best is
-  50 px of an 8459 px box (the worst 1292). It is not a brazier in the box - three plates shot 7 FRAMES apart at
-  this camera gave 1570-1826 px of weather over the whole frame and 0 inside either man's box - it is the SPAN
-  between a candidate's two man-less plates, about 135-190 frames, because restaging a man needs live frames for
-  the presenter to move him at all, and the fires flare over that span. A tighter round was shot to buy the gate
-  with frames rather than by moving it: the span came down to 135 frames, the weather in the box did not clear,
-  and the shorter staging writes cost a still (`cand9-at` came back with `men_in_frame 0`). Options: (a) accept a
-  small weather residual in the box - the gate becomes "no weather blob the mask keeps", with the count reported
-  per still, and part 2 is shot on cand9; (b) restage on ground with no fire in frame (another seed or another
-  corner of the map), which gives up "the same ground as r3"; (c) a closer band than T1 so the man is the larger
-  thing, which gives up the owner's zoom 30. Default taken here: (a) with cand9, (51, 27) - but part 2 is NOT
-  shot on it, because the plan's `done_when` requires every `noise_in_box_px_*` to be 0 and this leg will not
-  widen a gate to fit a number; `staging.py` exits 2 as written and the lane waits (this leg, because the gate is
-  the owner's number and only he can trade it).
-  **PART 2, 2026-10-20, same lane: the weather ask is ANSWERED at 0 px, and not by trading the gate - and a new
-  question takes its place.** `CaptureRig.Hold` never stopped the night lamps: their clock runs on
+  His second ask, zero weather pixels in the box, was not met by any of the twelve candidates (best 50 px of an
+  8459 px box) and is now answered a different way, above: he finishes at cand9 with the small speck accepted.
+  **PART 2, 2026-10-20, same lane: the weather ask was separately answered at 0 px, and not by trading the gate -
+  and a new question took its place, still open.** `CaptureRig.Hold` never stopped the night lamps: their clock
+  runs on
   `Time.unscaledDeltaTime` every frame whatever `timeScale` is (`NightLights.RealLamps.cs:92`, `Storm.cs:252`), and
   both lines take `Time.captureDeltaTime` instead when it is positive. Held with `captureDeltaTime` 1e-7 while the
   driver polls and 1e-4 only while a man is restaged (a write made while fully held never reaches the picture at
   all - measured - so a restaging needs live frames, and `timeScale` above 100 is ignored by Unity), round 1 came
-  back with 0 weather px in BOTH men's boxes, and all three rounds with 0 in the kneeling man's. Options (a), (b)
-  and (c) above are not needed for the weather. The three rounds are still red, now on the KNEELING REFERENCE MAN:
+  back with 0 weather px in BOTH men's boxes, and all three rounds with 0 in the kneeling man's. The three rounds are still red, now on the KNEELING REFERENCE MAN:
   where he stands decides both whether the capture is willing to measure his still and how much of him shows.
   `CaptureRig.Measure`'s readability ring samples 1.3 m above WORLD y = 0, not above the ground he is drawn on (the
   man box was fixed for that in `d8d91c093e`, the ring was not), so at part 1's (45, 26) on 1.61 m ground it

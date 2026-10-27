@@ -96,9 +96,11 @@ instead of three, four staging writes instead of six): the span came down from 1
 box did not clear (50 px at best), and the shorter writes cost a still - cand9-at came back with men_in_frame 0,
 the man not yet moved home - so the full-write version was re-shot and is what is committed here.
 
-So the gate stands at 0 and the measurement says 25-1292. That is a question for the owner, not for this leg:
-`docs/reference/decisions.md`, "Open: waiting on the owner". The default taken there is cand9, (51, 27) - the
-largest mask ratio of the clean candidates at 0.811, heading difference 0.00 rad, 50 weather pixels in his box.
+So the gate stood at 0 and the measurement said 25-1292. That was put to the owner on the Decide page as "The prone
+rifleman: keep a small weather speck, or stage him again", and his answer (2026-10-27, `docs/reference/decisions.md`)
+was to accept the small speck and finish him at this spot, the leg's own pick. `staging.py`'s gate is now at most
+1% of a man's own box area rather than zero: cand9's 50 px of 8748 (0.57%) and 34 of 8295 (0.41%) both clear it,
+and it is kept - the largest mask ratio among the candidates tied at the closest heading, 0.811 at 0.00 rad.
 
 What this part does NOT cover
 -----------------------------
