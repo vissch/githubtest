@@ -22,8 +22,9 @@ namespace TW.Presentation
                 Cause = cause, Clip = clip, Flat = flat, InTrench = s.PrevLayer == (byte)NavLayer.Trench,
                 Crushed = crushed && clawed[i] == 0, Clawed = crushed && clawed[i] != 0,
                 Heavy = hitKind[i] == 2,
-                // a machine gun: the infantry's, or a machine's small arms (its tracks and claws are the two above)
-                MachineGun = killer && !crushed && (vehicle || w.Archetype[b] == InfantryArchetype.Machinegunner),
+                // a machine gun: the infantry's, or a machine's small arms when its hit was not heavy (its main gun
+                // is a heavy hit; its tracks and claws are the two cases above)
+                MachineGun = killer && !crushed && (vehicle ? hitKind[i] != 2 : w.Archetype[b] == InfantryArchetype.Machinegunner),
                 Density = density, Travel = new float3(simDir.x, 0f, simDir.z),
                 Throw = new float3(s.ThrowX, s.ThrowUp, s.ThrowZ),
                 BodyYaw = s.BodyYaw, KillerYaw = killer ? w.Yaw[b] : s.BodyYaw,
