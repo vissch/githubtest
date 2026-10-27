@@ -110,15 +110,18 @@ namespace TW.Tests
             // O240 FIRST: its frame holds the whole map, so it must not hold the T1 block's leavings
             var far = new List<Vector2>();
             for (int k = -2; k <= 2; k++) far.Add(new Vector2(x, Mathf.Clamp(z + k * 40f, 20f, size.y - 20f)));
-            yield return Block(dir, "gas-o240" + (plate ? "-plate" : ""), "o240", tc, x, z, 240f, 25f, far, plate, map);
+            yield return Block(dir, "gas-o240" + (plate ? "-plate" : ""), "o240", tc, x, z, 240f, 25f, far, plate, map, cloud: false);
 
+            // chlorine-bank-visual-comps: the T1 band shoots the cloud stand-in too, so the owner sees both options
+            // ("flat patches, or a rolling cloud") off the same tick, the same pose, the same night
             yield return Block(dir, "gas-t1" + (plate ? "-plate" : ""), "t1", tc, x, z, 30f, 25f,
-                               new List<Vector2> { new Vector2(x, z) }, plate, map);
+                               new List<Vector2> { new Vector2(x, z) }, plate, map, cloud: !plate);
 
             Time.captureDeltaTime = 0f;
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
             CameraShake.Strength = 1f;                // a player setting: put it back
             CombatFx.ShowOverlays = true;
+            CombatFx.GasBankCloud = false;             // capture only: never leave it on
             File.WriteAllText(Path.Combine(dir, plate ? "manifest-plate.json" : "manifest.json"),
                               "{\n  \"stills\": [\n" + string.Join(",\n", rows.ToArray()) + "\n  ]\n}\n");
             yield return new ExitPlayMode();
@@ -129,7 +132,7 @@ namespace TW.Tests
         /// <summary>One band: frame it, gas it (unless this is the plate pass), wait out the cloud's life in FRAMES,
         /// photograph it, then pad to a fixed block so the two passes stay in step.</summary>
         static IEnumerator Block(string dir, string stem, string band, TacticalCamera tc, float x, float z,
-                                 float zoom, float pitch, List<Vector2> points, bool plate, MapData map)
+                                 float zoom, float pitch, List<Vector2> points, bool plate, MapData map, bool cloud)
         {
             int spent = 0;
             tc.BaseYaw = -90f; tc.Zoom = zoom; tc.Focus = new Vector2(x, z);
@@ -220,6 +223,33 @@ namespace TW.Tests
             for (int i = 0; i < answers.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(answers[i]).Append('"');
             sb.Append("] }");
             rows.Add(sb.ToString());
+
+            if (cloud)
+            {
+                CombatFx.GasBankCloud = true;
+                yield return null; spent++;
+                yield return null; spent++;
+
+                string cloudStem = stem + "-cloud";
+                string cloudPath = Path.Combine(dir, cloudStem + ".png");
+                CaptureRig.Shot(cloudPath, x, z, zoom, 40f, pitch, 1280, 720);
+                yield return Drain(cloudPath);
+                spent += 12;
+
+                var cloudSb = new StringBuilder();
+                cloudSb.Append("    { \"still\": \"").Append(cloudStem).Append(".png\", \"subject\": \"chlorine gas bank (cloud stand-in)\", \"band\": \"")
+                       .Append(band).Append("\", \"plate\": false")
+                       .Append(", \"x\": ").Append(x.ToString("0.###")).Append(", \"z\": ").Append(z.ToString("0.###"))
+                       .Append(", \"ground_y\": ").Append(ground.ToString("0.####"))
+                       .Append(", \"sim_tick\": ").Append(tick).Append(", \"frame\": ").Append(Time.frameCount)
+                       .Append(", \"pose_error_m\": ").Append(Sidecar(cloudPath, "pose_error_m").ToString("0.####"))
+                       .Append(", \"calls_taken\": ").Append(taken)
+                       .Append(", \"draw_calls\": ").Append(FrameBudget.DrawCalls)
+                       .Append(", \"calls\": [] }");
+                rows.Add(cloudSb.ToString());
+
+                CombatFx.GasBankCloud = false;
+            }
 
             for (int f = spent; f < BlockFrames; f++) yield return null;
         }

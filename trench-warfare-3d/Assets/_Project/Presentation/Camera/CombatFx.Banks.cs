@@ -25,6 +25,13 @@ namespace TW.Presentation.Tactical
         public const float GasBankSquash = 0.55f;
         public static readonly Color GasBankNight = new Color(0.86f, 0.92f, 0.52f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
+        /// <summary>Capture only: the owner's "flat patches or a rolling cloud" visual comparison (decisions.md,
+        /// chlorine-bank-visual-comps). No look lands on this switch; it is off by default and only a stills
+        /// harness turns it on, draws the SmokeBank sheet as a stand-in for a rolling cloud, then turns it back off.</summary>
+        public static bool GasBankCloud = false;
+        /// <summary>The stand-in cloud's squash: its ink fills its whole cell, so a 9.35 m card at 0.40 stands 3.7 m tall.</summary>
+        public const float GasBankCloudSquash = 0.40f;
+
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
         public static float GasBankAlpha(float thick) => Mathf.Lerp(GasBankThin, GasBankFull, Mathf.Clamp01(thick));
 
@@ -89,15 +96,19 @@ namespace TW.Presentation.Tactical
             int step = CurrentBankStep();
             Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 10f, 2.4f, 73856093, 19349663);
             gasCards.Clear();
+            bool cloud = GasBankCloud;
+            if (cloud) books.Tint(FlipbookFx.Book.SmokeBank, GasBankNight);
             foreach (var b in gasBank.Cells)
             {
                 float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
                 float width = (6f + 2.5f * b.Thick) * (0.9f + 0.2f * h2) * step;
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                float squash = cloud ? GasBankCloudSquash : GasBankSquash;
+                float anchor = cloud ? b.Ground - 0.1f : b.Ground - 0.35f;
+                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, anchor, b.Z), width, width * squash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
             }
-            books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
+            books.DrawPacked(cloud ? FlipbookFx.Book.SmokeBank : FlipbookFx.Book.GasBank, gasCards, bounds);
         }
 
         void DrawSmokeBank(GasSmokeSystem gas, float now, Bounds bounds)

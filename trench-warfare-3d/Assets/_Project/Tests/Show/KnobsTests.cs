@@ -124,6 +124,14 @@ namespace TW.Tests
 
         // ---- with nothing set, each area's knob-backed values are the constants they replaced
 
+        // chlorine-bank-visual-comps: the owner's "flat patches or a rolling cloud" stand-in is a capture switch,
+        // not a look; nothing may turn it on by default
+        [Test]
+        public void TheGasBankCloudVariantIsOffByDefault()
+        {
+            Assert.That(CombatFx.GasBankCloud, Is.False);
+        }
+
         [Test]
         public void Units_NothingSet_IsTheOldConstants()
         {
