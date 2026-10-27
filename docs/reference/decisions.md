@@ -294,6 +294,22 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-16 | **A wreck's shadow is narrowed to the firing line: (a), the half-width.** The owner, to "A wreck's shadow: narrow it to match its reach, or keep it wide and fix the words": "Narrow the shadow to match the firing line, and let the guns-holding-position test be re-tuned to the new number". So (a) is built — `Shelter.Body` and the shelter's reach both come from one `body = WreckBlastReach * 0.5f * size` (`6bd7e8d89`, replay v53, `WreckDecayTests.AManOffTheLineButInsideTheOldBodyIsNotKeptDown`) — and `AssaultLadderTests.GunsThatStayToCover_CostTheAttackFewerMen` is re-tuned to the narrower shadow's measured ratio, not the body widened back. Built on this lane as `[narrow-wreck-shadow-firing-line]`. (owner, 2026-10-16, on the Decide page) |
 
 ## Open: waiting on the owner
+- **The planted man does not read at T1 on two fresh captures (rocketed-man-planted-g2, this leg, 2026-10-27):**
+  `docs/evidence/rocketed-man-planted-g2/probe.py` measures a mask of the legs' own pixels (Otsu inside a window
+  sized from the camera geometry, gated on area/shape/position), never the lens's "legs_px" prior the old probe
+  reported unconditionally. Two fresh plant_*.png were captured against the current build (GreyboxCorridor, T1
+  standard); on both, CaptureRig's own sidecar independently flags "men barely separate from the ground:
+  unreadable" (contrast_median 0.030 and 0.049, both under the BAR of 0.10), and the probe's own mask gates find
+  nothing leg-shaped in the search window. A third capture was not reached inside this leg's time: DeathGag.Planted
+  is a coin flip among high throws (DeathGags.PlantShare = 0.5) and any second death near x ~89.5 (where the sim
+  always parks the dead) turns the next throw into a heap, which forces Fountain instead of Planted for the rest of
+  that play session — so getting even two took dozens of single-man shells across several play-session reloads.
+  Options: (a) ask the owner whether the planted gag needs a read fix at T1 (brighter legs, a rim light, a smaller
+  contrast ring) before it ships — the default taken here, nothing landed on this finding; (b) accept the gag as a
+  "find it if you're looking" detail never meant to read at the standard zoom, and lower nothing — the probe's BAR
+  stays at workflow.md's documented 0.10, unchanged either way. `probe.py` itself is finished and selftested
+  (`--selftest` passes 4/4); what is unresolved is the look, not the tool. See
+  `docs/evidence/rocketed-man-planted-g2/frames.txt` and the leg's note.md for the capture log.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below

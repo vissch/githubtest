@@ -1,0 +1,40 @@
+{
+  "bar": 0.1,
+  "samples": [
+    {
+      "still": "plant_1.png",
+      "legs_px_expected": 21.3,
+      "px_per_m": 25.98,
+      "vpm": 23.55,
+      "window": {
+        "x0": 769,
+        "x1": 831,
+        "y0": 418,
+        "y1": 449
+      },
+      "ok": false,
+      "reason": "area 1 < gate 48",
+      "contrast": null
+    },
+    {
+      "still": "plant_2.png",
+      "legs_px_expected": 21.3,
+      "px_per_m": 25.98,
+      "vpm": 23.55,
+      "window": {
+        "x0": 769,
+        "x1": 831,
+        "y0": 418,
+        "y1": 449
+      },
+      "ok": false,
+      "reason": "bbox height 31 not > width 62",
+      "contrast": null
+    }
+  ],
+  "lo": 0.0,
+  "hi": 0.0,
+  "margin": -0.1,
+  "spread": 0.0,
+  "pass": false
+}
