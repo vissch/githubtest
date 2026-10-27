@@ -304,6 +304,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 | 2026-10-19 | **The chlorine bank missing from the stills is a capture-path fault: (a).** To the open question "The chlorine bank is not in the picture at all" (four CaptureRig stills in GreyboxCorridor at night hold no bank, while the sim took every call and `CombatFx.gasCards` held up to 133 packed cards) the owner picked option (a): treat it as a capture-path fault and have SHOW find why the GasBank book (the only `Bank`/`Deep` sheet) misses `CaptureRig`'s own `Camera.Render()`. It is the default that changes no look: the bank is not grown, brightened or unsquashed (option (b)), and it is not left alone (option (c)). Pictures and numbers: `docs/evidence/ability-fx-captures-r2/`. Carried by the lane `lane/show/ability-fx-captures-r2-2`. (owner, 2026-10-19) **Closed by `ability-fx-captures-r2-2`:** the bank was never missing — it is drawn, reaches `CaptureRig`'s `Camera.Render()`, and covers 11% of the T1 frame; the fault was `probe.py`'s own hue test, which at night could read only 193 of the 101,253 pixels that actually changed from the plate. No look changed. `docs/evidence/ability-fx-captures-r2/probe.json` is green. |
 | 2026-10-20 | **The chlorine bank at zoom 30 at night is grown and brightened: option (b) after all.** The owner reopened the 2026-10-19 row on r2-2's stills: "At zoom 30 at night there is no chlorine bank. gas-t1.jpg and gas-t1-plate.jpg are the same field, and this pass has no evidence folder of its own. Put a bank in the play frame, shot three times." So the look changes after all, the way option (b) named it on 2026-10-19: the bank is grown and brightened, it keeps pooling (`GasBankSquash` 0.55 and the -0.35 anchor are untouched), and the proof is three captures of the changed build against bars frozen from three captures of the build before it. The bank now covers 3.25% of the play frame against 0.13% before, at the same draw calls (131 against 133). Pictures, numbers and the knob-by-knob working: `docs/evidence/ability-fx-captures-r2-2-g1/`. Carried by the lane `lane/show/ability-fx-captures-r2-2-g1`. (owner, 2026-10-20) |
+| 2026-10-27 | **Ship the gas bank as it stands: (a).** The owner's answer on the Decide page to "The gas bank: ship it, lower the bar, or keep tuning": "Ship this bank now and separately plan a rolling-cloud look for later". The two red shape bars (`fill_frac` 0.237 against 0.45, `stray_frac` 0.372-0.398 against 0.30) are accepted for this sheet because the cause is the `GasBank` sheet itself, not a knob; the bars were not moved (`baseline.json` is byte for byte part 1's). A rolling-cloud sheet (`tw-vfx-sheets`) is queued as a separate later effort, not part of this lane. Evidence: `docs/evidence/ability-fx-captures-r2-2-g1-g1/README.md`. (owner, 2026-10-27, on the Decide page) |
 
 ## Open: waiting on the owner
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
@@ -448,25 +449,6 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   acted on; the rebase stays local on this checkout pending the owner's push.
   Answered in general 2026-10-18 (row above): a leg may now force-push its own lane, so (2) needs no build;
   whether this lane was pushed is still open.
-
-- **The chlorine at zoom 30 is one soft bank now, and `fill_frac` 0.45 is not reachable with the `GasBank` sheet
-  (2026-10-21, `lane/show/ability-fx-captures-r2-2-g1-g1`):** the zebra is gone - the paint is one patch in one
-  place. Nine measured builds in part 2 and three more in part 3 have now walked the floor, the alpha, the width,
-  the squash, the layer count and (part 3) a big body card drawn once on the core's own footprint. The build that
-  stands clears six of the eight bars, including `low_share` for the first time (0.311-0.330 against 0.30), at 80
-  cards against 114 and one packed draw: area 0.033 (band 0.010..0.090), spread 29.3-29.7 m (<= 32.08), rim 3-4 px
-  (>= 3.0), height 0.080-0.094 (<= 0.15), pose 0.000. Two shape bars are still red: `fill_frac` 0.237 against 0.45
-  and `stray_frac` 0.372-0.398 against 0.30. `fill_frac` has now been measured near 0.25 in twelve builds and has
-  never come close to 0.45; its best ever, 0.386, broke the bank into pieces (`stray_frac` 0.54). The cause is the
-  sheet: `GasBank` draws a small eroded puff in the middle of its card, so a body can only be built by layering
-  cards, and layered cards leave holes no knob closes. The body card helps and is capped by physics, not taste: the
-  head rule allows it 1.70 m of gas, which is a thin band across a 34 m footprint. Part 3 also found and fixed an
-  arithmetic fault in the head-rule test, which had been letting a 28.88 m card draw 1.93 m of gas over a man's
-  1.8 m head; the cards are narrower for it, which costs some area. Options: (a) ship this bank and queue a
-  rolling-cloud sheet (tw-vfx-sheets) for the fill - **the default taken here**, the lane's work is committed and
-  pushed, nothing landed; (b) accept 0.24 fill and 0.40 stray as the bars for this sheet and close the row;
-  (c) keep tuning this sheet. The bars were not moved (`baseline.json` is byte for byte part 1's). Evidence,
-  before and after, with the working: `docs/evidence/ability-fx-captures-r2-2-g1-g1/README.md`.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
