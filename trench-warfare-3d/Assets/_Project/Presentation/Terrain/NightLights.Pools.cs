@@ -1,4 +1,4 @@
-// Phase: A5d (2026-09-29, the owner's night look: decisions.md) — depends on: Knobs, TWLightPools.hlsl.
+﻿// Phase: A5d (2026-09-29, the owner's night look: decisions.md) — depends on: Knobs, TWLightPools.hlsl.
 // Warm light pools: the ground under every lantern, prop lamp, trench lamp, torch and fire lit in a painted pool, as the
 // owner's effects edit lights a dozen torches' patches of mud. The real lights stop at eight an object (Forward), so each
 // camera, as it begins to render, hands the nearest MaxPools of the flames in `lanterns` (all of them hang there, with
@@ -210,10 +210,10 @@ namespace TW.Presentation.Terrain
         /// to 4.3 % (fire_09.json). Read once, at Start.</summary>
         static bool CalmFlareLook => Knobs.Get("look.calmFlare", 1f) > 0f;
 
-        /// <summary>look.moreFires (6; 0 none): burning trees in no man's land past the MaxFires that carry a real light,
+        /// <summary>look.moreFires (0; the owner's call, 2026-10-27; 10 the old look): burning trees in no man's land past the MaxFires that carry a real light,
         /// each with its flames, its glow card and a painted pool, but no light: the renderer takes eight an object, and the
         /// pool is what shows. Round 7's critic: warm light too sparse in an ordinary view (0.7 % against the edit's 2.4 %).</summary>
-        public const int DefaultMoreFires = 10;   // 6 until round 14 (pose b still 0.8 % warm)
+        public const int DefaultMoreFires = 0;   // 6 until round 14, 10 until the owner had the fires out (2026-10-27)
 
         void MoreFires(TW.Sim.Terrain.MapData map, float len, List<Vector3> centres, List<Vector4> shapes, List<Color> colors, List<Vector3> flameFeet, List<Vector4> flameShapes)
         {

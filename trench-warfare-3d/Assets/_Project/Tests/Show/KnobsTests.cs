@@ -1,4 +1,4 @@
-// Phase: tooling (AOSA loop, 2026-09-25) - the knob registry parses, falls back, logs what was read, and with nothing
+﻿// Phase: tooling (AOSA loop, 2026-09-25) - the knob registry parses, falls back, logs what was read, and with nothing
 // set every knob-backed value is the constant it replaced (the old numbers are written out here on purpose).
 using System.Text.RegularExpressions;
 using NUnit.Framework;
@@ -683,7 +683,7 @@ namespace TW.Tests
             Assert.AreEqual(900, Knobs.Get("life.maxMotes", SmallLife.MaxMotes));
             Assert.AreEqual(12, Knobs.Get("lights.maxLanterns", NightLights.MaxLanterns));
             Assert.AreEqual(14, Knobs.Get("lights.maxTrenchLamps", NightLights.MaxTrenchLamps));
-            Assert.AreEqual(5, Knobs.Get("lights.maxFires", NightLights.MaxFires));
+            Assert.AreEqual(0, Knobs.Get("lights.maxFires", NightLights.MaxFires), "the owner had the fires out of the captures (2026-10-27); lights.maxFires=5 is the old look");
             Assert.AreEqual(6, Knobs.Get("lights.maxTorches", NightLights.MaxTorches));
             Assert.AreEqual(12, Knobs.Get("lights.maxPropLamps", NightLights.MaxPropLamps));
             Assert.AreEqual(8, Knobs.Get("lights.poolSize", NightLights.PoolSize));

@@ -1,6 +1,7 @@
-// Phase: A5d (2026-09-29, the owner's night look) — the knobs that draw today's night at 0, and what they do past it.
+﻿// Phase: A5d (2026-09-29, the owner's night look) — the knobs that draw today's night at 0, and what they do past it.
 using NUnit.Framework;
 using UnityEngine;
+using TW.Presentation;
 using TW.Presentation.Terrain;
 using TW.Presentation.Tactical;
 
@@ -48,7 +49,7 @@ namespace TW.Tests
             Assert.Greater(NightLights.DefaultPoolVary, 0f, "no two lamps' pools the same size");
             Assert.Greater(NightLights.DefaultPoolUnblue, 0f, "a pool's faint edge warms the blue ground amber, not violet (the owner's no-purple rule)");
             Assert.That(NightLights.DefaultPropRim, Is.InRange(0.05f, 0.3f), "props beside a fire catch a warm edge, but not so strong a flat slab blows to yellow");
-            Assert.Greater(NightLights.DefaultMoreFires, 0, "more fires burn in no man's land than carry a real light");
+            Assert.AreEqual(0, NightLights.DefaultMoreFires, "the owner had the fires out of the captures (2026-10-27)");
             Assert.Greater(NightLights.FlareGlowWarm.r, NightLights.FlareGlowWarm.b, "the star shell's glow warm, never a stray blue orb (the owner's rule)");
             Assert.GreaterOrEqual(NightLights.FlareNeutral.r, NightLights.FlareNeutral.b, "and the light it throws not blue");
             Assert.AreEqual(1f, NightLights.DefaultThroughHaze, "the lamps shine through the lifted haze");
@@ -71,6 +72,19 @@ namespace TW.Tests
             finally { Object.DestroyImmediate(go); }
             Assert.Greater(Atmosphere.GradeUmber.x, Atmosphere.GradeUmber.z, "umber: warmer than the blue it replaces");
             Assert.Greater(Atmosphere.LiftHaze.grayscale, 0.35f, "the haze lighter than the lit ground, so the distance's silhouettes stand dark against it");
+        }
+
+        /// <summary>The owner's call of 2026-10-27: no fire and no smoke at the chimneys or the flame feet. The lamps and
+        /// the torches on the stakes were not asked for, so their counts must not move with it.</summary>
+        [Test]
+        public void TheChimneysAndTheFireFeet_AreOut()
+        {
+            Knobs.Clear();
+            Assert.AreEqual(0, NightLights.MaxFires, "no burning tree carries a light, a glow or a flame card");
+            Assert.AreEqual(0, NightLights.DefaultMoreFires, "and none past them either");
+            Assert.AreEqual(0, Knobs.Get("lights.maxFires", NightLights.MaxFires), "with nothing set, the knob reads the shipped 0");
+            Assert.AreEqual(6, NightLights.MaxTorches, "the torches on the stakes are lamps, not fire feet: they stay");
+            Assert.AreEqual(12, NightLights.MaxLanterns, "and the lanterns stay");
         }
 
         [Test]

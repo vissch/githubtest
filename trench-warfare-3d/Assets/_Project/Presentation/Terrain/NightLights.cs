@@ -3,8 +3,8 @@
 // which TW/Toon, TW/Water and the soldier shader add in hard steps (TWLocalLights.hlsl), plus additive glow cards.
 // Lanterns: one at each composed site (dugouts, shelters, stores), at most MaxLanterns, a lamp on a post with a
 // breathing flame; and lamps hung low on the trench wall every thirty metres or so, so the men in the line stand in
-// warm light. Fires: a few shattered trees in no man's land still burn, and torches stand where the paths reach the
-// dugouts; both carry a real flame (TW/Flame: computed, licking, white to red) over their glow and their light. Every
+// warm light. Fires: none since the owner had them out of the captures (2026-10-27; lights.maxFires and
+// look.moreFires bring them back), but torches stand where the paths reach the dugouts and carry a real flame (TW/Flame: computed, licking, white to red) over their glow and their light. Every
 // lamp and flame light sways a little with the wind, so the pools of light on the mud are never still. Flashes: a pool of eight lights shared by rifle fire and shell bursts; a shot only takes one when it
 // is near what the camera looks at, and no more than one every 30 ms, so a 3,000-man firefight costs eight lights.
 // A shell's flash is the brightest thing on the field while it lasts and its reach rides on the shell's radius, and
@@ -24,8 +24,10 @@ namespace TW.Presentation.Terrain
     public sealed partial class NightLights : MonoBehaviour
     {
         public SimHost Host;
-        public const int MaxLanterns = 12, MaxTrenchLamps = 14, MaxFires = 5, MaxTorches = 6, MaxPropLamps = 12, PoolSize = 8;
+        public const int MaxLanterns = 12, MaxTrenchLamps = 14, MaxFires = 0, MaxTorches = 6, MaxPropLamps = 12, PoolSize = 8;
         public Color Lantern = new Color(1f, 0.60f, 0.26f), Muzzle = new Color(1f, 0.74f, 0.40f), Burst = new Color(1f, 0.52f, 0.20f), Flare = new Color(0.82f, 0.90f, 1f);
+        // MaxFires is 0 since 2026-10-27: the owner had the burning trees out of the captures. The loop and the
+        // lights.maxFires knob stay, so lights.maxFires=5 brings the old look back for a sweep.
         public float LanternIntensity = 6f, LanternRange = 10f;
         /// <summary>A lamp hung on a scattered lantern sits at its glass; two lit lamps keep this far apart.</summary>
         public const float LanternGlassHeight = 1.25f, LampSpacing = 18f;
@@ -357,10 +359,9 @@ namespace TW.Presentation.Terrain
             AddGlowMesh(fireHost, fireGlow, fireCentres.ToArray(), fireShapes.ToArray(), fireColors.ToArray());
             foreach (var l in lanterns) { lanternBase.Add(l.intensity); lanternLevel.Add(l.intensity); lanternHome.Add(l.transform.position); }
             BuiltLamps(map);   // which lamps stand by water (NightLights.RealLamps.cs)
-            // dugout stoves smoke and rained-on fires steam (CombatFx draws the puffs)
+            // no smoke sources: the owner had the stove chimneys' and the fire feet's smoke out of the captures
+            // (2026-10-27, decisions.md). The list is still emptied on a rebuild, for whatever fills it next.
             SceneHooks.SmokeSources.Clear();
-            for (int i = 0; i < sites.Count && SceneHooks.SmokeSources.Count < 8; i += step) SceneHooks.SmokeSources.Add(sites[i].Position + sites[i].Rotation * new Vector3(-.8f, 0f, -.6f) + Vector3.up * 2.3f);
-            for (int i = 0; i < flameFeet.Count; i += 2) if (flameShapes[i].x > 1f) SceneHooks.SmokeSources.Add(flameFeet[i] + Vector3.up * 1.8f);
             firePoints.Clear();
             for (int i = 0; i < flameFeet.Count; i++) if (flameShapes[i].x > 1f) firePoints.Add(flameFeet[i]);
             if (flameFeet.Count > 0) AddFlameMesh(flameFeet, flameShapes);

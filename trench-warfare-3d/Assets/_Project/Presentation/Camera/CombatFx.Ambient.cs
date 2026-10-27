@@ -62,7 +62,8 @@ namespace TW.Presentation.Tactical
             if (batch.Count > 0) Flush(cube, rp);
         }
 
-        /// <summary>Running men kick up mud, and chimneys and rained-on fires smoke: a few small chunks a step, near the view only.</summary>
+        /// <summary>Running men kick up mud: a few small chunks a step, near the view only. Nothing smokes since the owner
+        /// had the chimneys' and the fire feet's smoke out (2026-10-27): SceneHooks.SmokeSources is empty, so that block idles.</summary>
         void Ambient(float now)
         {
             var cam = Camera.main; if (cam == null) return;
