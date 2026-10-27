@@ -81,7 +81,8 @@ namespace TW.Presentation.Terrain
         int chunkCursor;
         readonly List<int> chunkPass = new List<int>();
         /// <summary>A crater's hollows are still to be rescanned: until they are, nothing that reads them (the chunks
-        /// here, BattlefieldProps' composition) should rebuild, or it would keep the ground's old pools.</summary>
+        /// within HollowReachMeters of the pending crater, BattlefieldProps' composition) should rebuild, or it
+        /// would keep the ground's old pools.</summary>
         public bool HollowsPending => hollowsDirty;
         readonly System.Diagnostics.Stopwatch paintWatch = new System.Diagnostics.Stopwatch();
         /// <summary>Milliseconds a frame spent repainting crater tiles, checked after every row of a tile (at least one
@@ -655,7 +656,7 @@ namespace TW.Presentation.Terrain
             if (colorDirty || mipsStale) ApplyColor();
             // ChunkBudgetMs a frame, a row at a time, taken round the field from where the last frame stopped: a barrage
             // dirties most of the field in one tick. A chunk is uploaded when its last row is read, so a mesh is never
-            // drawn half old and half new; not while the hollows wait to be rescanned (the rows would read old pools)
+            // drawn half old and half new; a chunk inside the pending crater's region waits for its rescan (the rows would read old pools)
             TW.Sim.PerfMarkers.TerrainChunks.Begin();
             if (!rescanned)
             {
