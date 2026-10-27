@@ -1,0 +1,65 @@
+{
+ "pair": "stand_02 -> stand_03",
+ "baseline_px": {
+  "00-01": 0.0,
+  "01-02": 0.0,
+  "00-02": 0.0
+ },
+ "bar_px": 3.0,
+ "margin_px": 3.0,
+ "pose_delta_px": 14.21,
+ "blocks": 43,
+ "block_px": 24,
+ "search_px": 18,
+ "min_stddev": 6.0,
+ "max_after_mean": 230.0,
+ "box": [
+  1124.4,
+  624.3,
+  1275.6,
+  826.8
+ ],
+ "guards": {
+  "cam": {
+   "cam_x": 122.55239,
+   "cam_y": 18.40911,
+   "cam_z": 107.31238,
+   "cam_pitch": 25,
+   "cam_yaw": 291
+  },
+  "rain": 0.20069,
+  "pose_error_m": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "men_in_frame": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "fallen": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "blown_frac": [
+   0,
+   0,
+   0,
+   0.01019,
+   0.0032,
+   0.00227
+  ]
+ },
+ "passed": true
+}
