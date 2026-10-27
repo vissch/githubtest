@@ -136,6 +136,30 @@ namespace TW.Tests
         }
 
         [Test]
+        public void ACrouchedFiringManKeepsHisFeetOnTheGround([Values(1.2f, 2.1f)] float pace)
+        {
+            using var r = new Rig();
+            int man = r.Man((byte)InfantryArchetype.Rifle, 0f, 0f);
+            int enemy = r.Man((byte)InfantryArchetype.Rifle, 0f, 30f, 1);
+            r.M.World.StanceOf[man] = (byte)Stance.Crouch;
+            r.M.World.Events.Clear();
+            r.Tick();
+            Clip seen = Clip.Idle;
+            for (int t = 0; t < 24; t++)
+            {
+                r.M.World.StanceOf[man] = (byte)Stance.Crouch;
+                r.Step(man, pace);
+                r.Aim(man, enemy);
+                if (t % 8 == 0) r.Shot(man, enemy);
+                r.Tick();
+                if (t > 4) seen = r.ClipOf(man);
+            }
+            float feet = Clips.Table[(int)seen].Speed * r.A.State[man].Rate;
+            Assert.That(feet, Is.InRange(pace * 0.9f, pace * 1.1f), "at " + pace + " m/s the feet move at " + feet + " on " + seen);
+            if (pace < 1.6f) Assert.AreEqual(Clip.FireStoop, seen, "below 1.6 m/s the fire pose should still be kept");
+        }
+
+        [Test]
         public void ASquadFiringOnOneTickIsNotSixOfTheSameMan([Values(0, 1, 2, 3)] int arche)
         {
             using var r = new Rig();
