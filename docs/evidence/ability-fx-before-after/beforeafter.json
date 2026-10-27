@@ -1,0 +1,46 @@
+{
+  "result": {
+    "mask_px": 268727,
+    "before_lift": [
+      9.549833101995706,
+      9.84296702601525,
+      9.56227323640721
+    ],
+    "after_lift": [
+      12.625787509256606,
+      12.794769412824166,
+      12.436383392811292
+    ],
+    "before_noise": 0.2931339240195445,
+    "after_noise": 0.35838602001287434,
+    "layer_noise_max": 0.35838602001287434,
+    "layer_cross_min": 2.593416366796042,
+    "layer_cross_max": 3.244936310828461,
+    "before_frame_noise": 0.11497829861111075,
+    "after_frame_noise": 0.09251338252314767,
+    "frame_noise_max": 0.11497829861111075,
+    "frame_cross_max": 2.916343677662037
+  },
+  "bars": {
+    "layer_cross_min": {
+      "value": 2.593416366796042,
+      "bar": ">= 1.5 * layer_noise_max (0.538)",
+      "pass": true
+    },
+    "after_lift_min": {
+      "value": 12.436383392811292,
+      "bar": ">= 11.0",
+      "pass": true
+    },
+    "before_lift_max": {
+      "value": 9.84296702601525,
+      "bar": "< 11.0",
+      "pass": true
+    },
+    "frame_cross_fact": {
+      "value": 2.916343677662037,
+      "bar": "< frame_noise_max (0.115) -- the eye sees no change at T1",
+      "pass": false
+    }
+  }
+}
