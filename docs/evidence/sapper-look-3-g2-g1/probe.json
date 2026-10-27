@@ -26,5 +26,38 @@
     }
   },
   "cur_face_share_spread": 0.0,
-  "cur_pack_flood_spread": 0.005953580454732932
+  "cur_pack_flood_spread": 0.005953580454732932,
+  "fix": {
+    "1": {
+      "side": 119,
+      "face_share": 0.03753026634382567,
+      "pack_parts": 2,
+      "charge_parts": 2,
+      "pack_flood": 0.08759435977780942,
+      "helmet_above_face": true
+    },
+    "2": {
+      "side": 178,
+      "face_share": 0.03970458275470269,
+      "pack_parts": 2,
+      "charge_parts": 2,
+      "pack_flood": 0.08572149981062997,
+      "helmet_above_face": true
+    },
+    "3": {
+      "side": 238,
+      "face_share": 0.03993362050702634,
+      "pack_parts": 2,
+      "charge_parts": 2,
+      "pack_flood": 0.08714073864840054,
+      "helmet_above_face": true
+    }
+  },
+  "bars": {
+    "face_share": 0.02,
+    "pack_flood": 0.3208944594787067
+  },
+  "fix_face_share_spread": 0.0024033541632006716,
+  "fix_pack_flood_spread": 0.0018728599671794521,
+  "engineer_drift_px_cur_vs_fix": 0
 }
