@@ -348,5 +348,23 @@ namespace TW.Tests
             Assert.IsFalse(Flamethrower.TorchOut(bornSim + 6.9f, bornSim, life), "still burning at 6.9 s of sim");
             Assert.IsTrue(Flamethrower.TorchOut(bornSim + 7.1f, bornSim, life), "out after seven seconds of sim");
         }
+
+        [Test]
+        public void ClearFallenEmptiesTheList()
+        {
+            // a staged still must start with nobody lying: r4's night diff had a body down before the kill, so "two fallen
+            // after" proved nothing about the one man who was shot
+            var go = new UnityEngine.GameObject("vat");
+            var vat = go.AddComponent<VATRenderer>();
+            try
+            {
+                vat.AddFallen(new UnityEngine.Vector3(150f, 0f, 300f), 0f, 0, 0);
+                vat.AddFallen(new UnityEngine.Vector3(160f, 0f, 310f), 1f, 1, 1);
+                Assert.AreEqual(2, vat.FallenCount, "two men down");
+                vat.ClearFallen();
+                Assert.AreEqual(0, vat.FallenCount, "and the field is empty again");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(go); }
+        }
     }
 }

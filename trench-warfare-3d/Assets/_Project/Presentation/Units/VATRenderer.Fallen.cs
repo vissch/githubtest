@@ -40,6 +40,14 @@ namespace TW.Presentation.Units
         /// <summary>Whole turns are drawn in this many pitch steps; VAT_URP.shader decodes a step as 2 pi / 32: change both together.</summary>
         public const int PitchSteps = 32; public const float OneFlipFlight = 0.9f, TwoFlipsFlight = 1.4f;
         public int FallenCount => fallenMen.Count;
+        /// <summary>Clears every body lying on the field, heap counts and all: the same bookkeeping as Remove, in one sweep.
+        /// For a staged still (CaptureRig) that must show one death and nothing else — a held world has Time.timeScale = 0
+        /// and bodies age on Time.time, so nothing else ever brings the count back to 0.</summary>
+        public void ClearFallen()
+        {
+            fallenMen.Clear();
+            if (pile.IsCreated) for (int k = 0; k < pile.Length; k++) pile[k] = 0;
+        }
         GraphicsBuffer fallenBuffer, fallenArgs;
         NativeArray<VatInstance> fallenInstances;
         GraphicsBuffer.IndirectDrawIndexedArgs[] fallenArgsData;
