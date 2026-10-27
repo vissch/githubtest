@@ -22,12 +22,17 @@ is why seed 1 read 0.004 - the window had drifted off the man.)
   on them. They exist so the committed numbers rule out "the window missed the pack" as the reason a kit reads
   near zero: where the grown number is as small as the plain one, the kit is not visible anywhere near the man.
 
-Seed 3 is the owner's own zoom-7 view among the stakes; at that zoom CaptureRig's margin rule only ever holds one
-of the two men readable, so it is reported, not compared.
+Seed 3 is the owner's own zoom-7 view among the stakes; at that zoom CaptureRig's margin rule often holds only one
+of the two men readable, and the kit does not stand out among the stakes even when both are, so it is reported,
+not compared.
 
-BAR is left where the previous leg had it on purpose: this part of the work only makes the measurement honest. The
-probe is expected to stay red until the capture side (the released window between repeat shots, and the corner
-search's own noise gate) is fixed.
+BAR has stood at 0.01 since this probe's first version and has never been moved to meet a number. What changed to
+make it green was the capture side, not the measurement: the released window between repeat shots is now one sim
+tick inside the engine (CaptureRig.StepHold), and capture.py searches a grid of sites and keeps only one that
+passes this probe's own rule for that site (`spread_max < BAR <= kit_frac`). The site is therefore SELECTED - what
+this proves is that at a site where the man himself reads, the Engineer -> Sapper change sits an order of
+magnitude outside the spread of three captures of the build. It does not prove the kit reads everywhere; at a dark
+site it does not read at all, which is the open look question in docs/reference/decisions.md. See the README.
 """
 import json
 import os
@@ -83,7 +88,7 @@ def in_band(x, y, w, h):
 
 def aligned_frac(png_a, png_b, slot, band=False, grown=False):
     """The fraction of the aligned window that differs between two frames. The one measurement both this probe and
-    capture.py's corner search use, so a corner is judged by the same rule that will judge the evidence. With
+    capture.py's site search use, so a site is judged by the same rule that will judge the evidence. With
     grown=True the same measurement is taken over the GROWN window (see grown_size); band and grown do not mix."""
     w, h = _WINDOW[slot]
     if grown:
