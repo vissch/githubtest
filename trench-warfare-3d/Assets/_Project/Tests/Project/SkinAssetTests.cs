@@ -2,7 +2,9 @@
 // UiSkinVerifier does the looking; this holds its report empty. A second test keeps the spec sheet honest: every file
 // the table names must appear in docs/17-ui-art-spec.md, so the artist's document cannot drift from the code the way
 // a HUD comment once claimed numbers nobody had checked (HudTextTests).
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Editor;
@@ -169,6 +171,101 @@ namespace TW.Tests
             Assert.That(coverPainted, Is.GreaterThanOrEqualTo(coverPlaceholder * 3f),
                 $"figure_cover painted={coverPainted} placeholder={coverPlaceholder}: not a 3x clear");
             Assert.That(coverPainted, Is.GreaterThanOrEqualTo(0.30f), $"figure_cover={coverPainted} misses the 0.30 floor");
+        }
+
+        // ---- the g1 round: PARTS, not tone shares -----------------------------------------------------------
+        // A flood of pack tone passes kit_share and figure_cover, which is exactly what the owner rejected ("a grey
+        // helmet blob over a tan flood"). These mirror docs/evidence/sapper-look-3-g2-g1/probe.py line for line -
+        // nearest of five tones by max-channel distance, cap 32, connected parts over a 0.004 floor - and the bars
+        // are the ones probe.py computes from the committed cur-* captures in probe.json (commit 187200b7e1):
+        // face_share max(2 * 0.0, 0.02) = 0.02 and pack_flood min(0.6 * 0.5348, 0.55) = 0.3209.
+        static readonly (string Name, Color32 Tone)[] ProbeTones =
+        {
+            ("HELMET", new Color32(0x3E, 0x4A, 0x52, 255)),
+            ("FACE", new Color32(0xD8, 0xA0, 0x6A, 255)),
+            ("PACK", new Color32(0xA8, 0x99, 0x70, 255)),
+            ("CHARGE", new Color32(0x6E, 0x62, 0x45, 255)),
+            ("DISC", new Color32(0x23, 0x25, 0x2A, 255)),
+        };
+        const int ToneThreshold = 32;
+        const float MinPart = 0.004f;
+
+        static string[] Classify(Color32[] px, int w, int h)
+        {
+            var grid = new string[w * h];
+            for (int i = 0; i < w * h; i++)
+            {
+                var c = px[i];
+                string best = null;
+                int bestD = ToneThreshold;
+                foreach (var (name, t) in ProbeTones)
+                {
+                    int d = Mathf.Max(Mathf.Abs(c.r - t.r), Mathf.Max(Mathf.Abs(c.g - t.g), Mathf.Abs(c.b - t.b)));
+                    if (d <= bestD) { best = name; bestD = d; }
+                }
+                grid[i] = best;
+            }
+            return grid;
+        }
+
+        /// <summary>4-neighbour connected runs of one label, biggest first.</summary>
+        static List<int> Components(string[] grid, int w, int h, string label)
+        {
+            var seen = new bool[w * h];
+            var out_ = new List<int>();
+            var stack = new Stack<int>();
+            for (int i0 = 0; i0 < w * h; i0++)
+            {
+                if (seen[i0] || grid[i0] != label) continue;
+                stack.Push(i0); seen[i0] = true;
+                int area = 0;
+                while (stack.Count > 0)
+                {
+                    int i = stack.Pop(); area++;
+                    int x = i % w, y = i / w;
+                    if (x > 0) Push(i - 1);
+                    if (x < w - 1) Push(i + 1);
+                    if (y > 0) Push(i - w);
+                    if (y < h - 1) Push(i + w);
+                    void Push(int n) { if (!seen[n] && grid[n] == label) { seen[n] = true; stack.Push(n); } }
+                }
+                out_.Add(area);
+            }
+            out_.Sort((a, b) => b.CompareTo(a));
+            return out_;
+        }
+
+        static float? CentroidRow(string[] grid, int w, int h, string label)
+        {
+            int total = 0; long rows = 0;
+            for (int i = 0; i < w * h; i++) if (grid[i] == label) { total++; rows += i / w; }
+            return total > 0 ? rows / (float)total : (float?)null;
+        }
+
+        [Test]
+        public void TheSapperPortraitHasAFaceAndSeparateCharges()
+        {
+            int s = SkinSpec.PortraitSize;
+            var grid = Classify(UiSkinGenerator.PaintSapperPortrait(), s, s);
+            float area = s * (float)s, floor = MinPart * area, lower = s * (float)(s - s / 2);
+
+            int faceCount = 0;
+            for (int i = 0; i < grid.Length; i++) if (grid[i] == "FACE") faceCount++;
+            float faceShare = faceCount / area;
+            var pack = Components(grid, s, s, "PACK");
+            var charge = Components(grid, s, s, "CHARGE");
+            int packParts = pack.Count(a => a >= floor), chargeParts = charge.Count(a => a >= floor);
+            float packFlood = pack.Count > 0 ? pack[0] / lower : 0f;
+            float? helmetRow = CentroidRow(grid, s, s, "HELMET"), faceRow = CentroidRow(grid, s, s, "FACE");
+
+            Assert.That(faceShare, Is.GreaterThanOrEqualTo(0.02f), $"face_share={faceShare}: there is no face under the helmet");
+            Assert.That(packParts, Is.GreaterThanOrEqualTo(2), $"pack_parts={packParts}: the kit is one slab, not a satchel and a bedroll");
+            Assert.That(chargeParts, Is.EqualTo(2), $"charge_parts={chargeParts}: not exactly two separate charges");
+            Assert.That(packFlood, Is.LessThanOrEqualTo(0.3209f), $"pack_flood={packFlood}: the biggest pack part still floods the lower disc");
+            Assert.That(helmetRow, Is.Not.Null, "no helmet tone at all");
+            Assert.That(faceRow, Is.Not.Null, "no face tone at all");
+            Assert.That(helmetRow.Value, Is.LessThan(faceRow.Value - 0.05f * s),
+                $"helmet row {helmetRow} is not above the face row {faceRow}: the bust is not shoulders-up");
         }
     }
 }

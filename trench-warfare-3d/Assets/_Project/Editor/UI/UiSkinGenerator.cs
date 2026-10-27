@@ -504,36 +504,46 @@ namespace TW.Editor
             return c.Px;
         }
 
-        /// <summary>The Sapper's own shoulders-up bust, in the same disc and ring as the placeholder: a helmet dome,
-        /// a satchel strap across the chest and two charge blocks at the belt, pale canvas and waxed charge body
-        /// (mirrors sapperPackMat / sapperChargeMat in CombatFx.SapperKit.cs) so he does not read as the same "?"
-        /// mark as every other undrawn unit.</summary>
+        /// <summary>The Sapper's own shoulders-up bust, in the same disc and ring as the placeholder: a helmet
+        /// dome and brim over a face, a tunic across the shoulders, and his kit broken into parts on it - a satchel
+        /// with two separate waxed charges and a bedroll - so the card reads as a man with a pack, not one slab of
+        /// canvas (the owner, 2026-10-25: "a grey helmet blob over a tan flood").
+        /// The tones are chosen so docs/evidence/sapper-look-3-g2-g1/probe.py can tell the parts apart on the
+        /// rasterised card: helmet and face are its HELMET and FACE boxes, pack and charge mirror sapperPackMat and
+        /// sapperChargeMat (CombatFx.SapperKit.cs), and the tunic sits >= 46 from every one of them, so it is
+        /// classified as nothing and cannot feed the pack flood. Pack shapes carry no contour and are clipped to an
+        /// inset of the tunic: a pack-to-dark ramp passes straight through the charge box and rings every pack shape
+        /// with stray charge pixels, while a pack-to-tunic ramp misses it by 71.</summary>
         public static Color32[] PaintSapperPortrait()
         {
             int s = SkinSpec.PortraitSize;
             var c = new Canvas(s, s);
             float cx = s * 0.5f - 0.5f, cy = s * 0.5f - 0.5f, u = s / 64f;
+            var helmet = new Color32(0x3E, 0x4A, 0x52, 255);  // the probe's HELMET box, 40 from the disc
+            var face = new Color32(0xD8, 0xA0, 0x6A, 255);    // skin
+            var tunic = new Color32(0x8E, 0xA0, 0xA8, 255);   // pale blue-grey: no probe tone is within 46 of it
             var pack = new Color32(0xA8, 0x99, 0x70, 255);    // pale canvas, mirrors sapperPackMat
             var charge = new Color32(0x6E, 0x62, 0x45, 255);  // waxed charge body, mirrors sapperChargeMat
             var disc = Sdf.Circle(cx, cy, s * 0.42f);
             Func<float, float, float> Intersect(Func<float, float, float> a, Func<float, float, float> b) => (x, y) => Mathf.Max(a(x, y), b(x, y));
             c.Glyph(disc, new Color32(0x23, 0x25, 0x2A, 200), EdgeDark);
             c.Glyph(Sdf.Ring(cx, cy, s * 0.42f - 4f, 2f), Plate500, null);
-            // shoulders-up bust: head, helmet dome and brim below the ring's horizon
-            float headCy = cy - 12f * u;
-            c.Glyph(Sdf.Circle(cx, headCy + 3f * u, 9f * u), Plate400, EdgeDark);
-            c.Glyph(Sdf.Sub(Sdf.Circle(cx, headCy, 11f * u), Sdf.Box(cx, headCy + 11f * u, 16f * u, 6f * u)), Plate500, EdgeDark);
-            c.Glyph(Sdf.Capsule(cx - 15f * u, headCy + 3f * u, cx + 15f * u, headCy + 3f * u, 2.6f * u), Plate500, EdgeDark);
-            // shoulders and chest: a canvas slab in pack tone across the lower disc, clipped to the disc so no
-            // square corner shows past the ring (the old Plate700 slab here was darker than the disc itself)
-            float torsoCy = cy + 20f * u;
-            c.Glyph(Intersect(Sdf.Box(cx, torsoCy, 30f * u, 24f * u), disc), pack, EdgeDark);
-            // the satchel over one shoulder, a solid block past the body line, with two waxed charges on it and a
-            // dark gap between each pair so the pieces do not fuse at card size
-            float satCx = cx + 23f * u;
-            c.Glyph(Intersect(Sdf.Box(satCx, torsoCy - 2f * u, 9f * u, 16f * u), disc), pack, EdgeDark);
-            c.Glyph(Sdf.Box(satCx, torsoCy - 9f * u, 6f * u, 3.5f * u), charge, EdgeDark);
-            c.Glyph(Sdf.Box(satCx, torsoCy + 6f * u, 6f * u, 3.5f * u), charge, EdgeDark);
+            // the face first, so the helmet's brim overlaps its top and only the jaw and cheeks stay skin
+            c.Glyph(Sdf.Circle(cx, cy - 6f * u, 12f * u), face, null);
+            // the helmet: a dome cut off at the brow line, and a brim across it
+            c.Glyph(Sdf.Sub(Sdf.Circle(cx, cy - 13f * u, 13f * u), Sdf.Box(cx, cy, 20f * u, 7f * u)), helmet, EdgeDark);
+            c.Glyph(Sdf.Capsule(cx - 17f * u, cy - 10f * u, cx + 17f * u, cy - 10f * u, 2.8f * u), helmet, EdgeDark);
+            // shoulders and neck, clipped to the disc so no square corner shows past the ring
+            var torso = Intersect(Sdf.RoundBox(cx, cy + 24f * u, 30f * u, 22f * u, 10f * u), disc);
+            c.Glyph(Sdf.Box(cx, cy + 6f * u, 3f * u, 8f * u), tunic, null);
+            c.Glyph(torso, tunic, null);
+            // his kit, in two parts on the tunic and inset from its edge so every pack border ramps into the tunic
+            var onTunic = Intersect(Sdf.Box(cx, cy + 25f * u, 28f * u, 22f * u), Sdf.Circle(cx, cy, s * 0.42f - 7f));
+            c.Glyph(Intersect(Sdf.Box(cx + 9f * u, cy + 12f * u, 7f * u, 11f * u), onTunic), pack, null);
+            c.Glyph(Intersect(Sdf.Capsule(cx - 18f * u, cy + 6f * u, cx - 11f * u, cy + 17f * u, 4.5f * u), onTunic), pack, null);
+            // two waxed charges on the satchel, each ringed by pack so they stay two parts at card size
+            c.Glyph(Intersect(Sdf.Box(cx + 8f * u, cy + 6f * u, 4f * u, 3f * u), onTunic), charge, null);
+            c.Glyph(Intersect(Sdf.Box(cx + 8f * u, cy + 18f * u, 4f * u, 3f * u), onTunic), charge, null);
             return c.Px;
         }
 
