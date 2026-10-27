@@ -46,5 +46,14 @@ namespace TW.Tests
             Assert.That(CaptureRig.IsFootFigure(aliveFoot), Is.EqualTo(figurePathSocketsFoot));
             Assert.That(CaptureRig.IsFootFigure(aliveVehicle), Is.EqualTo(figurePathSocketsVehicle));
         }
+
+        /// <summary>Worked example: 1.5 m half-height / tan(12.5 deg) = 1.5 / 0.221695 = 6.766 m. Also checks a
+        /// taller ask (the 17.2 m CloseFitHeight box) stands further off than a shorter one at the same fov.</summary>
+        [Test]
+        public void StandoffFramesTheHeightAsked()
+        {
+            Assert.That(CaptureRig.Standoff(3.0f, 25f), Is.EqualTo(6.766f).Within(0.01f));
+            Assert.That(CaptureRig.Standoff(17.2f, 42f), Is.GreaterThan(CaptureRig.Standoff(3.0f, 42f)));
+        }
     }
 }

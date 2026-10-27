@@ -36,6 +36,12 @@ namespace TW.Editor
         /// as a man, foot soldier or rider, trench or not.</summary>
         public static bool IsFootFigure(uint flags) => (flags & (uint)UnitFlags.Alive) != 0 && (flags & (uint)UnitFlags.Vehicle) == 0;
 
+        /// <summary>Metres of standoff that fits `fitMetres` of subject height into the frame at this field of
+        /// view, so a shot can be framed by what it needs to hold, not by the tactical camera's zoom (which is
+        /// metres of GROUND the view shows, always >= NearZoom, and so can never frame a single man closer than a
+        /// speck). Half the subject height over tan(half the fov).</summary>
+        public static float Standoff(float fitMetres, float fovDeg) => fitMetres * 0.5f / Mathf.Tan(fovDeg * 0.5f * Mathf.Deg2Rad);
+
         /// <summary>
         /// Runs last in the frame (after the camera, the presenter and the renderers have all had their LateUpdate),
         /// so what it photographs is what those systems just prepared.
@@ -52,6 +58,10 @@ namespace TW.Editor
                 public float AimY = float.NaN;   // look at THIS world height, not the default; NaN keeps the default
                 public bool Posed;
                 public Vector3 Want;   // the pose the rig computed, so a still can prove it was taken from where it claims
+                // metres of standoff to fill the frame with, NaN keeps the zoom-derived distance (every shot before
+                // this one). Zoom is "visible metres of ground height" and always holds >= NearZoom's ~17 m, so no
+                // zoom can frame a 1.7 m man at more than a speck: Fit stands the lens off this instead.
+                public float Fit = float.NaN;
             }
 
             /// <summary>Logs each pose and render with its frame number. Off by default; it is how the two-rigs-in-
@@ -119,6 +129,13 @@ namespace TW.Editor
                 float keepZoom = tc.Zoom; Vector2 keepFocus = tc.Focus; float keepFov = cam.fieldOfView;
                 Vector3 keepPos = cam.transform.position; Quaternion keepRot = cam.transform.rotation;
                 tc.enabled = false;
+                // CameraShake is [DefaultExecutionOrder(10000)] and, with TacticalCamera disabled for the set, adds
+                // its shove/jolt to the camera transform EVERY frame with nothing re-placing it from scratch in
+                // between: the offsets accumulate between one Pose and the next Render, which measured as a 0.351 m
+                // drift and a pitch falling from 25 to 22.9 across a two-shot before/after set. Zeroed for the set
+                // and restored after, same as zoom/focus/fov below.
+                float keepShake = CameraShake.Strength;
+                CameraShake.Strength = 0f;
 
                 try
                 {
@@ -158,6 +175,7 @@ namespace TW.Editor
                     // made LateUpdate never start a run again — every later shot queued silently and wrote no PNG.
                     if (tc != null) { tc.Zoom = keepZoom; tc.Focus = keepFocus; tc.enabled = keepEnabled; }
                     if (cam != null) { cam.fieldOfView = keepFov; cam.transform.SetPositionAndRotation(keepPos, keepRot); }
+                    CameraShake.Strength = keepShake;
                     running = false;
                 }
             }
@@ -187,7 +205,9 @@ namespace TW.Editor
                 cam.fieldOfView = fov; cam.nearClipPlane = 0.2f;
                 float pitch = Mathf.Clamp(shot.Pitch, tc.PitchMin, tc.PitchMax);
                 var rot = Quaternion.Euler(pitch, (float.IsNaN(YawPin) ? tc.BaseYaw : YawPin) + shot.Yaw, 0f);
-                float distance = tc.Zoom * Mathf.Tan(30f * Mathf.Deg2Rad) / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
+                float distance = float.IsNaN(shot.Fit)
+                    ? tc.Zoom * Mathf.Tan(30f * Mathf.Deg2Rad) / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad)
+                    : Standoff(shot.Fit, fov);
                 var host = FindFirstObjectByType<SimHost>();
                 float ground = host != null && host.Local != null ? host.Local.Map.Height.Sample(shot.Focus.x, shot.Focus.y) : 0f;
                 // The default aim height is `ground * close + 1.1 * close`, and `close` is 0 for any zoom at or above
@@ -262,6 +282,7 @@ namespace TW.Editor
             // figure path never makes (it has no sockets for a vehicle slot either, `VATRenderer.cs:312`).
             var contrasts = new List<float>();
             int inFrame = 0;
+            float tallest = 0f;    // the biggest figure drawn, in px: turns "a speck on the duckboards" into a number
             var host = Object.FindFirstObjectByType<SimHost>();
             if (host != null && host.Local != null && cam != null)
             {
@@ -280,6 +301,7 @@ namespace TW.Editor
                     Vector3 headS = cam.WorldToScreenPoint((Vector3)host.Presenter.Drawn(s) + Vector3.up * 2.6f);
                     float tall = Mathf.Abs(headS.y - footS.y) * h / cam.pixelHeight;
                     if (tall < 6f) continue;                                  // too small to say anything honest about
+                    if (tall > tallest) tallest = tall;
                     int rMan = Mathf.Max(2, Mathf.RoundToInt(tall * 0.10f));
                     int rIn = Mathf.RoundToInt(tall * 0.62f), rOut = Mathf.RoundToInt(tall * 1.00f);
                     if (cx < rOut || cy < rOut || cx >= w - rOut || cy >= h - rOut) continue;
@@ -309,6 +331,7 @@ namespace TW.Editor
             N(sb, "luma_mean", mean); N(sb, "luma_p50", p50); N(sb, "luma_p95", p95);
             N(sb, "blown_frac", blown / (float)px.Length); N(sb, "black_frac", black / (float)px.Length);
             N(sb, "men_in_frame", inFrame); N(sb, "contrast_median", cMed); N(sb, "contrast_p10", c10);
+            N(sb, "man_px", tallest);
             // which squall the shot was taken in: rain wanders over a ~50 s cycle and nothing used to record it, so
             // two captures minutes apart were compared in different weather without anybody knowing
             N(sb, "rain", TW.Presentation.Terrain.Atmosphere.RainNow);
@@ -385,9 +408,9 @@ namespace TW.Editor
 
         /// <summary>Queue one still. Posed this frame, photographed the next, camera put back when the queue drains.</summary>
         public static string Shot(string path, float x, float z, float zoom, float yaw, float pitch = 25f, int w = 1600, int h = 900,
-                                  float aimY = float.NaN)
+                                  float aimY = float.NaN, float fit = float.NaN)
         {
-            Get().Queue.Enqueue(new Rig.Shot { Path = path, Focus = new Vector2(x, z), Zoom = zoom, Yaw = yaw, Pitch = pitch, W = w, H = h, AimY = aimY });
+            Get().Queue.Enqueue(new Rig.Shot { Path = path, Focus = new Vector2(x, z), Zoom = zoom, Yaw = yaw, Pitch = pitch, W = w, H = h, AimY = aimY, Fit = fit });
             return "queued " + path;
         }
 
