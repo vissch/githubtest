@@ -12,7 +12,9 @@
       "yaw": -120.6,
       "kill_path": "despawn_collect",
       "stand_back_m": 0.6,
-      "px_per_m": 134.0,
+      "px_per_m": 132.0,
+      "bar_bbox_h": 67,
+      "bar_skew_px": 1,
       "plate_bbox": [
         451,
         563,
@@ -20,12 +22,12 @@
         1022
       ],
       "gun_box": [
-        290,
-        724,
-        736,
-        1183
+        293,
+        721,
+        739,
+        1180
       ],
-      "grow_px": 161,
+      "grow_px": 158,
       "noise": {
         "night_t-night_t2": 0,
         "night_t-night_t3": 0,
@@ -39,10 +41,10 @@
         841,
         1036
       ],
-      "centroid_m_from_plate": 0.09,
+      "centroid_m_from_plate": 0.091,
       "edge_clear_px": 373,
-      "floor_px": 4579,
-      "bar": 4579,
+      "floor_px": 4443,
+      "bar": 4443,
       "fallen_before": 0,
       "fallen_after": 1,
       "checks": {
@@ -61,7 +63,9 @@
       "yaw": -117.0,
       "kill_path": "despawn_collect",
       "stand_back_m": 0.6,
-      "px_per_m": 132.0,
+      "px_per_m": 130.0,
+      "bar_bbox_h": 66,
+      "bar_skew_px": 1,
       "plate_bbox": [
         451,
         599,
@@ -69,12 +73,12 @@
         1022
       ],
       "gun_box": [
-        293,
-        757,
-        739,
-        1180
+        295,
+        755,
+        741,
+        1178
       ],
-      "grow_px": 158,
+      "grow_px": 156,
       "noise": {
         "night_t-night_t2": 0,
         "night_t-night_t3": 0,
@@ -88,10 +92,10 @@
         841,
         1055
       ],
-      "centroid_m_from_plate": 0.149,
+      "centroid_m_from_plate": 0.152,
       "edge_clear_px": 377,
-      "floor_px": 4443,
-      "bar": 4443,
+      "floor_px": 4310,
+      "bar": 4310,
       "fallen_before": 0,
       "fallen_after": 1,
       "checks": {
@@ -110,7 +114,9 @@
       "yaw": -139.2,
       "kill_path": "despawn_collect",
       "stand_back_m": 0.6,
-      "px_per_m": 180.0,
+      "px_per_m": 132.0,
+      "bar_bbox_h": 90,
+      "bar_skew_px": 24,
       "plate_bbox": [
         446,
         636,
@@ -118,12 +124,12 @@
         1013
       ],
       "gun_box": [
-        230,
-        852,
-        688,
-        1229
+        288,
+        794,
+        746,
+        1171
       ],
-      "grow_px": 216,
+      "grow_px": 158,
       "noise": {
         "night_t-night_t2": 0,
         "night_t-night_t3": 0,
@@ -137,21 +143,22 @@
         846,
         1002
       ],
-      "centroid_m_from_plate": 0.264,
+      "centroid_m_from_plate": 0.36,
       "edge_clear_px": 414,
-      "floor_px": 8262,
-      "bar": 8262,
+      "floor_px": 4443,
+      "bar": 4443,
       "fallen_before": 0,
       "fallen_after": 2,
       "checks": {
         "fallen_before_is_0": true,
         "fallen_after_at_least_1": true,
-        "change_over_bar": false,
+        "change_over_bar": true,
         "at_the_gun": true,
         "stays_in_frame": true
       },
-      "pass": false
+      "pass": true
     }
   ],
-  "pass": false
+  "px_per_m_even": true,
+  "pass": true
 }

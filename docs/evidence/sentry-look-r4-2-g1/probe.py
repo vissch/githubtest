@@ -9,9 +9,11 @@ death, with three identical unmasked captures before it to measure the build's o
 
 Per seed, read only from the committed stills (no Unity, no sim):
 
-    px_per_m    (bar.bottom - bar.top) / 0.50 from the cyan calibration bar of plate_t.png. CombatFx.PlateBar
-                draws it 0.50 m tall standing on the same ground as the post, so pixels become metres in that very
-                still, under that very camera: no focal length, projection or pose has to be trusted.
+    px_per_m    the median per-column run of cyan pixels in plate_t.png, over 0.50 m. CombatFx.PlateBar draws a
+                cube scaled (1.40, 0.50, 0.02): at a yaw that is not side-on, the 1.40 m width's far end lands
+                higher on screen than its near end, so the cyan bbox's height carries that skew on top of the
+                0.50 m. The per-column run is free of it: it measures the bar's own vertical extent column by
+                column, so pixels become metres in that very still, under that very camera, at any yaw.
     gun box     the magenta bbox of the plate and its post in plate_t.png, grown 1.2 m on all four sides and
                 clipped to the frame. Measured off the same frozen instant through the same camera, so no pose has
                 to be trusted either. Everything below is counted inside this box only, which is what makes the
@@ -90,10 +92,17 @@ def one_seed(seed):
     plate = rgb_of(seed, "plate_t")
     h, w = plate.shape[0], plate.shape[1]
 
-    bar = bbox(mask(plate, CYAN))
+    cy = mask(plate, CYAN)
+    bar = bbox(cy)
     if bar is None or bar[1] == bar[0]:
         raise SystemExit("seed %d: no calibration bar in plate_t: is CombatFx.PlateMask on?" % seed)
-    px_per_m = (bar[1] - bar[0]) / BAR_M
+    cols = cy.sum(axis=0)
+    runs = cols[cols > 0]
+    if runs.size == 0:
+        raise SystemExit("seed %d: no calibration bar in plate_t: is CombatFx.PlateMask on?" % seed)
+    bar_bbox_h = bar[1] - bar[0]
+    px_per_m = float(np.median(runs)) / BAR_M
+    bar_skew_px = int(bar_bbox_h - np.median(runs))
 
     pl = bbox(mask(plate, MAGENTA))
     if pl is None:
@@ -135,7 +144,8 @@ def one_seed(seed):
     return {
         "seed": seed, "foes": meta.get("foes"), "tick": meta.get("tick"), "yaw": meta.get("yaw"),
         "kill_path": meta.get("kill_path"), "stand_back_m": meta.get("stand_back_m"),
-        "px_per_m": round(px_per_m, 2), "plate_bbox": pl, "gun_box": box, "grow_px": grow,
+        "px_per_m": round(px_per_m, 2), "bar_bbox_h": bar_bbox_h, "bar_skew_px": bar_skew_px,
+        "plate_bbox": pl, "gun_box": box, "grow_px": grow,
         "noise": noise, "noise_max": noise_max,
         "change": change, "change_bbox": cb,
         "centroid_m_from_plate": None if centroid_m is None else round(centroid_m, 3),
@@ -151,7 +161,10 @@ def main():
            "at_gun_m": AT_GUN_M, "edge_px": EDGE_PX, "seeds": []}
     for seed in SEEDS:
         out["seeds"].append(one_seed(seed))
-    out["pass"] = all(s["pass"] for s in out["seeds"])
+    ppm = [s["px_per_m"] for s in out["seeds"]]
+    px_per_m_even = (max(ppm) / min(ppm)) <= 1.05
+    out["px_per_m_even"] = px_per_m_even
+    out["pass"] = all(s["pass"] for s in out["seeds"]) and px_per_m_even
 
     with open(os.path.join(HERE, "probe.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, indent=2)
@@ -163,6 +176,7 @@ def main():
               % (s["seed"], s["noise_max"], s["bar"], s["change"],
                  s["centroid_m_from_plate"], s["edge_clear_px"], s["fallen_before"], s["fallen_after"],
                  "pass" if s["pass"] else "FAIL " + ",".join(k for k, v in s["checks"].items() if not v)))
+    print("px_per_m_even %s (%s)" % (px_per_m_even, ppm))
     print("pass" if out["pass"] else "FAIL")
     return 0 if out["pass"] else 1
 
