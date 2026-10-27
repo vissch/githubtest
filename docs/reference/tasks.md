@@ -570,8 +570,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   height) and the `Splash.Y` it returns is what the `Anchored` card's foot is drawn at; no hook wired up leaves the
   point's own y. **See it**: `AgentScripts/water_entry_fling.cs` (`Tools/tw run eval_file`, in Play in
   GreyboxCorridor) flings a body into the ford with the clock running and shoots the moments either side of the
-  landing; `docs/evidence/water-entry-splash-r7/` holds the current runs and `probe.py`, which measures them (r5 and
-  r6's folders are the older rounds).
+  landing; `docs/evidence/water-entry-splash-r7-g1/` holds the current runs and `probe.py`, which measures them (the
+  r5, r6 and r7 folders are the older rounds). The moments there are the owner's three beats -- body at land - 0.05 s,
+  crown at + 0.05 s, fallen foam at + 0.3 s -- and the bars are the shape of each: `contact_px` (the water breaking
+  where he goes in), `crown_aspect` (wider than tall, not a column), `foam_flat` and `foam_top_m` (foam that has
+  fallen back onto the water). r7's bars are carried as guards so its wins cannot regress. Run it with no arguments
+  to re-measure the committed runs.
   The entry reads at T1 since r6 (harsh critic r1, 60/100): `WaterEntry.Cards` is a pure three-card plan -- a crown
   (`ManCard` 2.4 m) over the entry point and a wing either side of it (`WingSize` 0.55 of the crown, `WingOut` 0.45 of
   the ring out along x, the right one mirrored) -- the crown on its OWN book, `Crown` (the `Column` drawing again,

@@ -1,7 +1,7 @@
 // water_entry_fling.cs - run with: Tools/tw run eval_file -- --file <abs path to this file>
 //
 // Stages the one thing no unit test can stand in for: a body flung into the GreyboxCorridor ford with the clock
-// RUNNING, photographed before it lands, just after, and a quarter second later. r6 answers harsh critic r1 on r5
+// RUNNING, photographed as it goes in, just after, and a quarter second later. r6 answers harsh critic r1 on r5
 // (60/100) on three counts, and nothing else here changed:
 //
 //  1. Exact timings. r5 threw with FallenFlight.Solve's own 0.721 s duration, which is 43.26 frames at 1/60, and
@@ -17,21 +17,29 @@
 //     true but worthless: two renders of one frozen world differ by nothing, so "ring_px_land >= 3x noise" passed
 //     by construction. Here the scene is put back to before the throw (cards cleared, every ring slot parked, the
 //     pending rings dropped, the fallen bodies emptied), UnityEngine.Random is re-seeded with the SAME seed used
-//     before run 1, and the identical throw is made again; land-run2.png is its landing frame. The water itself is
-//     pinned for both runs (WaterRings.PinnedClock = 120), so the difference between land.png and land-run2.png is
+//     before run 1, and the identical throw is made again; crown-run2.png is its landing frame. The water itself is
+//     pinned for both runs (WaterRings.PinnedClock = 120), so the difference between crown.png and crown-run2.png is
 //     the splash's own repeatability and nothing else.
-//  3. land-noring.png: the frozen landing frame with the ring slots parked but the CARDS kept, so the probe can
+//  3. crown-noring.png: the frozen landing frame with the ring slots parked but the CARDS kept, so the probe can
 //     report ring_only_px. The critic's "the ring does not register" is answered with that number, not with prose.
 //
-// r7 changes two things and nothing else. Harsh critic r1 scored r6 56/100: ring_only_px was 0, so the ring still
-// did not register, and the crown's value step over the water was never measured at all.
-//  a. post-noring.png: the same rings-parked, cards-kept shot taken at land + 0.3 s as well. The crown card is
-//     2.7 m wide and the landing ring only 1.9 m across, so at land + 0.05 s the card can cover the ring it is
-//     meant to prove; at + 0.3 s the ring is the wider of the two. With both moments shot, ring_only_px is the MIN
-//     of them, and a ring that only shows on one lucky frame cannot pass.
-//  b. Every run writes its own docs/evidence/water-entry-splash-r7/run-N/ (N = the first free one), so the three
-//     baseline runs and the three runs of the fixed build never overwrite each other and the probe can report the
-//     spread over a set instead of one capture's word.
+// r7 added post-noring.png (the rings-parked, cards-kept shot at land + 0.3 s as well, so ring_only_px is the MIN
+// of two moments and a ring that shows on one lucky frame cannot pass) and gave every run its own run-N folder.
+//
+// r7-g1 changes the MOMENTS and nothing else about the staging. The owner read r7's stills and said the entry is a
+// brighter copy of the old wisp: one blue-white column, and "pre.png shows no body entering the creek". Both are
+// true and measured - and pre.png could not have shown anything, because at land - 0.2 s the body is still over
+// the dry bank and the ring and cards are still queued, so pre.png minus pre-nosplash.png was exactly ZERO pixels.
+// The three beats are now the ones he asked for, body then crown then fallen foam:
+//  body at land - 0.05 s, with TWO references at that same frozen instant: body-nobody.png (the fallen men list
+//    emptied and put back, cards and rings KEPT) and body-nosplash.png (cards and rings out, the man kept). The
+//    pair says in pixels both that the man reads and that the water is already breaking where he goes in.
+//  crown at land + 0.05 s and foam at land + 0.3 s, each with its -noring and -nosplash shot exactly as r7's
+//    land/post had them, so every r7 key carries over unchanged and its wins cannot regress.
+//  crown-run2.png is r7's land-run2 renamed: the second live throw's own landing frame, the noise floor.
+// Every run writes its own docs/evidence/water-entry-splash-r7-g1/run-N/ (N = the first free one), so the three
+// baseline runs and the three runs of the fixed build never overwrite each other and the probe can report the
+// spread over a set instead of one capture's word.
 // Everything else stands: the bisected 43-frame flight, the shots on the spec moments, the pinned sky and water
 // clocks, rain 0, the frozen sim and the noise floor from a second live throw.
 //
@@ -61,7 +69,10 @@
 // is photographed is the shipped path.
 // The first free run-N, so a capture never overwrites an earlier one: three runs prove the current build and three
 // the fixed one, and the probe reads a set of run folders by name.
-var root = "C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r7/";
+// The repo root is taken from this checkout's own project folder, never typed: Application.dataPath is
+// <checkout>/trench-warfare-3d/Assets, so two levels up is the repo root of whichever checkout runs this.
+var root = System.IO.Path.GetFullPath(UnityEngine.Application.dataPath + "/../../")
+    .Replace("\\", "/") + "docs/evidence/water-entry-splash-r7-g1/";
 int runNo = 1;
 while (System.IO.Directory.Exists(root + "run-" + runNo)) runNo++;
 var dir = root + "run-" + runNo + "/";
@@ -111,6 +122,12 @@ void RingsOff()
 void RingsOn() { for (int i = 0; i < rings.Length; i++) rings[i] = ringsKeep[i]; }
 void CardsOff() { cardsKeep.Clear(); foreach (var c in cards) cardsKeep.Add(c); cards.Clear(); }
 void CardsOn() { cards.Clear(); foreach (var c in cardsKeep) cards.Add(c); }
+// The body itself, lifted out and put back the same way: VATRenderer draws its fallen men from this one list every
+// frame, so emptying it and re-rendering the frozen frame gives the same picture minus the man alone. Time is
+// frozen while he is out, so nobody ages or expires in between.
+var fallenKeep = new System.Collections.Generic.List<object>();
+void FallenOff() { fallenKeep.Clear(); foreach (var m in fallenMen) fallenKeep.Add(m); fallenMen.Clear(); }
+void FallenOn() { fallenMen.Clear(); foreach (var m in fallenKeep) fallenMen.Add(m); }
 
 // The ford, read off the map (never hard-coded water): the bank at (12, 128) stands about 0.97 m above a knee-deep
 // bed at (15, 130) with its surface at 0.15. A dry launch and a wet landing 3.6 m apart.
@@ -188,8 +205,9 @@ string Shoot(string name) =>
     TW.Editor.CaptureRig.Shot(dir + name + ".png", land.x, land.z, 30f, 21f, 25f, 1600, 900, waterY);
 
 var timings = new System.Text.StringBuilder();
-timings.AppendLine("water-entry-splash-r7 - the game-time delta from the landing instant of every frozen moment, as");
-timings.AppendLine("the harness measured it (AgentScripts/water_entry_fling.cs), never typed. Spec: -0.200/+0.050/+0.300.");
+timings.AppendLine("water-entry-splash-r7-g1 - the game-time delta from the landing instant of every frozen moment,");
+timings.AppendLine("as the harness measured it (AgentScripts/water_entry_fling.cs), never typed. Spec: body -0.050,");
+timings.AppendLine("crown +0.050, foam +0.300.");
 timings.AppendLine("flight_s " + delay.ToString("0.00000"));
 timings.AppendLine("flight_frames " + (delay * 60f).ToString("0.00000"));
 void Timing(string name, float tLand)
@@ -201,7 +219,7 @@ void Timing(string name, float tLand)
 // One moment: freeze on its own game-time instant, shoot it, shoot it again with the water entry lifted out, put
 // the splash back, let go. `noring` adds this moment's diagnostic shot, rings parked and cards kept, which is what
 // lets the probe say in pixels how much of the frame the ring alone accounts for at that moment.
-void Shots(string name, float when, float tLand, bool noring, System.Action<int> next)
+void Shots(string name, float when, float tLand, string mode, System.Action<int> next)
 {
     AtTime(when, () =>
     {
@@ -209,11 +227,19 @@ void Shots(string name, float when, float tLand, bool noring, System.Action<int>
         int at = UnityEngine.Time.frameCount;
         AtFrame(at + 2, () => name + " " + Shoot(name));
         int step = at + 8;
-        if (noring)
+        if (mode == "noring")
         {
             AtFrame(step, () => { RingsOff(); return name + "-noring (ring slots parked, cards kept) " + Shoot(name + "-noring"); });
             step += 6;
             AtFrame(step, () => { CardsOff(); return name + "-nosplash (rings and cards out) " + Shoot(name + "-nosplash"); });
+        }
+        else if (mode == "nobody")
+        {
+            // The body beat needs two references at this same frozen instant: the splash without the man, and the
+            // man without the splash. The first keeps the cards and rings, the second keeps the man.
+            AtFrame(step, () => { FallenOff(); return name + "-nobody (the man lifted out, cards and rings kept) " + Shoot(name + "-nobody"); });
+            step += 6;
+            AtFrame(step, () => { FallenOn(); RingsOff(); CardsOff(); return name + "-nosplash (rings and cards out, the man kept) " + Shoot(name + "-nosplash"); });
         }
         else
         {
@@ -221,7 +247,7 @@ void Shots(string name, float when, float tLand, bool noring, System.Action<int>
         }
         AtFrame(step + 6, () =>
         {
-            RingsOn(); CardsOn(); Thaw();
+            RingsOn(); CardsOn(); FallenOn(); Thaw();
             next(UnityEngine.Time.frameCount);
             return name + " done, splash back, running again at frame " + UnityEngine.Time.frameCount
                 + ", pending=" + TW.Editor.CaptureRig.Pending();
@@ -268,9 +294,9 @@ AtFrame(f0 + 90, () =>
 {
     UnityEngine.Random.InitState(Seed);
     float tLand = ThrowOnce();
-    Shots("pre", tLand - 0.2f, tLand, false, _ =>
-        Shots("land", tLand + 0.05f, tLand, true, _ =>
-            Shots("post", tLand + 0.3f, tLand, true, afterPost =>
+    Shots("body", tLand - 0.05f, tLand, "nobody", _ =>
+        Shots("crown", tLand + 0.05f, tLand, "noring", _ =>
+            Shots("foam", tLand + 0.3f, tLand, "noring", afterPost =>
                 // --- run 2: the same throw again, from a scene put back to before run 1 ---
                 AtFrame(afterPost + 10, () =>
                 {
@@ -283,11 +309,11 @@ AtFrame(f0 + 90, () =>
                     float tLand2 = ThrowOnce();
                     AtTime(tLand2 + 0.05f, () =>
                     {
-                        Freeze(); Timing("land-run2", tLand2);
+                        Freeze(); Timing("crown-run2", tLand2);
                         int at = UnityEngine.Time.frameCount;
-                        AtFrame(at + 2, () => "land-run2 " + Shoot("land-run2"));
+                        AtFrame(at + 2, () => "crown-run2 " + Shoot("crown-run2"));
                         AtFrame(at + 10, () => { PutBack(); return "DONE, scene put back; pending=" + TW.Editor.CaptureRig.Pending(); });
-                        return "land-run2: frozen at frame " + at + ", delta="
+                        return "crown-run2: frozen at frame " + at + ", delta="
                             + (UnityEngine.Time.time - tLand2).ToString("+0.0000;-0.0000");
                     });
                     return "run 2 thrown (scene reset, seed " + Seed + " again), lands at t=" + tLand2.ToString("0.0000");

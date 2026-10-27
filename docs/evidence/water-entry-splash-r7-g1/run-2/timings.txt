@@ -1,0 +1,9 @@
+water-entry-splash-r7-g1 - the game-time delta from the landing instant of every frozen moment,
+as the harness measured it (AgentScripts/water_entry_fling.cs), never typed. Spec: body -0.050,
+crown +0.050, foam +0.300.
+flight_s 0.71667
+flight_frames 43.00000
+body -0.050
+crown +0.050
+foam +0.300
+crown-run2 +0.050

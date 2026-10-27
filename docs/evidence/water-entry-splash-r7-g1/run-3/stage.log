@@ -1,0 +1,24 @@
+ford: from=(12.00, 0.69, 128.00) land=(15.00, -0.25, 130.00) waterY=0.150 fly=(3.00, 0.49, 2.00) flight=0.71667 s = 43.00000 frames at 1/60 figureScale=1.125
+plate (no throw at all) queued at frame 731: queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r7-g1/run-3/plate.png
+thrown at frame 821, t=35.4700, lands at t=36.1867 (frame 864); any=True ring=2.800 card=2.400 cardY=0.150
+run 1 staged
+body: frozen at frame 861, t=36.1367, delta=-0.0500
+body queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r7-g1/run-3/body.png
+body-nobody (the man lifted out, cards and rings kept) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r7-g1/run-3/body-nobody.png
+body-nosplash (rings and cards out, the man kept) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r7-g1/run-3/body-nosplash.png
+body done, splash back, running again at frame 881, pending=0
+crown: frozen at frame 887, t=36.2367, delta=+0.0500
+crown queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r7-g1/run-3/crown.png
+crown-noring (ring slots parked, cards kept) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r7-g1/run-3/crown-noring.png
+crown-nosplash (rings and cards out) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r7-g1/run-3/crown-nosplash.png
+crown done, splash back, running again at frame 907, pending=0
+foam: frozen at frame 922, t=36.4867, delta=+0.3000
+foam queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r7-g1/run-3/foam.png
+foam-noring (ring slots parked, cards kept) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r7-g1/run-3/foam-noring.png
+foam-nosplash (rings and cards out) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r7-g1/run-3/foam-nosplash.png
+foam done, splash back, running again at frame 942, pending=0
+thrown at frame 952, t=36.6533, lands at t=37.3700 (frame 995); any=True ring=2.800 card=2.400 cardY=0.150
+run 2 thrown (scene reset, seed 20261019 again), lands at t=37.3700
+crown-run2: frozen at frame 998, delta=+0.0500
+crown-run2 queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r7-g1/run-3/crown-run2.png
+DONE, scene put back; pending=0
