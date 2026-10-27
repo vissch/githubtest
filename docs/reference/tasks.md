@@ -149,6 +149,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `docs/evidence/ability-fx-captures-r2-2-g2/probe.py` and
   `docs/evidence/ability-fx-captures-r2/probe.py` are its predecessors);
   `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`).
+  `docs/evidence/ability-fx-captures-r2-2-visual-review-9/sheet.py` tiles every unit's keeper captures already
+  committed in the chain into three PNGs, so the owner can look at the bank instead of reading its numbers.
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
   `CaptureRig.Stress(1000, path)` runs 120 real seconds with no fixed tick or hash: never the same fight twice.

@@ -310,6 +310,9 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   reads 10 clouds and 0.1112; block 1 reads **one** cloud and 0.0685, a green wall over 82% of the frame. So "one
   cloud" and the 0.30 floor cannot both hold at any density either: the close bank stays about 23 visible clouds
   until he answers (a) or (b).
+  2026-10-27, the nine units' own keeper captures are on the Decide page as brief `2026-10-27-the-close-gas-seen`:
+  `sheet-t1.png`, `sheet-o240.png` and `sheet-cards.png`
+  (`docs/evidence/ability-fx-captures-r2-2-visual-review-9/`). The row stays open; the default stays (a).
   2026-10-22, the last candidate measured and refused: block 2 with the card re-fitted DOWN to its shorter 8 m lane
   (`GasPuffWide` 1.2 / `GasPuffStand` 0.83) reads `t1_visible_clouds` 24 - no better than the kept block 3 - with
   `low_share` 0.1938 and `green_height_frac` 0.1539, breaking the floor and the height ceiling at once. Every knob
