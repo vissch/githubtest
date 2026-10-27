@@ -111,8 +111,8 @@ namespace TW.Presentation.Terrain
             frame0 = Time.frameCount;
             maxLanterns = Mathf.Max(0, Knobs.Get("lights.maxLanterns", MaxLanterns));
             maxTrenchLamps = Mathf.Max(0, Knobs.Get("lights.maxTrenchLamps", MaxTrenchLamps));
-            maxFires = Mathf.Max(0, Knobs.Get("lights.maxFires", MaxFires));
-            maxTorches = Mathf.Max(0, Knobs.Get("lights.maxTorches", MaxTorches));
+            maxFires = HearthsLook ? Mathf.Max(0, Knobs.Get("lights.maxFires", MaxFires)) : 0;
+            maxTorches = HearthsLook ? Mathf.Max(0, Knobs.Get("lights.maxTorches", MaxTorches)) : 0;
             maxPropLamps = Mathf.Max(0, Knobs.Get("lights.maxPropLamps", MaxPropLamps));
             poolSize = Mathf.Max(1, Knobs.Get("lights.poolSize", PoolSize));
             shotStagger = ShotStagger.ReadSpread();
@@ -317,7 +317,7 @@ namespace TW.Presentation.Terrain
                 flameFeet.Add(at + new Vector3(.35f, -.3f, .2f)); flameShapes.Add(new Vector4(.7f, 1.0f, Hash(i, 101), 0f));
                 fires++;
             }
-            MoreFires(map, len, centres, shapes, colors, flameFeet, flameShapes);   // look.moreFires (NightLights.Pools.cs)
+            if (HearthsLook) MoreFires(map, len, centres, shapes, colors, flameFeet, flameShapes);   // look.moreFires (NightLights.Pools.cs)
             // torches on a stake where a path reaches a dugout
             int torches = 0;
             for (int i = 0; i < sites.Count && torches < maxTorches; i++)
@@ -357,10 +357,7 @@ namespace TW.Presentation.Terrain
             AddGlowMesh(fireHost, fireGlow, fireCentres.ToArray(), fireShapes.ToArray(), fireColors.ToArray());
             foreach (var l in lanterns) { lanternBase.Add(l.intensity); lanternLevel.Add(l.intensity); lanternHome.Add(l.transform.position); }
             BuiltLamps(map);   // which lamps stand by water (NightLights.RealLamps.cs)
-            // dugout stoves smoke and rained-on fires steam (CombatFx draws the puffs)
-            SceneHooks.SmokeSources.Clear();
-            for (int i = 0; i < sites.Count && SceneHooks.SmokeSources.Count < 8; i += step) SceneHooks.SmokeSources.Add(sites[i].Position + sites[i].Rotation * new Vector3(-.8f, 0f, -.6f) + Vector3.up * 2.3f);
-            for (int i = 0; i < flameFeet.Count; i += 2) if (flameShapes[i].x > 1f) SceneHooks.SmokeSources.Add(flameFeet[i] + Vector3.up * 1.8f);
+            HearthSmoke(sites, step, flameFeet, flameShapes, SceneHooks.SmokeSources);
             firePoints.Clear();
             for (int i = 0; i < flameFeet.Count; i++) if (flameShapes[i].x > 1f) firePoints.Add(flameFeet[i]);
             if (flameFeet.Count > 0) AddFlameMesh(flameFeet, flameShapes);
@@ -368,6 +365,17 @@ namespace TW.Presentation.Terrain
             host.transform.SetParent(transform, false);
             AddGlowMesh(host, glow, centres.ToArray(), shapes.ToArray(), colors.ToArray());
             nightGlows = host.GetComponent<MeshFilter>().sharedMesh;   // card j is lanterns[j]: a lamp whose post goes is put out on it (LampOut)
+        }
+
+        // dugout stoves smoke and rained-on fires steam (CombatFx draws the puffs)
+        internal static void HearthSmoke(IReadOnlyList<BattlefieldComposer.Site> sites, int step,
+                                         IReadOnlyList<Vector3> feet, IReadOnlyList<Vector4> shapes, List<Vector3> into)
+        {
+            into.Clear();
+            if (!HearthsLook) return;
+            for (int i = 0; i < sites.Count && into.Count < 8; i += step)
+                into.Add(sites[i].Position + sites[i].Rotation * new Vector3(-.8f, 0f, -.6f) + Vector3.up * 2.3f);
+            for (int i = 0; i < feet.Count; i += 2) if (shapes[i].x > 1f) into.Add(feet[i] + Vector3.up * 1.8f);
         }
 
         void AddFlameMesh(List<Vector3> feet, List<Vector4> flameShapes)

@@ -193,6 +193,12 @@ namespace TW.Presentation.Terrain
         /// a small orange core standing on its glow, and the wide glow goes deeper orange and fades to a third. Read once, as the lamps are built.</summary>
         static bool HorizonFiresLook => Knobs.Get("look.horizonFires", 1f) > 0f;
 
+        /// <summary>look.hearths (0; 1 the old): the field's own fires (the campfires at broken trees and stumps,
+        /// look.moreFires, the torches on their stakes), their flames at the feet, and the smoke the dugout chimneys
+        /// and the rained-on fires send up. Off by the owner's word, 2026-10-27: in the ability captures their fire
+        /// and smoke stood in the frame and were read as gas. Read once, at Start and at Build.</summary>
+        public static bool HearthsLook => Knobs.Get("look.hearths", 0f) > 0f;
+
         static void HorizonCore(Vector3 p, float a, float b, int k, List<Vector3> centres, List<Vector4> shapes, List<Color> colors)
         {
             if (!HorizonFiresLook) return;

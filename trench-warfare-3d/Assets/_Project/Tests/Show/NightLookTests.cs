@@ -1,6 +1,7 @@
 // Phase: A5d (2026-09-29, the owner's night look) — the knobs that draw today's night at 0, and what they do past it.
 using NUnit.Framework;
 using UnityEngine;
+using TW.Presentation;
 using TW.Presentation.Terrain;
 using TW.Presentation.Tactical;
 
@@ -126,6 +127,52 @@ namespace TW.Tests
             Assert.Greater(TankRenderer.TongueNightBright, 1.4f, "the tongues burn brighter at night than the 1.4 that measured warm_frac 0.0001 on the hull");
             Assert.That(TankRenderer.TongueFloor, Is.InRange(0.1f, 0.5f), "a small fire still shows a tongue, without a new fire reading as a full one");
             Assert.Greater(TankRenderer.EmberCards, 0, "embers come off a burning deck (one book, one draw)");
+        }
+
+        [Test]
+        public void Hearths_AreOff_SoNoChimneyOrFootSmoke()
+        {
+            Knobs.Clear();
+            try
+            {
+                Assert.IsFalse(NightLights.HearthsLook, "off by default");
+                var sites = new[]
+                {
+                    new BattlefieldComposer.Site(null, new Vector3(0f, 0f, 0f), Quaternion.identity, 0, Vector3.zero),
+                    new BattlefieldComposer.Site(null, new Vector3(20f, 0f, 0f), Quaternion.identity, 0, Vector3.zero),
+                    new BattlefieldComposer.Site(null, new Vector3(40f, 0f, 0f), Quaternion.identity, 0, Vector3.zero),
+                };
+                var feet = new[] { new Vector3(1f, 0f, 0f), new Vector3(2f, 0f, 0f) };
+                var shapes = new[] { new Vector4(1.25f, 1.9f, 0f, 0f), new Vector4(.7f, 1f, 0f, 0f) };
+                var into = new System.Collections.Generic.List<Vector3>();
+                NightLights.HearthSmoke(sites, 1, feet, shapes, into);
+                Assert.AreEqual(0, into.Count);
+            }
+            finally { Knobs.Clear(); }
+        }
+
+        [Test]
+        public void TheKnob_BringsTheStovesAndTheHearthsBack()
+        {
+            Knobs.Clear();
+            try
+            {
+                Knobs.Set("look.hearths", "1");
+                Assert.IsTrue(NightLights.HearthsLook);
+                var sites = new[]
+                {
+                    new BattlefieldComposer.Site(null, new Vector3(0f, 0f, 0f), Quaternion.identity, 0, Vector3.zero),
+                    new BattlefieldComposer.Site(null, new Vector3(20f, 0f, 0f), Quaternion.identity, 0, Vector3.zero),
+                    new BattlefieldComposer.Site(null, new Vector3(40f, 0f, 0f), Quaternion.identity, 0, Vector3.zero),
+                };
+                var feet = new[] { new Vector3(1f, 0f, 0f), new Vector3(2f, 0f, 0f) };
+                var shapes = new[] { new Vector4(1.25f, 1.9f, 0f, 0f), new Vector4(.7f, 1f, 0f, 0f) };
+                var into = new System.Collections.Generic.List<Vector3>();
+                NightLights.HearthSmoke(sites, 1, feet, shapes, into);
+                Assert.AreEqual(4, into.Count);
+                Assert.AreEqual(sites[0].Position + sites[0].Rotation * new Vector3(-.8f, 0f, -.6f) + Vector3.up * 2.3f, into[0]);
+            }
+            finally { Knobs.Clear(); }
         }
 
         [Test]
