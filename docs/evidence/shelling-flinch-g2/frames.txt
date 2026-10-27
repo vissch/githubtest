@@ -1,0 +1,24 @@
+One line per still. All six: GreyboxCorridor, in Play, batch-mode editor, one man (team 1, hp 999) standing at
+world 89.5, 120; camera focus on him, zoom 15, yaw +21, pitch 25, aimY 1.9 (his chest), 2400x1350; weather clock
+pinned at 120 (rain 0.20069 on every still); CaptureRig posed the camera itself, so pose_error_m is 0 on all six.
+
+The clock: Time.captureDeltaTime = 0.05, so a frame is 0.05 s of game time whatever the machine does, and the rig's
+6-frame gap plus the 2 frames a shot costs makes every gap 8 frames = 0.40 s of play = 8 sim ticks. Equal for every
+pair below, with one exception called out on the stand_03 line.
+
+The shell: DeathLab.Shell(91.65, 125.602, radius 8, damage 400) - the man plus 6 m along the camera's right vector
+(yaw -90 + 21 = 291 deg), so the fireball is beside him on screen and never over him (blown_frac <= 0.0102).
+
+stand_00.jpg: no shell. frame 891488. the man standing, idle. the first of the three captures of the current build.
+stand_01.jpg: no shell. frame 891496, 8 frames (0.40 s) after stand_00.
+stand_02.jpg: no shell. frame 891504, 8 frames (0.40 s) after stand_01. these three are the noise floor.
+stand_03.jpg: SHELL. frame 894842, the first still rendered after the shell was queued at tick 67300; trace.txt has
+               the Duck starting at tick 67301. NOT 0.40 s after stand_02: the two runs are separated by one
+               command, about 160 s of play, so the pair stand_02-stand_03 is not a fair pair and the probe must
+               not use it. Everything before the shell and everything after it is 0.40 s apart within its own run.
+stand_04.jpg: SHELL. frame 894850, 8 frames (0.40 s) after stand_03. mid-duck.
+stand_05.jpg: SHELL. frame 894858, 8 frames (0.40 s) after stand_04. late duck (StandToKneel at tick 67317).
+
+boxes.json holds the man's screen box, the same for all six (the camera never moved): his feet-to-helmet rect
+projected through each still's own recorded camera pose, grown 18 px all round and a further 25 % of its height
+downward for the duck. box_eval.cs is what wrote it.

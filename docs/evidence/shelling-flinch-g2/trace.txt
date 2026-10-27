@@ -1,0 +1,13 @@
+AnimationController trace of the man of this evidence set (slot 4, Follow), the window around the shell.
+The shell was queued at tick 67300 and stand_03 is the first still rendered after it; the Duck is the sim-side
+witness that the man reacted at all, independent of any pixel.
+
+tick   t(s)   rung          clip              stance    speed  tgt   supp  reason
+67301  3365.05 Reaction      Duck              Crouch      0.0   -1     26 shell at 6.0 m: ducks
+67317  3365.85 StanceChange  StandToKneel      Crouch      0.0   -1     19 stance Standing -> Crouch
+67336  3366.80 Idle          KneelIdle         Crouch      0.0   -1     12 idle: KneelIdle
+67346  3367.30 StanceChange  KneelToProne      Prone       0.0   -1      8 stance Crouch -> Prone: down flat
+67385  3369.25 Idle          ProneIdle         Prone       0.0   -1      0 idle: ProneIdle
+67416  3370.80 StanceChange  ProneToKneel      Crouch      0.0   -1      0 stance Prone -> Crouch: up to a knee
+67455  3372.75 StanceChange  KneelToStand      Standing    0.0   -1      0 stance Crouch -> Standing
+67480  3374.00 Idle          ReadyIdle         Standing    0.0   -1      0 idle: ReadyIdle
