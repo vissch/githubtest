@@ -342,7 +342,9 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   the standing puff (the 0.15 `green_height_frac` ceiling and the new `t1_blob_share` bar still hold); (b) keep 0.30
   and accept a squat, man-high puff; (c) keep both bars and go back to gaps (`GasPuffBlock` 3), the forest he just
   rejected. Nobody to ask in this run: the default taken is **none of them** — production stays at part 1's build
-  (stand 1.2, rim 0.2) and this unit's probe stays red, so nothing lands on it.
+  (stand 1.2, rim 0.2) and this unit's probe stays red, so nothing lands on it. Pictures of this exact build, for the
+  Decide page: `docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1-g1-g1/` (the close frame, the overview, their
+  plates and the four isolation cards; see its `README.md`).
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
