@@ -133,6 +133,7 @@ def one_seed(seed):
     meta_path = os.path.join(HERE, "s%d" % seed, "meta.json")
     meta = json.load(open(meta_path, encoding="utf-8")) if os.path.exists(meta_path) else {}
     fallen_before, fallen_after = meta.get("fallen_before"), meta.get("fallen_after")
+    living_after = meta.get("living_after")
 
     checks = {
         "fallen_before_is_0": fallen_before == 0,
@@ -140,6 +141,8 @@ def one_seed(seed):
         "change_over_bar": change > threshold,
         "at_the_gun": centroid_m is not None and centroid_m <= AT_GUN_M,
         "stays_in_frame": edge_clear is not None and edge_clear >= EDGE_PX,
+        "no_living_man_after": living_after == 0,
+        "only_his_body": fallen_after == 1,
     }
     return {
         "seed": seed, "foes": meta.get("foes"), "tick": meta.get("tick"), "yaw": meta.get("yaw"),
@@ -151,7 +154,7 @@ def one_seed(seed):
         "centroid_m_from_plate": None if centroid_m is None else round(centroid_m, 3),
         "edge_clear_px": edge_clear,
         "floor_px": int(round(floor)), "bar": int(round(threshold)),
-        "fallen_before": fallen_before, "fallen_after": fallen_after,
+        "fallen_before": fallen_before, "fallen_after": fallen_after, "living_after": living_after,
         "checks": checks, "pass": all(checks.values()),
     }
 

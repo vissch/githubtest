@@ -1,0 +1,48 @@
+sentry-look-r4-2-g1 capture, seed 3 (10 foes)  2026-10-27 03:11:38
+scene Assets/_Project/Scenes/GreyboxCorridor.unity  zoom=7.5 pitch=13.0 1920x1080 stand_back=0.6 m
+open the battle scene and enter Play
+  scene      -> opened
+  loaded     -> GreyboxCorridor
+stage the Sentry
+  place        -> slot=6 men=1 foes=10 at=float3(45f, 0f, 6f) tick=606
+let him step, aim and set his plate down
+  state        -> tick=1213 slot=6 alive=True hp=138.5 sockets=True barrel_yaw=-0.1 unit_yaw=0.0 target=-1 spot_set=True spot_fwd=(-0.38, 0.00, 0.93) fallen=2 drawn=0 px=60.58 pz=32.97 fx=44.91 fz=6.42 mask=False
+stop the clock and clear the frame: everything after this is one frozen instant
+  stage        -> held at weather clock 120 face=-22.1 spot=(44.91, 2.52, 6.42) at=float3(45.13131f, 0f, 5.868816f)
+  clear        -> stood 12 men 80 m off
+  state_staged -> tick=1235 slot=6 alive=True hp=137.1 sockets=True barrel_yaw=-19.9 unit_yaw=0.0 target=-1 spot_set=True spot_fwd=(-0.38, 0.00, 0.93) fallen=1 drawn=1 px=45.13 pz=5.87 fx=44.91 fz=6.42 mask=False
+pin the one camera pose, side-on to the plate
+  shot_pick    -> held: held at weather clock 120 | yaw=67.9 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r4-2-g1\s3\pick.png
+  yaw    67.9 ->    832 magenta px
+  shot_pick    -> held: held at weather clock 120 | yaw=37.9 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r4-2-g1\s3\pick.png
+  yaw    37.9 ->   4663 magenta px
+  shot_pick    -> held: held at weather clock 120 | yaw=-112.1 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r4-2-g1\s3\pick.png
+  yaw  -112.1 ->  11023 magenta px
+  shot_pick    -> held: held at weather clock 120 | yaw=-82.1 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r4-2-g1\s3\pick.png
+  yaw   -82.1 ->   9905 magenta px
+  pinned yaw -> -112.1 deg (11023 magenta px, side-on)
+nobody lying before the kill
+  clear_fallen -> fallen 1 -> 0
+  state_t      -> tick=1235 slot=6 alive=True hp=137.1 sockets=True barrel_yaw=-19.9 unit_yaw=0.0 target=-1 spot_set=True spot_fwd=(-0.38, 0.00, 0.93) fallen=0 drawn=1 px=45.13 pz=5.87 fx=44.91 fz=6.42 mask=True
+  before     -> fallen=0.0 drawn=1.0
+still 1: masked, alive behind his plate (the cyan bar makes pixels metres)
+  shot_plate_t -> held: held at weather clock 120 | yaw=-112.1 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r4-2-g1\s3\plate_t.png
+  plate_t     -> plate_t.png (2013 KB) mask=True pose_error_m=0 men_in_frame=1
+stills 2-4: unmasked, nothing changed between them - that spread is this build's noise
+  shot_night_t -> held: held at weather clock 120 | yaw=-112.1 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r4-2-g1\s3\night_t.png
+  night_t     -> night_t.png (1999 KB) mask=False pose_error_m=0 men_in_frame=1
+  shot_night_t2 -> held: held at weather clock 120 | yaw=-112.1 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r4-2-g1\s3\night_t2.png
+  night_t2    -> night_t2.png (2002 KB) mask=False pose_error_m=0 men_in_frame=1
+  shot_night_t3 -> held: held at weather clock 120 | yaw=-112.1 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r4-2-g1\s3\night_t3.png
+  night_t3    -> night_t3.png (2042 KB) mask=False pose_error_m=0 men_in_frame=1
+kill him for real: the sim's own Death event, collected in the same eval
+  despawn      -> despawned slot=6 killer=19 at=79.6 m alive=False held at weather clock 120
+stand every other living man 80 m off again: a living man near the camera could still be mistaken for one at the gun
+  clear_again  -> stood 12 men 80 m off
+  state_dead   -> tick=1235 slot=6 alive=False hp=0.0 sockets=True barrel_yaw=-19.9 unit_yaw=0.0 target=-1 spot_set=True spot_fwd=(-0.38, 0.00, 0.93) fallen=1 drawn=0 px=45.13 pz=5.87 fx=44.91 fz=6.42 mask=False
+  after      -> fallen=1.0 drawn=0.0
+still 5: the same unmasked frame after the death
+  shot_night_dead -> held: held at weather clock 120 | yaw=-112.1 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r4-2-g1\s3\night_dead.png
+  night_dead  -> night_dead.png (2019 KB) mask=False pose_error_m=0 men_in_frame=0
+  release      -> released
+done: five stills and meta.json in C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r4-2-g1\s3

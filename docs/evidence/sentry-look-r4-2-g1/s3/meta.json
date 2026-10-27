@@ -7,18 +7,19 @@
   "pitch": 13.0,
   "width": 1920,
   "height": 1080,
-  "yaw": -139.2,
-  "plate_face_deg": -79.2,
-  "tick": 2396,
-  "slot": 14,
-  "man_x": 45.18,
-  "man_z": 6.04,
+  "yaw": -112.1,
+  "plate_face_deg": -22.1,
+  "tick": 1235,
+  "slot": 6,
+  "man_x": 45.13,
+  "man_z": 5.87,
   "plate_foot": [
-    44.59,
-    6.15
+    44.91,
+    6.42
   ],
   "fallen_before": 0,
   "drawn_before": 1,
-  "fallen_after": 2,
-  "drawn_after": 0
+  "fallen_after": 1,
+  "drawn_after": 0,
+  "living_after": 0
 }

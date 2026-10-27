@@ -8,73 +8,22 @@
     {
       "seed": 1,
       "foes": 6,
-      "tick": 3237,
-      "yaw": -120.6,
-      "kill_path": "despawn_collect",
-      "stand_back_m": 0.6,
-      "px_per_m": 132.0,
-      "bar_bbox_h": 67,
-      "bar_skew_px": 1,
-      "plate_bbox": [
-        451,
-        563,
-        897,
-        1022
-      ],
-      "gun_box": [
-        293,
-        721,
-        739,
-        1180
-      ],
-      "grow_px": 158,
-      "noise": {
-        "night_t-night_t2": 0,
-        "night_t-night_t3": 0,
-        "night_t2-night_t3": 0
-      },
-      "noise_max": 0,
-      "change": 13174,
-      "change_bbox": [
-        373,
-        642,
-        841,
-        1036
-      ],
-      "centroid_m_from_plate": 0.091,
-      "edge_clear_px": 373,
-      "floor_px": 4443,
-      "bar": 4443,
-      "fallen_before": 0,
-      "fallen_after": 1,
-      "checks": {
-        "fallen_before_is_0": true,
-        "fallen_after_at_least_1": true,
-        "change_over_bar": true,
-        "at_the_gun": true,
-        "stays_in_frame": true
-      },
-      "pass": true
-    },
-    {
-      "seed": 2,
-      "foes": 8,
-      "tick": 2007,
-      "yaw": -117.0,
+      "tick": 1996,
+      "yaw": -118.6,
       "kill_path": "despawn_collect",
       "stand_back_m": 0.6,
       "px_per_m": 130.0,
-      "bar_bbox_h": 66,
-      "bar_skew_px": 1,
+      "bar_bbox_h": 65,
+      "bar_skew_px": 0,
       "plate_bbox": [
         451,
-        599,
+        636,
         897,
         1022
       ],
       "gun_box": [
         295,
-        755,
+        792,
         741,
         1178
       ],
@@ -85,76 +34,136 @@
         "night_t2-night_t3": 0
       },
       "noise_max": 0,
-      "change": 13208,
+      "change": 12365,
       "change_bbox": [
-        377,
-        642,
+        376,
+        634,
         841,
         1055
       ],
-      "centroid_m_from_plate": 0.152,
-      "edge_clear_px": 377,
+      "centroid_m_from_plate": 0.352,
+      "edge_clear_px": 376,
       "floor_px": 4310,
       "bar": 4310,
       "fallen_before": 0,
       "fallen_after": 1,
+      "living_after": 0,
       "checks": {
         "fallen_before_is_0": true,
         "fallen_after_at_least_1": true,
         "change_over_bar": true,
         "at_the_gun": true,
-        "stays_in_frame": true
+        "stays_in_frame": true,
+        "no_living_man_after": true,
+        "only_his_body": true
       },
       "pass": true
     },
     {
-      "seed": 3,
-      "foes": 10,
-      "tick": 2396,
-      "yaw": -139.2,
+      "seed": 2,
+      "foes": 8,
+      "tick": 2099,
+      "yaw": -121.0,
       "kill_path": "despawn_collect",
       "stand_back_m": 0.6,
-      "px_per_m": 132.0,
-      "bar_bbox_h": 90,
-      "bar_skew_px": 24,
+      "px_per_m": 130.0,
+      "bar_bbox_h": 66,
+      "bar_skew_px": 1,
       "plate_bbox": [
-        446,
-        636,
-        904,
-        1013
+        451,
+        566,
+        897,
+        1022
       ],
       "gun_box": [
-        288,
-        794,
-        746,
-        1171
+        295,
+        722,
+        741,
+        1178
       ],
-      "grow_px": 158,
+      "grow_px": 156,
       "noise": {
         "night_t-night_t2": 0,
         "night_t-night_t3": 0,
         "night_t2-night_t3": 0
       },
       "noise_max": 0,
-      "change": 7873,
+      "change": 12250,
       "change_bbox": [
-        414,
-        645,
-        846,
-        1002
+        377,
+        642,
+        842,
+        1043
       ],
-      "centroid_m_from_plate": 0.36,
-      "edge_clear_px": 414,
-      "floor_px": 4443,
-      "bar": 4443,
+      "centroid_m_from_plate": 0.038,
+      "edge_clear_px": 377,
+      "floor_px": 4310,
+      "bar": 4310,
       "fallen_before": 0,
-      "fallen_after": 2,
+      "fallen_after": 1,
+      "living_after": 0,
       "checks": {
         "fallen_before_is_0": true,
         "fallen_after_at_least_1": true,
         "change_over_bar": true,
         "at_the_gun": true,
-        "stays_in_frame": true
+        "stays_in_frame": true,
+        "no_living_man_after": true,
+        "only_his_body": true
+      },
+      "pass": true
+    },
+    {
+      "seed": 3,
+      "foes": 10,
+      "tick": 1235,
+      "yaw": -112.1,
+      "kill_path": "despawn_collect",
+      "stand_back_m": 0.6,
+      "px_per_m": 130.0,
+      "bar_bbox_h": 66,
+      "bar_skew_px": 1,
+      "plate_bbox": [
+        451,
+        636,
+        897,
+        1022
+      ],
+      "gun_box": [
+        295,
+        792,
+        741,
+        1178
+      ],
+      "grow_px": 156,
+      "noise": {
+        "night_t-night_t2": 0,
+        "night_t-night_t3": 0,
+        "night_t2-night_t3": 0
+      },
+      "noise_max": 0,
+      "change": 13301,
+      "change_bbox": [
+        373,
+        642,
+        819,
+        1028
+      ],
+      "centroid_m_from_plate": 0.401,
+      "edge_clear_px": 373,
+      "floor_px": 4310,
+      "bar": 4310,
+      "fallen_before": 0,
+      "fallen_after": 1,
+      "living_after": 0,
+      "checks": {
+        "fallen_before_is_0": true,
+        "fallen_after_at_least_1": true,
+        "change_over_bar": true,
+        "at_the_gun": true,
+        "stays_in_frame": true,
+        "no_living_man_after": true,
+        "only_his_body": true
       },
       "pass": true
     }

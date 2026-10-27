@@ -437,6 +437,8 @@ def main():
         log("FAILED: the kill did not land: %s" % answer)
         return 1
     time.sleep(2.0)            # held frames still dispatch: SimHost.Update runs whatever the clock does
+    log("stand every other living man 80 m off again: a living man near the camera could still be mistaken for one at the gun")
+    ev("clear_again", CLEAR)
     after = ev("state_dead", STATE)
     log("  after      -> fallen=%s drawn=%s" % (field(after, "fallen"), field(after, "drawn")))
     if field(after, "fallen") == 0:
@@ -447,6 +449,19 @@ def main():
     log("still 5: the same unmasked frame after the death")
     if not shot(outdir, "night_dead", mask=False):
         return 1
+    # the sidecar is read off the capture itself, not the STATE eval just before it, which can still show a man
+    # mid-step to his 80 m mark a frame before the render catches up.
+    side = os.path.join(outdir, "night_dead.json")
+    drawn_infantry, fallen_sidecar = None, None
+    if os.path.exists(side):
+        with open(side, encoding="utf-8") as f:
+            sidecar = json.load(f)
+        drawn_infantry, fallen_sidecar = sidecar.get("drawn_infantry"), sidecar.get("fallen")
+    if drawn_infantry != 0:
+        log("FAILED: night_dead still shows %s living men drawn near the camera: CLEAR did not stand them off"
+            % drawn_infantry)
+        return 1
+    living_after, fallen_after_state = drawn_infantry, fallen_sidecar
 
     ev("release", RELEASE)
     one_liner("UnityEngine.Time.timeScale = 1f; return UnityEngine.Time.timeScale;")
@@ -458,7 +473,8 @@ def main():
                 man_x=field(before, "px"), man_z=field(before, "pz"),
                 plate_foot=[field(before, "fx"), field(before, "fz")],
                 fallen_before=field(before, "fallen", int), drawn_before=field(before, "drawn", int),
-                fallen_after=field(after, "fallen", int), drawn_after=field(after, "drawn", int))
+                fallen_after=fallen_after_state, drawn_after=drawn_infantry,
+                living_after=living_after)
     with open(os.path.join(outdir, "meta.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
         f.write("\n")
