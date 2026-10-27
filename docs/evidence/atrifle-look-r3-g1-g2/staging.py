@@ -13,19 +13,22 @@ are untouched.
 
 THE THREE HARD TESTS are the owner's words turned into numbers, and they are not negotiable here:
   * his mask is at least HALF the kneeling man's mask, in pixels. That is "a player can see him";
-  * ZERO weather pixels inside his box. |empty - floor| is two man-less plates of the same frame a
-    few world-seconds apart, so everything in it moves on its own; round 1 of the previous set had
-    1057 of them in his box;
+  * weather pixels inside his box are at most 1% of its area. |empty - floor| is two man-less
+    plates of the same frame a few world-seconds apart, so everything in it moves on its own; round
+    1 of the previous set had 1057 of them in his box, and no staged place here has zero - the
+    owner's word on the Decide page (386162d6e6, 5634f38583) was to accept the small speck rather
+    than stage him again;
   * the two boxes DO NOT OVERLAP, so a mask holds one man and not two.
 Plus the frame's own bookkeeping: men_in_frame 1 / 1 / 0 / 0 over at / sniper / empty / floor,
 drawn_infantry 0 in both plates, one camera for all four stills, pose_error_m 0, rain 0, no warning,
 and a largest blob that earns the name "a man" by mask.py's size and dominance rules.
 
 AMONG THE CANDIDATES THAT PASS, the one kept is the one whose drawn heading is closest to the
-Sniper's. A man's yaw cannot be written; he is turned by being made to step
-(AnimationController.cs:462), so the staging ends with a one-metre hop along the Sniper's own drawn
-yaw. That is what replaces the fixed 1.11 rad of the previous set, where part of every reading was
-heading and not build. Each candidate's drawn heading is read back out of the sim: cand-poses.json.
+Sniper's, and among a heading tie the one with the larger mask ratio. A man's yaw cannot be
+written; he is turned by being made to step (AnimationController.cs:462), so the staging ends with
+a one-metre hop along the Sniper's own drawn yaw. That is what replaces the fixed 1.11 rad of the
+previous set, where part of every reading was heading and not build. Each candidate's drawn heading
+is read back out of the sim: cand-poses.json.
 
 Exit 0 and staging.json written when a candidate clears everything; exit non-zero otherwise, with
 every candidate's numbers printed either way.
@@ -44,7 +47,8 @@ KINDS = ("at", "sniper", "empty", "floor")
 MEN = {"at": 1, "sniper": 1, "empty": 0, "floor": 0}
 FRAME_KEYS = ("zoom", "yaw", "pitch", "focus_x", "focus_z")
 MIN_MASK_RATIO = 0.5        # of the kneeling man's mask: the owner's "half the kneel's"
-MAX_NOISE_IN_BOX = 0        # weather pixels inside his box
+MAX_NOISE_RATIO = 0.01      # weather pixels inside his box, as a share of its area: the owner's
+                            # accepted small speck, not zero (386162d6e6, 5634f38583)
 
 
 def wrap(a):
@@ -133,12 +137,15 @@ def candidate(n, poses, shape):
                        % (n, men["at"]["mask_px"], men["sniper"]["mask_px"], ratio, MIN_MASK_RATIO))
     else:
         row["mask_ratio"] = None
-    if (men["at"].get("noise_in_box_px") or 0) > MAX_NOISE_IN_BOX:
-        bad.append("cand%d: %d weather pixels fall inside his box, want %d"
-                   % (n, men["at"]["noise_in_box_px"], MAX_NOISE_IN_BOX))
-    if (men["sniper"].get("noise_in_box_px") or 0) > MAX_NOISE_IN_BOX:
-        bad.append("cand%d: %d weather pixels fall inside the kneel's box, want %d"
-                   % (n, men["sniper"]["noise_in_box_px"], MAX_NOISE_IN_BOX))
+    for k, label in (("at", "his box"), ("sniper", "the kneel's box")):
+        noise_px = men[k].get("noise_in_box_px")
+        box_px = men[k].get("box_px")
+        if noise_px and box_px:
+            ratio = noise_px / float(box_px)
+            row["noise_ratio_" + k] = round(ratio, 4)
+            if ratio > MAX_NOISE_RATIO:
+                bad.append("cand%d: %d weather pixels fall inside %s, %.2f%% of its area, over %.0f%%"
+                           % (n, noise_px, label, 100 * ratio, 100 * MAX_NOISE_RATIO))
     ba, bs = men["at"].get("box"), men["sniper"].get("box")
     if ba and bs:
         over = not (ba[1] <= bs[0] or bs[1] <= ba[0] or ba[3] <= bs[2] or bs[3] <= ba[2])
@@ -170,11 +177,13 @@ def main():
     shape = (900, 1600)
     rows = [candidate(n, poses, shape) for n in ns]
     ok = [r for r in rows if r.get("passes")]
-    ok.sort(key=lambda r: (r["heading_diff_rad"], -r["mask_ratio"]))
-    report = {"min_mask_ratio": MIN_MASK_RATIO, "max_noise_in_box_px": MAX_NOISE_IN_BOX,
+    ok.sort(key=lambda r: (r["heading_diff_rad"], r["mask_ratio"]))
+    report = {"min_mask_ratio": MIN_MASK_RATIO, "max_noise_ratio": MAX_NOISE_RATIO,
               "candidates": rows, "passed": [r["n"] for r in ok]}
     if ok:
-        k = ok[0]
+        min_heading = min(r["heading_diff_rad"] for r in ok)
+        k = max((r for r in ok if r["heading_diff_rad"] == min_heading),
+                key=lambda r: r["mask_ratio"])
         report["kept"] = {"n": k["n"], "pos": k["pos"], "mask_ratio": k["mask_ratio"],
                           "mask_px_at": k["mask_px_at"], "mask_px_sniper": k["mask_px_sniper"],
                           "noise_in_box_px_at": k["noise_in_box_px_at"],
