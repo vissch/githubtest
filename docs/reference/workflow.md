@@ -543,6 +543,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.CaptureRig.MarkFallen(index)` | Editor/CaptureRig.cs | Point the stills at one fallen body: each sidecar then says where he is in the image it wrote, how big a metre is there, and which gag and roll step ... |
 | `TW.Editor.CaptureRig.MarkOff()` | Editor/CaptureRig.cs | No mark: the mark_* keys drop out of the sidecars again. |
 | `TW.Editor.CaptureRig.Shot(path, x, z, zoom, yaw, pitch, w, h, aimY)` | Editor/CaptureRig.cs | Queue one still. |
+| `TW.Editor.CaptureRig.Shot(path, x, z, zoom, yaw, pitch, w, h, aimY, fit)` | Editor/CaptureRig.cs | Queue one still. |
 | `TW.Editor.CaptureRig.Pending()` | Editor/CaptureRig.cs | How many shots are still to be taken; 0 means the set is finished and the camera is back. |
 | `TW.Editor.CaptureRig.ShotCrowd(path, zoom, yaw, pitch, w, h, cell)` | Editor/CaptureRig.cs | A still of the thickest knot of men, so a capture contains soldiers without anyone guessing at coordinates. |
 | `TW.Editor.CaptureRig.CrowdLine(path, at, men)` | Editor/CaptureRig.cs | ShotCrowd's answer: the file, the focus it chose and how many men stood in that square. |
