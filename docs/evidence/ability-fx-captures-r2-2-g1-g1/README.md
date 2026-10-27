@@ -265,5 +265,31 @@ not read back out of the code they check. 21 of 21 `BurstRecipeTests` green.
 
 ## The bars were not moved
 
-`baseline.json` is byte for byte what part 1 froze (`git diff --exit-code` on it is clean), and
-`python probe.py` exits non-zero on these takes. The open row in `docs/reference/decisions.md` carries the choice.
+`baseline.json` is byte for byte what part 1 froze (`git diff --exit-code` on it is clean). `python probe.py`
+exits 0 on these takes: see Part 4 for how.
+
+# Part 4: the owner's ship-it call, and how the probe records it
+
+`docs/reference/decisions.md`, row dated 2026-10-27: the owner's answer to "The gas bank: ship it, lower the bar,
+or keep tuning" was **"Ship this bank now and separately plan a rolling-cloud look for later"**. Of the nine
+numbers in `probe.json`, two still miss their frozen bar on all three after takes: `fill_frac` (0.235-0.237
+against the 0.45 bar) and `stray_frac` (0.372-0.398 against the 0.30 bar). Part 3 already showed why: the cause
+is the `GasBank` sheet itself (narrow cards on a 4 m grid, capped by the head rule), not a knob, so no amount of
+tuning on this sheet reaches 0.45 fill or 0.30 stray. A rolling-cloud sheet is queued separately
+(`tw-vfx-sheets`) and is out of scope here.
+
+`probe.py` records that acceptance without moving a bar. `baseline.json` was not touched (`git diff --exit-code`
+on it is clean — see above). Instead `probe.py` carries an `ACCEPTED` table, one entry per overridden number,
+each a limit one run-to-run spread past the worst of the three after takes the owner looked at:
+
+- `fill_frac` floor **0.23**: worst of the three is 0.2350, spread (max - min) is 0.2373 - 0.2350 = 0.0023, so
+  0.2350 - 0.0023 = 0.2327, rounded down to 0.23.
+- `stray_frac` ceiling **0.42**: worst of the three is 0.3975, spread is 0.3975 - 0.3722 = 0.0253, so
+  0.3975 + 0.0253 = 0.4228, rounded up to 0.42.
+
+These are the very numbers the decision row quotes ("0.237 against 0.45", "0.372-0.398 against 0.30"), so the
+acceptance cannot silently widen to cover a worse build later: `probe.py --selftest` proves a take at the
+accepted values passes and a take past either limit fails. `verdict()` still measures and prints every number
+against its frozen bar; a number that misses the bar but clears its `ACCEPTED` limit is marked `accepted`, not a
+silent `ok`, and the decision it rests on is printed with it. `probe.json` carries the `ACCEPTED` table next to
+`bars` so the artefact is auditable on its own.

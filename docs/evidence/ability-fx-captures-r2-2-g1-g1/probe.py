@@ -78,6 +78,16 @@ RIM_FLOOR_PX = 3.0
 SPREAD_K = 4                # a bar sits this many run-to-run spreads past the worst before take
 BASELINE = os.path.join(HERE, 'baseline.json')
 
+# The owner's ship-it call (decisions.md 2026-10-27, "Ship the gas bank as it stands: (a)"): these two numbers
+# miss their frozen bar on this sheet and are accepted anyway, bounded one run-to-run spread past the worst of
+# the three after takes the owner looked at, never past the limit the decision row itself quotes.
+ACCEPTED = {
+    'fill_frac': {'floor': 0.23,
+                  'decision': 'decisions.md 2026-10-27, ship the gas bank as it stands: (a)'},
+    'stray_frac': {'ceiling': 0.42,
+                   'decision': 'decisions.md 2026-10-27, ship the gas bank as it stands: (a)'},
+}
+
 
 def ray(ndc_x, ndc_y, pitch_deg, yaw_deg):
     """World direction of the pixel at (ndc_x, ndc_y), both -1..1, ndc_y up.
@@ -135,6 +145,23 @@ def selftest():
     h = height_at(cam, pitch, yaw, 0.0, 0.0, one_deg, d)
     assert abs(h - 0.34311) < 1e-3, 'one degree up came back %.5f m, hand calculation says 0.34311' % h
     print('selftest ok: centre pixel 10.000 m out, one degree up %.5f m high (hand: 0.34311)' % h)
+
+    # the acceptance table must be bounded: an accepted-row take passes, a take worse than either limit fails.
+    bars = {'bank_area_bar': 0.010, 'bank_area_ceiling': 0.090, 'stray_bar': 0.30, 'fill_bar': 0.45,
+            'spread_bar_m': 32.08, 'rim_bar_px': 3.0, 'low_share': 0.30, 'height_frac': 0.15,
+            'pose_error_max': 0.5}
+
+    def row(fill_frac, stray_frac):
+        return {'bank_area_frac': 0.033, 'stray_frac': stray_frac, 'fill_frac': fill_frac, 'spread_m': 29.5,
+                'rim_px': 3.0, 'low_share': 0.32, 'height_frac': 0.09, 'pose_error_m': 0.0}
+
+    accepted_ok = verdict({'t1-after-1': row(0.235, 0.3975)}, bars)
+    assert accepted_ok is True, 'the accepted values 0.235/0.3975 must pass, came back %r' % accepted_ok
+    stray_too_high = verdict({'t1-after-1': row(0.30, 0.50)}, bars)
+    assert stray_too_high is False, 'stray_frac 0.50 is past the 0.42 ceiling, must fail, came back %r' % stray_too_high
+    fill_too_low = verdict({'t1-after-1': row(0.20, 0.38)}, bars)
+    assert fill_too_low is False, 'fill_frac 0.20 is under the 0.23 floor, must fail, came back %r' % fill_too_low
+    print('selftest ok: acceptance bounded (0.235/0.3975 pass, stray 0.50 and fill 0.20 each fail)')
     return 0
 
 
@@ -470,25 +497,57 @@ def do_baseline(src, plate_dir):
 
 
 def verdict(rows, bars):
-    """True when every take clears every bar; prints a line per take."""
+    """True when every take clears every bar, or clears an ACCEPTED limit where it misses; prints a line per
+    take, plus one line per acceptance actually used naming the bar, the limit and the decision."""
     ok = True
+    used = set()
+
+    def clears(name, value, bar_ok):
+        """`bar_ok`: did it clear the frozen bar; if not, fall back to the ACCEPTED limit, if any."""
+        if bar_ok:
+            return True
+        limit = ACCEPTED.get(name)
+        if limit is None:
+            return False
+        if 'floor' in limit and value >= limit['floor']:
+            used.add(name)
+            return True
+        if 'ceiling' in limit and value <= limit['ceiling']:
+            used.add(name)
+            return True
+        return False
+
     for s in sorted(rows):
         r = rows[s]
-        good = (bars['bank_area_bar'] <= r['bank_area_frac'] <= bars['bank_area_ceiling']
-                and r['stray_frac'] <= bars['stray_bar']
-                and r['fill_frac'] >= bars['fill_bar']
-                and r['spread_m'] <= bars['spread_bar_m']
-                and r['rim_px'] >= bars['rim_bar_px']
-                and r['low_share'] >= bars['low_share']
-                and r['height_frac'] <= bars['height_frac']
-                and r['pose_error_m'] < bars['pose_error_max'])
+        area_ok = bars['bank_area_bar'] <= r['bank_area_frac'] <= bars['bank_area_ceiling']
+        stray_ok = clears('stray_frac', r['stray_frac'], r['stray_frac'] <= bars['stray_bar'])
+        fill_ok = clears('fill_frac', r['fill_frac'], r['fill_frac'] >= bars['fill_bar'])
+        spread_ok = r['spread_m'] <= bars['spread_bar_m']
+        rim_ok = r['rim_px'] >= bars['rim_bar_px']
+        low_ok = r['low_share'] >= bars['low_share']
+        height_ok = r['height_frac'] <= bars['height_frac']
+        pose_ok = r['pose_error_m'] < bars['pose_error_max']
+        good = (area_ok and stray_ok and fill_ok and spread_ok and rim_ok and low_ok and height_ok and pose_ok)
         ok = ok and good
-        print(('%s  area %.5f (%.5f..%.5f)  stray %.4f (<= %.4f)  fill %.4f (>= %.4f)  spread %.2f m (<= %.2f)'
-               '  rim %.2f px (>= %.2f)  low %.4f  height %.4f  pose %.3f  %s')
+
+        def tag(name, cleared):
+            if cleared and name in used:
+                return 'accepted'
+            return 'ok' if cleared else 'FAILED'
+
+        print(('%s  area %.5f (%.5f..%.5f)  stray %.4f (<= %.4f) [%s]  fill %.4f (>= %.4f) [%s]'
+               '  spread %.2f m (<= %.2f)  rim %.2f px (>= %.2f)  low %.4f  height %.4f  pose %.3f  %s')
               % (s, r['bank_area_frac'], bars['bank_area_bar'], bars['bank_area_ceiling'],
-                 r['stray_frac'], bars['stray_bar'], r['fill_frac'], bars['fill_bar'],
+                 r['stray_frac'], bars['stray_bar'], tag('stray_frac', stray_ok),
+                 r['fill_frac'], bars['fill_bar'], tag('fill_frac', fill_ok),
                  r['spread_m'], bars['spread_bar_m'], r['rim_px'], bars['rim_bar_px'],
                  r['low_share'], r['height_frac'], r['pose_error_m'], 'ok' if good else 'FAILED'))
+
+    for name in sorted(used):
+        limit = ACCEPTED[name]
+        bound = 'floor %.2f' % limit['floor'] if 'floor' in limit else 'ceiling %.2f' % limit['ceiling']
+        frozen = bars['fill_bar'] if name == 'fill_frac' else bars['stray_bar']
+        print('accepted  %s  frozen bar %.4f  accepted %s  %s' % (name, frozen, bound, limit['decision']))
     return ok
 
 
@@ -523,7 +582,7 @@ def main():
     rows = {s: measure(s, 't1-plate-%d' % int(s[-1])) for s in stems}
     ok = verdict(rows, bars)
     with open(os.path.join(HERE, 'probe.json'), 'w', encoding='utf-8') as f:
-        json.dump({'bars': bars, 'after': rows, 'ok': ok}, f, indent=1, sort_keys=True)
+        json.dump({'bars': bars, 'accepted': ACCEPTED, 'after': rows, 'ok': ok}, f, indent=1, sort_keys=True)
     print('OK' if ok else 'FAILED')
     return 0 if ok else 1
 

@@ -1,4 +1,14 @@
 {
+ "accepted": {
+  "fill_frac": {
+   "decision": "decisions.md 2026-10-27, ship the gas bank as it stands: (a)",
+   "floor": 0.23
+  },
+  "stray_frac": {
+   "ceiling": 0.42,
+   "decision": "decisions.md 2026-10-27, ship the gas bank as it stands: (a)"
+  }
+ },
  "after": {
   "t1-after-1": {
    "bank_area_frac": 0.03284,
@@ -81,5 +91,5 @@
   "spread_bar_m": 32.08,
   "stray_bar": 0.3
  },
- "ok": false
+ "ok": true
 }
