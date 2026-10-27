@@ -1,0 +1,64 @@
+{
+  "subject": "review:Z004",
+  "looked_at": [
+    "ALL LINE NUMBERS BELOW ARE AT INTEGRATION (origin/claude/trench-warfare-2d-3d-plan-idt7lf), read with `git show <ref>:<path>`, not the working tree (this checkout is 259 commits behind and 4 of the 12 files differ).",
+    "The base named on the leg card (7943b923141fb34d3fc6a5ae2301ce0e57c932) does not resolve in this repo (bad revision, 38 hex chars; no object with prefix 7943b). The base was re-derived from `git log --oneline -12 <ref> -- <the 12 files>`: the five commits the plan names are a46f460579 (ChunkPass + TerrainChunkPassTests), 140103d90e and ab427a76ca (look.menClose / foot-only-mud-lift), bdfed04ff3 (infantry-firing) and ab15ddb971 (gore-by-zoom), so the base is their parent 511988b40e. The diff read is `git diff 511988b40e..<ref> -- <the 12>`: 90 insertions, 7 deletions in 5 files (AnimationController.cs 27, Atmosphere.NightLook.cs 44, Atmosphere.cs 2, GreyboxTerrainView.cs 14, DebrisRenderer.cs 5).",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.cs - 967 lines, read whole at integration (the Clips.Table build 44-95, Latch 286-305, Start 373-400, the fire rung 660-700, the locomotion rung 776-821, Advance 905-935)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/Atmosphere.NightLook.cs - 241 lines, the changed block read at integration (the look.menClose header 51-72, the knob and the three helpers 180-201, the per-frame globals 222-237)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/Atmosphere.cs - 343 lines, the changed line read at integration (261, the global reset)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs - 1079 lines, read at integration: the new ChunkPass 73-120, Start/Build 122-223, the chunk loop 624-645",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/DebrisRenderer.cs - 603 lines, read at integration 165-400 (Pool, the Watch probe 178-182, Throw 264-284, Burst, Heave, Topple, Put, LateUpdate)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/DebrisRenderer.Figure.cs - 213 lines, read whole at integration",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/DebrisRenderer.Parts.cs - 78 lines, read whole at integration",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.Death.cs - 266 lines, read whole at integration",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.Gags.cs - 40 lines, read whole at integration",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.Pin.cs - 83 lines, read whole at integration",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldProps.cs - 488 lines, read whole at integration",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/FogWisps.cs - 107 lines, read whole at integration",
+    "context only, for a line in the twelve: Shaders/VAT_URP.shader 325-350, Shaders/Toon_URP.shader:268, Shaders/TWLightPools.hlsl 26-27, Presentation/Core/DeathGags.cs 54 and 200-220, Editor/CaptureRig.cs 182-184, Tests/Stills/GoreZoomStills.cs 95-150",
+    "what the code is held to: docs/reference/decisions.md at integration (lines 285-345, including the whole 'Open: waiting on the owner' block) and docs/reference/tasks.md at integration (grepped for every symbol below before reporting it; tasks.md:590-600 names GoreZoomStills and DebrisRenderer.Watch as a landed test, not as a defect)",
+    "NOT reported, checked and sound: ChunkPass's `% count` cannot divide by zero (the `n < count` loop body never runs at count 0) and a chunkCursor past the end still yields a full in-range permutation, so the landed TerrainChunkPassTests fix holds; FirePhase cannot disturb the gym, because AnimationController.Pin.cs:70 overwrites s.Frame with 0 right after Start; Clip.FireStoop is a LOOP in Clips.Table (AnimationController.cs:76, built with L), so using it as a gait neither freezes nor restarts, and AnimationController.cs:821 already treated it as one; s.LastShot is written at :672 before the locomotion rung reads it at :782, and Fresh() (:261) gives a new man in a reused slot LastShot 0; blastDist is always written beside blastRadius (:342, :362) and only read behind blastRadius > 0; both new globals really are consumed (TWLightPools.hlsl:26-27, Toon_URP.shader:268, VAT_URP.shader:333 and :340) and SheenCut/SheenAtClose agree algebraically with the shader's `1 - cut * close`; Atmosphere.cs:261 resets both; FogWisps' Build is reached once per component (GreyboxTerrainView's Start, not a public rebuild); DebrisRenderer.Pool is a sealed class, so Put/LateUpdate's mutations are not lost; Figure.cs Lay's basis always has determinant +1, so the winding does hold; Death.cs calls Density before Remember, so a man never counts himself in his own heap. The nine foot-figure stills still under the close-range bar are an OPEN owner question in decisions.md and are deliberately not reported here."
+  ],
+  "tasks": [
+    {
+      "title": "A tank shell's death jigs: any vehicle killer reads as machine gun",
+      "why": "P2, AnimationController.Gags.cs:26. `MachineGun = killer && !crushed && (vehicle || w.Archetype[b] == Machinegunner)` is true for EVERY armed vehicle killer, not for a machine's small arms as the comment on :25 claims. DeathGags.cs:208 tests g.MachineGun BEFORE g.Heavy (:214), so a man killed by a tank's main gun or a flamer vehicle gets DeathGag.Jig (a delayed shudder, thrown 2-5 m) instead of the DeathGag.Punt a heavy hit is meant to give (5-9 m, 1-2 flips). Since vehicles are most of what kills hard, the Punt gag is largely unreachable against a machine, and the heavy hit the player just watched lands as a twitch. Costs: the absurd-deaths work the owner asked for on 2026-10-19 reads wrong at exactly its loudest moment.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.Gags.cs", "trench-warfare-3d/Assets/_Project/Presentation/Core/DeathGags.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "An EditMode test on DeathGags.Choose (pure, no scene) that is RED on today's code: a GagInput from a vehicle killer with Heavy true must choose DeathGag.Punt, not DeathGag.Jig; and a real Machinegunner kill must still choose Jig.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "The prop editor's Scene view draws small props the game hides",
+      "why": "P2, BattlefieldProps.cs:447 and :449. The game camera's cull gates a small module (finite module.MaxDistance) on `SceneHooks.CloseUp > 0f && ... <= reach*reach` (:447), but editorSeen (:449) keeps only the distance half and drops the CloseUp gate entirely. CloseUp is 0 from zoom 28 out (TacticalCamera.CloseUpAt), so in the Scene view while props are edited (EditorCamera, :16) every small prop draws at every zoom, while the player's camera never draws it at the same spot. Costs: the owner and the env agents place, space and judge the near dressing against a view that shows props the match does not.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldProps.cs"],
+      "lane": "show",
+      "role": "env-simulator",
+      "done_when": "The two cull expressions are factored into one static predicate (module reach, page bounds, eye, closeUp) and an EditMode test asserts it answers the same for the game eye and the editor eye at closeUp 0 and 1; red today, because :449 has no closeUp term to pass.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "The gore probe counts pieces thrown before the pool exists",
+      "why": "P2, DebrisRenderer.cs:272. `Watch?.Invoke(piece, scale, tint)` sits one line ABOVE `if (!Ready) return;` (:273), so the probe reports every piece as thrown even when Start never ran (no TW/Debris shader, :230, or the component disabled) and nothing is pooled or drawn. GoreZoomStills.cs:109-146 is built entirely on that probe and its only assertion is `sizes.Count >= WantSamples` (:144) with the message 'nobody is bleeding'. So the one test that measures the drawn gore against the drawn man can go green, and write a gore.txt of sizes, on a run where not one piece reached the GPU. Costs: the owner's 'the gore is sometimes a bit big' (tasks.md:597) is being answered from numbers the render never saw.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Camera/DebrisRenderer.cs", "trench-warfare-3d/Assets/_Project/Tests/Stills/GoreZoomStills.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "The Invoke moves below the Ready gate, and an EditMode test on a DebrisRenderer whose Start never ran (Ready false) sets Watch, calls Throw, and asserts the probe fired 0 times; red today, where it fires once.",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "A crouched man firing above 1.6 m/s slides his feet",
+      "why": "P2, AnimationController.cs:792 (new on bdfed04ff3). `gait = firing && speed < 2.2f ? Clip.FireStoop : speed > 1.8f ? Clip.CrouchRun : ...` puts a firing man on FireStoop all the way to 2.2 m/s, but FireStoop is authored at 1 m/s (Clips.Table, :76) and the rate clamp at :811 stops at 1.6, so from 1.6 to 2.2 m/s his feet run up to 37 % slower than the ground moving under him. The comment on :790 says 'above that the crouched run wins, nobody fires at that pace' -- but the FireStoop branch is tested FIRST, so CrouchRun (authored 2.4 m/s, the clip that would fit) is unreachable for any firing man below 2.2. Costs: visible skating on every crouched advance-and-fire, the pose this commit was written to add.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.cs"],
+      "lane": "show",
+      "role": "character-simulator",
+      "done_when": "An EditMode test over the gait choice asserts a firing crouched man at 2.1 m/s is given CrouchRun (or FireStoop at a rate the clamp actually reaches), and at 1.2 m/s still FireStoop; red today, where 2.1 m/s gives FireStoop at rate 1.6.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
