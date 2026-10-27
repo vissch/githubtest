@@ -345,6 +345,32 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   which smooths any per-card height spread away. Making that edge undulate needs the bank to stand up into a
   silhouette - option (b), the man rule - or a spatially correlated height, which is a new design, not a tuning
   step. Nothing is landed: the look is reverted and the bank is exactly as it was. Option (a) still stands.
+  **Update, 2026-10-27 (the same lane, round 2): the spatially correlated height was built and shot, and it does
+  not reach the bar either.** Part 2's last finding named one design left untried: a height that varies by PLACE,
+  not by card, so a MAX over overlapping cards cannot smooth it away. `GasBankRidge(x, z)` is that - a fixed
+  world-space sine of wavelength `GasBankRidgeWaveM` that only ever LOWERS a merged card, down to
+  `GasBankRidgeFloor` of its full height, applied to both merged tiers (the man rule is untouched and
+  `TheGasBankLiesOnTheGround_NotOverAMansHead` stays green). Four shoots, both passes each, the plan's own order:
+
+  | Wave / floor | `side_relief_ratio` s0 / s1 / s2 | `texture_var_drop` worst | `t1_gap_frac` worst |
+  |---|---|---|---|
+  | baseline (no ridge) | 0.0214 / 0.0277 / 0.3321 | 0.7237 | 0.3195 |
+  | 44 m, floor 0.55 | 0.0505 / 0.2517 / 0.3489 | 0.6505 | 0.3919 |
+  | 56 m, floor 0.55 | 0.0262 / 0.0226 / 0.3578 | 0.6629 | 0.3821 |
+  | 64 m, floor 0.55 | 0.0491 / 0.0229 / 0.3502 | 0.6790 | 0.3768 |
+  | 64 m, floor 0.45 | 0.0597 / 0.0226 / 0.3514 | 0.7262 | 0.3958 |
+
+  The ridge does move the top edge - s1 went 0.0277 to 0.2517 at the 44 m wave, a ten-fold rise - but the best
+  worst-seed ratio of any setting is **0.0505 against the 0.6428 bar**, an eighth of it, and a longer wave or a
+  deeper floor makes it worse, not better (a wave much longer than the bank's own footprint puts the whole bank on
+  one flank of the sine, which lowers it evenly and relieves nothing). Lowering cards also re-opens the same
+  counter-move part 2 found: every setting pushes `t1_gap_frac` to 0.38-0.40 over g1's 0.3559 bar, and the drop
+  stays over its 0.6421 ceiling. So all three of the plan's levers are spent, and the arithmetic is the reason: the
+  bar asks for 1.26-1.73 m of top-edge relief from a bank whose every card tops out at 1.75 m, seen from a camera
+  10.9 m above it, where the silhouette's top is a max over cards that overlap several deep. Only a bank that
+  stands taller (option (b)) can give it. **Option (a) still stands and nothing is landed**; the ridge itself is
+  committed but shot only as evidence, and the 18 stills of it, both manifests and `probe.json` are now in
+  `docs/evidence/ability-fx-captures-r2-3-g1-g2/` beside the control.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
