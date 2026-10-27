@@ -1,0 +1,30 @@
+Six rocketed men planted head first in the mud (DeathGag.Planted), one man per shell, in the battle scene
+GreyboxCorridor at the standard zoom (T1: zoom 30, yaw +21, pitch 25, 1600x900). Each is taken about a second
+after that man lands, while his legs are still kicking (the kick runs three seconds, then they fold). Each shot
+is aimed at ground level under the man (aimY = RenderGround.Sample at his resting x z), so the frame centre is
+where his head went in and his legs stand 0.905 m above it. The clock was paused and stepped (Tools/tw pause
+true, stepto) between staging and the shot, so game time stood still while each was framed.
+
+`base_1..3.png`: the current build, this unit's own un-curated captures (`DeathLab.Scene("shell", x, z)` at a
+spread of x z picked before any still was looked at, not after), proving what "a player does not see him" looks
+like today. `plant_1..3.png`: the same build, same zoom/yaw/pitch, but staged so his legs land somewhere they
+read: open ground, not a flooded crater (`DeathLab.Shell`'s crater floods the middle of its own row — several
+trial stagings in this unit landed the body underwater at y -1 to -3 m and were thrown out), and close enough to
+a lit patch of the map (a lamp, a fire, or a lit building's painted floor already in the night scene — nothing
+added, nothing recoloured) that his dark trousers and boots stand off it, the way plant_1 in the prior unit stood
+off its sandbag wall and plant_2 in the same unit did not off bare mud. No camera parameter differs from the
+baseline: zoom, yaw and pitch are the T1 standard throughout, only WHERE he is framed changes.
+
+Trial stagings that were tried and thrown out (kept here so the next unit does not re-walk them): x near 89.5,
+z in the 120-135 range sits over a flooded crater (y -1.5 to -2.7 m); a body that lands flush against a bright
+prop (a crate, a sandbag's metal rim, a wire trestle's cross) can swing a disc sample onto the PROP instead of
+the man — several early captures measured a tank-tread or a sandbag wall, not a leg, and were caught by this
+unit's column guard (a man's own column is darker than the ring around him on most of its rows; a prop lit from
+one side usually is not) and dropped before being used as evidence.
+
+base_1.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 89.50 226.76, un-curated staging, open ground, mud behind.
+base_2.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 53.24 268.99, un-curated staging, a trench parapet behind, partly legible.
+base_3.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 30.40 120.80, un-curated staging, open churned ground, mud behind.
+plant_1.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 84.60 222.56, landing +~1.0 s, open ground above the water line, a dark night pool of his own blood behind a pale boot.
+plant_2.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 89.50 103.24, landing +~1.0 s, a lit yard near a building (crates, lamps already in the scene), his legs and boots plainly lit against the painted floor.
+plant_3.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 69.32 145.48, landing +~1.0 s, near the same lit yard, pale boots against the lit ground, a machine's silhouette behind.
