@@ -262,5 +262,63 @@ namespace TW.Tests
             Assert.That(blobPainted, Is.GreaterThan(0f), $"pack_blob={blobPainted}: the satchel does not read as a pack-shaped blob");
             Assert.That(blobPlaceholder, Is.EqualTo(0f), $"pack_blob={blobPlaceholder} on the '?' placeholder, which draws no pack tone at all");
         }
+
+        // Mirrors docs/evidence/sapper-look-3-g2-g2/probe.py's person_taper: median bright-pixel width per row (luma
+        // clearing the disc's own luma by >=24), head band vs shoulder band, as a fraction of the square's side.
+        static readonly (float Lo, float Hi) HeadBand = (0.20f, 0.40f);
+        static readonly (float Lo, float Hi) ShoulderBand = (0.55f, 0.85f);
+        static readonly (float Lo, float Hi) HeadRange = (0.15f, 0.45f);
+        static readonly (float Lo, float Hi) ShoulderRange = (0.45f, 0.95f);
+
+        static float Median(System.Collections.Generic.List<float> values)
+        {
+            if (values.Count == 0) return 0f;
+            values.Sort();
+            int n = values.Count, mid = n / 2;
+            return n % 2 == 1 ? values[mid] : (values[mid - 1] + values[mid]) / 2f;
+        }
+
+        static float BandWidth(bool[,] hit, float side, int w, int h, (float Lo, float Hi) band)
+        {
+            int y0 = Mathf.Max(0, Mathf.RoundToInt(band.Lo * side)), y1 = Mathf.Min(h, Mathf.RoundToInt(band.Hi * side));
+            var widths = new System.Collections.Generic.List<float>();
+            for (int y = y0; y < y1; y++)
+            {
+                int count = 0;
+                for (int x = 0; x < w; x++) if (hit[x, y]) count++;
+                widths.Add(count / side);
+            }
+            return Median(widths);
+        }
+
+        static float PersonTaper(Color32[] px, int w, int h)
+        {
+            float side = Mathf.Min(w, h), discLuma = Luma(ProbeDisc);
+            var mask = DiscMask(w, h);
+            var hit = new bool[w, h];
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+            {
+                if (!mask[x, y]) continue;
+                if (Luma(px[y * w + x]) - discLuma >= LumaThreshold) hit[x, y] = true;
+            }
+            float head = BandWidth(hit, side, w, h, HeadBand);
+            float shoulder = BandWidth(hit, side, w, h, ShoulderBand);
+            if (head < HeadRange.Lo || head > HeadRange.Hi) return 0f;
+            if (shoulder < ShoulderRange.Lo || shoulder > ShoulderRange.Hi) return 0f;
+            return shoulder / head;
+        }
+
+        [Test]
+        public void TheEngineerPortraitIsAPerson()
+        {
+            int s = SkinSpec.PortraitSize;
+            var painted = UiSkinGenerator.PaintEngineerPortrait();
+            var placeholder = UiSkinGenerator.PaintPortraitPlaceholder("Engineer");
+
+            float taperPainted = PersonTaper(painted, s, s), taperPlaceholder = PersonTaper(placeholder, s, s);
+
+            Assert.That(taperPainted, Is.GreaterThan(0f), $"person_taper={taperPainted}: the Engineer does not read as a tapered figure");
+            Assert.That(taperPlaceholder, Is.EqualTo(0f), $"person_taper={taperPlaceholder} on the '?' placeholder, which has no head/shoulder shape");
+        }
     }
 }

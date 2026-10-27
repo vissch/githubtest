@@ -58,7 +58,13 @@ namespace TW.Editor
                     var decision = Decide(file, recorded, side.generator, force, out var entry);
                     if (decision == Decision.Artist) { if (entry != null) { side.files.Remove(entry); promoted++; } continue; }
                     if (decision == Decision.Keep) { kept++; continue; }
-                    var px = name == "Sapper" ? PaintSapperPortrait() : PaintPortraitPlaceholder(name);
+                    Color32[] px;
+                    switch (name)
+                    {
+                        case "Sapper": px = PaintSapperPortrait(); break;
+                        case "Engineer": px = PaintEngineerPortrait(); break;
+                        default: px = PaintPortraitPlaceholder(name); break;
+                    }
                     WritePng(SkinSpec.PortraitPath(name), px, SkinSpec.PortraitSize, SkinSpec.PortraitSize);
                     Record(side, recorded, file, SkinSpec.PortraitPath(name));
                     written++;
@@ -536,6 +542,38 @@ namespace TW.Editor
             c.Glyph(Sdf.Box(satCx, satCy, 4.5f * u, 8f * u), pack, EdgeDark);
             c.Glyph(Sdf.Box(satCx, satCy - 4.5f * u, 1.8f * u, 1.8f * u), charge, EdgeDark);
             c.Glyph(Sdf.Box(satCx, satCy + 4.5f * u, 1.8f * u, 1.8f * u), charge, EdgeDark);
+            return c.Px;
+        }
+
+        /// <summary>The Engineer's own shoulders-up bust, in the same disc and ring as the placeholder: a narrow
+        /// head and helmet in the head band and wide shoulders across the lower disc, in plate tones only (no pack
+        /// or charge tone - that is the Sapper's kit, not his). His own kit shows at the shoulder instead: a spade
+        /// haft crossing one shoulder and a coil of wire at the other, so the figure reads as person_taper's wide
+        /// base under a narrow head rather than a flood or a "?" mark.</summary>
+        public static Color32[] PaintEngineerPortrait()
+        {
+            int s = SkinSpec.PortraitSize;
+            var c = new Canvas(s, s);
+            float cx = s * 0.5f - 0.5f, cy = s * 0.5f - 0.5f, u = s / 64f;
+            var disc = Sdf.Circle(cx, cy, s * 0.42f);
+            Func<float, float, float> Intersect(Func<float, float, float> a, Func<float, float, float> b) => (x, y) => Mathf.Max(a(x, y), b(x, y));
+            c.Glyph(disc, new Color32(0x23, 0x25, 0x2A, 200), EdgeDark);
+            c.Glyph(Sdf.Ring(cx, cy, s * 0.42f - 4f, 2f), Plate500, null);
+            // a narrow head and helmet dome, kept small so the head band stays well under the shoulder band;
+            // both in Plate400 (Plate500 sits only 17 from the disc's own tone, too dim to clear figure_cover's
+            // and person_taper's shared luma floor the way the Sapper's old shoulders slab once did)
+            float headCy = cy - 12f * u;
+            c.Glyph(Sdf.Sub(Sdf.Circle(cx, headCy, 10f * u), Sdf.Box(cx, headCy + 10f * u, 14f * u, 5f * u)), Plate400, EdgeDark);
+            c.Glyph(Sdf.Circle(cx, headCy + 3f * u, 7f * u), Plate400, EdgeDark);
+            // wide shoulders: a plate-tone slab spanning most of the lower disc, clipped to the disc so no square
+            // corner shows past the ring
+            float torsoCy = cy + 20f * u;
+            c.Glyph(Intersect(Sdf.Box(cx, torsoCy, 28f * u, 22f * u), disc), Plate400, EdgeDark);
+            // his own kit at the shoulders, in plate/edge tones only: a spade haft crossing one shoulder, a coil of
+            // wire resting on the other
+            c.Glyph(Sdf.Segment(cx - 24f * u, cy + 6f * u, cx + 6f * u, cy + 26f * u, 2.2f * u), Plate500, EdgeDark);
+            c.Glyph(Sdf.Box(cx - 25f * u, cy + 4f * u, 3f * u, 3f * u), Plate400, EdgeDark);
+            c.Glyph(Sdf.Ring(cx + 18f * u, cy + 14f * u, 7f * u, 2.2f * u), Plate500, EdgeDark);
             return c.Px;
         }
 

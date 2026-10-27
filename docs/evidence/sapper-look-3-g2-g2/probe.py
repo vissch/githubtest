@@ -32,8 +32,10 @@ is 0.0, so any positive floor sits outside the base spread), pack_blob must also
 flood cannot pass the same bar, and portrait-Assault must show zero drift between card-base-1 and
 card-sap-1 (the repaint touches only the Sapper's own portrait).
 
-Later parts add card-eng-*.png (the repainted Engineer) and raise its own bars; this script already knows
-how to score any capture, so later parts only add to main().
+Part 3 adds card-eng-{1,2,3}.png (the repainted Engineer, PaintEngineerPortrait's narrow head and wide
+plate-tone shoulders): person_taper must be >= 1.8 in every one (the base max is 0.0), and
+portrait-Assault must show zero drift between card-base-1 and card-eng-1 (the repaint touches only the
+Engineer's own portrait).
 """
 import json
 import os
@@ -293,23 +295,25 @@ def score(square):
     }
 
 
-def _load(stem):
-    squares_sap = {}
+def _load(stem, name="portrait-Sapper"):
+    squares = {}
     squares_assault = {}
     for i in (1, 2, 3):
         png = os.path.join(HERE, f"{stem}-{i}.png")
         js = png + ".json"
-        squares_sap[i] = portrait_square(png, js, "portrait-Sapper")
+        squares[i] = portrait_square(png, js, name)
         squares_assault[i] = portrait_square(png, js, "portrait-Assault")
-    return squares_sap, squares_assault
+    return squares, squares_assault
 
 
 def main():
-    base_sap, base_assault = _load("card-base")
-    sap_sap, sap_assault = _load("card-sap")
+    base_sap, base_assault = _load("card-base", "portrait-Sapper")
+    sap_sap, sap_assault = _load("card-sap", "portrait-Sapper")
+    eng_eng, eng_assault = _load("card-eng", "portrait-Engineer")
 
     base_scores = {i: score(base_sap[i]) for i in (1, 2, 3)}
     sap_scores = {i: score(sap_sap[i]) for i in (1, 2, 3)}
+    eng_scores = {i: score(eng_eng[i]) for i in (1, 2, 3)}
 
     kit_vals = [base_scores[i]["kit_share"] for i in (1, 2, 3)]
     cover_vals = [base_scores[i]["figure_cover"] for i in (1, 2, 3)]
@@ -319,14 +323,17 @@ def main():
     pairs = [(1, 2), (1, 3), (2, 3)]
     assault_drift = {f"{a}-{b}": diff_px(base_assault[a], base_assault[b]) for a, b in pairs}
     assault_drift_base_sap = diff_px(base_assault[1], sap_assault[1])
+    assault_drift_base_eng = diff_px(base_assault[1], eng_assault[1])
 
     probe = {
         "card_base": base_scores,
         "card_sap": sap_scores,
+        "card_eng": eng_scores,
         "kit_share_base_spread": kit_spread,
         "figure_cover_base_spread": cover_spread,
         "assault_drift_px": assault_drift,
         "assault_drift_px_base1_sap1": assault_drift_base_sap,
+        "assault_drift_px_base1_eng1": assault_drift_base_eng,
     }
     with open(os.path.join(HERE, "probe.json"), "w", encoding="utf-8") as f:
         json.dump(probe, f, indent=2)
@@ -346,6 +353,9 @@ def main():
     if assault_drift_base_sap != 0:
         print(f"FAIL assault_drift_px_base1_sap1: {assault_drift_base_sap} != 0")
         failed = True
+    if assault_drift_base_eng != 0:
+        print(f"FAIL assault_drift_px_base1_eng1: {assault_drift_base_eng} != 0")
+        failed = True
     for i in (1, 2, 3):
         for key in ("pack_blob", "charge_on_pack", "person_taper"):
             val = base_scores[i][key]
@@ -360,6 +370,11 @@ def main():
             failed = True
         if not (cop > 0.0):
             print(f"FAIL card_sap[{i}][charge_on_pack]: {cop} <= 0.0")
+            failed = True
+    for i in (1, 2, 3):
+        taper = eng_scores[i]["person_taper"]
+        if not (taper >= 1.8):
+            print(f"FAIL card_eng[{i}][person_taper]: {taper} < 1.8")
             failed = True
 
     return 1 if failed else 0
