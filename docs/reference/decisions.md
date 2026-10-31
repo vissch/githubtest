@@ -358,7 +358,29 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   integration without a force is a cherry-pick of the five docs commits (`a759872d5`..`80898f9c8`) onto a fresh
   `lane/show/decision-2026-10-18-relay-harness` branched off origin's integration branch, not a force-push of this
   lane's own name.
+  Update, 2026-10-31 (owner's answer to "close-relay-harness-lane: tried 2 times, no progress" -- "Try it once more
+  as it stands", `retry-relay-harness-asis`): the lane was already rebased onto integration (0 commits behind,
+  diff against integration only `docs/reference/decisions.md` and `trench-warfare-3d/.gitignore`); green on
+  `python Tools/selftest.py --only relay,health` (27 of 27) and on the edit gate for this exact tree (`validate.py`,
+  the only module reached since this lane changes no tool file). `python Tools/relay/test_relay.py` run whole was
+  refused by the harness itself (over 30 minutes; the edit gate's `toolcheck.py` is the intended cover for a tool
+  lane, but this lane changes no tool file, so that suite was not re-run here and the retry's "all tests pass" rests
+  on the two green runs above). The closing record then reached origin under the lane's own name by
+  `git push --force-with-lease origin lane/show/relay-harness`, allowed by the 2026-10-18 rule above ("a leg may
+  force-push its own lane, and only that"): this was the row's own option, left unbuilt until now. The unit is
+  closed on origin as well as locally; no further work is planned on this lane.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
+- **`retry-relay-harness-asis` (2026-10-31): the edit gate is RED, exit 6, on code this lane never touches.**
+  `Tools/selftest.py --only relay,health` is green (27 of 27). The edit gate (`validate.py` module, this lane's
+  diff being docs plus `.gitignore`) fails to compile: `Assets/_Project/Sim/Core/SimHash.cs`, `SimMath.cs`,
+  `SimRandom.cs`, `SimWorld.cs` cannot resolve `Unity.Mathematics` (`float2`/`float3`) or `Unity.Burst`
+  (`BurstCompile`, `FloatMode`, `FloatPrecision`) -- a package/assembly resolution problem, not a line this lane
+  edited (`git diff --stat origin/claude/trench-warfare-2d-3d-plan-idt7lf...HEAD -- Assets/_Project/Sim` is empty).
+  Integration tip at the time: `de7402b2d4`. Per the owner's bar ("all tests pass") and this unit's own risk
+  clause, the tag is not added and nothing is fixed: the compile error is SIM's, out of a SHOW lane's reach.
+  Options: (a) a SIM leg fixes the Burst/Mathematics package reference on integration, the default, since the
+  broken files are all under `Assets/_Project/Sim/Core`; (b) the owner re-answers knowing all tests cannot pass
+  until that lands. Nothing built here.
 - **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
   found-close-assault-fallback-skips-armour-and-can-20261018-0):** the finding says the `ownHits` path
   skips armour and can count a kill twice in a world with no `TankGunnerySystem`. Read in
@@ -471,6 +493,9 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   acted on; the rebase stays local on this checkout pending the owner's push.
   Answered in general 2026-10-18 (row above): a leg may now force-push its own lane, so (2) needs no build;
   whether this lane was pushed is still open.
+  Answered, 2026-10-31 (`retry-relay-harness-asis`, update on the row above): pushed. (2) was taken --
+  `git push --force-with-lease origin lane/show/relay-harness` from this checkout, the lease holding against
+  origin's pre-retry tip `2e01bfd946`. The lane is on origin under its own name; this item is closed.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
