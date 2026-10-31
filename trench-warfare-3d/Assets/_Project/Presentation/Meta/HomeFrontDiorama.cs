@@ -1,10 +1,13 @@
 // Phase: B6 / docs/21 phase 6 (implemented) — the Home Front: a city block behind the menus, built at runtime inside the
 // menu scene (no scene asset). Each building is a sliced house from Resources/Env (HouseKit), drawn as one mesh with
 // the chunks above its stage's height masked off (HomeFrontStages), so stage 0 is the ground floor and stage 3 the
-// whole building; expanding one raises the mask over RiseSeconds. Stages add chimneys that puff Book.Smoke and
-// amber point lights; the faction sets the key light (Iron a warm dusk, Brass a cool night). Picking is a ray
-// against a box collider per building while the pointer is not over the UI; the ring under a building marks the
-// hovered and the chosen one. Talks to the screens through IHomeFrontView; MetaBoot makes one on demand.
+// whole building; expanding one raises the mask over RiseSeconds. Buildings that share a set and model are drawn as
+// one instanced submission (a batch) with a per-instance _ChunkMask, so a faction's buildings cost one draw call a
+// distinct model instead of one a building; the chimneys and the masks are only rebuilt while a building animates.
+// Stages add chimneys that puff Book.Smoke and amber point lights; the faction sets the key light (Iron a warm dusk,
+// Brass a cool night). Picking is a ray against a box collider per building while the pointer is not over the UI;
+// the ring under a building marks the hovered and the chosen one. Talks to the screens through IHomeFrontView;
+// MetaBoot makes one on demand.
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -31,20 +34,28 @@ namespace TW.Presentation.Meta
             public float Shown, Goal; public HouseKit.ChunkMask Mask; public GameObject Pick; public float Extent; public Vector3 Foot;
         }
 
+        /// <summary>One instanced submission: every member shares a mesh (set + model), so they share a material too.</summary>
+        sealed class Batch
+        {
+            public Mesh Mesh; public Material Mat; public Matrix4x4[] Matrices; public Placed[] Members; public Vector4[] Masks; public int Count;
+        }
+
+        public const int MaxBuildings = 16;
+
         readonly Dictionary<string, HouseKit.House[]> sets = new Dictionary<string, HouseKit.House[]>();
         readonly Dictionary<string, Material> setMaterials = new Dictionary<string, Material>(), maskedMaterials = new Dictionary<string, Material>();
         readonly Dictionary<HouseKit.House, Mesh> wholes = new Dictionary<HouseKit.House, Mesh>();
         readonly List<Placed> placed = new List<Placed>();
+        readonly List<Batch> batches = new List<Batch>();
         readonly List<Light> lamps = new List<Light>();
         readonly List<Vector3> chimneyTops = new List<Vector3>();
         readonly List<Matrix4x4> chimneyMatrices = new List<Matrix4x4>();
-        readonly Matrix4x4[] one = new Matrix4x4[1]; readonly Vector4[] oneMask = new Vector4[1];
         MaterialPropertyBlock block;
         Mesh plate, road, ring, chimney; Material plateMat, roadMat, hoverMat, pickedMat, chimneyMat;
         FlipbookFx smoke; float nextPuff;
         Texture2D atlas; bool atlasLoaded;
         readonly MetaKeyLight keyLight = new MetaKeyLight();
-        bool shown;
+        bool shown, stale = true;
 
         public MetaCamera Rig { get; } = new MetaCamera();
         public event Action<string> Picked;
@@ -67,7 +78,7 @@ namespace TW.Presentation.Meta
         // ---- IHomeFrontView ------------------------------------------------------------------------------------------
         public void Show(byte faction, IReadOnlyList<BuildingView> buildings)
         {
-            Faction = faction; shown = true;
+            Faction = faction; shown = true; stale = true;
             gameObject.SetActive(true);
             ClearPlaced();
             plateMat.SetColor("_BaseColor", faction == 1 ? BrassPlate : IronPlate);
@@ -87,6 +98,7 @@ namespace TW.Presentation.Meta
                 var col = p.Pick.AddComponent<BoxCollider>(); col.center = house.Bounds.center; col.size = house.Bounds.size;
                 placed.Add(p);
             }
+            BuildBatches();
             RebuildLamps();
             keyLight.Take(Faction == 1 ? BrassKey : IronKey, Faction == 1 ? BrassKeyIntensity : IronKeyIntensity);
             smoke ??= new FlipbookFx();
@@ -99,7 +111,50 @@ namespace TW.Presentation.Meta
             if (p == null) return;
             p.View = view; p.Goal = view.ShownHeight;
             if (!animate) { p.Shown = p.Goal; p.Mask = HomeFrontStages.HiddenAt(p.House, p.Shown); }
+            stale = true;
             RebuildLamps();
+        }
+
+        // ---- batching: one instanced submission per (set, model) --------------------------------------------------
+        /// <summary>The pure grouping rule, shared by the draw path and the tests: distinct Set + "/" + Model, capped
+        /// at <see cref="MaxBuildings"/> a batch (a set that exceeds it starts an overflow batch).</summary>
+        static Dictionary<string, List<int>> GroupByKey(IReadOnlyList<BuildingView> views)
+        {
+            var groups = new Dictionary<string, List<int>>();
+            for (int i = 0; i < views.Count; i++)
+            {
+                string key = views[i].Set + "/" + views[i].Model;
+                if (!groups.TryGetValue(key, out var list)) groups[key] = list = new List<int>();
+                list.Add(i);
+            }
+            return groups;
+        }
+
+        public static int BatchCount(IReadOnlyList<BuildingView> views)
+        {
+            int total = 0;
+            foreach (var list in GroupByKey(views).Values) total += Mathf.CeilToInt(list.Count / (float)MaxBuildings);
+            return total;
+        }
+
+        void BuildBatches()
+        {
+            batches.Clear();
+            var views = new List<BuildingView>(placed.Count);
+            for (int i = 0; i < placed.Count; i++) views.Add(placed[i].View);
+            foreach (var indices in GroupByKey(views).Values)
+            {
+                var first = placed[indices[0]];
+                if (first.Whole == null || !maskedMaterials.TryGetValue(first.View.Set, out var mat)) continue;
+                for (int start = 0; start < indices.Count; start += MaxBuildings)
+                {
+                    int count = Mathf.Min(MaxBuildings, indices.Count - start);
+                    var matrices = new Matrix4x4[count];
+                    var members = new Placed[count];
+                    for (int k = 0; k < count; k++) { var p = placed[indices[start + k]]; matrices[k] = p.Matrix; members[k] = p; }
+                    batches.Add(new Batch { Mesh = first.Whole, Mat = mat, Matrices = matrices, Members = members, Masks = new Vector4[MaxBuildings], Count = count });
+                }
+            }
         }
 
         public void Highlight(string id) => Highlighted = id;
@@ -126,6 +181,7 @@ namespace TW.Presentation.Meta
                 if (p.Shown == p.Goal) continue;
                 p.Shown = Mathf.MoveTowards(p.Shown, p.Goal, dt / RiseSeconds);
                 p.Mask = HomeFrontStages.HiddenAt(p.House, p.Shown);
+                stale = true;
             }
             Hover = MetaPick.Tick(Rig, dt, now, PickReach, out bool pressed);
             if (pressed) Picked?.Invoke(Hover);
@@ -139,20 +195,14 @@ namespace TW.Presentation.Meta
             rp.material = roadMat; rp.shadowCastingMode = ShadowCastingMode.Off;
             FrameBudget.Draw(rp, road, 0, Matrix4x4.Translate(new Vector3(0f, 0.02f, 0f)));
 
-            chimneyMatrices.Clear(); chimneyTops.Clear();
-            for (int i = 0; i < placed.Count; i++)
+            if (stale)
             {
-                var p = placed[i];
-                if (p.Whole != null && maskedMaterials.TryGetValue(p.View.Set, out var mat))
+                chimneyMatrices.Clear(); chimneyTops.Clear();
+                for (int i = 0; i < placed.Count; i++)
                 {
-                    one[0] = p.Matrix; oneMask[0] = p.Mask.Packed;
-                    block.SetVectorArray("_ChunkMask", oneMask);
-                    var hp = new RenderParams(mat) { worldBounds = Everything, shadowCastingMode = ShadowCastingMode.On, receiveShadows = true, matProps = block };
-                    FrameBudget.Draw(hp, p.Whole, 0, one, 1);
-                }
-                int chimneys = p.View.Chimneys;
-                if (chimneys > 0)
-                {
+                    var p = placed[i];
+                    int chimneys = p.View.Chimneys;
+                    if (chimneys <= 0) continue;
                     var b = p.House.Bounds;
                     float roof = Mathf.Min(b.max.y, HomeFrontStages.Limit(p.House, p.Shown)) - 0.3f;
                     for (int c = 0; c < chimneys; c++)
@@ -163,12 +213,29 @@ namespace TW.Presentation.Meta
                         chimneyTops.Add(world + Vector3.up * 1.7f);
                     }
                 }
+                for (int bi = 0; bi < batches.Count; bi++)
+                {
+                    var batch = batches[bi];
+                    for (int k = 0; k < batch.Count; k++) batch.Masks[k] = batch.Members[k].Mask.Packed;
+                }
+                stale = false;
+            }
+            for (int i = 0; i < placed.Count; i++)
+            {
+                var p = placed[i];
                 bool hover = Hover != null && Hover == p.View.Id, picked = Highlighted != null && Highlighted == p.View.Id;
                 if (hover || picked)
                 {
                     rp.material = picked ? pickedMat : hoverMat;
                     FrameBudget.Draw(rp, ring, 0, Matrix4x4.TRS(p.Foot + Vector3.up * 0.04f, Quaternion.identity, new Vector3(p.Extent, 1f, p.Extent)));
                 }
+            }
+            for (int bi = 0; bi < batches.Count; bi++)
+            {
+                var batch = batches[bi];
+                block.SetVectorArray("_ChunkMask", batch.Masks);
+                var hp = new RenderParams(batch.Mat) { worldBounds = Everything, shadowCastingMode = ShadowCastingMode.On, receiveShadows = true, matProps = block };
+                FrameBudget.Draw(hp, batch.Mesh, 0, batch.Matrices, batch.Count);
             }
             if (chimneyMatrices.Count > 0)
             {
@@ -255,6 +322,7 @@ namespace TW.Presentation.Meta
         {
             foreach (var p in placed) if (p.Pick != null) Destroy(p.Pick);
             placed.Clear();
+            batches.Clear();
             foreach (var l in lamps) if (l != null) Destroy(l.gameObject);
             lamps.Clear();
             Hover = null; Highlighted = null;
