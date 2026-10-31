@@ -153,5 +153,23 @@ namespace TW.Tests
                 }
             Assert.GreaterOrEqual(checkedModels, 15, "every building of both factions");
         }
+
+        /// <summary>Terrain batches by (set, model) so one mesh serves one instanced draw; Home Front does the same
+        /// (optimizer: found-home-front-submits-one-instanced-draw-per-bu-20261017-1). Counted by hand off the table
+        /// in FactionBuildings.cs:137-239 — Iron: Blockhouse x3, GuardPost x2, CommandPost, Watchtower (4 distinct);
+        /// Brass: House4, House3, House1 x2, House2 x2, House0, House5 (6 distinct).</summary>
+        [Test]
+        public void Buildings_Of_The_Same_Set_And_Model_Share_A_Batch()
+        {
+            Assert.AreEqual(4, HomeFrontDiorama.BatchCount(ViewsOf(0)), "Iron: 7 buildings, 4 distinct models");
+            Assert.AreEqual(6, HomeFrontDiorama.BatchCount(ViewsOf(1)), "Brass: 8 buildings, 6 distinct models");
+        }
+
+        static System.Collections.Generic.List<BuildingView> ViewsOf(byte faction)
+        {
+            var views = new System.Collections.Generic.List<BuildingView>();
+            foreach (var b in TW.UI.FactionBuildings.Of(faction)) views.Add(new BuildingView { Id = b.Id, Set = b.Set, Model = b.Model });
+            return views;
+        }
     }
 }
