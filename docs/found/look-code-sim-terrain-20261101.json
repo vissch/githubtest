@@ -1,0 +1,67 @@
+{
+ "subject": "code:Sim/Terrain",
+ "looked_at": [
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/MapStructs.cs:1-52 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/NavLayer.cs:1-39 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/MudField.cs:1-25 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/WireBelt.cs:1-43 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/Heightfield.cs:1-50 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/PropHarm.cs:1-39 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/PropDef.cs:1-90 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/PropIndex.cs:1-96 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/MapData.cs:1-326 (whole, including Hash() 292-315)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/CraterStamp.cs:1-240 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/BattlefieldGenerator.cs:1-442 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/GreyboxMapGenerator.cs:1-159 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Match/Deformation.cs:1-210 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/SimHash.cs:1-44 (whole)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/BattlefieldTests.cs:1-247 (whole)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/DynamicGroundTests.cs:1-322 (whole)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/PropIndexTests.cs:1-92 (whole)",
+  "greps of trench-warfare-3d/Assets/_Project/Sim for '.Yaw\\b' to check whether PropDef.Yaw feeds any sim rule (only vehicle/unit Yaw fields matched, never PropDef.Yaw)",
+  "docs/reference/tasks.md:144-157 (Map generation and ground row)",
+  "docs/reference/decisions.md greps for crater/trench dist/R0 C1/shore-defences/Dir (R0 C1 wire-gap frame 2026-10-07, coast-shore-defences 2026-10-08, CraterStamp no Dir Q6 line ~387 all already decided, not repeated here)",
+  "docs/found/look-code-sim-combat-20261018.json (no overlap with PropDef.Hash, MapData.RebuildCover or the WireBelt/MudField duplication below)"
+ ],
+ "tasks": [
+  {
+   "title": "Fold PropDef.Yaw into MapData.Hash's field-by-field prop loop",
+   "why": "MapData.Hash (MapData.cs:309-313) hashes Props field by field to dodge struct padding, but the list it folds in is Pos, Hp, Scale, Cell, Kind only -- Yaw is left out. Yaw is authoritative sim state: BattlefieldGenerator.cs:321,327,329 sets it from the seeded RNG for every tree and wreck, and Deformation.cs:108-109 sets a wreck's Yaw from the dying vehicle's heading (d.Yaw) at AddProp. Nothing in Sim/** reads PropDef.Yaw for a rule (confirmed by grep: every other '.Yaw' hit is a vehicle or unit field), so today it is cosmetic, but it is the one piece of prop state the hash chain cannot see: a future rule that reads it, or a presentation bug that assumes replay-identical worlds also agree on it, has no test or determinism check that would ever catch a divergence.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Sim/Terrain/MapData.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Terrain/PropDef.cs"
+   ],
+   "lane": "sim",
+   "role": "review-fix",
+   "done_when": "A new EditMode test builds two MapData instances, AddProp's the same PropDef into each except for Yaw, and asserts Hash(0) differs; red on this commit (Yaw omitted, hashes equal) and green once MapData.cs:312 adds `h = SimHash.Value(p.Yaw, h);` with a SimHash/FormatVersion bump logged in docs/02-contracts.md. Determinism, replay and hash tests rerun green after.",
+   "risk": [false, true, false, false, false],
+   "change": [false, false, false, true, false]
+  },
+  {
+   "title": "MapData.RebuildCover rescans every prop on every single stage change",
+   "why": "MapData.SetPropKind (MapData.cs:202-213), called once per prop that finishes breaking (PropHarm.Harm -> SetPropKind via Deformation.Shake), calls RebuildCover (MapData.cs:215-220) unconditionally: it zeroes the whole CellCover array and restamps every prop in map.Props from scratch, every time, even though only one prop's cover percent changed. A barrage in a wood (PropIndexTests' 400-tree forest is the measured case) can finish several trees in the same tick -- Shake (Deformation.cs:151-184) calls PropHarm.Harm per candidate, each Changed outcome re-walking all 400+ props -- so one tick's cost is O(props-changed x total-props) where it only needs to touch the handful of cells those props actually stamp.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Sim/Terrain/MapData.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/Deformation.cs"
+   ],
+   "lane": "sim",
+   "role": "optimizer",
+   "done_when": "A bench (CaptureRig.Bench or a new EditMode timing test) on PropIndexTests' 400-tree forest barrage shows RebuildCover's share of the tick down after the fix; BattlefieldTests.Blasts_WearATreeDownToAStump_AndItsCoverAndBlockedCellGoWithIt and the determinism/replay/hash tests stay green and unmoved.",
+   "risk": [false, true, false, false, false],
+   "change": [false, false, false, false, false]
+  },
+  {
+   "title": "WireBelt.Place and MudField.Place duplicate the same rect-fill loop",
+   "why": "WireBelt.cs:12-22 and MudField.cs:13-23 are identical except for the one NavLayer bit they add (Wire vs Mud) and the layer-skip set they both test (Trench | Link | Bunker | Blocked). A fix to the skip set, the NavCellOf rounding, or the SetLayer call in one (e.g. the fault class the owner's wire-gap frame decision and the 2026-09-28 mud-cost note both touch) has to be remembered and made twice; nothing enforces that the second copy follows.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Sim/Terrain/WireBelt.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Terrain/MudField.cs"
+   ],
+   "lane": "sim",
+   "role": "review-fix",
+   "done_when": "WireBelt.Place and MudField.Place call one shared MapData helper (e.g. MapData.FillRect(min, max, NavLayer, skipMask)) differing only in the layer bit; BattlefieldTests and DynamicGroundTests pass unchanged, and determinism/replay/hash tests stay green.",
+   "risk": [false, false, false, false, false],
+   "change": [false, false, false, false, false]
+  }
+ ]
+}
