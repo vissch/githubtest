@@ -1,0 +1,78 @@
+{
+  "subject": "look:vehicles",
+  "looked_at": [
+    "shots/floor_a.png, floor_b.png + CaptureRig.Diff (the noise floor under Hold(120): changed_frac 0.00032, luma_mean_abs 0.00176)",
+    "shots/maw30_00..07.png + sidecars (a Maw driving, zoom 30, yaw 21, pitch 25, clock running)",
+    "shots/maw_close15.png, tusk_close15.png (two tanks at zoom 15)",
+    "shots/pre_top.png, post_top.png, path_top.png (top-down, zoom 12, pitch 80, on ground a Maw had just crossed)",
+    "shots/fire30_00..07.png, kill30_00..07.png (a Maw at the standard view, alive and as it died)",
+    "shots/wreck_s0_30.png, wreck_s0_15.png (the Wreck stage of that Maw, zoom 30 and 15)",
+    "shots/burn30.png, burn15.png (a Maw alight, TankCapture.Ignite(9, 0.75), zoom 30 and 15)",
+    "shots/pincer15_00..07.png, pincer_stand15.png, pincer_top12.png (a Pincer walker)",
+    "shots/dmg_full.png, dmg_40.png, dmg_diff.png (an attempted before/after on a shelled Maw; INVALID, hp never moved)",
+    "maw_drive.csv (WeightLab.Trace, 301 frames of a Maw driving) and pincer_walk.csv / pincer_walk2.csv (10238 frames of a Pincer)",
+    "CombatFx.MarkReport rows before, during and after each drive, and WeightLab.TraceStatus (quoted in the leg's shots.md)",
+    "WreckLab.Wreck(72,231) -> 'prop 154 Wreck hp 900', and SimProbe.Unit for slots 4, 9, 12 and 16",
+    "Tools/shotstats.py crop and spread_ratio runs on wreck_s0_30.png, and PIL luma/warm box measures on burn30, burn15, kill30_03, wreck_s0_30",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Ground.cs (AddMark, DrawClose, the trail stepping and the probe, lines 55-275)",
+    "trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs, WeightLab.cs, WreckLab.cs, RiderLab.cs, DeathLab.cs, TankCapture.cs, SimProbe.cs (the entry points used)",
+    "docs/found/look-look-vehicles-20261018.json (all four earlier findings re-measured; see shots.md)",
+    "docs/found/look-look-every-unit-close-20261016.json, -20261019.json, -20261027.json, look-look-night-20261019.json (dedup)",
+    "docs/reference/tasks.md (Vehicles in the sim; Tanks and walkers drawn; Ground marks and footfalls) and docs/reference/decisions.md (Look and view, and the whole open block)"
+  ],
+  "tasks": [
+    {
+      "title": "Light a burning machine's own hull, not just the mud",
+      "why": "MEASURED at the standard view and confirmed close. In burn30.png (zoom 30, yaw 21, pitch 25, a Maw with a full cel flame on its back) the hull body box 820,270,150,110 measures luma_mean 0.0631, sd 0.0235, warm_frac 0.0001, while the mud pool the same fire paints 1.5 m away (box 700,440,150,90) measures 0.3854 with warm_frac 0.5570 - six times brighter. The SAME Maw with no fire at all (kill30_03.png, same camera, box 680,200,150,110) measures 0.1267, sd 0.0707, warm_frac 0.0112. So setting a machine alight makes its hull HALF as bright and three times flatter than leaving it alone: it becomes a black slab standing in a bright orange puddle. burn15.png (zoom 15) shows the same body black while the pool beside it glows and does not climb the near track. Fixes 252c254e6 and 6e0465672 landed and the pool half of the 2026-10-18 finding now reads (mud was 0.1921 warm 0.0000, now 0.3854 warm 0.5570), but the hull went the wrong way: it measured 0.1618 before that fix and measures 0.0631 now. The strongest 'this machine is about to die' signal still does not reach the machine, and it breaks the owner's night rule that every fire lights what is around it (decisions 2026-09-29, look.pools).",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Lights.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.Machines.cs",
+        "trench-warfare-3d/Assets/_Project/Shaders/Tank_URP.shader"
+      ],
+      "lane": "show",
+      "role": "destruction-vfx-simulator",
+      "done_when": "TankCapture.Ignite(slot, 0.75) then CaptureRig.Shot at zoom 30 on the machine: the hull body box measures luma_mean over 0.18 (today 0.0631) and warm_frac over 0.05 (today 0.0001), the hull is brighter than the same machine unlit (0.1267), the mud pool stays over 0.30, and blown_frac stays under 0.02.",
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    },
+    {
+      "title": "A fresh wreck is a flat blob, not a dead tank",
+      "why": "MEASURED and seen at two zooms. A Maw killed by shellfire leaves prop 154 (WreckLab.Wreck(72,231) -> 'prop 154 Wreck hp 900'), the first and most whole wreck stage. In wreck_s0_30.png, at the view the game is played at, the wreck box 690,160,200,180 measures luma_mean 0.1123 (8-bit mean 29.0), sd 19.5, p95 67 and warm_frac 0.0000, while bare mud at the same depth (box 480,170,200,180) measures 0.1840 (mean 47.3), sd 19.3, p95 79. Tools/shotstats.py on those two crops returns spread_ratio 0.991: the wreck of a tank carries no more internal detail than a patch of empty mud. The same machine ALIVE, same camera, seconds earlier (kill30_03.png, box 640,110,220,200) measured mean 46.0, sd 31.6, p95 110 - it loses two thirds of its internal contrast and 37% of its brightness the instant it dies. wreck_s0_15.png confirms it close: no tracks, no gun, no broken plate, no scorch, no ember, no smoke; a dark lump the player reads as a rock or a crate, not as the tank he just killed. The one thing a wreck has to say - 'a machine died here, and it is now cover' - it does not say.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.WreckStages.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldProps.cs",
+        "trench-warfare-3d/Assets/_Project/Shaders/Toon_URP.shader"
+      ],
+      "lane": "show",
+      "role": "destruction-vfx-simulator",
+      "done_when": "Kill a machine, CaptureRig.Shot the Wreck stage at zoom 30, then Tools/shotstats.py <png> --crop <wreck box> --crop <mud box at the same depth>: spread_ratio is at least 1.4 (today 0.991) and the wreck box's luma_mean is within 0.03 of the mud's (today 0.0717 below it), with the wreck still readable as the machine's silhouette at zoom 15.",
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    }
+  ]
+}
