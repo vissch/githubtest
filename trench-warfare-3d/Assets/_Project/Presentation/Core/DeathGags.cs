@@ -47,6 +47,9 @@ namespace TW.Presentation
         /// duration, and the amplitude in roll steps.</summary>
         public sbyte RestRoll;
         public float TwitchRoll, TwitchHz, TwitchDur;
+        /// <summary>Metres he rises as he turns over at rest: a body mirrored about his feet goes under the mud by his own
+        /// lying thickness, and this lifts him back out of it (a frog on his back is about 0.3 m thick).</summary>
+        public float RestLift;
         public uint Seed;
         public bool Any => Gag != DeathGag.None;
     }
@@ -243,6 +246,14 @@ namespace TW.Presentation
         {
             plan.Gag = DeathGag.FrogFlop;
             plan.RestRoll = 16;
+            // the half turn happens about his feet (y = 0), not a standing man's middle (VAT_URP.shader's pivot): about
+            // 0.9 m it drew him hovering over his mark instead of lying on it. Mirrored about 0 he would be buried by his
+            // own lying thickness, so he rises by exactly that much as he turns (FallenFlight.At).
+            plan.Flags |= GagFlags.Feet;
+            plan.RestLift = 0.30f;
+            // and he lies spread: the squash flattens him along world up and widens x and z, so belly, legs and head
+            // splay out instead of stacking into one narrow shape (the owner's pick: "flops belly up, legs twitch")
+            plan.RestQ = (sbyte)VatTintCode(Towards(1f, 0.85f, a));
             fly = new float3(0f, Towards(0f, 0.35f, a), 0f);
             plan.Rolls = 0;
             plan.PulseQ = (sbyte)VatTintCode(Towards(1f, 1.12f, a)); plan.PulseDur = 0.12f;
