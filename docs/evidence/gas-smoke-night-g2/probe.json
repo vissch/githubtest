@@ -30,17 +30,17 @@
         782,
         450
       ],
-      "cloud_median": 0.43611,
-      "contrast": 0.15107,
-      "ground_median": 0.56858,
+      "cloud_median": 0.42827,
+      "contrast": 0.2387,
+      "ground_median": 0.69683,
       "mask_columns": 384,
-      "mask_pixels": 58469,
+      "mask_pixels": 63239,
       "px_per_m": 19.8598,
-      "rim": 0.20477,
-      "rim_body": 0.41989,
-      "rim_top": 0.63614,
-      "rise_m": 6.275,
-      "rise_px": 124.62
+      "rim": 0.24212,
+      "rim_body": 0.4148,
+      "rim_top": 0.67983,
+      "rise_m": 7.2317,
+      "rise_px": 143.62
     },
     "gas_night": {
       "bars": {
@@ -63,17 +63,17 @@
         782,
         450
       ],
-      "cloud_median": 0.41042,
-      "contrast": 0.53383,
-      "ground_median": 0.12473,
+      "cloud_median": 0.44069,
+      "contrast": 0.55953,
+      "ground_median": 0.12447,
       "mask_columns": 384,
-      "mask_pixels": 62080,
+      "mask_pixels": 72677,
       "px_per_m": 19.8611,
-      "rim": 0.0,
-      "rim_body": 0.414,
-      "rim_top": 0.40003,
-      "rise_m": 5.614,
-      "rise_px": 111.5
+      "rim": 0.08748,
+      "rim_body": 0.43974,
+      "rim_top": 0.52405,
+      "rise_m": 8.2825,
+      "rise_px": 164.5
     },
     "smoke_day": {
       "bars": {
@@ -89,8 +89,8 @@
         370
       ],
       "cloud_median": 0.74268,
-      "contrast": 0.00621,
-      "ground_median": 0.74741
+      "contrast": 0.00729,
+      "ground_median": 0.74378
     },
     "smoke_night": {
       "bars": {
@@ -105,8 +105,8 @@
         931,
         370
       ],
-      "cloud_median": 0.58239,
-      "contrast": 0.51757,
+      "cloud_median": 0.58658,
+      "contrast": 0.52018,
       "ground_median": 0.18559
     }
   }
