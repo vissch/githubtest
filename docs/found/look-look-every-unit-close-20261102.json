@@ -1,0 +1,14 @@
+{
+  "subject": "look:every-unit-close",
+  "looked_at": [
+    "UnitCloseStills rerun 2026-11-03 (fresh, TW_STILLS_DIR outside the checkout): 76 PNGs + sidecars, every unit of ProvingGround.Catalogue() at zoom 9, pitch 25, yaws 21/201; test exits red as expected",
+    "docs/found/look-look-every-unit-close-20261016.json, -20261019.json, -20261027.json (banned-list titles)",
+    "docs/reference/decisions.md lines 306-329 (Open: waiting on the owner, 13 foot-figure stills below the contrast bar)",
+    "docs/reference/tasks.md line 767 (UnitCloseStills row)",
+    "sidecar stats over the fresh 76: contrast_median (foot-tagged, men_in_frame>=1, 35 of 76), black_frac, blown_frac, pose_error_m, vertices, warnings",
+    "36-Austin-a.png vs 36-Austin-b.png, 19-Kettle-a/b.png, 21-Pavise-a/b.png, 23-Redoubt-b.png, 20-Censer-a.png, 24-Breaker-a.png, 25-Skimmer-a.png (visual read of worst black_frac)",
+    "13-Death-Bn-a.png, 11-Sentry-a.png (new-ish specialty units, visual read)",
+    "Tools/shotstats.py on 36-Austin-a.png and 36-Austin-b.png"
+  ],
+  "tasks": []
+}
