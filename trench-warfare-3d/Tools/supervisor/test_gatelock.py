@@ -66,6 +66,26 @@ class GateLock(unittest.TestCase):
         ok, _ = gatelock.acquire('canary', pid=os.getpid(), p=self.lock)
         self.assertTrue(ok)
 
+    def test_a_fresh_lock_made_by_another_taker_meanwhile_is_not_removed(self):
+        # B read a stale lock; before B moves it aside, A has taken it over and made a fresh one: B must not win
+        gatelock.acquire('canary', pid=os.getpid(), p=self.lock)
+        real, calls = gatelock.read, []
+
+        def read(p=None):
+            calls.append(p)
+            rec = real(p)
+            if len(calls) == 1:
+                return dict(rec, pid=dead_pid())          # what B saw a moment ago
+            return rec
+        gatelock.read = read
+        try:
+            ok, holder = gatelock.acquire('landing', pid=os.getpid(), p=self.lock)
+        finally:
+            gatelock.read = real
+        self.assertFalse(ok)
+        self.assertEqual(holder['who'], 'canary')
+        self.assertEqual(gatelock.read(self.lock)['who'], 'canary')
+
     def test_pid_alive(self):
         self.assertTrue(gatelock.pid_alive(os.getpid()))
         self.assertFalse(gatelock.pid_alive(dead_pid()))

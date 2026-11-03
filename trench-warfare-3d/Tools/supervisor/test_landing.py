@@ -87,6 +87,7 @@ class Repos(unittest.TestCase):
                           TW_LAND_CLAUDE=json.dumps([sys.executable, '-c', 'pass']), TW_LAND_REPO=str(self.repo),
                           TW_LAND_STAGE=str(self.stage), TW_BOARD=str(self.board))
         shutil.copytree(ORIGIN['path'], origin)              # made once (setUpModule), copied for each test
+        self.origin = origin
         self.base, self.tips = ORIGIN['base'], ORIGIN['tips']
         git(t, 'clone', '-q', str(origin), str(self.repo))
         # a local branch with a look change origin does not have: the stack must never read it
@@ -180,6 +181,13 @@ class Classify(unittest.TestCase):
         self.assertEqual(c([A + 'Editor/E.cs', A + 'Tests/T.cs'], ['[ux-1] new'], 'lane/show/review-fixes'), 'fix')
         self.assertEqual(c([A + 'Editor/E.cs'], ['[rv-12-x] fix it']), 'owner')        # no test
         self.assertEqual(c([A + 'Editor/E.cs', A + 'Tests/T.cs'], ['[ux-1] new']), 'owner')   # not a fix unit
+        self.assertEqual(c([A + 'Editor/E.cs', A + 'Tests/T.cs'], ['[sup1-x] new'], 'lane/show/sup1'), 'owner')
+        # what the landing session itself reads, and the owner's words and the seam's documents (review L2)
+        for p in ('CLAUDE.md', P + 'CLAUDE.md', '.claude/agents/tw-reviewer.md', '.claude/skills/tw-master/SKILL.md',
+                  '.claude/skills/tw-review/SKILL.md'):
+            self.assertEqual(c([p, 'docs/x.md']), 'guard', p)
+        for p in ('docs/reference/decisions.md', 'docs/02-contracts.md', 'docs/03-determinism-rules.md'):
+            self.assertEqual(c([p, 'docs/x.md']), 'owner', p)
         self.assertEqual(c([P + 'ProjectSettings/x.asset']), 'owner')
         self.assertEqual(c([P + 'Assets/odd.png']), 'owner')
         self.assertEqual(c([]), 'empty')
@@ -196,6 +204,25 @@ class Collect(Repos):
         self.assertEqual([r['lane'] for r in L.eligible(rows)],
                          ['lane/show/extra-doc', 'lane/show/tool-a', 'lane/show/tool-clash', 'lane/show/docs-b',
                           'lane/show/review-fix-e'])
+
+    def test_a_lane_whose_units_the_critic_holds_does_not_land(self):
+        # the critic gate's state (Phase 5, modules/critic_gate.py) holds docs-b's unit; tool-a's is not held
+        core.write_state('critic_gate', dict(held={'lane/show/docs-b': dict(score=55)}), self.home)
+        lines = L.step(self.ctx(True), self.W)
+        d = core.read_state('landing', self.home)['days']['2026-11-03']
+        row = [c for c in d['candidates'] if c['lane'] == 'lane/show/docs-b'][0]
+        self.assertEqual((row['cls'], row['why']), ('held', 'held by the critic, score 55'))
+        self.assertNotIn('lane/show/docs-b', d['stacked'])
+        self.assertIn('lane/show/tool-a', d['stacked'])
+        self.assertTrue(lines)
+
+    def test_a_lane_deleted_on_origin_is_not_collected(self):
+        self.W.fetch()
+        git(self.origin, 'branch', '-D', 'lane/show/docs-b')                 # the owner rejects it
+        self.W.fetch()
+        _, rows = L.collect(self.W, self.home)
+        self.assertNotIn('lane/show/docs-b', [r['lane'] for r in rows])
+        self.assertIn('lane/show/tool-a', [r['lane'] for r in rows])
 
     def test_a_done_record_whose_head_is_not_on_the_lane_does_not_count(self):
         rec = self.board / 'relay' / 'done' / 'docs-b.json'
@@ -299,6 +326,20 @@ class Turns(Repos):
         self.assertNotIn('landed', st['days']['2026-11-03'])
         self.assertFalse((self.home / 'landed.json').exists())
         self.assertIsNone(gatelock.read())
+
+    def test_an_overdue_session_keeps_the_checkout_and_the_lock(self):
+        st = self.on()
+        g = st['gate']
+        Path(g['log']).write_text(f'Gate green. Tested tree {g["tree"][:10]}', encoding='utf-8')
+        Path(git(self.stage, 'rev-parse', '--path-format=absolute', '--git-path', 'tw-gate-green')).write_text(g['tree'], encoding='utf-8')
+        self.on()
+        self.W.alive = lambda pid: True
+        self.now += L.SESSION_MOST + 600
+        st = self.on()
+        self.assertEqual(st['phase'], 'landing')
+        self.assertTrue(st['session'].get('overdue'))
+        self.assertEqual(gatelock.read()['who'], 'landing')
+        self.assertEqual(len(self.W.started), 2)
 
     def test_landed_is_read_from_origin(self):
         st = self.on()

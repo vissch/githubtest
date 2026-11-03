@@ -55,15 +55,20 @@ STACK_MOST = 8              # lanes in one stack: a red gate on more says too li
 TRY_MOST = 24               # lanes tried for one stack (conflicts skipped) before it is built with what it has
 LANDINGS_A_DAY = 3          # landing sessions a day: each is a second read on Opus
 GATE_MOST = 3 * 3600        # a gate with no verdict after this is taken as red
-SESSION_MOST = 2 * 3600     # a landing session past this is taken as ended (it is not stopped: the lock goes stale)
+SESSION_MOST = 2 * 3600     # a landing session past this is said overdue; it is waited for, never stopped
 PLAN_AGAIN = 3 * 3600       # dry: the forecast is made again after this
 SKIP = ('lane/show/found',)  # the lane found.py writes old-work looks on: never landed
 WHO = 'landing'
 
-# what checks a landing, or how a session may act: a lane that changes these never lands by itself
+# what checks a landing, or how a session may act: a lane that changes these never lands by itself. The landing
+# session runs in the stacked checkout and reads its CLAUDE.md, agents and review skills, so a lane that changed
+# them would rewrite the second read that judges it (review 2026-11-03, L2).
 GUARD = ('gate.ps1', P + 'gate.ps1', P + 'Tools/land.py', P + 'Tools/gate', P + 'Tools/toolcheck.py',
          P + 'Tools/selftest.py', P + 'Tools/checks/', P + 'validate.py', P + 'Tools/supervisor/', '.claude/settings',
-         '.claude/hooks', '.github/')
+         '.claude/hooks', '.claude/agents/', '.claude/skills/tw-master/', '.claude/skills/tw-review/', '.github/',
+         'CLAUDE.md', P + 'CLAUDE.md')
+# the owner's words and the seam's documents (CLAUDE.md, "The seam"): his, whatever else the lane is
+OWNER_DOCS = ('docs/reference/decisions.md', 'docs/02-contracts.md', 'docs/03-determinism-rules.md')
 LOOK = tuple(A + d + '/' for d in ('Presentation', 'Art', 'Shaders', 'Scenes', 'Resources', 'UI', 'Settings'))
 SIM = (A + 'Sim/', A + 'Net/', A + 'Data/')
 SEAM = (P + 'ProjectSettings/', P + 'Packages/')
@@ -71,7 +76,7 @@ ALONE_CLAUDE = ('.claude/skills/', '.claude/agents/')
 PICTURES = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
 ORDER = ('alone', 'fix')    # the classes that land by themselves, the safer first
 OWNERS = ('look', 'sim', 'guard', 'owner')
-FIX_TAG = re.compile(r'(review|fix|rv-|p1)', re.I)
+FIX_TAG = re.compile(r'(review|fix|rv-|\bp1\b)', re.I)
 
 
 # ---- classes ---------------------------------------------------------------------------------------------------------
@@ -88,7 +93,7 @@ def kind(p):
         return 'test' if p.endswith(('.cs', '.cs.meta', '.asmdef', '.asmdef.meta')) else 'owner'
     if p.startswith(LOOK):
         return 'look'
-    if p.startswith(SEAM):
+    if p.startswith(SEAM) or p in OWNER_DOCS:
         return 'owner'
     if p.startswith('docs/') or p.startswith(P + 'docs/') or p.startswith(P + 'Tools/') or p.startswith(ALONE_CLAUDE):
         return 'alone'
@@ -156,7 +161,8 @@ class World:
         return self.git(*a, cwd=self.stage)
 
     def fetch(self):
-        return self.git('fetch', '-q', 'origin')
+        # --prune: a lane the owner deleted on origin must not live on as a remote-tracking ref and land (review L1)
+        return self.git('fetch', '-q', '--prune', 'origin')
 
     def base(self):
         return self.out('rev-parse', '-q', '--verify', f'refs/remotes/origin/{INTEGRATION}^{{commit}}')
@@ -233,8 +239,10 @@ def done_records(board):
     return out
 
 
-def collect(W, home, red=None):
-    """Every lane that could land, with its class: [{lane, tip, cls, why, files, n, title, pictures, from}]."""
+def collect(W, home, red=None, held=None):
+    """Every lane that could land, with its class: [{lane, tip, cls, why, files, n, title, pictures, from}].
+    `held` is the critic gate's state (modules/critic_gate.py, its 'held': {unit id: {score, ...}}): a lane whose
+    passed units on it are all held there does not land. No such state: nothing is held."""
     base = W.base()
     lanes = W.origin_lanes()
     done = done_records(W.board)
@@ -248,7 +256,8 @@ def collect(W, home, red=None):
         tip = lanes.get(lane)
         if not tip or W.is_anc(tip, base):
             continue                                     # gone from origin, or landed already
-        if lane in done and not any(W.is_anc(r['head'], tip) for r in done[lane]):
+        units = [r for r in done.get(lane, []) if W.is_anc(r['head'], tip)]
+        if lane in done and not units:
             continue                                     # no passed unit's work is on the lane as origin has it
         files = W.changed(base, tip)
         subjects = W.subjects(base, tip)
@@ -259,6 +268,9 @@ def collect(W, home, red=None):
             cls, why = 'merges', 'it holds a merge commit; integration takes none'
         elif red.get(lane) == tip:
             cls, why = 'red', 'the gate was red on it alone at this tip'
+        elif units and held and all(str(r.get('id')) in held for r in units):
+            scores = [h.get('score', '?') if isinstance(h, dict) else '?' for h in (held[str(r.get('id'))] for r in units)]
+            cls, why = 'held', 'held by the critic, score ' + ', '.join(str(s) for s in scores)
         rows.append(dict(lane=lane, tip=tip, cls=cls, why=why, n=len(files), title=plain_title(subjects),
                          pictures=[f for f in files if f.lower().endswith(PICTURES)][:3],
                          came='extra' if lane in extra and lane not in done else 'relay'))
@@ -498,7 +510,8 @@ def idle(ctx, W, st, d, day):
         return [f'{day}: nothing could land at the last look; the next look is within the hour']
     d.pop('nothing', None)
     W.fetch()
-    base, rows = collect(W, ctx.home, st.get('red'))
+    held = (ctx.other('critic_gate', {}) or {}).get('held') or {}
+    base, rows = collect(W, ctx.home, st.get('red'), held if isinstance(held, dict) else {})
     if not base:
         return ['origin\'s integration branch could not be read']
     classes = {}
@@ -553,8 +566,9 @@ def idle(ctx, W, st, d, day):
         gatelock.release(WHO)
         raise
     st['phase'] = 'gating'
+    tips = {r['lane']: r['tip'] for r in ok}
     st['gate'] = dict(pid=pid, log=str(log), started=ctx.now, sha=tip, tree=W.tree(tip), base=base, branch=branch,
-                      lanes=stacked)
+                      lanes=stacked, tips={l: tips[l] for l in stacked})
     d['gate'] = 'running'
     d['branch'] = branch
     return lines + [f'stacked {len(stacked)} lanes as {branch} at {tip[:8]}; the full gate runs (pid {pid}, {log.name})']
@@ -577,7 +591,8 @@ def gating(ctx, W, st, d):
             d['limit'] = max(1, len(g['lanes']) // 2)
             more = f'the next stack takes {d["limit"]} lanes'
         else:
-            st.setdefault('red', {})[g['lanes'][0]] = W.out('rev-parse', f'refs/remotes/origin/{g["lanes"][0]}') or 'unknown'
+            # the tip that was gated, not origin's tip now: a lane that moved meanwhile is tried again (review L6)
+            st.setdefault('red', {})[g['lanes'][0]] = (g.get('tips') or {}).get(g['lanes'][0], 'unknown')
             more = f'{g["lanes"][0]} waits until its tip moves'
         return [f'gate {v} on {g["branch"]}; {more}']
     d['gate'] = 'green'
@@ -628,27 +643,35 @@ def land(ctx, W, st, d):
         return [d['landing']]
     gatelock.handover(WHO, pid)
     st['phase'] = 'landing'
-    st['session'] = dict(pid=pid, started=ctx.now, result=str(result))
+    st['session'] = dict(pid=pid, started=ctx.now, result=str(result),
+                         day=time.strftime('%Y-%m-%d', time.localtime(ctx.now)))
     d.setdefault('landings', []).append(dict(at=ctx.now, sha=g['sha'], lanes=g['lanes']))
     return [f'gate green on {g["branch"]}; the landing session runs (pid {pid})']
 
 
 def landing_wait(ctx, W, st, d):
     s, g = st['session'], st['gate']
-    if W.alive(s['pid']) and ctx.now - s['started'] < SESSION_MOST:
-        return [f'the landing session runs ({int((ctx.now - s["started"]) // 60)} min)']
+    if W.alive(s['pid']):
+        # still running: the stage checkout and the lock stay its own, however long (review L3); past SESSION_MOST
+        # it is said, and gatelock's own three hours let another gate past it
+        mins = int((ctx.now - s['started']) // 60)
+        if ctx.now - s['started'] < SESSION_MOST:
+            return [f'the landing session runs ({mins} min)']
+        s['overdue'] = True
+        return [f'the landing session is overdue ({mins} min, pid {s["pid"]}); it is waited for, not stopped']
     W.fetch()
     said = core.read_json(s['result'], {}) or {}
     landed = W.is_anc(g['sha'], W.base())
     gatelock.release(WHO)
     st['phase'] = 'idle'
     words = f'{said.get("verdict", "no result")}: {" ".join(str(said.get("said", "")).split())[:300]}'
+    rec = ((st.get('days', {}).get(s.get('day')) or d).get('landings') or [{}])[-1]       # the day it started (L9)
     if landed:
         d['landed'] = g['sha']
         count_landing(ctx.home, g['sha'], ctx.now)
-        (d.setdefault('landings', [{}]))[-1].update(result='landed', said=words)
+        rec.update(result='landed', said=words)
         return [f'LANDED {g["branch"]} at {g["sha"][:8]}: {", ".join(g["lanes"])}']
-    (d.setdefault('landings', [{}]))[-1].update(result='not landed', said=words)
+    rec.update(result='not landed', said=words)
     return [f'not landed ({words})']
 
 

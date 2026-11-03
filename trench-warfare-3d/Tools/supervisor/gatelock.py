@@ -103,10 +103,21 @@ def acquire(who, pid=None, p=None, now=None):
                 held = read(p)
             if held is not None and not stale(held, now):
                 return False, held
-            # stale: move it aside under our own name, so of two takers only one removes it
+            # stale: move it aside under our own name. If what was moved is not the stale lock that was read, another
+            # taker made a fresh one in between: it is put back and that taker holds it (review 2026-11-03, L4)
             aside = p.with_name(f'{p.name}.stale-{os.getpid()}')
             try:
                 os.replace(p, aside)
+            except OSError:
+                continue
+            moved = read(aside)
+            if held is not None and moved != held:
+                try:
+                    os.rename(aside, p)                   # fails if a third taker made one meanwhile: theirs stands
+                except OSError:
+                    os.remove(aside)
+                return False, moved or {}
+            try:
                 os.remove(aside)
             except OSError:
                 pass
