@@ -1,0 +1,132 @@
+{
+  "n_takes": 3,
+  "zoom": 30,
+  "pitch": 25,
+  "window_m": 6.0,
+  "window_px": 188,
+  "frog_area_frac_z30": 0.01692,
+  "frog_area_frac_full_frame": 0.000288,
+  "plate_area_frac_z30": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "motion_in_mask_px": 598,
+  "idle_floor_px": [
+    0,
+    0,
+    0
+  ],
+  "belly_up_from_pixels_takes": 2,
+  "delta": 30,
+  "per_take": {
+    "take0": {
+      "zoom": 30,
+      "pitch": 25,
+      "px_per_m": 31.384,
+      "window_px": 188,
+      "window_m": 6.0,
+      "mark_px": 960.00085,
+      "mark_py": 505.28625,
+      "body_px": 810,
+      "body_bright_px": 190,
+      "body_dark_px": 620,
+      "area_frac": 0.02291760977818017,
+      "area_frac_full_frame": 0.000390625,
+      "plate_area_frac": 0.0,
+      "motion_in_mask_px": 810,
+      "idle_floor_px": 0,
+      "belly_up": true,
+      "pose": {
+        "body_px": 810,
+        "mask_w_px": 63,
+        "upper_blobs": 2,
+        "upper_blob_px": [
+          290,
+          31
+        ],
+        "blob_gap_frac": 0.3113,
+        "body_luma_p50": 38.325,
+        "plate_luma_p50": 76.628,
+        "pale_ratio": 0.5,
+        "sep_ratio": 0.5,
+        "separated": true
+      },
+      "sidecar_mark_gag": 13,
+      "sidecar_mark_roll": 16,
+      "wind": 2.97902
+    },
+    "take1": {
+      "zoom": 30,
+      "pitch": 25,
+      "px_per_m": 31.381,
+      "window_px": 188,
+      "window_m": 6.0,
+      "mark_px": 960.00146,
+      "mark_py": 505.85199,
+      "body_px": 598,
+      "body_bright_px": 165,
+      "body_dark_px": 433,
+      "area_frac": 0.016919420552286103,
+      "area_frac_full_frame": 0.00028838734567901235,
+      "plate_area_frac": 0.0,
+      "motion_in_mask_px": 598,
+      "idle_floor_px": 0,
+      "belly_up": true,
+      "pose": {
+        "body_px": 598,
+        "mask_w_px": 60,
+        "upper_blobs": 2,
+        "upper_blob_px": [
+          246,
+          27
+        ],
+        "blob_gap_frac": 0.4044,
+        "body_luma_p50": 38.221,
+        "plate_luma_p50": 72.045,
+        "pale_ratio": 0.531,
+        "sep_ratio": 0.469,
+        "separated": true
+      },
+      "sidecar_mark_gag": 13,
+      "sidecar_mark_roll": 16,
+      "wind": 2.97902
+    },
+    "take2": {
+      "zoom": 30,
+      "pitch": 25,
+      "px_per_m": 31.381,
+      "window_px": 188,
+      "window_m": 6.0,
+      "mark_px": 960.00146,
+      "mark_py": 505.85199,
+      "body_px": 894,
+      "body_bright_px": 143,
+      "body_dark_px": 751,
+      "area_frac": 0.02529425079221367,
+      "area_frac_full_frame": 0.00043113425925925925,
+      "plate_area_frac": 0.0,
+      "motion_in_mask_px": 894,
+      "idle_floor_px": 0,
+      "belly_up": false,
+      "pose": {
+        "body_px": 894,
+        "mask_w_px": 69,
+        "upper_blobs": 1,
+        "upper_blob_px": [
+          368
+        ],
+        "blob_gap_frac": 0.0,
+        "body_luma_p50": 36.217,
+        "plate_luma_p50": 73.045,
+        "pale_ratio": 0.496,
+        "sep_ratio": 0.504,
+        "separated": true
+      },
+      "sidecar_mark_gag": 13,
+      "sidecar_mark_roll": 16,
+      "wind": 2.97902
+    }
+  },
+  "verdict": "none: --write publishes the numbers of the build as it stands"
+}

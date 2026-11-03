@@ -250,9 +250,15 @@ namespace TW.Presentation
             // 0.9 m it drew him hovering over his mark instead of lying on it. Mirrored about 0 he would be buried by his
             // own lying thickness, so he rises by exactly that much as he turns (FallenFlight.At).
             plan.Flags |= GagFlags.Feet;
-            plan.RestLift = 0.30f;
+            // round 3 of the belly cell: 0.30 m is his lying thickness and no more, so his legs rest IN the mud and
+            // the mask reads them as one shape with the ground-level body (take2, one blob of 422 px). 0.45 m clears
+            // the splayed legs of the mud without lifting him off his mark (pose_error_m stays under 0.5 in Clean).
+            plan.RestLift = 0.45f;
             // and he lies spread: the squash flattens him along world up and widens x and z, so belly, legs and head
             // splay out instead of stacking into one narrow shape (the owner's pick: "flops belly up, legs twitch")
+            // Round 2 of the belly cell tried 0.72 (tint code -10, twice the squash) and measured WORSE, 1 take of
+            // 3 against 0.85's 2 of 3: flattened that far the legs melt into the body instead of parting from it
+            // (take0 went from two blobs at a 0.31 gap to three at 0.12). 0.85 stands; round 3 lifts him instead.
             plan.RestQ = (sbyte)VatTintCode(Towards(1f, 0.85f, a));
             fly = new float3(0f, Towards(0f, 0.35f, a), 0f);
             plan.Rolls = 0;
