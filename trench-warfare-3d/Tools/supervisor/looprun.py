@@ -13,7 +13,10 @@ lines; the step's code stays in autoloop.py, unchanged. This file keeps the roun
 - dry: autoloop's print-only World (acting=False) inside DryWorld, which refuses every call that writes, ends or
   starts anything, whatever the step checks, and whose home is a throwaway copy of the loop's home. dry can not write
   a board, start a relay or end a process.
+  (found.py's World in dry has its fetches refused too.)
 - autoloop.stop (pause-relays.ps1 writes it) holds the loop modules as it holds the autoloop.
+- 'on' runs a step only when its whole GROUP is on, and only when the live autoloop does not run or has logged that
+  it leaves that step to the supervisor: a step never runs in both processes.
 
 The live autoloop leaves a step to the supervisor when that step's switch is 'on' in modules.json
 (autoloop.supervised()), so a step never runs in both.
@@ -77,6 +80,19 @@ class DryWorld:
     def ideas(self, write):
         return self.inner.ideas(False)
 
+    def found(self):
+        """found.py's World, with its git fetches refused (reviews' fw.tip() fetches): it only reads in dry."""
+        fw = self.inner.found()
+        real = getattr(fw, 'git', None)
+        if real is not None:
+            def git(*a):
+                if a[:1] == ('fetch',):
+                    self.refused.append(('found git', a))
+                    return 1, 'dry: no fetch'
+                return real(*a)
+            fw.git = git
+        return fw
+
     def git(self, board, *a):
         b = a[1:] if a[:1] == ('--no-optional-locks',) else a
         if b and (b[0] in self.READ_GIT or b[:2] == ('worktree', 'list')):
@@ -92,17 +108,58 @@ class DryWorld:
 
 
 def _copy_home(src):
-    """A throwaway copy of the loop's home for a dry pass: its state is read as it is, a write lands in the copy."""
-    dst = Path(tempfile.mkdtemp(prefix='tw-sup-loopdry-'))
+    """A throwaway copy of the loop's home for a dry pass: its state is read as it is, a write lands in the copy.
+    One fixed folder, made again each dry pass, so a restart leaves nothing behind."""
+    dst = Path(tempfile.gettempdir()) / 'tw-sup-loopdry'
+    shutil.rmtree(dst, ignore_errors=True)
+    dst.mkdir(parents=True, exist_ok=True)
     if Path(src).is_dir():
         shutil.copytree(src, dst, dirs_exist_ok=True, ignore=shutil.ignore_patterns('*.log', 'lock.json', 'found'))
     return dst
 
 
 def _drop(key):
-    p = _PASS.pop(key, None)
-    if p and p.get('copy'):
-        shutil.rmtree(p['copy'], ignore_errors=True)
+    _PASS.pop(key, None)
+
+
+# Steps that share state inside a round or in the loop's home switch over together: answers and attempts both write
+# attempts.json (loopsteps.answered / dropped_by vs attempts' load-then-save); tidy hands feed w.tidied, feed hands
+# found its lines, reviews and found share the round's found World.
+GROUPS = (('answers', 'attempts'), ('tidy', 'feed', 'reviews', 'found'))
+HANDED = 'left to the supervisor'       # what autoloop.main() logs when supervised() leaves steps to the supervisor
+LOG_TAIL = 65536
+
+
+def handed_over(home, name, now):
+    """'' when the live autoloop leaves `name` to the supervisor (it said so in its log's tail) or does not run (no
+    beat within autoloop.STALE); else why the step must not run here: it would run in both."""
+    beat = (autoloop.load(Path(home) / 'beat.json', {}) or {}).get('at', 0)
+    if now - beat >= autoloop.STALE:
+        return ''
+    try:
+        with open(Path(home) / 'autoloop.log', 'rb') as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - LOG_TAIL))
+            tail = f.read().decode('utf-8', 'replace').splitlines()
+    except OSError:
+        tail = []
+    said = [l for l in tail if HANDED in l]
+    if said and name in [s.strip() for s in said[-1].rsplit('):', 1)[-1].split(',')]:
+        return ''
+    return (f'the autoloop runs (beat {int(now - beat)} s ago) and has not said it leaves {name} to the supervisor '
+            '(its checkout lacks autoloop.supervised(), or it has not read the switch yet): not run, so it does not run twice')
+
+
+def refuse_on(ctx, name, home):
+    """Why a step switched 'on' must not run this round, or ''."""
+    modes = core.read_json(Path(ctx.home) / 'modules.json', {}) or {}
+    for g in GROUPS:
+        if name in g:
+            off = [s for s in g if modes.get('loop_' + s) != 'on']
+            if off:
+                return (f'not run: {name} switches over with {", ".join(off)} (they share state in a round): '
+                        'switch the group on in one edit')
+    return handed_over(home, name, ctx.now)
 
 
 def world(ctx):
@@ -140,6 +197,10 @@ def run_step(ctx, name):
     p = world(ctx)
     if (p['home'] / 'autoloop.stop').exists():
         return [f'{name}: autoloop.stop is in its folder: standing by']
+    if not ctx.dry:
+        why = refuse_on(ctx, name, p['home'])
+        if why:
+            return [f'{name}: {why}']
     got = autoloop.step(p['w'], name, p['lines'])
     p['lines'] += got
     return got

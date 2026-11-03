@@ -39,8 +39,12 @@ class World(ta.Fake):
     """test_autoloop's Fake, with the calls a whole round makes that the Fake leaves to the machine."""
 
     def __init__(self, tmp):
-        super().__init__(tmp, extras=(2, 3))
-        self.gits, self.asides = [], []
+        super().__init__(tmp, extras=(2, 3, 4))
+        self.gits, self.asides, self.found_calls = [], [], 0
+
+    def found(self):                # found.py's World: counted; its tip does not read, so reviews says so and returns
+        self.found_calls += 1
+        return type('FW', (), {'tip': staticmethod(lambda: ''), 'home': self.home / 'found'})()
 
     def git(self, board, *a):
         self.gits = self.gits + [(Path(board).name, a)]
@@ -63,7 +67,7 @@ def fixture(root):
     w.dirty = {Path('C:/gh/w3')}
     ta.put(w.extras[2], 'done', 'banner-legs')                                   # back
     w.ans = [dict(id='b1', go='queue', note='n1', when='2026-11-03', title='T', option='A', text='yes',   # answers
-                  unit=dict(id='ans-unit', lane='lane/show/ans', goal='g', done_when=['python', '-c', '1']))]
+                  unit=dict(id='ans-unit', lane='lane/show/e3', goal='g', done_when=['python', '-c', '1']))]   # relay 3's lane: not fed to 4
     w.ps = [dict(pid=501, ppid=1, name='Unity.exe', cmd='Unity.exe -projectPath C:/gh/w3/trench-warfare-3d', age=100,
                  parent='explorer.exe', parent_cmd='')]                         # editors: relay 3 has stopped
     w.text[w.extras[3]] = 'NOT RUNNING. Last run 20261103-010001-1: leg 03 ended TIMEOUT (3 legs).'   # tidy puts it aside
@@ -71,7 +75,8 @@ def fixture(root):
     (w.home / 'starts.json').write_text(json.dumps({'3': dict(at=T - 600, reason='x', wait=1800)}), encoding='utf-8')
     ta.put(w.main, 'queue', 'free-1', lane='lane/show/free', priority=20)         # feed gives relay 2 this lane
     w.text[w.main] = ta.RUN                                                      # the main relay runs (back waits)
-    w.found = lambda: None
+    # relay 4 stands idle with an empty board and no lane left to feed it: found's idle_why says so unless it reads
+    # feed's own line that relay 2 "gets" a lane, so found's `why` shows whether feed's lines reached it
     return w
 
 
@@ -157,6 +162,11 @@ def main():
         case('... and the same calls: starts (relay 3 only because tidy put it aside in the same round), pushes, '
              'priorities, queued units, kills, detaches, git', calls(wa, tmp / 'a') == calls(wb, tmp / 'b') and whys_a == whys_b,
              (calls(wa, tmp / 'a'), calls(wb, tmp / 'b'), whys_a, whys_b))
+        case('... and the found step read feed\'s lines (its why is empty: relay 2 got a lane this round, though relay 4 '
+             'stands idle) and the round made one found World, shared by reviews and found',
+             whys_a == [''] and whys_b == [''] and wa.found_calls == 1 and wb.found_calls == 1
+             and any(l.startswith('reviews: the integration branch did not read') for l in lb),
+             (whys_a, whys_b, wa.found_calls, wb.found_calls))
         again = supervisor_pass(wb, hb, 'on', now=T + 60)
         case('lock-step: the next pass inside the round\'s 300 s runs no step', again == [] and wb.started == wa.started, again)
 
@@ -204,6 +214,31 @@ def main():
         le = supervisor_pass(we, he, 'on')
         case('autoloop.stop (pause-relays.ps1) holds every loop_* module: it stands by and changes nothing',
              le and all('standing by' in l for l in le) and snapshot(tmp / 'e') == before and not we.started and not we.killed, le)
+
+        # ---- 'on' never runs a step in both processes, nor a group split ----
+        wg = fixture(tmp / 'g')
+        before = snapshot(tmp / 'g')
+        hg = tmp / 'sup-g'
+        switches(hg, 'on')
+        core.write_json(hg / 'modules.json', dict(core.read_json(hg / 'modules.json', {}), loop_tidy='off'))
+        lg = supervisor_pass(wg, hg, 'on')
+        split = [l for l in lg if l.split(':')[0] in ('feed', 'reviews', 'found')]
+        case('a group switched on in part does not run: feed, reviews and found refuse while tidy is off (and nothing '
+             'is started)', len(split) == 3 and all('switches over with tidy' in l for l in split) and not wg.started
+             and not any(l.startswith('tidy') for l in lg), lg)
+
+        wh = fixture(tmp / 'h')
+        (wh.home / 'beat.json').write_text(json.dumps(dict(at=T - 30)), encoding='utf-8')
+        before = snapshot(tmp / 'h')
+        hh = tmp / 'sup-h'
+        switches(hh, 'on')
+        lh = supervisor_pass(wh, hh, 'on')
+        held = lh and all('has not said it leaves' in l for l in lh) and snapshot(tmp / 'h') == before and not wh.started
+        (wh.home / 'autoloop.log').write_text('11-03 09:59:00 feed: x\n11-03 10:00:00 left to the supervisor (its loop_* switch is on): '
+                                              + ', '.join(steps) + '\n', encoding='utf-8')
+        lh2 = supervisor_pass(wh, tmp / 'sup-h2', 'on') if switches(tmp / 'sup-h2', 'on') is None else []
+        case('while the live autoloop beats, an \'on\' step runs only after the autoloop has logged that it leaves that '
+             'step to the supervisor', held and any(l.startswith('feed: relay') for l in lh2) and 3 in wh.started, (lh, lh2))
 
         # ---- one supervisor a home (main.py --watch; start-supervisor.ps1 counts on it) ----
         hl = tmp / 'sup-lock'
