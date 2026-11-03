@@ -802,8 +802,30 @@ def outside(w, lane, cos):
 
 def all_done(w):
     """The ids done on any board. An extra relay's done records reach the main board only between main runs (a leg
-    that sees relay/done move under it ends its run), so the loop does not wait for that copy to know them."""
-    return set().union(*(queue_of(b)[1] for b in [w.main, *w.extras.values()]))
+    that sees relay/done move under it ends its run), so the loop does not wait for that copy to know them. Also the
+    queued units the supervisor's registry calls done (a Grok lane, integration), only when its switch is 'on'."""
+    boards = [w.main, *w.extras.values()]
+    return set().union(*(queue_of(b)[1] for b in boards)) | sup_done({u: v for b in boards for u, v in queue_of(b)[0].items()})
+
+
+def sup_done(units):
+    """Tools/supervisor/hooks.py done_ids: set() unless the registry_refresh switch is 'on', or when it cannot load."""
+    h = SUP_HOOKS.get('m') if 'm' in SUP_HOOKS else SUP_HOOKS.setdefault('m', _sup_hooks())
+    return h.done_ids(units) if h else set()
+
+
+SUP_HOOKS = {}
+
+
+def _sup_hooks():
+    import importlib.util
+    try:
+        spec = importlib.util.spec_from_file_location('tw_sup_hooks', HERE.parent / 'supervisor' / 'hooks.py')
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        return m
+    except Exception:   # noqa: BLE001  no supervisor in this checkout: the loop runs as before
+        return None
 
 
 QUIET_OWN = (90, 30)    # a write this soon after the main relay's own last run ended, or after the loop detached its checkout
@@ -832,14 +854,30 @@ def sweep(w):
         if not w.acting:
             out.append(f'feed: relay {n}: {len(stale)} queue files of done units would be taken off its board')
             continue
-        for u in stale:
-            (Path(board) / 'relay' / 'queue' / f'{u}.json').unlink(missing_ok=True)
-        try:
-            said = w.commit_push(board, [f'relay/queue/{u}.json' for u in stale], f'relay: {len(stale)} queue files of done units taken off', push=False)
-        except RuntimeError as e:
-            said = str(e)[:120]
-        out.append(f'feed: relay {n}: {len(stale)} queue files of done units taken off its board ({said})')
+        out.append(f'feed: relay {n}: {len(stale)} queue files of done units taken off its board ({take_off(w, board, stale)})')
     return out
+
+
+def take_off(w, board, uids, push=False):
+    """Queue files of `uids` off one board whose relay does not run, in one commit: kept local on an extra board; on
+    the main board (push=True) pulled first and pushed, as copy_back does. Returns what happened. The supervisor's
+    queue_gc uses it too."""
+    if push:
+        code, said = w.pull(board)
+        if code:
+            return f'the board did not pull ({said[:120]}): tried next round'
+    files = {u: Path(board) / 'relay' / 'queue' / f'{u}.json' for u in uids}
+    kept = {u: f.read_bytes() for u, f in files.items() if f.is_file()}
+    for f in files.values():
+        f.unlink(missing_ok=True)
+    paths = [f'relay/queue/{u}.json' for u in uids]
+    try:
+        return w.commit_push(board, paths, f'relay: {len(uids)} queue files of done units taken off', push=push)
+    except RuntimeError as e:       # e.g. another git holds the index: put the files back as they were, so the board
+        for u, data in kept.items():    # is not left with deletions nobody committed (its next pull would refuse)
+            files[u].write_bytes(data)
+        w.git(board, 'reset', '-q', '--', *paths)
+        return f'{str(e)[:120]}; the files are put back: tried next round'
 
 
 def retire(w, out):

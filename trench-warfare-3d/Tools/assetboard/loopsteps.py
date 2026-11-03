@@ -374,6 +374,22 @@ def park(w, uid, rec, on, out, dropped=False):
     return True
 
 
+_SUP = {}
+
+
+def sup_retry(uid):
+    """Tools/supervisor/hooks.py retry_park: None (today's rule) unless the supervisor's retry switch is 'on'."""
+    if 'm' not in _SUP:
+        import importlib.util
+        try:
+            spec = importlib.util.spec_from_file_location('tw_sup_hooks', HERE.parent / 'supervisor' / 'hooks.py')
+            _SUP['m'] = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(_SUP['m'])
+        except Exception:   # noqa: BLE001  no supervisor in this checkout: today's rule
+            _SUP['m'] = None
+    return _SUP['m'].retry_park(uid) if _SUP['m'] else None
+
+
 def attempts(w, opens, dones, running, idle, extras=None):
     """Count each unit's tries from the stop records of every board; park the ones that went nowhere twice; bring a
     parked one back when something changed. `opens` {board: {id: unit}}, `dones` the ids done on any board, `running`
@@ -450,7 +466,9 @@ def attempts(w, opens, dones, running, idle, extras=None):
         refused = len(rec.get('refused') or []) > REFUSALS
         cap = capped(uid)
         deep = (depth(uid) > CHAIN_DEPTH or bool(cap)) and not rec.get('kept')
-        if (len(rec.get('fails') or []) < TRIES and not refused and not deep) or not on:
+        sup = sup_retry(uid)        # None: today's rule. Else the supervisor's retry rule replaces it (Tools/supervisor/retry.py)
+        tried = len(rec.get('fails') or []) >= TRIES if sup is None else sup[0]
+        if (not tried and not refused and not deep) or not on:
             continue
         u = next(iter(on.values()))
         mu = next((x for b, x in on.items() if Path(b) == Path(w.main)), None)
@@ -459,10 +477,13 @@ def attempts(w, opens, dones, running, idle, extras=None):
                 out.append(f'attempts: {uid} set to {PARKED} on the main board: its goal family {cap["root"]} is over the cap')
         if u.get('lane') in running or not all(Path(b) in idle for b in on):
             continue                                        # a leg works on it, or a board it is on is in a run: next round
-        if not refused and not deep and changed_since(w, rec.get('fp') or {}, u):
+        if sup is None and not refused and not deep and changed_since(w, rec.get('fp') or {}, u):
             continue                                        # one more try is fair: something changed since the last
+        if sup is not None and sup[0] and not refused:
+            rec['why'] = sup[1] or rec.get('why', '')       # the brief says the kind that repeated
         if not w.acting:
-            out.append(f'attempts: {uid} would be parked: ' + (f'refused {len(rec["refused"])} times' if refused else (f'its goal family {cap["root"]} is over the cap' if cap else f'chained {depth(uid)} fixes deep') if deep else f'{len(rec["fails"])} tries with nothing changed between them'))
+            out.append(f'attempts: {uid} would be parked: ' + (f'refused {len(rec["refused"])} times' if refused else (f'its goal family {cap["root"]} is over the cap' if cap else f'chained {depth(uid)} fixes deep') if deep
+                                                               else f'the retry rule: {sup[1]}' if sup is not None else f'{len(rec["fails"])} tries with nothing changed between them'))
             continue
         rec['deep'] = deep and not refused and len(rec.get('fails') or []) < TRIES
         if refused or deep:
@@ -496,7 +517,9 @@ def attempts(w, opens, dones, running, idle, extras=None):
         if refused:
             out.append(f'attempts: {uid} parked after {len(rec["refused"])} refusals ({", ".join(rec["refused"][-3:])}); brief {rec.get("brief") or "not written"}')
             continue
-        out.append(f'attempts: {uid} parked after {len(rec["fails"])} tries with no progress ({", ".join(rec["fails"][-3:])}); brief {rec.get("brief") or "not written"}')
+        out.append((f'attempts: {uid} parked by the retry rule: {sup[1]}' if sup is not None else
+                    f'attempts: {uid} parked after {len(rec["fails"])} tries with no progress ({", ".join(rec["fails"][-3:])})')
+                   + f'; brief {rec.get("brief") or "not written"}')
     out += superseded(w, st, opens, idle)
     out += stuck_on_extras(w, st, opens, idle, extras or set())
     if w.acting:

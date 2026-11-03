@@ -1,0 +1,206 @@
+{
+ "allow-forced-push-own-lane": {
+  "committed_at": "2026-10-21T22:02:52+02:00",
+  "lane": "lane/show/grok-allow-forced-push-own-lane",
+  "sha": "c6a3e44932565149dc765a9df0024accd9bbdab0",
+  "subject": "[allow-forced-push-own-lane] let the pre-push hook force-push only the leg's own lane"
+ },
+ "chlorine-bank-25m-footprint": {
+  "committed_at": "2026-10-22T12:44:38+02:00",
+  "lane": "lane/show/grok-chlorine-bank-25m-footprint",
+  "sha": "0077efa1b535b2b0d240afd11af2065330ecde01",
+  "subject": "[chlorine-bank-25m-footprint] count only the gas within 25 m of the bank's centre"
+ },
+ "fix-job-ordering-tests": {
+  "committed_at": "2026-10-19T15:39:50+02:00",
+  "lane": "lane/show/grok-fix-job-ordering-tests",
+  "sha": "7696e4ff9dad89be2750a76bed827b2457327e25",
+  "subject": "[fix-job-ordering-tests] [allow-forced-push-own-lane] relay: a leg may force-push its own lane, and only that"
+ },
+ "found-buildshelters-excludes-vehicles-from-teams-i-20261015-0": {
+  "committed_at": "2026-10-22T18:42:13+02:00",
+  "lane": "lane/show/grok-found-buildshelters-excludes-vehicles-from-teams-i-20261015-0",
+  "sha": "7f65e6beef172b890b6085417263058552feed78",
+  "subject": "[found-buildshelters-excludes-vehicles-from-teams-i-20261015-0] A wreck's shadow keeps down only the men its Teams set counts"
+ },
+ "found-delete-the-lane-show-banner-day-film-branch-20261018-0": {
+  "committed_at": "2026-10-22T19:31:52+02:00",
+  "lane": "lane/show/grok-found-delete-the-lane-show-banner-day-film-branch-20261018-0",
+  "sha": "6f914d4e7bbb58053e40f1939cfd3de072913780",
+  "subject": "[found-delete-the-lane-show-banner-day-film-branch-20261018-0] drop the landed Banner film ref"
+ },
+ "found-give-look-units-a-role-prompt-or-stop-handin-20261017-0": {
+  "committed_at": "2026-10-21T13:56:03+02:00",
+  "lane": "lane/show/grok-found-give-look-units-a-role-prompt-or-stop-handin-20261017-0",
+  "sha": "d2773fa347cd200e0ff1fc29292a2d0a8d8b839a",
+  "subject": "[found-give-look-units-a-role-prompt-or-stop-handin-20261017-0] a missing hard-critic role file is refused"
+ },
+ "found-hash-only-what-a-stage-consumes-not-its-whol-20261018-0": {
+  "committed_at": "2026-10-21T11:52:19+02:00",
+  "lane": "lane/show/grok-found-hash-only-what-a-stage-consumes-not-its-whol-20261018-0",
+  "sha": "f7cfb070b1d505477a4869889b89e524025d29f3",
+  "subject": "[found-hash-only-what-a-stage-consumes-not-its-whol-20261018-0] hash only a stage's inputs and lane"
+ },
+ "found-keep-only-model-ids-that-exist-in-agents-jso-20261019-0": {
+  "committed_at": "2026-10-22T19:08:47+02:00",
+  "lane": "lane/show/grok-found-keep-only-model-ids-that-exist-in-agents-jso-20261019-0",
+  "sha": "f6ab0cf1bd26eeb244a2551233fdf7f75653e7c6",
+  "subject": "[found-keep-only-model-ids-that-exist-in-agents-jso-20261019-0] drop price rows for model ids that do not exist"
+ },
+ "found-make-complete-check-the-evidence-folder-layo-20261018-0": {
+  "committed_at": "2026-10-21T12:16:12+02:00",
+  "lane": "lane/show/grok-found-make-complete-check-the-evidence-folder-layo-20261018-0",
+  "sha": "4aee31439cba345be18ce59db43f5268a6b05f81",
+  "subject": "[found-make-complete-check-the-evidence-folder-layo-20261018-0] say that complete refuses a short evidence path"
+ },
+ "found-make-the-commit-headroom-floor-the-default-n-20261018-0": {
+  "committed_at": "2026-10-21T10:57:25+02:00",
+  "lane": "lane/show/grok-found-make-the-commit-headroom-floor-the-default-n-20261018-0",
+  "sha": "8f77cd7365b9898ebb0d3703a7f1eed33986afe4",
+  "subject": "[found-make-the-commit-headroom-floor-the-default-n-20261018-0] default the commit-headroom floor to 10 GB"
+ },
+ "found-refuse-a-detached-restart-while-the-recorded-20261018-0": {
+  "committed_at": "2026-10-21T11:25:25+02:00",
+  "lane": "lane/show/grok-found-refuse-a-detached-restart-while-the-recorded-20261018-0",
+  "sha": "1cd26ca23030321db9cade86a68c687ca32e8dc6",
+  "subject": "[found-refuse-a-detached-restart-while-the-recorded-20261018-0] refuse a start while the recorded child still runs"
+ },
+ "found-stop-the-amber-and-red-token-bounds-from-tou-20261019-0": {
+  "committed_at": "2026-10-21T10:32:49+02:00",
+  "lane": "lane/show/grok-found-stop-the-amber-and-red-token-bounds-from-tou-20261019-0",
+  "sha": "956c0b3693c76036c10ceb8df31a16e2d4894752",
+  "subject": "[found-stop-the-amber-and-red-token-bounds-from-tou-20261019-0] Keep amber's max under red's min"
+ },
+ "gas-bank-target-match": {
+  "committed_at": "2026-10-22T22:23:07+02:00",
+  "lane": "lane/show/grok-gas-bank-target-match",
+  "sha": "36066685034deee0a031a3c49b9f5ffb6c0a9203",
+  "subject": "[gas-bank-target-match] move the overview hue target to this build"
+ },
+ "look-review-z008-20261022": {
+  "committed_at": "2026-10-22T22:03:14+02:00",
+  "lane": "lane/show/grok-look-review-z008-20261022",
+  "sha": "fcbc22d9651a7883d1983c13946421fc0a7f8a13",
+  "subject": "[look-review-z008-20261022] review the aosa and assetboard tools"
+ },
+ "player-bench-test-runs-on-the-desktop-20261019-2": {
+  "committed_at": "2026-10-21T19:35:49+02:00",
+  "lane": "lane/show/grok-player-bench-test-runs-on-the-desktop-20261019-2",
+  "sha": "34eb58f3c9ee391516c25e703458cabe1af434b0",
+  "subject": "[player-bench-test-runs-on-the-desktop-20261019-2] [player-bench-test-runs-on-the-desktop-20261019] pin *.sh to LF so player_bench.sh runs on the desktop"
+ },
+ "pre-tool-guard-no-false-refusals-20261019-2": {
+  "committed_at": "2026-10-21T19:04:48+02:00",
+  "lane": "lane/show/grok-pre-tool-guard-no-false-refusals-20261019-2",
+  "sha": "b4ad1b2f7f09b423b93540e736273350a1984e2e",
+  "subject": "[pre-tool-guard-no-false-refusals-20261019-2] [pre-tool-guard-no-false-refusals-20261019] look only at a write destination and paths opened for writing"
+ },
+ "rebase-a-man-in-a-lamp-pool-takes-the-pool-s-hu-20261019": {
+  "committed_at": "2026-10-22T16:58:05+02:00",
+  "lane": "lane/show/grok-rebase-a-man-in-a-lamp-pool-takes-the-pool-s-hu-20261019",
+  "sha": "c8de62b679ebaee7d8502b7f2412af9be89ccb02",
+  "subject": "test_crophue.py checks the lamp-pool figure cut"
+ },
+ "rebase-a-mine-draws-its-black-smoke-on-top-of-s-20261019": {
+  "committed_at": "2026-10-22T13:32:04+02:00",
+  "lane": "lane/show/grok-rebase-a-mine-draws-its-black-smoke-on-top-of-s-20261019",
+  "sha": "913d271657ff6ee206cd2961588ac8f3ab48a02f",
+  "subject": "[rebase-a-mine-draws-its-black-smoke-on-top-of-s-20261019] a mine draws its own black smoke, not the shell's seven puffs"
+ },
+ "rebase-applyupgrades-dmg-acc-tier-upgrade-path-20261019": {
+  "committed_at": "2026-10-22T15:13:07+02:00",
+  "lane": "lane/show/grok-rebase-applyupgrades-dmg-acc-tier-upgrade-path-20261019",
+  "sha": "05a158f3c3446234e6d223cc12b50692eb60ee8b",
+  "subject": "[rebase-applyupgrades-dmg-acc-tier-upgrade-path-20261019] drop the unwired ApplyUpgrades path"
+ },
+ "rebase-armor-fallback-fix": {
+  "committed_at": "2026-10-22T18:10:10+02:00",
+  "lane": "lane/show/grok-rebase-armor-fallback-fix",
+  "sha": "9875c6c3835f012e8b9a015db4c67fa3ba6e2c82",
+  "subject": "[rebase-armor-fallback-fix] record that the close-assault fallback stays deleted"
+ },
+ "rebase-create-the-report-folder-only-when-the-p-20261019": {
+  "committed_at": "2026-10-22T15:38:45+02:00",
+  "lane": "lane/show/grok-rebase-create-the-report-folder-only-when-the-p-20261019",
+  "sha": "d077177890d0f4c32261e83fffbd3264e0c7ccf6",
+  "subject": "[rebase-create-the-report-folder-only-when-the-p-20261019] skip CreateDirectory when a report path names no folder"
+ },
+ "rebase-decide-whether-small-arms-can-pin-a-mach-20261019": {
+  "committed_at": "2026-10-22T14:03:27+02:00",
+  "lane": "lane/show/grok-rebase-decide-whether-small-arms-can-pin-a-mach-20261019",
+  "sha": "4941088ec0d10489422513801438f01a4c7d0062",
+  "subject": "[rebase-decide-whether-small-arms-can-pin-a-mach-20261019] small arms do not shake a crew"
+ },
+ "rebase-every-crater-throws-away-all-part-built-20261019": {
+  "committed_at": "2026-10-22T14:27:42+02:00",
+  "lane": "lane/show/grok-rebase-every-crater-throws-away-all-part-built-20261019",
+  "sha": "f15b8daebe7bf5aca0d235669931ac8e8c426841",
+  "subject": "[rebase-every-crater-throws-away-all-part-built-20261019] a crater restarts only the chunks it can stale"
+ },
+ "rebase-fire-at-wreck-picks-nearest-shelter-even-20261019": {
+  "committed_at": "2026-10-22T13:15:42+02:00",
+  "lane": "lane/show/grok-rebase-fire-at-wreck-picks-nearest-shelter-even-20261019",
+  "sha": "bae8bd508037afad7992b2fca8d95a11385c93a5",
+  "subject": "[rebase-fire-at-wreck-picks-nearest-shelter-even-20261019] a gun tries the next wreck when the nearest shadow is empty"
+ },
+ "rebase-home-front-submits-one-instanced-draw-pe-20261019": {
+  "committed_at": "2026-10-22T16:35:12+02:00",
+  "lane": "lane/show/grok-rebase-home-front-submits-one-instanced-draw-pe-20261019",
+  "sha": "2e745d1c29a150e9d3dfa65788aa0577194484d1",
+  "subject": "[rebase-home-front-submits-one-instanced-draw-pe-20261019] say the home front draws one batch per model"
+ },
+ "rebase-infantry-are-invisible-against-the-groun-20261019": {
+  "committed_at": "2026-10-23T02:10:24+02:00",
+  "lane": "lane/show/grok-rebase-infantry-are-invisible-against-the-groun-20261019",
+  "sha": "6a4e58c72f93e64a4d8bad2419b704aa36c197db",
+  "subject": "[rebase-infantry-are-invisible-against-the-groun-20261019] the men's outline keeps a 1.6 px floor on integration"
+ },
+ "rebase-landing-review-fixes": {
+  "committed_at": "2026-10-22T18:16:54+02:00",
+  "lane": "lane/show/grok-rebase-landing-review-fixes",
+  "sha": "deee7da2cc605a8ae402e41e2fd1b9908f695a04",
+  "subject": "docs: a rebased lane may be pushed as lane-b through lane-j"
+ },
+ "rebase-mark-a-frame-that-carries-no-hash-instea-20261019": {
+  "committed_at": "2026-10-23T02:37:16+02:00",
+  "lane": "lane/show/grok-rebase-mark-a-frame-that-carries-no-hash-instea-20261019",
+  "sha": "d0d5e351ce3315cb97ed4885516f5edf54152725",
+  "subject": "[rebase-mark-a-frame-that-carries-no-hash-instea-20261019] a frame with no hash is labelled NoHash, not tick 0"
+ },
+ "rebase-strategic-map-builds-continent-mesh-and-20261019": {
+  "committed_at": "2026-10-22T16:05:24+02:00",
+  "lane": "lane/show/grok-rebase-strategic-map-builds-continent-mesh-and-20261019",
+  "sha": "0aaed210a36cbf7e9a955d6c89e850d129721ca0",
+  "subject": "[rebase-strategic-map-builds-continent-mesh-and-20261019] the continent mesh fills exact-size arrays"
+ },
+ "rebase-take-a-done-record-must-not-close-a-brie-20261019": {
+  "committed_at": "2026-10-21T22:55:03+02:00",
+  "lane": "lane/show/grok-rebase-take-a-done-record-must-not-close-a-brie-20261019",
+  "sha": "4d713ee0a22e36d3b5f3b0499f0d1c20494f675b",
+  "subject": "pipelines: a done-only record does not close a brief as queued"
+ },
+ "rebase-take-a-left-over-brief-must-not-swallow-20261019": {
+  "committed_at": "2026-10-21T22:28:14+02:00",
+  "lane": "lane/show/grok-rebase-take-a-left-over-brief-must-not-swallow-20261019",
+  "sha": "92fac2fea4f1c610b7a9b91a3f81c0a438d6ad2e",
+  "subject": "[rebase-take-a-left-over-brief-must-not-swallow-20261019] a left-over take that names another unit is refused"
+ },
+ "rebase-working-tree-ignores-git-errors-so-an-em-20261019": {
+  "committed_at": "2026-10-21T21:35:10+02:00",
+  "lane": "lane/show/grok-rebase-working-tree-ignores-git-errors-so-an-em-20261019",
+  "sha": "773dfef61ec79c9b7636e4e4763f74e4b394e045",
+  "subject": "[rebase-working-tree-ignores-git-errors-so-an-em-20261019] working_tree checks each git call's return code"
+ },
+ "retry-relay-four-checks": {
+  "committed_at": "2026-10-23T01:52:56+02:00",
+  "lane": "lane/show/grok-retry-relay-four-checks",
+  "sha": "acbbc941de691c74ba00103bfb745264253e2e34",
+  "subject": "[retry-relay-four-checks] relay: a plan leg may fetch and write in its desk, done_when is measured on origin, and the card names the ids file"
+ },
+ "ridge-own-line-rebase-retry": {
+  "committed_at": "2026-10-22T17:47:33+02:00",
+  "lane": "lane/show/grok-ridge-own-line-rebase-retry",
+  "sha": "736677259efcfa66a2e614d53647dfcbe0c10842",
+  "subject": "[ridge-own-line-rebase-retry] remeasure the Rise-0 preset hashes on the rebase base"
+ }
+}

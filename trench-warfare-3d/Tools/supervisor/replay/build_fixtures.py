@@ -56,7 +56,9 @@ def excerpt(log, keep=8):
     return hits + [l.strip()[:240] for l in lines[-3:]]
 
 
-def build(since, until):
+def build(since, until, gates=True):
+    """The records of runs whose id day is in [since, until); gates=False leaves out the gate jobs (the retry module
+    reads only runs and legs, every five minutes)."""
     out = []
     for rn, hname, bname in RELAYS:
         rdir = TW / hname / 'runs'
@@ -74,7 +76,7 @@ def build(since, until):
                        model=d.get('ran_model') or d.get('model'),
                        report=(d.get('report') or '')[:600])
             out.append(rec)
-        for gj in glob.glob(str(rdir / '2026*' / 'desk' / '*' / 'jobs' / 'gate-*' / 'run.json')):
+        for gj in glob.glob(str(rdir / '2026*' / 'desk' / '*' / 'jobs' / 'gate-*' / 'run.json')) if gates else []:
             parts = Path(gj).parts
             run = parts[-6]
             if not (since <= run[:8] < until):

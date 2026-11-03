@@ -85,6 +85,22 @@ def files(board):
     return sorted(ok, key=place), skipped
 
 
+_SUP = {}
+
+
+def sup_skip(uid, board, lane):
+    """Tools/supervisor/hooks.py skip: '' (take it) unless a supervisor switch that is 'on' says why not."""
+    if "m" not in _SUP:
+        import importlib.util
+        try:
+            spec = importlib.util.spec_from_file_location("tw_sup_hooks", Path(__file__).resolve().parents[2] / "supervisor" / "hooks.py")
+            _SUP["m"] = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(_SUP["m"])
+        except Exception:   # noqa: BLE001  no supervisor in this checkout: the picker runs as before
+            _SUP["m"] = None
+    return _SUP["m"].skip(uid, board, lane) if _SUP["m"] else ""
+
+
 def next(ctx, kind=None):
     """The first queued unit, or with `kind` the first of that kind of work (sources.kind_of)."""
     from sources import kind_of
@@ -101,6 +117,10 @@ def next(ctx, kind=None):
         if u["id"] in ctx["skip"] or (root / "done" / (u["id"] + ".json")).exists():
             continue
         if kind and kind_of(NAME, u["role"], u.get("kind")) != kind:
+            continue
+        why = sup_skip(u["id"], ctx["board"], u["lane"])     # the supervisor's registry / cool-down, only when 'on'
+        if why:
+            print("skipping %s: %s" % (u["id"], why))
             continue
         return dict(u, source=NAME)
     return None
