@@ -961,13 +961,18 @@ def main():
          qd['goal-z-r2-g1'] == [] and qd['goal-z-3'] == [] and qd['goal-y-g1'] == ['b3'] and wf.briefs_written == []
          and (st.get('goal-z-3') or {}).get('brief') == '2026-11-02-goal-z', (qd, wf.briefs_written, st))
     # his Go on (A) on the family's one brief: a click on an option whose Then line builds nothing (go 'nothing')
+    # the cap still live (families.py has not read his answer yet): kept units are not parked again
     c.write_state('families', dict(families={'goal-z': dict(over='$120 spent (cap $100)', brief='2026-11-02-goal-z', usd=120,
-                                                            depth=1, answered=True)}, at=time.time()), SUP_HOME)
-    wf.answered_briefs = {'2026-11-02-goal-z'}
+                                                            depth=1)}, at=time.time()), SUP_HOME)
     wf.ans = [dict(id='2026-11-02-goal-z', go='nothing', option='A', about='goal family goal-z', title='Goal z stopped',
                    text='Go on: put its units back on the queue', says='Its units go back on the queue', said='',
                    when='2026-11-03 10:00', note='n1', notes=[], unit=None, why='')]
+    wf.text[wf.main] = RUN
+    gw = autoloop.take_answers(wf)
+    waited = not wf.taken and not list((wf.main / 'relay' / 'queue').glob('goal-z*.json'))
+    wf.text[wf.main] = IDLE
     gl = autoloop.take_answers(wf)
+    wf.answered_briefs = {'2026-11-02-goal-z'}
     wf.ans = []
     autoloop.attempts(wf)
     autoloop.attempts(wf)
@@ -976,9 +981,9 @@ def main():
                   if any((b / 'relay' / 'queue' / (u + '.json')).exists() for b in (wf.main, *wf.extras.values())))
     case('families: his Go on (A) on a goal family\'s one brief puts its parked units back on the queue, and they are '
          'neither dropped nor parked again (the reviewer, S.2)',
-         back == ['goal-z-3', 'goal-z-r2-g1'] and wf.taken and wf.taken[-1][0] == '2026-11-02-goal-z'
+         waited and back == ['goal-z-3', 'goal-z-r2-g1'] and wf.taken and wf.taken[-1][0] == '2026-11-02-goal-z'
          and not any((st2.get(u) or {}).get(k) for u in back for k in ('dropped', 'drop', 'parked')),
-         (gl, back, {u: st2.get(u) for u in ('goal-z-r2-g1', 'goal-z-3')}, wf.taken))
+         (gw, gl, back, {u: st2.get(u) for u in ('goal-z-r2-g1', 'goal-z-3')}, wf.taken))
     wf, qd, st = fam_world('wt23', 'dry')
     c.write_json(SUP_HOME / 'modules.json', {})
     case('families dry: nothing is parked', all(v for v in qd.values()) and wf.briefs_written == [], (qd, wf.briefs_written))

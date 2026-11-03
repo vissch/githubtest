@@ -746,12 +746,16 @@ def take_answers(w):
                 if not w.acting:
                     out.append(f'answers: {a["id"]}: would close it, nothing is built')
                     continue
-                w.take(a, outcome=a.get('says') or 'his option builds nothing')
                 if loopsteps.family_go_on(a):              # his Go on, on a goal family's one brief: its units go back
-                    out += loopsteps.resumed_by(w, a['id'])
+                    if w.status(w.main)[0] != set():       # relay add/prio push the main board: never during a leg
+                        out.append(f'answers: {a["id"]}: his Go on waits until the main relay stops: no queue is written during a leg')
+                        continue
+                    out += loopsteps.resumed_by(w, a['id'])     # before the close: a fault here leaves the brief open, so
+                    w.take(a, outcome=a.get('says') or 'its parked units go back on the queue')   # his A is never read as a B
                     w.log_decision(f'| {a["when"][:10]} | **Taken up by the loop.** **{a["title"]}: {a["option"]}: {a["text"]}** Its parked units go back on the queue. (owner, Decide page, note {a["note"]}) |')
                     out.append(f'answers: {a["id"]}: his Go on sent the goal\'s parked units back; the brief is closed')
                     continue
+                w.take(a, outcome=a.get('says') or 'his option builds nothing')
                 loopsteps.dropped_by(w, a['id'])           # his B on a parked unit's brief
                 w.log_decision(f'| {a["when"][:10]} | **Taken up by the loop.** **{a["title"]}: {a["option"]}: {a["text"]}** Nothing is built. (owner, Decide page, note {a["note"]}) |')
                 out.append(f'answers: {a["id"]}: his answer builds nothing; the brief is closed')

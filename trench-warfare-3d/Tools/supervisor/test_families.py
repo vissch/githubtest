@@ -161,6 +161,19 @@ class Module(unittest.TestCase):
         self.assertTrue(options[0].startswith('Go on') and options[1].startswith('Stop'),
                         'A puts its units back and B stops it, as on a parked unit\'s brief (S.2): %s' % options)
 
+    def test_the_pickers_hook_passes_a_capped_unit_by(self):
+        import time
+        import hooks
+        core.write_state('families', dict(families={'goal-x': dict(over='$110 spent (cap $100)', brief='b1')},
+                                          at=time.time()), self.h)
+        core.write_json(self.h / 'modules.json', {'families': 'dry'})
+        self.assertEqual(hooks.skip('goal-x-r2-g1', h=self.h), '', 'families dry: the picker takes it')
+        core.write_json(self.h / 'modules.json', {'families': 'on'})
+        hooks._MEMO.clear()
+        self.assertIn('over the cap', hooks.skip('goal-x-r2-g1', h=self.h),
+                      'a running main relay must not take a capped unit as its next leg (S.1 left its 99 off)')
+        self.assertEqual(hooks.skip('other-goal', h=self.h), '')
+
     def test_the_brief_says_what_a_and_b_do_and_names_no_id(self):
         import briefs
         t = Path(self.tmp.name)

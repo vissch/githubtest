@@ -125,7 +125,7 @@ def brief_of(root, f):
 
 
 THEN = (('A', 'Its parked units go back on the queue; the cap holds them no more'),
-        ('B', 'Nothing more of the goal is built; its units stay off the queue'))
+        ('B', 'Nothing more is built from this brief; its parked units stay off the queue'))
 
 
 def write_brief(root, f):

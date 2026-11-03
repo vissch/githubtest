@@ -4,7 +4,8 @@
 fails answers as if the supervisor were not there.
 
     skip(uid, board, lane)   '' or why the picker passes the unit by: the registry calls it done (registry_refresh
-                             'on'), or this board's relay failed it in its newest run (retry 'on': the cool-down)
+                             'on'), its goal family is over the cap (families 'on', spend.capped), or this board's
+                             relay failed it in its newest run (retry 'on': the cool-down)
     done_ids(units)          the ids of {uid: unit} the registry calls done (registry_refresh 'on'), else set()
     retry_park(uid)          None when retry is not 'on' or its state is older than STALE_S (today's rule in
                              loopsteps.attempts holds), else (park?, why) from retry's state
@@ -111,6 +112,11 @@ def skip(uid, board=None, lane=None, h=None):
             done, where = registry.is_done(uid, lane, h)
             if done:
                 return f'done ({where})'
+        if on('families', h):                  # a goal family over the owner's cap waits on his one brief (spend.capped):
+            import spend                        # the running relay's picker does not take it, and no board is written
+            cap = spend.capped(uid, h)
+            if cap:
+                return f'over the cap: its goal family {cap["root"]} waits on his brief {cap["brief"]}'
         if board and on('retry', h):
             import retry
             last = last_units(board)
