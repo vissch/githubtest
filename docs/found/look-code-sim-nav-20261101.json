@@ -1,0 +1,80 @@
+{
+  "subject": "code:Sim/Nav",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Sim/Nav/MovementSystem.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Nav/FlowField.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Nav/FlowFieldManager.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Nav/SeparationJob.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Nav/SpatialHash.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Nav/VehicleKinematics.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Nav/VehicleKinematics.Wrecks.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Engage.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/MeleeSystem.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Terrain/PropIndex.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Terrain/MapData.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/Deformation.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/FlowFieldTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/FlowFieldManagerTests.cs",
+    "docs/found/look-code-sim-terrain-20261101.json",
+    "docs/reference/tasks.md",
+    "docs/reference/decisions.md"
+  ],
+  "tasks": [
+    {
+      "title": "Fold MovementSystem.EngageDir into SimWorld.Hash's chain",
+      "why": "Engage.cs:226 hashes movement.Engage and stops; MeleeSystem.cs:202,204 write EngageDir and its Hash (409-419) skips it; MovementSystem.cs:489 hashes only LeapTicks/LeapTarget. EngageDir steers a man (MovementSystem.cs:277), his step-in (274) and his yaw (456), with no SimHash call on it anywhere in Assets. A split there surfaces a tick later, blamed on Position/Yaw instead of its real cause.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Nav/MovementSystem.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/Engage.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/MeleeSystem.cs",
+        "docs/02-contracts.md"
+      ],
+      "lane": "sim",
+      "role": "lane",
+      "done_when": "SimHashTests covers EngageDir in the chain, and DeterminismReplayTests is green after the ReplayRecorder.FormatVersion bump",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, true, false]
+    },
+    {
+      "title": "Use MapData.PropsByCell in VehicleKinematics instead of walking all Props",
+      "why": "VehicleKinematics.cs:352 (FellUnder, once per moving machine per tick), VehicleKinematics.cs:314 (blocked-cell tree search) and VehicleKinematics.Wrecks.cs:35 (GrindWrecks, every 10th tick) each scan all of map.Props linearly, though MapData.cs:68-70 built PropsByCell exactly so a query asks for nearby props instead of walking them all; only Deformation.cs:156 reads it today.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Nav/VehicleKinematics.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Nav/VehicleKinematics.Wrecks.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Terrain/PropIndex.cs"
+      ],
+      "lane": "sim",
+      "role": "optimizer",
+      "done_when": "a PropIndexTests-style test counts prop touches for one machine on a map with many props and shows the count drop, with TankMobilityTests and WreckDecayTests unchanged",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "FlowFieldManager.MarkCostDirty(navCell) ignores navCell, marks every goal",
+      "why": "FlowFieldManager.cs:140-144 never reads its navCell argument and all three callers (VehicleKinematics.cs:329, Deformation.cs:147, DirectFire.Wrecks.cs:75) pass literal 0, so every nav change marks all up-to-32 goals dirty and Step pays two full-grid Dijkstras a tick for as long as anything keeps changing. The 'A4 may narrow this' comment names no caller that could narrow it.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Nav/FlowFieldManager.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Nav/VehicleKinematics.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Match/Deformation.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "FlowFieldManagerTests extended with a goal left clean when a far-off cell changes",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Merge the duplicated 'at his post' 0.9m rule in SeparationJob and MovementSystem",
+      "why": "SeparationJob.cs:33,46-56 (PostNear = 0.9f, OnTheWay) and MovementSystem.cs:313-314 (atPost, the same 0.9 as a bare literal) are two copies of one rule and number, and they differ: OnTheWay zeroes y and skips the ladder-post case atPost handles.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Nav/SeparationJob.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Nav/MovementSystem.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "TrenchSpreadTests and GarrisonAndOrdersTests stay green after the two copies become one",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
