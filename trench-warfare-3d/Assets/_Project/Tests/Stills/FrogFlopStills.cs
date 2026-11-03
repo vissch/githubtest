@@ -151,6 +151,85 @@ namespace TW.Tests
             return best;
         }
 
+        /// <summary>How far (x, z) is from the segment body -> camera, in metres on the ground plane. Step 5's
+        /// instrument: take2 of the previous run measured 0 body pixels because a vehicle hull stood on this line,
+        /// and a take whose line of sight is blocked is cheaper to drop before its other five stills than after.</summary>
+        static float ToSegment(Vector2 a, Vector2 b, Vector2 q)
+        {
+            var ab = b - a;
+            float len2 = ab.sqrMagnitude;
+            float t = len2 < 1e-4f ? 0f : Mathf.Clamp01(Vector2.Dot(q - a, ab) / len2);
+            return Vector2.Distance(a + ab * t, q);
+        }
+
+        /// <summary>Nothing between the body and the camera: no living man (Living() includes the men in vehicle
+        /// slots, which is what put a hull in front of take2) and no prop within `pad` metres of the sight line. The
+        /// camera is read out of the take's own first sidecar, so it is where the shot really ended up, not where it
+        /// was asked for.</summary>
+        static bool Sighted(MapData map, Vector2 bodyXZ, string firstPng, float pad)
+        {
+            float cx = Side(firstPng, "cam_x"), cz = Side(firstPng, "cam_z");
+            if (float.IsNaN(cx) || float.IsNaN(cz)) { Mark("no cam_x/cam_z in " + Path.GetFileName(firstPng) + ": the sight line cannot be checked"); return true; }
+            // only the NEAR stretch of the sight line, the first NearM metres out from the body: that is where a
+            // hull or a man can hide a body 1.2 m long (what cost the previous run take2). The whole 60 m line to a
+            // zoom-30 camera flags men who are nowhere near the body, and the honest witness for those is the render
+            // itself (men_in_frame in Clean), not this arithmetic: the first run of this guard spoiled six takes on it.
+            const float NearM = 15f;
+            var away = new Vector2(cx, cz) - bodyXZ;
+            var cam = bodyXZ + (away.magnitude > NearM ? away.normalized * NearM : away);
+            var men = Living();
+            for (int i = 0; i < men.Count; i++)
+                if (ToSegment(bodyXZ, cam, men[i]) < pad)
+                { Mark($"sight line blocked: a living man at {men[i].x:F0}, {men[i].y:F0}"); return false; }
+            for (int i = 0; i < map.Props.Length; i++)
+            {
+                var q = new Vector2(map.Props[i].Pos.x, map.Props[i].Pos.z);
+                if (ToSegment(bodyXZ, cam, q) < pad)
+                { Mark($"sight line blocked: a prop at {q.x:F0}, {q.y:F0}"); return false; }
+            }
+            return true;
+        }
+
+        /// <summary>The visibility guard (step 4): the frog's own pixels, counted in C# out of the two stills of one
+        /// held instant. A pixel counts when its three channels differ from the plate by more than 30 in total,
+        /// whichever way the light went (a fallen casts no shadow — VATRenderer.Fallen.cs:292 — so the darker pixels
+        /// are the frog against the lit night mud). The window is 6 m of ground around the mark, read from the
+        /// sidecar. GetPixels32 rows run bottom-up and mark_py counts down from the top, hence H - 1 - mark_py.
+        /// This is only "can he be seen at all": probe.py still judges the picture.</summary>
+        static int BodyPixels(string livePng, string platePng)
+        {
+            float perM = Side(livePng, "mark_px_per_m"), mx = Side(livePng, "mark_px"), my = Side(livePng, "mark_py");
+            if (float.IsNaN(perM) || float.IsNaN(mx) || float.IsNaN(my)) { Mark("no mark in " + Path.GetFileName(livePng) + ": the body cannot be counted"); return -1; }
+            var live = new Texture2D(2, 2);
+            var plate = new Texture2D(2, 2);
+            try
+            {
+                if (!live.LoadImage(File.ReadAllBytes(livePng)) || !plate.LoadImage(File.ReadAllBytes(platePng))) { Mark("a still would not load"); return -1; }
+                if (live.width != plate.width || live.height != plate.height) { Mark("the still and its plate differ in size"); return -1; }
+                var a = live.GetPixels32();
+                var b = plate.GetPixels32();
+                int w = live.width, h = live.height;
+                int side = Mathf.Min(Mathf.RoundToInt(6f * perM), Mathf.Min(w, h));
+                int x0 = Mathf.Clamp(Mathf.RoundToInt(mx) - side / 2, 0, w - side);
+                int yTop = Mathf.Clamp(Mathf.RoundToInt(my) - side / 2, 0, h - side);
+                int changed = 0;
+                for (int row = yTop; row < yTop + side; row++)
+                {
+                    int y = h - 1 - row;                 // GetPixels32 is bottom-up, the sidecar's y top-down
+                    int at = y * w;
+                    for (int x = x0; x < x0 + side; x++)
+                    {
+                        var p = a[at + x];
+                        var q = b[at + x];
+                        int d = Mathf.Abs(p.r - q.r) + Mathf.Abs(p.g - q.g) + Mathf.Abs(p.b - q.b);
+                        if (d > 30) changed++;
+                    }
+                }
+                return changed;
+            }
+            finally { Object.DestroyImmediate(live); Object.DestroyImmediate(plate); }
+        }
+
         /// <summary>Which fallen body the current take staged (VATRenderer's index).</summary>
         int Marked;
 
@@ -284,10 +363,21 @@ namespace TW.Tests
             // A spoiled take is shot again on another patch rather than kept with a man in the frame.
             for (int take = 0; take < 3; )
             {
-                Assert.That(spoiled, Is.LessThan(6), "six takes spoiled: no patch of this map stays clear of the living");
+                Assert.That(spoiled, Is.LessThan(12), "twelve takes spoiled: no patch of this map stays clear of the living (the allowance was 6 until this leg, and the two new guards — a blocked sight line and a body under 50 px — spend takes the old run kept)");
                 var men = Living();
                 float clearance;
                 var spot = BestPatch(candidates, used, men, out clearance);
+                // Every candidate is within 40 m of a patch already used or spoiled: BestPatch has nothing left and
+                // returns (0, 0) with clearance -1 — the map's corner, where the run of this leg staged two takes and
+                // read both their legs as one blob. The used list is forgotten instead, so a patch may be offered a
+                // second time, which is honest (the men have moved) where a frog at 0, 0 is not.
+                if (clearance < 0f)
+                {
+                    Mark("no patch is 40 m from one already used: the used list is cleared and the map offered again");
+                    used.Clear();
+                    spot = BestPatch(candidates, used, men, out clearance);
+                }
+                Assert.That(clearance, Is.GreaterThan(0f), "no open patch on this map at all");
                 Mark($"take {take}: {men.Count} living men, patch {spot.x:F0}, {spot.y:F0} with {clearance:F0} m of clear ground");
                 used.Add(spot);                       // used or spoiled, this patch is not offered again
                 string stem = $"take{take}";
@@ -316,6 +406,15 @@ namespace TW.Tests
                     for (int f = 0; f < 5; f++) yield return null;
                 }
 
+                // Step 5, as soon as the first still has told us where the camera really stood: a take with
+                // something on the sight line is dropped now rather than after its other five stills. A hull in
+                // front of the body is exactly what cost the previous run take2 (0 body pixels measured).
+                if (!dirty && !Sighted(map, new Vector2(body.x, body.z), Path.Combine(dir, $"{stem}_m0.png"), 6f))
+                {
+                    dirty = true;
+                    Mark($"take {take}: the sight line is blocked, this patch is dropped");
+                }
+
                 // i1 and, without ever releasing, the two plates: the body is taken away inside the same held instant,
                 // so i1 minus plate is the frog and plate minus plate2 is what that subtraction costs on bare ground.
                 while (Time.time < death + 5.0f) yield return null;
@@ -340,6 +439,16 @@ namespace TW.Tests
                 }
                 CaptureRig.Release();
                 for (int f = 0; f < 30; f++) yield return null;
+
+                // Step 4: a take whose body cannot be SEEN is never kept. i1 against its plate, both out of the one
+                // held instant just released, counted in the 6 m window around the mark. At 31.4 px/m a body is
+                // hundreds of pixels, so under 50 means he is hidden behind something and the take is re-shot.
+                if (!dirty)
+                {
+                    int seen = BodyPixels(Path.Combine(dir, $"{stem}_i1.png"), Path.Combine(dir, $"{stem}_plate.png"));
+                    Mark($"take {take}: {seen} body pixels in the window");
+                    if (seen >= 0 && seen < 50) { dirty = true; Mark($"take {take}: the body is hidden ({seen} px), shooting it again"); }
+                }
 
                 if (dirty || got < 6)
                 {

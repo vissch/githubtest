@@ -1,0 +1,87 @@
+--- run begins
+map 90 x 276 m, 154 props
+123 open candidates
+take 0: 12 living men, patch 68, 252 with 103 m of clear ground
+frog at 68, 252: slot 12; Shell at 78, 252 next tick
+body 0 of 1, 0.0 m from the patch
+take 0 staged, Vat is there, Marked 0
+take 0 body at 68.0, 1.0, 252.0
+shooting m0
+shooting m1
+shooting i0
+take 0: 1045 body pixels in the window
+take 1: 12 living men, patch 20, 252 with 82 m of clear ground
+frog at 20, 252: slot 12; Shell at 30, 252 next tick
+body 0 of 1, 0.0 m from the patch
+take 1 staged, Vat is there, Marked 0
+take 1 body at 20.0, 1.0, 252.0
+shooting m0
+shooting m1
+shooting i0
+take 1: 743 body pixels in the window
+take 2: 13 living men, patch 68, 108 with 55 m of clear ground
+frog at 68, 108: slot 13; Shell at 78, 108 next tick
+body 0 of 1, 0.0 m from the patch
+take 2 staged, Vat is there, Marked 0
+take 2 body at 68.0, 1.1, 108.0
+shooting m0
+take2_m0.png is not honest: a living man shares the frame
+shooting m1
+take2_m1.png is not honest: a living man shares the frame
+shooting i0
+take2_i0.png is not honest: a living man shares the frame
+take2_i1.png is not honest: a living man shares the frame
+take2_plate.png is not honest: a living man shares the frame
+take2_plate2.png is not honest: a living man shares the frame
+take 2 spoiled (0 of 6 honest): shooting it again on the next patch
+take 2: 11 living men, patch 20, 104 with 49 m of clear ground
+frog at 20, 104: slot 7; Shell at 30, 104 next tick
+body 0 of 1, 0.0 m from the patch
+take 2 staged, Vat is there, Marked 0
+take 2 body at 20.0, 1.6, 104.0
+shooting m0
+shooting m1
+shooting i0
+sight line blocked: a prop at 36, 95
+take 2: the sight line is blocked, this patch is dropped
+take 2 spoiled (6 of 6 honest): shooting it again on the next patch
+take 2: 11 living men, patch 68, 188 with 27 m of clear ground
+frog at 68, 188: slot 7; Shell at 78, 188 next tick
+body 0 of 1, 0.0 m from the patch
+take 2 staged, Vat is there, Marked 0
+take 2 body at 68.0, 1.2, 188.0
+shooting m0
+take2_m0.png is not honest: a living man shares the frame
+shooting m1
+take2_m1.png is not honest: a living man shares the frame
+shooting i0
+take2_i0.png is not honest: a living man shares the frame
+take2_i1.png is not honest: a living man shares the frame
+take2_plate.png is not honest: a living man shares the frame
+take2_plate2.png is not honest: a living man shares the frame
+take 2 spoiled (0 of 6 honest): shooting it again on the next patch
+take 2: 13 living men, patch 20, 144 with 20 m of clear ground
+frog at 20, 144: slot 13; Shell at 30, 144 next tick
+body 3 of 4, 0.0 m from the patch
+take 2 staged, Vat is there, Marked 3
+take 2 body at 20.0, 2.0, 144.0
+shooting m0
+take2_m0.png is not honest: another body shares the frame
+shooting m1
+take2_m1.png is not honest: a living man shares the frame
+shooting i0
+take2_i0.png is not honest: a living man shares the frame
+take2_i1.png is not honest: a living man shares the frame
+take2_plate.png is not honest: a living man shares the frame
+take2_plate2.png is not honest: a living man shares the frame
+take 2 spoiled (0 of 6 honest): shooting it again on the next patch
+no patch is 40 m from one already used: the used list is cleared and the map offered again
+take 2: 10 living men, patch 20, 252 with 51 m of clear ground
+frog at 20, 252: slot 13; Shell at 30, 252 next tick
+body 0 of 1, 0.0 m from the patch
+take 2 staged, Vat is there, Marked 0
+take 2 body at 20.0, 1.0, 252.0
+shooting m0
+shooting m1
+shooting i0
+take 2: 1076 body pixels in the window
