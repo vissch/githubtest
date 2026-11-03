@@ -1,0 +1,59 @@
+{
+ "subject": "tools:trench-warfare-3d/Tools/assetboard",
+ "looked_at": [
+  "trench-warfare-3d/Tools/assetboard/gamefilm.py",
+  "trench-warfare-3d/Tools/assetboard/films.py",
+  "trench-warfare-3d/Tools/assetboard/sheetcheck.py",
+  "trench-warfare-3d/Tools/assetboard/test_sheetcheck.py",
+  "trench-warfare-3d/Tools/assetboard/model.py (docstring, rules, notes loader)",
+  "trench-warfare-3d/Tools/assetboard/loopsteps.py (docstring, constants, park and attempts)",
+  "trench-warfare-3d/Tools/assetboard/found.py (prompt and check_task)",
+  "trench-warfare-3d/Tools/assetboard/test_gamefilm.py and test_filmfail.py (test names)",
+  "docs/reference/pipelines.md lines 200-243",
+  "docs/found/look-tools-trench-warfare-3d-tools-assetboard-20261017.json",
+  "docs/found/look-tools-trench-warfare-3d-tools-assetboard-20261018.json",
+  "docs/found/look-tools-claude-skills-20261103.json"
+ ],
+ "tasks": [
+  {
+   "title": "gamefilm film and battle must exit nonzero when shots fail",
+   "why": "record() returns False on every failure path (gamefilm.py:186, 192, 198), but film() ignores it and returns 0 at gamefilm.py:273, and battle() the same at gamefilm.py:380. A run where the recorder never started (NO HOST, a stale PlaygroundHost, a dead eval) prints per-shot lines and still exits 0, so an agent that filmed nothing believes the whole library was filmed. films.py only harvests what is in Captures/assetfilm, so the board silently keeps the older films (films.py harvest) and nobody learns. test_gamefilm.py only tests the no-ffmpeg refusal; no test covers the exit code of a failed run.",
+   "files": ["trench-warfare-3d/Tools/assetboard/gamefilm.py", "trench-warfare-3d/Tools/assetboard/test_gamefilm.py"],
+   "lane": "show",
+   "role": "lane",
+   "done_when": "a new test in test_gamefilm.py stubs record() to return False and asserts film([]) and battle([]) both return nonzero and name the failed shots; python Tools/assetboard/test_gamefilm.py exits 0",
+   "risk": [false, false, true, false, false],
+   "change": [false, true, false, false, false]
+  },
+  {
+   "title": "Document the parking thresholds agents are cut off by",
+   "why": "loopsteps.py:38-41 holds three rules that stop an agent's work with no warning: REFUSALS=3, CHAIN_DEPTH=4 (a fix unit chained past four -gN segments is parked because each link is a new id, so TRIES never fires) and TRIES=2. pipelines.md:237 mentions only the TRIES one, in half a sentence, and workflow.md says nothing. A fix agent writing a fifth chained -g segment, or a leg retrying a refused unit, spends its whole leg on work the loop then parks. The rule lives only in code the agent never opens.",
+   "files": ["docs/reference/pipelines.md", "trench-warfare-3d/Tools/assetboard/loopsteps.py"],
+   "lane": "show",
+   "role": "lane",
+   "done_when": "pipelines.md names REFUSALS, CHAIN_DEPTH and TRIES with their numbers, a test asserts each constant's value appears in pipelines.md so the doc cannot drift, and python Tools/validate.py exits 0",
+   "risk": [false, false, false, false, true],
+   "change": [false, true, false, false, false]
+  },
+  {
+   "title": "Weapon sheets are counted by eye: sheetcheck.py is in no doc",
+   "why": "sheetcheck.py counts the four weapons on a sheet and exits 1 when a sheet does not hold exactly four, and test_sheetcheck.py guards it, but neither appears anywhere in docs/reference (grepped pipelines.md, tasks.md, workflow.md: no hit). The pipelines.md table at lines 208-239 lists every other assetboard command. An agent making weapon sheets therefore counts the weapons by looking at the image, or writes the count tool again, each time.",
+   "files": ["docs/reference/pipelines.md", "trench-warfare-3d/Tools/assetboard/sheetcheck.py"],
+   "lane": "show",
+   "role": "lane",
+   "done_when": "grep -c 'sheetcheck.py' docs/reference/pipelines.md is at least 1 with its usage line, and python Tools/validate.py exits 0",
+   "risk": [false, false, false, false, true],
+   "change": [false, true, false, false, false]
+  },
+  {
+   "title": "found.py asks for 12-word titles but accepts 16",
+   "why": "The prompt handed to every look says a title is \"12 words at most\" (found.py:102) while check_task drops one only over 16 words (found.py:161). Each look leg spends effort squeezing a title to 12 and sometimes drops a real finding's wording for it, while a sloppier look passes at 16. Two statements of the same rule in one file.",
+   "files": ["trench-warfare-3d/Tools/assetboard/found.py"],
+   "lane": "show",
+   "role": "lane",
+   "done_when": "found.py builds the prompt's word limit from the same constant check_task uses, and a test asserts the number in the prompt equals the checker's limit",
+   "risk": [false, false, false, false, false],
+   "change": [false, true, false, false, false]
+  }
+ ]
+}
