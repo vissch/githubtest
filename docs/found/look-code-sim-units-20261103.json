@@ -1,0 +1,78 @@
+{
+  "subject": "code:Sim/Units",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Sim/Units/VehicleModules.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Units/Breaker.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Units/Sapper.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Units/Support.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Units/TrenchGarrison.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Units/TrenchOrders.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Units/UnitStats.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Units/SpecialAbilities.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Nav/VehicleKinematics.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Nav/FlowFieldManager.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/BreakerTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/SapperTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/TankTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/TankMobilityTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/WreckDecayTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/TrenchSpreadTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/ChassisTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/WalkerArmamentTests.cs",
+    "docs/found/look-code-sim-nav-20261101.json",
+    "docs/reference/tasks.md",
+    "docs/reference/decisions.md"
+  ],
+  "tasks": [
+    {
+      "title": "Let a mine's burst Obliterate or KnockOut a hull the same tick",
+      "why": "VehicleModules.cs:367-378, the mine-under-hull branch ends in `continue` after DamageModule, skipping the Obliterate/KnockOut check at :400-401 that every other burst and hit path reaches. A mine deep enough to take Hp past -ObliterateShare*MaxHp (the instant blow-apart with no crew bailing out) can never fire from a mine: the hull is only caught a tick later by Tick's plain Structure check at :429, so it always knocks out gently and lets the crew bail even on a hit that should obliterate it outright.",
+      "files": ["trench-warfare-3d/Assets/_Project/Sim/Units/VehicleModules.cs"],
+      "lane": "sim",
+      "role": "lane",
+      "done_when": "A test mines a hull (Hp driven past -ObliterateShare*MaxHp by MineHullShare alone, or a repeat hit) and asserts Fate/KillCause is Ammunition with zero crew bailed, not a Structure KnockedOut with BailOut having run",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Gate TrenchGarrison's full-map CountFree scan on whether anyone needs a post",
+      "why": "TrenchGarrison.cs:109-114 clears every post holder and then calls CountFree over every FireStepCell and every TrenchCell of every trench on the map, every tick, before the loop at :118 even checks whether one man is postless. The second loop often assigns nothing (an army mostly sits in full trenches with posts already held), so this is the same unconditional full-map rescan the file's own freeCount comment (:46-47) says was added to let Nearest be skipped, but the counting itself was never put behind the same condition.",
+      "files": ["trench-warfare-3d/Assets/_Project/Sim/Units/TrenchGarrison.cs"],
+      "lane": "sim",
+      "role": "optimizer",
+      "done_when": "PerfBench or a timed EditMode test shows SimWorld.Step's TrenchGarrison share drop when run with a full garrison and no postless men, with TrenchSpreadTests staying green",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Spatially bound VehicleModules.Burst's per-impact tank scan",
+      "why": "VehicleModules.cs:348, for every entry in blast.Resolved, Burst walks every slot up to w.HighWater and calls IsTank (a chassis flag check plus ChassisKind.IsArmoured lookup) on each, with no spatial query. A barrage resolving many impacts in one tick costs impacts x HighWater (up to 3,584 slots) chassis lookups a tick, where Resolve (:163) is already driven by a hit list instead of a full scan.",
+      "files": ["trench-warfare-3d/Assets/_Project/Sim/Units/VehicleModules.cs"],
+      "lane": "sim",
+      "role": "optimizer",
+      "done_when": "PerfBench at a stress seed with a multi-impact barrage shows VehicleModulesSystem.Burst's time drop with the same hash as before the change",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Cut Breaker.TrenchAhead's trench-cell x enemy-man square-root scan",
+      "why": "Breaker.cs:170-209, TrenchAhead loops every trench, then every cell of that trench, and inside the cell loop every enemy man collected into `men` (itself filled by a full w.HighWater scan at :177), taking a SimMath.Length per pair to find the nearest man to each candidate cell. It runs per breaker every LookEvery (4) ticks; at a few hundred breakers and 1,500 men a side this is tens of thousands of square roots a tick with no spatial bucketing of the men list.",
+      "files": ["trench-warfare-3d/Assets/_Project/Sim/Units/Breaker.cs"],
+      "lane": "sim",
+      "role": "optimizer",
+      "done_when": "PerfBench with several breakers approaching a contested line shows BreakerSystem.Step time drop with BreakerTests staying green",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Raise an event when TrenchFallback finds nobody to call back",
+      "why": "TrenchOrders.cs:91-103, Fallback returns with no event both when GetGoal fails (:94) and when the for loop (:95-102) matches nobody, moving no one silently. Advance (:49-50) raises OrderFoundNoOne for exactly this reason, documented at :44-48 as a fix for a silent no-op that hid a missing battle for two review cycles; the same order run the other direction still has no event and no count for the caller to check.",
+      "files": ["trench-warfare-3d/Assets/_Project/Sim/Units/TrenchOrders.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "A test issues TrenchFallback at a trench with no eligible man in the open and asserts an OrderFoundNoOne event (or equivalent) fires, mirroring Advance's zero-moved check",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
