@@ -6,20 +6,23 @@ fails answers as if the supervisor were not there.
     skip(uid, board, lane)   '' or why the picker passes the unit by: the registry calls it done (registry_refresh
                              'on'), or this board's relay failed it in its newest run (retry 'on': the cool-down)
     done_ids(units)          the ids of {uid: unit} the registry calls done (registry_refresh 'on'), else set()
-    retry_park(uid)          None when retry is not 'on' (today's rule in loopsteps.attempts holds), else
-                             (park?, why) from retry's state
+    retry_park(uid)          None when retry is not 'on' or its state is older than STALE_S (today's rule in
+                             loopsteps.attempts holds), else (park?, why) from retry's state
 
 A caller loads this file by its path (load()), so no name of the supervisor's shadows one of its own.
 """
 import importlib.util
 import re
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.append(str(HERE))          # appended: never ahead of the caller's own modules
 import core  # noqa: E402
+
+STALE_S = 1800      # as spend.STALE_S: a module state older than this is not acted on, its supervisor has stopped
 
 
 def load(path=None):
@@ -128,11 +131,14 @@ def done_ids(units, h=None):
     return set()
 
 
-def retry_park(uid, h=None):
+def retry_park(uid, h=None, now=None):
     try:
         if not on('retry', h):
             return None
-        u = (core.read_state('retry', h).get('units') or {}).get(uid) or {}
+        st = core.read_state('retry', h) or {}
+        if (now or time.time()) - float(st.get('at') or 0) > STALE_S:
+            return None         # main.py stopped: an old park=True would park a unit again every round (the reviewer, S.3)
+        u = (st.get('units') or {}).get(uid) or {}
         return bool(u.get('park')), str(u.get('why') or '')
     except Exception:   # noqa: BLE001
         return None

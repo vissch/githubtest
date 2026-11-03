@@ -10,6 +10,7 @@ import importlib.util
 import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -19,6 +20,14 @@ import core  # noqa: E402
 import retry  # noqa: E402
 from replay import records  # noqa: E402
 from signatures import is_machine  # noqa: E402
+
+
+def put_back(key, old):
+    """An environment variable as it was before a test set it (None: it was not set)."""
+    if old is None:
+        os.environ.pop(key, None)
+    else:
+        os.environ[key] = old
 
 spec = importlib.util.spec_from_file_location('tw_sup_mod_retry', HERE / 'modules' / 'retry.py')
 mod = importlib.util.module_from_spec(spec)
@@ -121,8 +130,8 @@ class Module(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         home, board = Path(tmp.name) / 'sup', Path(tmp.name) / 'tw3d-board-2'
+        self.addCleanup(put_back, 'TW_SUP_HOME', os.environ.get('TW_SUP_HOME'))
         os.environ['TW_SUP_HOME'] = str(home)
-        self.addCleanup(os.environ.pop, 'TW_SUP_HOME', None)
         stops = board / 'relay' / 'desktop' / 'stops'
         stops.mkdir(parents=True)
         core.write_json(stops / '20261020-010000-1.json', {'units': {'x': 'FAIL', 'y': 'PASS'}})
@@ -134,18 +143,51 @@ class Module(unittest.TestCase):
         self.assertEqual(hooks.skip('x', board, 'lane/show/x'), '', 'a run in between ends the cool-down: never kept off for good')
 
 
+class Kept(unittest.TestCase):
+    """The hook reads a fresh state only (S.3), and a test leaves TW_SUP_HOME as it found it (M.1)."""
+
+    def test_retry_park_does_not_act_on_a_stale_state(self):
+        import time
+        import hooks
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        h = Path(tmp.name)
+        core.write_json(h / 'modules.json', {'retry': 'on'})
+        core.write_state('retry', dict(units={'x': dict(park=True, why='2 tries ended unit')}, at=time.time() - 3 * 3600), h)
+        self.assertIsNone(hooks.retry_park('x', h), 'a retry state of a stopped supervisor parks nothing: a unit its lane '
+                                                    'brought back would be parked again every round (S.3)')
+        core.write_state('retry', dict(units={'x': dict(park=True, why='2 tries ended unit')}, at=time.time()), h)
+        self.assertEqual(hooks.retry_park('x', h), (True, '2 tries ended unit'))
+
+    def test_the_tests_put_tw_sup_home_back(self):
+        old = os.environ.get('TW_SUP_HOME')
+        os.environ['TW_SUP_HOME'] = 'C:/sentinel-sup-home'
+        try:
+            for t in (Module('test_the_cool_down_hook'), Hook('test_retry_on_does_not_park_a_unit_it_does_not_call_due')):
+                r = unittest.TestResult()
+                t.run(r)
+                self.assertTrue(r.wasSuccessful(), r.errors + r.failures)
+                self.assertEqual(os.environ.get('TW_SUP_HOME'), 'C:/sentinel-sup-home', f'{t.id()} did not put TW_SUP_HOME back (M.1)')
+        finally:
+            if old is None:
+                os.environ.pop('TW_SUP_HOME', None)
+            else:
+                os.environ['TW_SUP_HOME'] = old
+
+
 class Hook(unittest.TestCase):
     """The hook in loopsteps.attempts(): today's rule while retry is not 'on'; retry's verdict when it is."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.home = Path(self.tmp.name) / 'sup'
+        self.old_home = os.environ.get('TW_SUP_HOME')       # before the imports below set one of their own
         sys.path.insert(0, str(HERE.parent / 'assetboard'))
         import test_loopsteps, test_autoloop  # noqa: F401,E401  they set a TW_SUP_HOME of their own on import: first
         os.environ['TW_SUP_HOME'] = str(self.home)
 
     def tearDown(self):
-        os.environ.pop('TW_SUP_HOME', None)
+        put_back('TW_SUP_HOME', self.old_home)
         self.tmp.cleanup()
 
     def run_loop(self, name, mode):
@@ -154,7 +196,8 @@ class Hook(unittest.TestCase):
         from test_autoloop import put
         if mode:
             core.write_json(self.home / 'modules.json', {'retry': mode})
-        core.write_state('retry', dict(units={'moving-1': dict(park=True, why='2 tries ended push-refused (a, b)')}), self.home)
+        core.write_state('retry', dict(units={'moving-1': dict(park=True, why='2 tries ended push-refused (a, b)')},
+                                       at=time.time()), self.home)      # fresh: hooks.retry_park reads no stale state (S.3)
         w = tl.world(Path(self.tmp.name), name)
         put(w.main, 'queue', 'moving-1', lane='lane/show/moving', priority=40)
 
@@ -178,7 +221,7 @@ class Hook(unittest.TestCase):
         import autoloop
         import test_loopsteps as tl
         from test_autoloop import put
-        core.write_state('retry', dict(units={'relay-harness-rebase-b': dict(park=False)}), self.home)
+        core.write_state('retry', dict(units={'relay-harness-rebase-b': dict(park=False)}, at=time.time()), self.home)
         w = tl.world(Path(self.tmp.name), 'machine')
         put(w.main, 'queue', 'relay-harness-rebase-b', lane='lane/show/relay-harness', priority=40)
         w.stop_records = tl.STOPS           # three BLOCKED with nothing changed: today's rule parks it
