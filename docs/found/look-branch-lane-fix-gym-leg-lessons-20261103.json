@@ -1,0 +1,17 @@
+{
+  "subject": "branch:lane/fix/gym-leg-lessons",
+  "looked_at": [
+    "commit 50a7062902376e54104e1a0c2c8130e9103b2fa5",
+    "commit badafdac68d20251560bce836e39dad4c782464e",
+    "commit 50a603a8dd15aed247584f77ed587d027c3c85c2",
+    "git diff --stat origin/claude/trench-warfare-2d-3d-plan-idt7lf origin/lane/fix/gym-leg-lessons -- trench-warfare-3d/Assets/_Project/Editor/Gym.cs trench-warfare-3d/Assets/_Project/Tests/Project/GymLessonsTests.cs docs/reference/feature-flags.md",
+    "trench-warfare-3d/Assets/_Project/Editor/Gym.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Project/GymLessonsTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Project/TW.Tests.Project.asmdef",
+    "docs/reference/feature-flags.md",
+    "trench-warfare-3d/Tools/codemap.py",
+    "python Tools/aosa/occ.py TW.Editor TW.Tests.Project (from trench-warfare-3d/)"
+  ],
+  "verdict": "dead, close the branch: every line of its three commits is already on integration (the diff against origin/claude/trench-warfare-2d-3d-plan-idt7lf is empty for Gym.cs, GymLessonsTests.cs and feature-flags.md; only tasks.md and codemap.py differ, and only because integration moved on past the branch's own rows). There is nothing left to land, and nothing to fix: TW.Editor and TW.Tests.Project both compile clean (occ.py OK, and confirmed by reading the IL metadata of the built TW.Editor.dll — GymRun.AppendLessons is a real public static method declared inside GymRun, not Gym; the two classes just sit back-to-back in Gym.cs).",
+  "tasks": []
+}
