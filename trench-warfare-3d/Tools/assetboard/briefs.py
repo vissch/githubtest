@@ -38,6 +38,9 @@ CONCEPTS FIRST (the owner, 2026-10-06). Work on an effect, an animation or a cha
 four concepts or references he picks from: `concepts`. Each is a picture, a short film, or a page drawn in HTML or
 SVG (photographed here). Nothing of that work is built before he has picked.
 --no-evidence "why" is for a decision nothing can be shown of; a brief without either is refused.
+PLAIN TITLES AND PICTURES (the owner, 2026-11-01: "i need something visual to tell what im deciding on"). A title is
+plain words, no unit id, -g1 chain or path; a brief about visual work (--role, --file, a show lane named for a look)
+shows at least one picture, which --no-evidence does not excuse. The rules are briefrules.py's.
 
 WHEN A CLICK IS A YES TO WORK (the owner, 2026-10-06). An option may say what happens then: "Then: ..." under it on the
 page, and the unit that is queued. A click on such an option is his yes for that unit, and only then: the page sends
@@ -64,6 +67,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import build  # noqa: E402
+import briefrules  # noqa: E402
 
 FOR_WORDS = 45          # "really short": what the decision is for, in at most this many words
 OPTION_WORDS = 22       # ... an option
@@ -98,11 +102,17 @@ def one(s):
     return re.sub(r'\s+', ' ', str(s or '')).strip()
 
 
-def check(title, what_for, options, why, evidence, no_evidence):
-    """Why a brief would be refused: every reason, in words the writer can act on. An empty list is a brief."""
+def check(title, what_for, options, why, evidence, no_evidence, visual=False, ids=()):
+    """Why a brief would be refused: every reason, in words the writer can act on. An empty list is a brief. The title
+    is plain words (briefrules.title_bad: no unit id, chain or path, `ids` are the brief's own unit and lane), and a
+    brief about `visual` work shows at least one picture (briefrules.picture_bad; the owner, 2026-11-01)."""
     bad = []
     if not one(title):
         bad.append('it has no title')
+    else:
+        bad += briefrules.title_bad(title, ids)
+    if visual:
+        bad += briefrules.picture_bad(evidence)
     if not one(what_for):
         bad.append('it does not say what the decision is for')
     elif words(what_for) > FOR_WORDS:
@@ -155,13 +165,17 @@ def keep(src: Path, dst: Path):
     return dst
 
 
-def add(where: Path, title, what_for, options, why, evidence=(), no_evidence='', about='', lane='', by='', now=None, bid='', raised_by=None):
+def add(where: Path, title, what_for, options, why, evidence=(), no_evidence='', about='', lane='', by='', now=None, bid='', raised_by=None,
+        role='', files=()):
     """Write a brief and return it. `evidence` is [(path, caption)]; the first option is the one the writer would take.
     A brief that is not short, shows nothing without saying why, or names a file that is not there, is a ValueError
     that says every reason. `raised_by` is the relay run a brief comes from, {run, unit, leg}: the Runs page lists the
-    brief under that run (src_runs.py), which a brief with no such stamp can only be guessed onto."""
+    brief under that run (src_runs.py), which a brief with no such stamp can only be guessed onto. `role` (the unit's
+    relay role) and `files` (what the work changed) say whether it is visual work, which needs a picture."""
     evidence = list(evidence)
-    bad = check(title, what_for, options, why, evidence, no_evidence)
+    visual = briefrules.is_visual(role, lane, files)
+    bad = check(title, what_for, options, why, evidence, no_evidence, visual=visual,
+                ids=[lane, (raised_by or {}).get('unit') or ''])
     if bad:
         raise ValueError('not a brief yet: ' + '; '.join(bad))
     now = now or datetime.datetime.now()
@@ -721,7 +735,7 @@ def steps(where: Path, board: Path, states=None, landed=(), now=None, write=True
             after = f'Your yes lets the step {stages[n + 1]["id"]} build on it.' if n + 1 < len(stages) else 'It is the last step before the gate.'
             what_for = f'{head}. Its step {sid} passed on the {r.get("station") or "board"}, {str(r.get("finished_at", ""))[:10]}. {after}'
             why = ' '.join(f'It passed its own check, attempt {r.get("attempt", 1)}{": " + one(r["note"]) if one(r.get("note")) else ""}'.split()[:WHY_WORDS])
-            b = add(where, f'{iid}: the {sid} step', what_for, STEP_OPTIONS, why, ev, lane=item.get('lane', ''), by='briefs.py steps', now=now, bid=bid)
+            b = add(where, briefrules.fit(f'{iid}: the {sid} step'), what_for, STEP_OPTIONS, why, ev, lane=item.get('lane', ''), by='briefs.py steps', now=now, bid=bid)
             b['step'] = dict(item=iid, stage=sid, job=r.get('job', ''), attempt=r.get('attempt', 1))
             b['options'][0]['then'] = dict(says=STEP_THEN, stamp=stamp(STEP_THEN))
             put(where / bid, b)
@@ -846,6 +860,8 @@ def main(argv=None):
     ap.add_argument('--concept', action='append', default=[], help='concepts: PATH=what it is; a picture, a short film, or a page in HTML or SVG. Yours first')
     ap.add_argument('--about', default='', help='the title of the question in decisions.md this brief is for')
     ap.add_argument('--lane', default='')
+    ap.add_argument('--role', default='', help='add: the relay role of the work it is about; a visual role needs a picture')
+    ap.add_argument('--file', action='append', default=[], help='add: a file the work changed; art, an effect or a capture makes it visual work')
     ap.add_argument('--by', default='')
     ap.add_argument('--run', default='', help='add: the relay run this decision comes from (its name, as the Runs page lists it), with --run-unit and --run-leg when one unit or leg raised it')
     ap.add_argument('--run-unit', default='')
@@ -855,7 +871,8 @@ def main(argv=None):
     try:
         if a.what == 'add':
             ev = [(e.rsplit('=', 1) + [''])[:2] for e in a.evidence]
-            b = add(where, a.title, a.what_for, a.option, a.why, ev, a.no_evidence, a.about, a.lane, a.by, raised_by=dict(run=a.run, unit=a.run_unit, leg=a.run_leg) if a.run else None)
+            b = add(where, a.title, a.what_for, a.option, a.why, ev, a.no_evidence, a.about, a.lane, a.by, raised_by=dict(run=a.run, unit=a.run_unit, leg=a.run_leg) if a.run else None,
+                    role=a.role, files=a.file)
             print(f'briefs: {b["id"]} is written, in {where}')
         elif a.what == 'answer':
             if len(a.args) < 2:

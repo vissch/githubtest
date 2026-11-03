@@ -642,7 +642,14 @@ def dropped_by(w, bid):
 
 
 def park_text(uid, rec, nxt):
-    """(title, what it is for, why) of the one brief a parked unit gets."""
+    """(title, what it is for, why) of the one brief a parked unit gets. The title is plain words (briefrules.fit): a
+    unit id or -g1 chain in it is refused by briefs.add (the owner, 2026-11-01: "i dont know what these titles mean")."""
+    import briefrules
+    title, what_for, why = _park_text(uid, rec, nxt)
+    return briefrules.fit(title, [uid]), what_for, why
+
+
+def _park_text(uid, rec, nxt):
     kinds = {}
     for f in rec['fails']:
         k = f.split()[-1]

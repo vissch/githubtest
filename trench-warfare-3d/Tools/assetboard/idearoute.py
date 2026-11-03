@@ -187,7 +187,7 @@ def gates(where: Path, briefs_where: Path, notes_where: Path, board: Path, evalu
                 continue
             head = ' '.join(mine[iid]['title'].split()[:10])
             waits = [x['id'] for x in it['stages'] if s['id'] in x.get('after', [])]
-            br = briefs.add(briefs_where, f'{head}: {s["id"].replace("-", " ")}', f'Your idea reached a step of yours. The step {", ".join(s.get("after", []))} is done; these are its pictures. Waiting on you: {", ".join(waits) or "nothing"}.',
+            br = briefs.add(briefs_where, briefs.briefrules.fit(f'{head}: {s["id"].replace("-", " ")}'), f'Your idea reached a step of yours. The step {", ".join(s.get("after", []))} is done; these are its pictures. Waiting on you: {", ".join(waits) or "nothing"}.',
                             GATE_OPTIONS, 'It passed its own check; the pictures are what it made.', ev[:briefs.MOST_EVIDENCE], lane=it.get('lane', ''), by=by, now=now, bid=bid)
             br['step'] = dict(item=iid, stage=s['id'], job=info['job'], gate=True)
             br['options'][0]['then'] = dict(says=GATE_THEN, stamp=briefs.stamp(GATE_THEN))

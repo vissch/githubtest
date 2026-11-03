@@ -83,5 +83,70 @@ class BriefShape(unittest.TestCase):
             self.assertIn(bid, page, '[N10.5] the page does not name the brief %s it passed over' % bid)
 
 
+class PlainTitleAndPicture(unittest.TestCase):
+    """The owner, 2026-11-01: titles of jargon and no pictures; "i need something visual to tell what im deciding on"."""
+
+    def setUp(self):
+        self.where = Path(tempfile.mkdtemp(prefix='briefs-', dir=str(TEMP)))
+        self.png = Path(tempfile.mkdtemp(prefix='ev-', dir=str(TEMP))) / 'after.png'
+        self.png.write_bytes(b'\x89PNG\r\n\x1a\n' + b'\0' * 32)
+        self.txt = self.png.with_name('notes.txt')
+        self.txt.write_text('numbers', encoding='utf-8')
+
+    def brief(self, title='The sapper looks like a sapper', **kw):
+        base = dict(evidence=[], no_evidence='', lane='', role='', files=())
+        base.update(kw)
+        return briefs.add(self.where, title, 'Whether the sapper reads as a sapper at play zoom.',
+                          ['Keep it', 'Send it back'], 'It reads at every zoom.', base['evidence'], base['no_evidence'],
+                          lane=base['lane'], by='test', role=base['role'], files=base['files'],
+                          raised_by=kw.get('raised_by'))
+
+    def test_a_visual_brief_without_a_picture_is_refused(self):
+        for kw in (dict(role='character-simulator'), dict(files=['Assets/_Project/Art/Units/Sapper.png']),
+                   dict(lane='lane/show/sapper-look')):
+            with self.assertRaises(ValueError, msg=f'a visual brief ({kw}) with no picture was written') as e:
+                self.brief(no_evidence='the editor was busy', **kw)
+            self.assertIn('visual work', str(e.exception))
+            with self.assertRaises(ValueError, msg=f'a visual brief ({kw}) with only a text file was written'):
+                self.brief(evidence=[(str(self.txt), 'the numbers')], **kw)
+        b = self.brief(role='character-simulator', evidence=[(str(self.png), 'The sapper after')])
+        self.assertEqual(len(b['evidence']), 1)
+
+    def test_a_title_of_ids_chains_or_paths_is_refused(self):
+        for title in ('ability-fx-captures-r2-2-g1 needs you', 'Sapper look 3 g2 -g1-g2 chain',
+                      'Flamer-look-r2: keep it?', 'docs/evidence/sapper/after.png', 'The sapper (lane/show/sapper-look)',
+                      'Look every unit close 20261019', 'The ' + 'very ' * 20 + 'long title'):
+            with self.assertRaises(ValueError, msg=f'the title "{title}" was let through') as e:
+                self.brief(title, evidence=[(str(self.png), 'The sapper after')])
+            self.assertIn('title', str(e.exception))
+        with self.assertRaises(ValueError, msg='a title naming its own unit id was let through'):
+            self.brief('Is sapper-look done', evidence=[(str(self.png), 'The sapper after')],
+                       raised_by=dict(run='r1', unit='sapper-look', leg=2))
+
+    def test_a_program_written_title_is_made_plain_not_refused(self):
+        """the loop's park brief and found.py have nobody to answer a refusal: fit() makes their titles plain"""
+        import briefrules
+        for t in ('ability-fx-captures-r2-2-g1-g1-g1: chain of fix units 5 deep, 62 units',
+                  'relay-proof-to-drive: tried 4 times, no progress',
+                  'Tools/relay/relay.py leaks the board lock when docs/evidence/x/a.png is missing',
+                  'look-look-every-unit-close-20261019: refused by the API safety filter 4 times',
+                  'A ' + 'very ' * 30 + 'long finding'):
+            f = briefrules.fit(t, ['relay-proof-to-drive'])
+            self.assertEqual(briefrules.title_bad(f, ['relay-proof-to-drive']), [], f'{t!r} -> {f!r}')
+            self.brief(f, evidence=[(str(self.png), 'The sapper after')])
+        self.assertEqual(briefrules.fit('The gas ability'), 'The gas ability')
+        self.assertTrue(briefrules.fit('ability-fx-captures-r2-2-g1: tried 4 times').startswith('Ability fx captures: tried 4'))
+
+    def test_an_old_style_non_visual_brief_still_passes(self):
+        b = briefs.add(self.where, 'The gas ability', 'It needs a yes before it is built.', ['Build it', 'Leave it'],
+                       'It is cheap and it reads at every zoom.', by='test',
+                       no_evidence='nothing is built yet: there is nothing to show', lane='lane/sim/gas-ability')
+        self.assertEqual(b['title'], 'The gas ability')
+        b = briefs.add(self.where, "The house's look: near-black where nobody works", 'What the house is drawn like.',
+                       ['Near-black where nobody works', 'Every room light'], "It is the site's own look", by='test',
+                       no_evidence='a decision of words')
+        self.assertTrue(b['id'])
+
+
 if __name__ == '__main__':
     unittest.main()
