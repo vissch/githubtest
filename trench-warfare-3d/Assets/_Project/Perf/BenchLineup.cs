@@ -38,6 +38,11 @@ namespace TW.Perf
         /// <summary>Knob: 1..`Men.Length` fires only that class of Men (both rows), so one class's flare can be judged alone - the
         /// sniper's cross had never been positively seen among the other six (critique r13); 0 or absent, every class.</summary>
         public const string OnlyKnob = "bench.lineupOnly";
+        /// <summary>Knob: 1 (default) spawns the Men rows as usual; 0 stages the machines, the bomber and the bursts the
+        /// same as always but spawns no men, so an "empty" plate is the same battle minus the men, not a different one -
+        /// the probe's man box is a diff against this plate, and the old empty plates (shot with no scenario at all) were
+        /// a different staged world entirely (muzzle-flash-scale).</summary>
+        public const string MenKnob = "bench.lineupMen";
 
         /// <summary>Whether man `i` fires under the lineupOnly knob value `only`.</summary>
         public static bool Fires(int i, int only) => only <= 0 || only > Men.Length || i == only - 1;
@@ -84,6 +89,7 @@ namespace TW.Perf
         {
             if (host == null || host.Local == null) { log.Warnings.Add("lineup: no match to stage it on"); return null; }
             var show = new BenchLineup { focus = view, fire = Mathf.RoundToInt(Knobs.Get(FireKnob, 0f)), only = Mathf.RoundToInt(Knobs.Get(OnlyKnob, 0f)) };
+            bool men = Mathf.RoundToInt(Knobs.Get(MenKnob, 1f)) != 0;
             var inv = CultureInfo.InvariantCulture;
             bool wrote = host.WriteWorlds(m =>
             {
@@ -96,11 +102,14 @@ namespace TW.Perf
                     if (local) log.Writes.Add(string.Format(inv, "spawn p{0} archetype {1} at ({2:0.0}, {3:0.0}): slot {4}", team, a, at.x, at.y, slot));
                     return slot;
                 }
-                for (int i = 0; i < Men.Length; i++)
-                {
-                    int a = Put(0, Men[i], Spot(view, 0, i), false, 0f), b = Put(1, Men[i], Spot(view, 1, i), false, Mathf.PI);
-                    if (local) { show.row0[i] = a; show.row1[i] = b; }
-                }
+                if (men)
+                    for (int i = 0; i < Men.Length; i++)
+                    {
+                        int a = Put(0, Men[i], Spot(view, 0, i), false, 0f), b = Put(1, Men[i], Spot(view, 1, i), false, Mathf.PI);
+                        if (local) { show.row0[i] = a; show.row1[i] = b; }
+                    }
+                else if (local)
+                    for (int i = 0; i < Men.Length; i++) { show.row0[i] = -1; show.row1[i] = -1; }
                 for (int i = 0; i < Machines.Length; i++)
                 {
                     int s = Put(0, Machines[i], MachineSpot(view, i), true, 0f);
@@ -135,6 +144,7 @@ namespace TW.Perf
             if (arms && ArmsAt(t, s))
                 for (int i = 0; i < Men.Length; i++)
                 {
+                    if (row0[i] < 0 || row1[i] < 0) continue;
                     if (!Fires(i, only) || !FiresAt(i, t, s)) continue;
                     Fire(frame, w, tick, row0[i], row1[i], i);
                     Fire(frame, w, tick, row1[i], row0[i], i + 7);

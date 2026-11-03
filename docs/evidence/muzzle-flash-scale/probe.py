@@ -9,7 +9,10 @@ MEASURED (his drawn silhouette), not the 2.0 m FigureMetrics constant, so camera
 The caps are the owner's, through the critic: rifle <= 0.4, mg <= 0.6; the flamer and the AT may be bigger.
 
 INPUT, per class, all at one pose for that class (CaptureRig.Bench; the exact lines are in README.md beside this file)
-    <class>_empty.png            the pose with no men at all (no scenario=)
+    <class>_empty.png            the same staged lineup minus the men (knobs=bench.lineupFire=2|bench.lineupMen=0):
+                                 the machines, the bomber and the bursts stage as usual, only the men are absent, so
+                                 idle - empty is the men alone, not a different battle (muzzle-flash-scale: the
+                                 original empty plates were shot with no scenario= at all, a different world)
     <class>_idle.png             the men standing, nobody firing small arms (knobs=bench.lineupFire=2)
     <class>_fire.png             that class alone firing (knobs=bench.lineupOnly=N shot_frames=10): the frame of
                                  the ten-frame burst whose flash was largest, the only one kept
@@ -34,8 +37,9 @@ HOW
     flash box   label the hot mask, drop any blob wider than 3x its height (a tracer streak), take the largest.
                 Flicker the whole set shares (a burning wreck, a lamp) is removed first: a pixel hot in three or
                 more of the four classes is not a muzzle flash.
-    man box     |idle - empty| luma > 16, labelled, blobs under 40 px tall dropped; the blob whose x range is
-                nearest the flash's centre column. That is the shooter's drawn silhouette.
+    man box     |idle - empty| luma > 16, labelled, blobs under MAN_MIN_H (24) px tall or wider than they are tall
+                dropped (a man is taller than wide; a short wide blob is ground glare or a shadow, not a man); the
+                blob whose x range is nearest the flash's centre column. That is the shooter's drawn silhouette.
     ratio       flash box height / man box height, 3 places.
 
 OUTPUT  probe.json ({"rifle":..., "mg":..., "flamer":..., "at":...}), a table of the pixel boxes, and
@@ -54,7 +58,7 @@ from scipy import ndimage
 HERE = os.path.dirname(os.path.abspath(__file__))
 CLASSES = ("rifle", "mg", "flamer", "at")
 CAPS = {"rifle": 0.4, "mg": 0.6}
-FLASH_DIFF, MAN_DIFF, HOT_LUMA, MAN_MIN_H = 24.0, 16.0, 120.0, 20
+FLASH_DIFF, MAN_DIFF, HOT_LUMA, MAN_MIN_H = 24.0, 16.0, 120.0, 24
 STRIP = 0.17          # half-width of the middle strip, as a share of the frame width
 
 
@@ -115,7 +119,8 @@ def man_box(idle, empty, flash):
     best, bestd = None, None
     for l in range(1, n + 1):
         x0, y0, x1, y1 = box_of(lab, l)
-        if (y1 - y0 + 1) < MAN_MIN_H:
+        h, w = y1 - y0 + 1, x1 - x0 + 1
+        if h < MAN_MIN_H or w > h:
             continue
         dist = 0.0 if x0 <= cx <= x1 else min(abs(cx - x0), abs(cx - x1))
         if bestd is None or dist < bestd:
