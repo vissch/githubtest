@@ -151,9 +151,13 @@ class Run:
         if rec.get("day") == time.strftime("%Y-%m-%d") and isinstance(rec.get("pct"), (int, float)) \
                 and not isinstance(rec.get("pct"), bool):
             pct = config.limits(overrides={"day_budget_pct": rec["pct"]})["day_budget_pct"]
+        owner = owner_cap()
+        if owner is not None:                               # the owner's budget (Tools/supervisor/budget.py) outranks both
+            pct = config.limits(overrides={"day_budget_pct": owner})["day_budget_pct"]
         if pct != self.lim["day_budget_pct"]:
             print("note: the day's cap is %g%% from here (%s)"
-                  % (pct, "day.json names today" if pct != self.base_pct else "the run's own again"), flush=True)
+                  % (pct, "the owner's budget" if owner is not None else "day.json names today"
+                     if pct != self.base_pct else "the run's own again"), flush=True)
             self.lim["day_budget_pct"] = pct
         self.ctx["shares"] = config.shares(self.lim, read("shares.json"))
         try:
@@ -749,6 +753,19 @@ class Run:
             print("  the guard refused %d command%s: read them with `relay.py refusals`; one that was normal work "
                   "becomes a test and a rule fix." % (self.refused, "" if self.refused == 1 else "s"), flush=True)
         return code
+
+
+def owner_cap():
+    """The day's cap the owner set with Tools/supervisor/budget.py now, or None (no budget.json, or it does not read):
+    the run's own figure and day.json stand. Read between units (Run.allot), so a running relay takes a new figure at
+    its next unit without a restart."""
+    try:
+        if str(HERE.parent / "supervisor") not in sys.path:
+            sys.path.append(str(HERE.parent / "supervisor"))
+        import spend
+        return spend.day_cap(clock())
+    except Exception:                                   # noqa: BLE001 - a run never stops on the supervisor
+        return None
 
 
 def tally(units):

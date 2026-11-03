@@ -7,6 +7,8 @@ one fails on the loop as it was before (bef63329d): his own words waited for a s
 waited for a dry queue, and a unit that went nowhere was retaken by every run. The history of the night of 2026-10-15
 is the material: relay-harness-rebase-b BLOCKED three times on one push, heroes-off-bench restarted four times on
 relay 6 on work done two days before, and the main run of 13:51 stopped when done records were copied under it."""
+import os as _os, tempfile as _tf  # noqa: E402,E401
+_os.environ['TW_SUP_HOME'] = _tf.mkdtemp(prefix='tw-sup-test-')   # never the machine's own budget or switches
 import json
 import sys
 import tempfile

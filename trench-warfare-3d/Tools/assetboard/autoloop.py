@@ -48,6 +48,11 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import found  # noqa: E402
 import loopsteps  # noqa: E402
+sys.path.append(str(HERE.parent / 'supervisor'))
+try:
+    import spend        # the supervisor's spend hooks (Tools/supervisor/spend.py): the owner's day figure, capacity
+except Exception:  # noqa: BLE001 - without them the loop runs as before
+    spend = None
 
 GH = Path(os.environ.get('TW_STEWARD_GH') or 'C:/Users/PC/Documents/GitHub')
 RELAY = GH / 'githubtest-relay-run' / 'trench-warfare-3d' / 'Tools' / 'relay' / 'relay.py'
@@ -73,6 +78,20 @@ PS_LIST = ("$all = @{}; Get-CimInstance Win32_Process | ForEach-Object { $all[[i
            "[pscustomobject]@{pid=[int]$_.ProcessId; ppid=[int]$_.ParentProcessId; name=$_.Name; cmd=[string]$_.CommandLine; "
            "age=[int]($now - $_.CreationDate).TotalSeconds; parent=$(if ($gone) {''} else {$p.Name}); "
            "parent_cmd=$(if ($gone) {''} else {[string]$p.CommandLine})} } | ConvertTo-Json -Compress")
+
+
+def day_figure():
+    """The -DayPct an extra relay starts with: the owner's figure from Tools/supervisor/budget.py when he set one,
+    else TW_DAY_PCT (or 11) as before."""
+    return spend.day_figure(DAY_PCT) if spend else DAY_PCT
+
+
+def capacity_room(runs):
+    """(may one more extra relay start, why): Tools/supervisor/modules/capacity.py when it is switched on, else yes.
+    runs: {relay: the lanes it runs}; relay 1 holds the first slot, running or not (the best work goes first)."""
+    if spend is None:
+        return True, ''
+    return spend.capacity_room(len({m for m, r in runs.items() if r} | {1}))
 
 
 def load(f: Path, default):
@@ -236,7 +255,7 @@ class World:
                 return 'not started: ' + (said.splitlines() or ['the hold was refused'])[0][:160]
             cmd = [str(MAIN_START), '-Who', MAIN_WHO, '-Sources', sources] + (['-NoQuiet'] if quiet_off else [])
         else:
-            cmd = [str(START), '-N', str(n), '-DayPct', DAY_PCT] + (['-NoQuiet'] if quiet_off else [])
+            cmd = [str(START), '-N', str(n), '-DayPct', day_figure()] + (['-NoQuiet'] if quiet_off else [])
         p = subprocess.Popen(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', *cmd],
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags, close_fds=True)
         return f'started (pid {p.pid})'
@@ -942,6 +961,10 @@ def feed(w):
                                f'it waits parked on the main board until the lane is free')
             save(w.home / 'lane_waits.json', waiting)
         # before the empty branch parks units on the main board for a relay that would not start
+        room, why = capacity_room(runs)
+        if not room:
+            out.append(f'feed: relay {n} is not started: {why}')
+            continue
         if not pace_covers_unit(w.day_text()):
             out.append(f'feed: relay {n} is not started: the day\'s free pace is below one unit\'s usual cost')
             continue
@@ -950,7 +973,7 @@ def feed(w):
             for uid, u in q.items():
                 if uid in done or found.prio(u) >= PARKED or not u.get('lane') or u['lane'] in held or loopsteps.work_key(uid, u) in kin \
                         or loopsteps.family(u['lane'])[0] in kin_lanes or loopsteps.family(uid)[0] in main_ids \
-                        or (tries.get(uid) or {}).get('main_try'):      # sent to the main relay for its second try: not fed back
+                        or (tries.get(uid) or {}).get('main_try') or loopsteps.capped(uid):      # sent to the main relay for its second try: not fed back
                     continue
                 free.setdefault(u['lane'], []).append((found.prio(u), uid, u))
             lane = next((k for k in sorted(free, key=lambda k: (min(p for p, _, _ in free[k]), k))

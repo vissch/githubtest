@@ -7,6 +7,8 @@ The order is tested against the day it was written for (2026-10-10): fifteen ide
 runner's next pick the one nearest its item's end, by file name among ties. A stage whose last attempt failed reads
 FAILED (docs/reference/stations.md's states table) and is no candidate at all until an input moves or someone files
 feedback on it (commit 67d6d6d2ca, [O15])."""
+import os as _os, tempfile as _tf  # noqa: E402,E401
+_os.environ['TW_SUP_HOME'] = _tf.mkdtemp(prefix='tw-sup-test-')   # never the machine's own budget or switches
 import json
 import os
 import sys

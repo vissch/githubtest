@@ -12,6 +12,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import autoloop  # noqa: E402
+import os  # noqa: E402
+SUP_HOME = Path(tempfile.mkdtemp(prefix='tw-sup-test-'))   # the supervisor's switches: never the machine's own
+os.environ['TW_SUP_HOME'] = str(SUP_HOME)
 
 results = []
 # what relay.py status prints (githubtest-relay-run, 2026-10-15), a run and none
@@ -909,6 +912,70 @@ def main():
          '(relays 3-6 put aside 22:10, refused "index moved 28 s ago", started 22:43); one it let go of skips the quiet wait, '
          'but one that stops at once is not restarted every round',
          first == [(2, True), (3, True)] and w.started.count(2) == 1, (tl, fl, tl2, fl2, first, w.started))
+
+    # ---- the supervisor's spend hooks (Tools/supervisor/spend.py): nothing changes until a module is switched on ----
+    import datetime
+    import time
+    c = autoloop.spend.core
+
+    def cap_world(name, mode, allowed):
+        c.write_json(SUP_HOME / 'modules.json', {'capacity': mode} if mode else {})
+        c.write_state('capacity', dict(allowed=allowed, why='test', at=time.time()), SUP_HOME)
+        wc = Fake(tmp / name)
+        put(wc.main, 'queue', 'free-1', lane='lane/show/free', priority=20)
+        put(wc.main, 'queue', 'other-1', lane='lane/show/other', priority=30)
+        wc.text[wc.main] = RUN
+        return wc, autoloop.feed(wc)
+    wd, ld = cap_world('cap-dry', None, 1)
+    won, lon = cap_world('cap-on', 'on', 1)
+    wtwo, ltwo = cap_world('cap-two', 'on', 2)
+    c.write_json(SUP_HOME / 'modules.json', {})
+    case('capacity: dry (its default) starts the extra relays as before; on, with 1 allowed (relay 1 holds it) no extra '
+         'starts and the log says why; on, with 2 allowed, one extra starts',
+         sorted(wd.started) == [2, 3] and won.started == [] and any('relays the budget carries' in l for l in lon)
+         and wtwo.started == [2], (ld, lon, ltwo, wd.started, won.started, wtwo.started))
+    before = autoloop.day_figure()
+    autoloop.spend._load('budget').set_(26, now=datetime.datetime.now(), h=SUP_HOME)
+    after = autoloop.day_figure()
+    (SUP_HOME / 'state' / 'budget.json').unlink()
+    case('the -DayPct an extra relay starts with is TW_DAY_PCT (or 11) until the owner sets the day with budget.py; '
+         'then his figure, with no restart of the loop', before == autoloop.DAY_PCT and after == '26', (before, after))
+
+    def fam_world(name, mode):
+        c.write_json(SUP_HOME / 'modules.json', {'families': mode})
+        c.write_state('families', dict(families={'goal-z': dict(over='$120 spent (cap $100)', brief='2026-11-02-goal-z',
+                                                                usd=120, depth=1)}, at=time.time()), SUP_HOME)
+        wf = wt(name)
+        put(wf.extras[2], 'queue', 'goal-z-r2-g1', lane='lane/show/gz', goal='g')
+        put(wf.extras[3], 'queue', 'goal-z-3', lane='lane/show/gz3', goal='g')
+        put(wf.extras[3], 'queue', 'goal-y-g1', lane='lane/show/gy', goal='g')
+        autoloop.attempts(wf)
+        autoloop.attempts(wf)
+        qd = {u: [b.name for b in (wf.main, *wf.extras.values()) if (b / 'relay' / 'queue' / (u + '.json')).exists()]
+              for u in ('goal-z-r2-g1', 'goal-z-3', 'goal-y-g1')}
+        st = json.loads((wf.home / 'attempts.json').read_text(encoding='utf-8')) if (wf.home / 'attempts.json').exists() else {}
+        return wf, qd, st
+    wf, qd, st = fam_world('wt22', 'on')
+    case('families on: the queued units of a goal family over the cap are parked on idle boards under the family\'s one '
+         'brief (none per unit); another goal stays',
+         qd['goal-z-r2-g1'] == [] and qd['goal-z-3'] == [] and qd['goal-y-g1'] == ['b3'] and wf.briefs_written == []
+         and (st.get('goal-z-3') or {}).get('brief') == '2026-11-02-goal-z', (qd, wf.briefs_written, st))
+    wf, qd, st = fam_world('wt23', 'dry')
+    c.write_json(SUP_HOME / 'modules.json', {})
+    case('families dry: nothing is parked', all(v for v in qd.values()) and wf.briefs_written == [], (qd, wf.briefs_written))
+    c.write_json(SUP_HOME / 'modules.json', {'families': 'on'})
+    c.write_state('families', dict(families={'goal-z': dict(over='$120 spent (cap $100)', brief='2026-11-02-goal-z', usd=120,
+                                                            depth=1)}, at=time.time()), SUP_HOME)
+    wm = Fake(tmp / 'cap-main')
+    put(wm.main, 'queue', 'goal-z-r6', lane='lane/show/gz6', priority=20)
+    wm.text[wm.main] = RUN
+    fl = autoloop.feed(wm)
+    al = autoloop.attempts(wm)
+    got = sorted(p.stem for b in wm.extras.values() for p in (b / 'relay' / 'queue').glob('*.json'))
+    c.write_json(SUP_HOME / 'modules.json', {})
+    case('families on, the main relay running: a capped unit on the main queue is fed to no extra relay and is set to 99 '
+         'there, so the main relay does not take it either (the reviewer, SP.1)',
+         got == [] and wm.prios.get('goal-z-r6') == 99, (fl, al, got, wm.prios))
 
     # ---- one round, and the lock ----
     calls = []

@@ -3,6 +3,8 @@
 Each test works in a temporary folder: no real board, checkout or Claude session is touched. Runs use fake_claude.py,
 which calls the leg's real hooks, so a passing run also proves the guards and the meter were on.
 """
+import os as _os, tempfile as _tf  # noqa: E402,E401
+_os.environ['TW_SUP_HOME'] = _tf.mkdtemp(prefix='tw-sup-test-')   # never the machine's own budget or switches
 import argparse, ast, contextlib, datetime, io, json, os, shutil, subprocess, sys, tempfile, threading, time
 import unittest
 from pathlib import Path

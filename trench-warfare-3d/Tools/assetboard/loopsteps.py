@@ -346,6 +346,18 @@ def chain_family(uid):
     return re.split(r'-g\d+', uid)[0]
 
 
+def capped(uid):
+    """{root, why, brief} when the supervisor's families module is on and the unit's goal family is over the owner's
+    cap ($100 or 3 fix generations, 2026-11-02) with its one brief written; None otherwise (Tools/supervisor/spend.py)."""
+    try:
+        if str(HERE.parent / 'supervisor') not in sys.path:
+            sys.path.append(str(HERE.parent / 'supervisor'))
+        import spend
+        return spend.capped(uid)
+    except Exception:  # noqa: BLE001 - without the supervisor the depth rule alone stands
+        return None
+
+
 def park(w, uid, rec, on, out, dropped=False):
     """Take a unit off the queues of `on` {board: its unit} and keep it in the loop's folder. True when it is off all."""
     u = next(iter(on.values()))
@@ -397,7 +409,7 @@ def attempts(w, opens, dones, running, idle, extras=None):
             rec['rseen'] = (rec['rseen'] + [run])[-40:]
             rec['refused'] = (rec.get('refused') or []) + [run]
     for uid in units:
-        if depth(uid) > CHAIN_DEPTH:
+        if depth(uid) > CHAIN_DEPTH or capped(uid):
             st.setdefault(uid, dict(seen=[], fails=[]))
     for uid, rec in sorted(st.items()):
         parked = rec.get('parked')
@@ -421,7 +433,7 @@ def attempts(w, opens, dones, running, idle, extras=None):
                     out.append(f'attempts: {uid}: its brief is written now: {rec["brief"]}')
                 except Exception as e:  # noqa: BLE001
                     out.append(f'attempts: {uid} is parked, its brief was refused again: {str(e)[:160]}')
-            what = changed_since(w, parked.get('fp') or {}, parked)
+            what = '' if capped(uid) else changed_since(w, parked.get('fp') or {}, parked)   # new commits do not lift a spend cap
             if what:
                 # relay add refuses a priority field. The old place is relay.py prio, after the file is queued.
                 old = parked.get('old_priority', 50)
@@ -436,23 +448,32 @@ def attempts(w, opens, dones, running, idle, extras=None):
                     out.append(f'attempts: {uid} could not go back on the queue: {said[:160]}')
             continue
         refused = len(rec.get('refused') or []) > REFUSALS
-        deep = depth(uid) > CHAIN_DEPTH and not rec.get('kept')
+        cap = capped(uid)
+        deep = (depth(uid) > CHAIN_DEPTH or bool(cap)) and not rec.get('kept')
         if (len(rec.get('fails') or []) < TRIES and not refused and not deep) or not on:
             continue
         u = next(iter(on.values()))
+        mu = next((x for b, x in on.items() if Path(b) == Path(w.main)), None)
+        if cap and deep and w.acting and mu is not None and Path(w.main) not in idle and found.prio(mu) < PARKED:
+            if w.prio(uid, PARKED)[0] == 0:              # the relay's own prio: the main relay does not take a 99
+                out.append(f'attempts: {uid} set to {PARKED} on the main board: its goal family {cap["root"]} is over the cap')
         if u.get('lane') in running or not all(Path(b) in idle for b in on):
             continue                                        # a leg works on it, or a board it is on is in a run: next round
         if not refused and not deep and changed_since(w, rec.get('fp') or {}, u):
             continue                                        # one more try is fair: something changed since the last
         if not w.acting:
-            out.append(f'attempts: {uid} would be parked: ' + (f'refused {len(rec["refused"])} times' if refused else f'chained {depth(uid)} fixes deep' if deep else f'{len(rec["fails"])} tries with nothing changed between them'))
+            out.append(f'attempts: {uid} would be parked: ' + (f'refused {len(rec["refused"])} times' if refused else (f'its goal family {cap["root"]} is over the cap' if cap else f'chained {depth(uid)} fixes deep') if deep else f'{len(rec["fails"])} tries with nothing changed between them'))
             continue
         rec['deep'] = deep and not refused and len(rec.get('fails') or []) < TRIES
         if refused or deep:
             rec['fp'] = dict(lane=w.lane_sha(u.get('lane', '')), base=w.int_sha())     # as it stands now: a unit never tried has no fingerprint, and {} reads as 'new commits' (back on the queue a round later)
-        if deep and not refused and sum(1 for line in out if ' parked: a chain of ' in line) >= DEEP_PARKS:
+        if deep and not refused and sum(1 for line in out if ' parked: a chain of ' in line or ' parked: its goal family ' in line) >= DEEP_PARKS:
             continue                                        # the rest of the chains are parked in the next rounds
         if not park(w, uid, rec, on, out):
+            continue
+        if cap and rec['deep']:                            # its goal family's one brief: families.py wrote it
+            rec['cfam'], rec['brief'] = cap['root'], cap['brief']
+            out.append(f'attempts: {uid} parked: its goal family {cap["root"]} is over the cap ({cap["why"]}); brief {cap["brief"]}')
             continue
         peer = next((r for k, r in sorted(st.items()) if rec['deep'] and k != uid and r.get('deep') and r.get('parked') and r.get('brief') and chain_family(k) == chain_family(uid)
                      and not w.brief_answered(r['brief'])), None)
