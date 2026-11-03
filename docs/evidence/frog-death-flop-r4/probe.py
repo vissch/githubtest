@@ -16,6 +16,17 @@ What Tests/Stills/FrogFlopStills.cs shoots, per take (take0, take1, take2):
     <t>_plate.png               i1's held instant with the body taken away (VATRenderer.ClearFallen).
     <t>_plate2.png              a second plate in that same hold: the area floor, frog-free against frog-free.
 
+Why the body mask is every changed pixel, bright or dark
+-------------------------------------------------------
+The first run of this probe counted only the pixels BRIGHTER than the bare plate as the frog, and called the darker
+half his cast shadow. That was wrong, and it is why take0 measured 190 body px with 620 px beside it thrown away. A
+fallen body casts no shadow at all: VATRenderer.Fallen.cs:292 draws every fallen instance with
+`shadowCastingMode = ShadowCastingMode.Off`. So the darker-than-plate pixels in the window are the frog himself —
+the scene is night and his skin reads darker than the lit mud behind him. The mask is therefore every pixel that
+differs from the plate by more than DELTA, whichever way the light went, and the split is still published as
+body_bright_px and body_dark_px so the change is visible in the json and nobody has to take it on trust. The floor
+is untouched: plate against plate2, the same held instant, which measured exactly 0 px.
+
 Why the fraction is taken in a named 6 m window and not over the whole frame
 ---------------------------------------------------------------------------
 The critic's bar is "mask >= 0.01 of the frame". At zoom 30 a metre of ground is 31.36 px
@@ -36,6 +47,18 @@ The two floors the before run measured are both exactly 0 px: a held instant sho
 "3x the floor" margins the goal asks for are cleared by anything above zero and cannot sort a good take from a bad
 one. The absolute bars are what the before run cannot reach: the area bar is 36x its 0.00028, and the motion bar is
 3x its 10 px. belly_up was already read off the pixels and the before run fails it in two takes of three.
+
+What the pixels can and cannot say about the belly
+-------------------------------------------------
+The belly clause is a SEPARATION clause, not a paleness one. The scene is night and the frog reads *darker* than the
+mud (pale_ratio 0.70-0.72 over all three takes of the first run), so a belly brighter than the ground would need a
+new atlas or a fallen tint channel: a look change nobody has asked the owner for. What the pixels can honestly say
+is "two limbs splayed upward and the body separates from the ground": two blobs above the mask's vertical centroid,
+each at least BLOB_FRAC of the body, their centroids BLOB_GAP_FRAC of the mask's width apart, and
+abs(body_luma_p50 - plate_luma_p50) / plate_luma_p50 >= SEP_RATIO in the same window, against the 0 the plate pair
+shows there. They cannot say belly from back; FrogDeathTests (RestRoll 16, the half turn) is the witness for that.
+before.json's belly count of 1 of 3 was measured with the old pale clause and cannot be recomputed — only its i1
+stills were kept — so the belly bar rests on its absolute 3 of 3, not on a margin over the before run.
 
 `--write NAME.json` writes the same numbers to NAME.json with no verdict and exits 0: that is how the before
 captures are published. `--dir DIR` reads the stills from DIR instead of this script's own folder, so a run of the
@@ -60,7 +83,7 @@ MOTION_PX = 30        # the twitch must move this many body pixels in its second
 FLOOR_MARGIN = 3.0    # a bar must sit this many times above its measured floor
 BLOB_FRAC = 0.02      # a leg blob is at least this much of the body mask
 BLOB_GAP_FRAC = 0.15  # the two leg blobs' horizontal centroids, as a fraction of the mask's width
-PALE_RATIO = 1.1      # the belly's median luma against the plate's, in the same window
+SEP_RATIO = 0.15      # |body median luma - plate median luma| / plate, in the same window
 
 
 def sidecar(stem):
@@ -87,15 +110,16 @@ def window(img, cx, cy, side):
 
 
 def split_mask(live, plate, box):
-    """Everything in the window that differs from the plate by more than DELTA, split by which way the light went:
-    *body* is brighter than the bare ground behind it, *shadow* is darker. The frog's own pixels are the body half;
-    the shadow he casts is his too, but it is not him, and counting it would inflate his area."""
+    """The body mask: EVERY pixel in the window that differs from the plate by more than DELTA, whichever way the
+    light went. A fallen casts no shadow (VATRenderer.Fallen.cs:292, ShadowCastingMode.Off), so the darker-than-plate
+    pixels are the frog himself against the lit night mud, not a shadow of his. Returns (mask, brighter, darker); the
+    two halves are published only so the split can be read in the json."""
     x0, y0, side = box
     a = live[y0:y0 + side, x0:x0 + side]
     b = plate[y0:y0 + side, x0:x0 + side]
     changed = np.abs(a - b).sum(axis=2) > DELTA
     brighter = luma(a) > luma(b)
-    return changed & brighter, changed & ~brighter
+    return changed, changed & brighter, changed & ~brighter
 
 
 def blobs(mask):
@@ -127,8 +151,9 @@ def blobs(mask):
 def belly_up(body, live, plate, box):
     """Read off the pixels, not off a sidecar: in the body pixels ABOVE the mask's vertical centroid there must be
     two separate blobs, each at least BLOB_FRAC of the body, their horizontal centroids at least BLOB_GAP_FRAC of the
-    mask's width apart (two legs splayed upward), and the body's median luma must be PALE_RATIO times the bare
-    ground's in the same window (a pale belly turned to the sky). Returns the verdict and its numbers."""
+    mask's width apart (two legs splayed upward), and the body's median luma must stand off the bare ground's by at
+    least SEP_RATIO of it in the same window (the body separates from the ground, either way — at night he is the
+    darker one). Returns the verdict and its numbers."""
     total = int(body.sum())
     if total == 0:
         return False, {"body_px": 0, "why": "no body mask"}
@@ -144,15 +169,17 @@ def belly_up(body, live, plate, box):
     b = plate[y0:y0 + side, x0:x0 + side]
     body_luma = float(np.median(luma(a)[body]))
     plate_luma = float(np.median(luma(b)))
-    pale = plate_luma > 0 and body_luma >= PALE_RATIO * plate_luma
+    sep = abs(body_luma - plate_luma) / plate_luma if plate_luma > 0 else 0.0
+    separated = sep >= SEP_RATIO
 
     gap = abs(found[0][1] - found[1][1]) / mask_w if len(found) >= 2 else 0.0
-    ok = len(found) >= 2 and gap >= BLOB_GAP_FRAC and pale
+    ok = len(found) >= 2 and gap >= BLOB_GAP_FRAC and separated
     return bool(ok), {
         "body_px": total, "mask_w_px": int(mask_w), "upper_blobs": len(found),
         "upper_blob_px": [b[0] for b in found[:4]], "blob_gap_frac": round(gap, 4),
         "body_luma_p50": round(body_luma, 3), "plate_luma_p50": round(plate_luma, 3),
-        "pale_ratio": round(body_luma / plate_luma, 3) if plate_luma > 0 else None, "pale": bool(pale),
+        "pale_ratio": round(body_luma / plate_luma, 3) if plate_luma > 0 else None,
+        "sep_ratio": round(sep, 3), "separated": bool(separated),
     }
 
 
@@ -163,11 +190,11 @@ def one_take(t):
     i1 = pixels(f"{t}_i1")
     plate = pixels(f"{t}_plate")
     box = window(i1, side_i1["mark_px"], side_i1["mark_py"], px)
-    body, shadow = split_mask(i1, plate, box)
+    body, bright, dark = split_mask(i1, plate, box)
     win_px = box[2] * box[2]
 
     # the area floor: the same measurement with no frog in it, two plates of one held instant
-    pbody, _ = split_mask(plate, pixels(f"{t}_plate2"), box)
+    pbody, _, _ = split_mask(plate, pixels(f"{t}_plate2"), box)
 
     # motion, counted ONLY inside the body mask: outside it is sky, grass and whatever the weather is doing
     def inside(a, b):
@@ -179,7 +206,8 @@ def one_take(t):
     return {
         "zoom": side_i1["zoom"], "pitch": side_i1["pitch"], "px_per_m": round(per_m, 3),
         "window_px": box[2], "window_m": WINDOW_M, "mark_px": side_i1["mark_px"], "mark_py": side_i1["mark_py"],
-        "body_px": int(body.sum()), "shadow_px": int(shadow.sum()),
+        "body_px": int(body.sum()),
+        "body_bright_px": int(bright.sum()), "body_dark_px": int(dark.sum()),
         "area_frac": int(body.sum()) / win_px,
         "area_frac_full_frame": int(body.sum()) / (i1.shape[0] * i1.shape[1]),
         "plate_area_frac": int(pbody.sum()) / win_px,
