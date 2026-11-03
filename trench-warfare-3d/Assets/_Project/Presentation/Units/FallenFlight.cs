@@ -67,6 +67,9 @@ namespace TW.Presentation.Units
             /// twitch on top of it: amplitude (roll steps), rate (Hz) and how long it lasts.</summary>
             public sbyte RestRoll;
             public float TwitchRoll, TwitchHz, TwitchDur;
+            /// <summary>Metres he rises over RollSettle as that rest roll settles (a body turning over about his feet
+            /// would otherwise sink by his own lying thickness). 0 for every other gag, so nothing else moves.</summary>
+            public float RestLift;
             public float Gravity;
             /// <summary>Seconds from his death until he lies still.</summary>
             public float Arrive => Delay + Settled;
@@ -181,7 +184,10 @@ namespace TW.Presentation.Units
                 float u = Mathf.Clamp01((t - p.SkidStart) / p.SkidDur);
                 return Vector3.Lerp(p.SkidFrom, p.SkidTo, 1f - (1f - u) * (1f - u));
             }
-            return p.Arcs == 0 && p.SkidDur <= 0f ? p.Origin : p.Rest;
+            Vector3 rest = p.Arcs == 0 && p.SkidDur <= 0f ? p.Origin : p.Rest;
+            // he rises as he turns over, on the same clock the rest roll settles on (RollStep), instead of popping up
+            if (p.RestLift != 0f) rest.y += p.RestLift * Mathf.Clamp01((t - p.ArcsEnd) / RollSettle);
+            return rest;
         }
 
         static Vector3 OnArc(in Arc a, float t, float gravity)
