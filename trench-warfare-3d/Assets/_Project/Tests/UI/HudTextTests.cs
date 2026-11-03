@@ -329,6 +329,22 @@ namespace TW.Tests
                 }
         }
 
+        /// <summary>The frog infantry is a finished look, not a prototype: his card names what he is. The bar is the
+        /// unit goal's wording ("a card text without 'prototype'"), so the words are asserted, not read back out of
+        /// UnitLook. His numbers are still a rifleman's, which the card may say; "prototype" and "stand-in" it may not.</summary>
+        [Test]
+        public void FrogLookIsNotPrototype()
+        {
+            string name = UnitLook.Name(InfantryArchetype.Frog);
+            string tip = UnitLook.Tip(InfantryArchetype.Frog);
+            Assert.AreEqual("Frog", name, "the frog is fielded under his own name");
+            Assert.IsNotNull(tip, "the frog has a card");
+            StringAssert.DoesNotContain("prototype", tip.ToLowerInvariant(), "[frog-unit-look] the frog's look is finished: " + tip);
+            StringAssert.DoesNotContain("stand-in", tip.ToLowerInvariant(), "[frog-unit-look] the frog stands on his own figure: " + tip);
+            StringAssert.Contains("Frog", tip, "the card names him");
+            Assert.Less(tip.Length, 100, "the tooltip plate is one line and clips rather than wraps: " + tip);
+        }
+
         // ---- helpers -----------------------------------------------------------------------------------------
 
         static readonly byte[] AllArchetypes =

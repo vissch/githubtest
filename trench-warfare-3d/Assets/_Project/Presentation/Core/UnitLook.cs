@@ -110,7 +110,7 @@ namespace TW.Presentation
                 case InfantryArchetype.Para: return "Paratrooper: comes down behind the line on the air card, never deployed from a trench";
                 case InfantryArchetype.Jetpack: return "Jetpack trooper: leaps 28 m into an enemy trench. Cannot be shot in the air; blast on landing";
                 // the Proving Ground's men: numbers from UnitDefinitions (ProvingGroundTests holds them)
-                case InfantryArchetype.Frog: return "Frog, prototype: a rifleman's numbers under the playground's frog";
+                case InfantryArchetype.Frog: return "Frog: line infantry on the frog figure. A rifleman's rifle, reach and wound";
                 case InfantryArchetype.Sentry: return "Sentry, stand-in: a machine gun behind an 8 mm plate over a 60 degree arc";
                 case InfantryArchetype.AtRifle: return "AT rifle, stand-in: pierces 20 mm at up to 70 m, one round in five seconds";
                 case InfantryArchetype.DeathBattalion: return "Death Battalion, stand-in: a harder-hitting rifleman who never stays pinned";
