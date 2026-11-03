@@ -48,7 +48,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import found  # noqa: E402
 import loopsteps  # noqa: E402
-sys.path.append(str(HERE.parent / 'supervisor'))
+sys.path.append(str(HERE.parent / 'supervisor'))     # last: no name here is shadowed
+import breaker_gate  # noqa: E402
 try:
     import spend        # the supervisor's spend hooks (Tools/supervisor/spend.py): the owner's day figure, capacity
 except Exception:  # noqa: BLE001 - without them the loop runs as before
@@ -246,6 +247,9 @@ class World:
         return 'committed; the push was refused three times: it is pushed with the next one'
 
     def start(self, n, sources='lane', quiet_off=False):
+        ok, held = breaker_gate.allow()          # the machine is broken (Tools/supervisor/modules/breaker.py)
+        if not ok:
+            return 'not started: ' + held
         if not self.acting:
             return 'would start'
         flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0) | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)   # DETACHED_PROCESS: powershell runs nothing

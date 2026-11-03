@@ -5,7 +5,8 @@ record it, and go on until a stop rule fires. Every decision here is a script's;
 Stop rules: the run's time is up, the leg cap, the day's budget (limits.json day_budget_pct percent points of the
 week, or day_budget_usd dollars while nothing can be said in percent; counted by ledger.py over every leg started
 today and every agent booked for it), the day's pace when waiting for it would outlast the run, nothing left to do,
-the owner's stop (relay.py stop), the checkout is missing, busy or left dirty, a leg that cannot be trusted
+the owner's stop (relay.py stop), the supervisor's breaker when it is switched on and open (the machine is
+broken, not the unit: Tools/supervisor/breaker_gate.py), the checkout is missing, busy or left dirty, a leg that cannot be trusted
 (timeout, compaction trip, not auto mode, no hooks, no result), limits.json no_progress_units units in a row with
 no result, or any error. Whatever stops it, the stop is recorded and a pipeline claim is released. The checkout is
 held (lock and leg marker) from the first unit to the stop record, so git's push guard also covers a job a leg left
@@ -23,6 +24,8 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                                                # noqa: E402
 import agents, boardio, config, gitio, launch, ledger, legdir, papers, sources   # noqa: E402
+sys.path.append(str(HERE.parent / "supervisor"))                    # last: no name here is shadowed
+import breaker_gate                                                 # noqa: E402
 
 NO_WINDOW = ("\n- This run cannot open a window (it was not started from the owner's desktop). Only work that "
              "needs a visible window is blocked: end BLOCKED and say so. Unity itself works in batch mode; a "
@@ -41,7 +44,7 @@ said = launch.said                      # the one rule for a report's verdict; r
 
 # The family of a stop reason, for the stop record's reason_kind: a page reads the word, not the sentence.
 KINDS = ("done", "hours", "legs", "asked", "budget", "pace", "checkout", "leg", "uncommitted", "no-result", "lane",
-         "error")
+         "error", "breaker")
 
 
 class Why(str):
@@ -378,6 +381,9 @@ class Run:
             return Why("legs", "the leg cap (%d) is reached" % self.a.max_legs)
         if self.stop_file.exists():
             return self.asked()
+        ok, held = breaker_gate.allow()          # the machine is broken (Tools/supervisor/modules/breaker.py)
+        if not ok:
+            return Why("breaker", held)
         return self.no_budget([phase] if phase else [], unit)
 
     # ----- one leg -----
