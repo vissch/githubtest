@@ -112,11 +112,14 @@ def skip(uid, board=None, lane=None, h=None):
             done, where = registry.is_done(uid, lane, h)
             if done:
                 return f'done ({where})'
-        if on('families', h):                  # a goal family over the owner's cap waits on his one brief (spend.capped):
-            import spend                        # the running relay's picker does not take it, and no board is written
-            cap = spend.capped(uid, h)
-            if cap:
-                return f'over the cap: its goal family {cap["root"]} waits on his brief {cap["brief"]}'
+        try:                                    # its own try: a fault here does not skip the cool-down below
+            if on('families', h):               # a goal family over the owner's cap waits on his one brief (spend.capped):
+                import spend                    # the running relay's picker does not take it, and no board is written
+                cap = spend.capped(uid, h)
+                if cap:
+                    return f'over the cap: its goal family {cap["root"]} waits on his brief {cap["brief"]}'
+        except Exception:   # noqa: BLE001
+            pass
         if board and on('retry', h):
             import retry
             last = last_units(board)
