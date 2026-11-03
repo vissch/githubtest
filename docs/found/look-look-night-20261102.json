@@ -1,0 +1,12 @@
+{
+  "subject": "look:night",
+  "looked_at": [
+    "Captures/night-u1102/lights_z16.png + .json: lamp cluster, a burning machine (VfxLab.Burning(4,10,200)) and a fire incendiary pool (VfxLab.Scene(\"fire\",25,200)) staged in one frame, clock held at weather clock 60, zoom 16/30/60, yaw 20, pitch 25; z30 sidecar luma_mean 0.233, blown_frac 0.002, men_in_frame 0 (no men staged in that shot's frame); z60 sidecar men_in_frame 2, contrast_median 0.308, contrast_p10 0.170, drawn_near 2",
+    "Captures/night-u1102/manvmachine_z30.png + manvmachine_z60.png + .json: TankCapture.Spawn(0,6,60,200) beside VfxLab.Men(8,50,200,0), zoom 30/60; z30 men_in_frame 4, contrast_median 0.148, contrast_p10 0.021; z60 men_in_frame 6, contrast_median 0.061, contrast_p10 0.024, warning \"men barely separate from the ground: unreadable\"",
+    "Captures/night-u1102/machvmach_z16.png + machvmach_z30.png + .json: TankCapture.Spawn(0,4,100,250) and Spawn(0,11,130,250) (Maw vs Redoubt), zoom 16/30; both men_in_frame 0, blown_frac 0, fallen 1 (destroyed-unit prop in frame, not the staged units)",
+    "Captures/night-u1102/gassmoke_00.png through gassmoke_07.png + .json: VfxLab.Scene(\"gas\",100,300) and Scene(\"smoke\",130,300), clock running, CaptureRig.Series zoom 26 pitch 8, 8 frames 8 apart; neither gas nor smoke is visible in any frame, only a distant lamp pool and a dark structure silhouette at frame-left; discarded as a bad stage (effect out of frame or already finished before the series fired), not judged",
+    "Captures/night-u1102/burning_close.png + .json: VfxLab.Burning(4,10,200) alone, zoom 14, close band, clock held; the Maw reads as a dark, unlit hull with its painted furnace-mouth glow only, no flame, ember or smoke is visible on it; blown_frac 0, black_frac 0.067; one view only, not confirmed by a second shot or a log, so not reported as a task",
+    "docs/found/look-look-night-20261101.json, look-look-night-20261019.json, look-look-night-20261017.json (titles only, grep) and the night rows of docs/reference/decisions.md and docs/reference/tasks.md, to avoid repeating: men/machines drawn the same, lamp pools turning pink/violet, a burning machine blowing out the close band, night chlorine as a flat disc, a machine's ground band hue, men unreadable at the play view, the star shell's wash, wet mud out-brighting men, a man taking the lamp pool's hue, the lamp pool's hard edge, and night tracers (owner holds them, 2026-10-08 decisions row)"
+  ],
+  "tasks": []
+}
