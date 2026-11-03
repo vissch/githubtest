@@ -17,7 +17,7 @@ namespace TW.Presentation.Tactical
     public sealed partial class CombatFx
     {
         /// <summary>What a class carries, as drawn.</summary>
-        public enum ArmsKind : byte { Rifle, Smg, Mg, Sniper, Pistol, Carbine, MachinePistol, HullMg }
+        public enum ArmsKind : byte { Rifle, Smg, Mg, Sniper, Pistol, Carbine, MachinePistol, HullMg, AtRifle }
 
         public static ArmsKind KindOf(byte archetype)
         {
@@ -29,6 +29,7 @@ namespace TW.Presentation.Tactical
                 case InfantryArchetype.Officer: return ArmsKind.Carbine;
                 case InfantryArchetype.Shield: return ArmsKind.Pistol;
                 case InfantryArchetype.Jetpack: return ArmsKind.MachinePistol;
+                case InfantryArchetype.AtRifle: return ArmsKind.AtRifle;
                 case VehicleArchetype.Maw: case VehicleArchetype.Tusk: case VehicleArchetype.Breaker: case VehicleArchetype.Skimmer: return ArmsKind.HullMg;
                 default: return ArmsKind.Rifle;
             }
@@ -76,7 +77,9 @@ namespace TW.Presentation.Tactical
             var q = FxQuality.Now;
             if (classArms <= 0f || cam == null || !CloseEnough(from, q.ExtraReach)) return;
             float glow = (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow;
-            float most = CloseMost * scale;
+            // harsh critic (2026-10-19): no close-up piece (a class star, a brake's jet, the MG's tongue) outruns the
+            // same per-class cap the probe measures, even where CloseMost alone would let it (rifle 0.4, mg 0.6 of a man).
+            float most = Mathf.Min(CloseMost * scale, FlashCapM(KindOf(archetype)));
             // a class with its own muzzle book: the book carries the shape, so the stars that stood in for it go (r12: additive
             // stars at night drowned the books)
             bool booked = MuzzleBookOf(KindOf(archetype)).HasValue;   // no close piece wider than this: a sniper's star at 1.4 x his flare was 7 m, a shell hit (lin6)

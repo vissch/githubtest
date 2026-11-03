@@ -10,6 +10,7 @@ using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation;
 using TW.Presentation.Tactical;
+using TW.Sim;
 
 namespace TW.Tests
 {
@@ -42,6 +43,21 @@ namespace TW.Tests
             Assert.LessOrEqual(standard, 1.6f, "and over half a man a firing line becomes a wall of flame");
             Assert.Greater(CombatFx.MuzzleScale(FlipbookFx.Book.MuzzleRifle, 1f), standard, "it still grows among the men");
             Assert.AreEqual(1f, CombatFx.MuzzleScale(FlipbookFx.Book.MuzzleStream, 0f), 1e-6f, "no class book is resized at the standard view");
+        }
+
+        [Test]
+        public void MuzzleFlash_IsCappedPerClass()
+        {
+            Assert.AreEqual(0.4f, CombatFx.FlashShareRifle, 1e-6f, "the owner's rifle share (2026-10-19)");
+            Assert.AreEqual(0.6f, CombatFx.FlashShareMg, 1e-6f, "the owner's mg share (2026-10-19)");
+            Assert.AreEqual(0.4f, CombatFx.FlashShareOf(CombatFx.ArmsKind.Rifle), 1e-6f);
+            Assert.AreEqual(0.6f, CombatFx.FlashShareOf(CombatFx.ArmsKind.Mg), 1e-6f);
+            Assert.AreEqual(0.6f, CombatFx.FlashShareOf(CombatFx.ArmsKind.HullMg), 1e-6f);
+            Assert.Greater(CombatFx.FlashShareOf(CombatFx.ArmsKind.AtRifle), CombatFx.FlashShareOf(CombatFx.ArmsKind.Rifle),
+                "the AT rifle may be bigger than the rifle");
+            Assert.LessOrEqual(CombatFx.FlashCapM(CombatFx.ArmsKind.Rifle), 0.4f * FigureMetrics.HeightM);
+            Assert.LessOrEqual(CombatFx.FlashCapM(CombatFx.ArmsKind.Mg), 0.6f * FigureMetrics.HeightM);
+            Assert.AreEqual(CombatFx.ArmsKind.AtRifle, CombatFx.KindOf(InfantryArchetype.AtRifle));
         }
 
         [Test]

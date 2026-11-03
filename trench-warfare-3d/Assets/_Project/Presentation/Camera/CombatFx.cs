@@ -617,6 +617,8 @@ namespace TW.Presentation.Tactical
                             var vr = MuzzleVariant(e.Tick, e.A);
                             float wide = flare * vr.Scale * (own.HasValue ? MuzzleScale(own.Value, SceneHooks.CloseUp) : dayFlare ? MuzzleScale(FlipbookFx.Book.MuzzleRifle, SceneHooks.CloseUp) : 1f);
                             if (own.HasValue) wide = Mathf.Min(wide, ClassBookMost * scale);   // never wider than 2.4 men (r11: a book 2x a man covered him)
+                            float cap = e.A >= 0 && e.A < w.Archetype.Length ? FlashCapM(KindOf(w.Archetype[e.A])) : float.PositiveInfinity;   // harsh critic (2026-10-19): the rifle's cone read torso-sized
+                            wide = Mathf.Min(wide, cap);
                             Vector3 clear = cam != null ? FlareClear(aim, camFlat, scale, flare, SceneHooks.CloseUp, classArms > 0f) : Vector3.zero;
                             float graze = cam != null && classArms > 0f ? GrazeGlow(aim, camFlat) : 1f;
                             bool quarter = cam != null && ThreeQuarter(aim, camFlat, classArms > 0f);
@@ -626,7 +628,7 @@ namespace TW.Presentation.Tactical
                             float glowNow = FlareGlow(SceneMood.Night, SceneHooks.CloseUp, classArms > 0f) * SceneTints.Now.Glow * graze * (own.HasValue && SceneMood.Night ? 0.62f : 1f);   // a book at night: 2.0, not 3.2 (r13)
                             if ((own.HasValue || dayFlare) && !SceneMood.Night) glowNow = Mathf.Min(glowNow, ClassBookDayGlow);   // by day a fire book over 1.6 clips to white on snow (iso4: the sniper's cross was a white bloom)
                             books.Add(book, from + along * (wide * 0.44f) + clear, wide, FlareLifeAt(arms.FlareLife, SceneHooks.CloseUp, classArms > 0f), flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                velocity: carried, roll: roll + vr.Roll + (flip ? Mathf.PI : 0f), glow: glowNow, height: own.HasValue ? Mathf.Min(wide * 0.5f, (own == FlipbookFx.Book.MuzzleBrake && !SceneMood.Night ? BrakeDayTallest : ClassBookTallest) * scale) : 0f, delay: delay,
+                                velocity: carried, roll: roll + vr.Roll + (flip ? Mathf.PI : 0f), glow: glowNow, height: own.HasValue ? Mathf.Min(wide * 0.5f, (own == FlipbookFx.Book.MuzzleBrake && !SceneMood.Night ? BrakeDayTallest : ClassBookTallest) * scale, cap) : 0f, delay: delay,
                                 startFrame: vr.Start);   // a class book at its cell's 2:1, whatever the import did (r10: drawn squashed); its cel from the variant
                             // a small pop under the class's drawing: the readiest cue that a shot went off (r12)
                             if (own.HasValue || quarter) books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.1f) + clear, Mathf.Min(flare * 0.3f, 0.6f * scale), 0.1f, roll: roll, glow: glowNow, delay: delay);

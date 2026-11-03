@@ -147,6 +147,25 @@ namespace TW.Presentation.Tactical
         /// half a man, so a firing line does not become a wall of flame.</summary>
         public const float RifleStandard = 1.35f;
 
+        /// <summary>Harsh critic (special units group, 2026-10-19): rifle muzzle starbursts read torso-sized and hid the
+        /// shooter. The owner's caps, as a share of a man's own drawn height (FigureMetrics.HeightM, one size at every
+        /// zoom): the rifle at most 0.4, the MG (and a hull MG) at most 0.6; the flamer and the AT rifle may be bigger.</summary>
+        public const float FlashShareRifle = 0.4f, FlashShareMg = 0.6f, FlashShareAt = 1f;
+
+        public static float FlashShareOf(ArmsKind kind)
+        {
+            switch (kind)
+            {
+                case ArmsKind.Rifle: return FlashShareRifle;
+                case ArmsKind.Mg: case ArmsKind.HullMg: return FlashShareMg;
+                case ArmsKind.AtRifle: return FlashShareAt;
+                default: return float.PositiveInfinity;   // every other class keeps its present size
+            }
+        }
+
+        /// <summary>The most a class's muzzle flash may be drawn, in metres (the owner's share x a man's own height).</summary>
+        public static float FlashCapM(ArmsKind kind) => FlashShareOf(kind) * FigureMetrics.HeightM;
+
         public static float MuzzleScale(FlipbookFx.Book book, float closeUp)
         {
             float k = book == FlipbookFx.Book.MuzzleBrake ? (SceneMood.Night ? 1.25f : BrakeDay) : book == FlipbookFx.Book.MuzzleStream ? 1.4f : book == FlipbookFx.Book.MuzzlePop ? 0.9f
