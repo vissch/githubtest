@@ -1,0 +1,80 @@
+{
+  "subject": "tools:.claude/skills",
+  "looked_at": [
+    "docs/found/look-tools-claude-skills-20261016.json",
+    "docs/reference/tasks.md",
+    "docs/reference/decisions.md",
+    "trench-warfare-3d/Tools/test_skill_docs.py",
+    "trench-warfare-3d/Tools/toolcheck.py",
+    ".claude/skills/unity-pipeline/SKILL.md",
+    ".claude/skills/relay/SKILL.md",
+    ".claude/skills/master/SKILL.md",
+    ".claude/skills/pipeline/SKILL.md",
+    ".claude/skills/tw-destruction-vfx/references/architecture.md",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs (line 424)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs (line 478)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs (line 912)",
+    ".claude/skills/tw-review/SKILL.md",
+    ".claude/skills/tw-task-context/SKILL.md",
+    ".claude/skills/tw-run-report/SKILL.md",
+    ".claude/skills/tw-ideas/SKILL.md",
+    ".claude/skills/tw-vfx-sheets/SKILL.md",
+    ".claude/skills/tw-vfx-sheets/references/firebooks-contract.md",
+    ".claude/skills/tw-vfx-sheets/references/generator.md",
+    ".claude/skills/tw-vfx-sheets/references/prompt-recipe.md",
+    ".claude/skills/tw-lowpoly/SKILL.md",
+    ".claude/skills/tw-lowpoly/references/lod-lessons.md",
+    ".claude/skills/tw-ux/SKILL.md",
+    ".claude/skills/tw-ui-art/SKILL.md",
+    ".claude/skills/tw-concept-art/SKILL.md",
+    ".claude/skills/tw-game-design/SKILL.md",
+    ".claude/skills/tw-critic/references/critic-and-scoreboards.md",
+    ".claude/skills/tw-bug-catcher/references/determinism-and-verdicts.md",
+    ".claude/skills/pipeline/references/driving-and-evidence.md",
+    ".claude/skills/master/references/laptop.md",
+    ".claude/skills/tw-character-sim/references/infantry.md",
+    ".claude/skills/tw-vehicle-sim/references/vehicles.md",
+    "CLAUDE.md"
+  ],
+  "tasks": [
+    {
+      "title": "Widen K11s: it bans stale workflow.md/gate.ps1 lines but not stale .cs:<N> citations",
+      "why": "test_skill_docs.py's test_k11s_tests_paths_resolve_and_no_stale_line_citations is named and documented 'no stale line citations' (test_skill_docs.py:270-273), but its body only regexes workflow.md:<digits> and gate.ps1:<digits> (:279-284); every `P\\...\\<File>.cs:<N>` citation drifts freely and the test stays green. Checked live: architecture.md:107 cites SimWorld.cs:424 for SimWorld.Hash (line 424 is a closing brace, not Hash); architecture.md:125 cites CombatFx.cs:478 for OnSimEvent (line 478 is a SetInt blend call); architecture.md:127 cites TankRenderer.cs:912 for OnSimEvent (line 912 is Mathf.PI math) - 3 of 3 checked are wrong, despite the file's own banner telling an agent to 're-grep the symbol before editing'. A leg that trusts a wrong line edits or reads the wrong place and burns a re-read; the 2026-10-16 look (task 3) already flagged these three citations as wrong and proposed re-anchoring the docs, but the guard itself (K11s) still cannot catch the class of defect it is named for.",
+      "files": [
+        "trench-warfare-3d/Tools/test_skill_docs.py",
+        ".claude/skills/tw-destruction-vfx/references/architecture.md",
+        ".claude/skills/tw-optimizer/references/aosa-and-perf.md",
+        ".claude/skills/tw-balance-sim/references/balance.md"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "test_k11s_tests_paths_resolve_and_no_stale_line_citations (or a new K-numbered test) fails on the current architecture.md (red before the fix) and passes once every `.cs:<N>` citation in the four files either matches the named symbol within a few lines or is re-anchored to the symbol alone; toolcheck.py stays green",
+      "risk": [false, false, false, false, true],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "tw-vfx-sheets' generate/cut steps are hand-typed every run with a silent failure mode",
+      "why": "tw-vfx-sheets/SKILL.md sections 1-2 (lines 35-72) are eight separate commands with their own paths and flags (batch module pick, seed, `sheet.py --frames 32 --size 320 --fps 12 --t0 8 --t1 40 --select change --cols 8`, wallfix.py, edgecheck.py, review_sheets.py) typed fresh for every new effect; no script wraps the sequence. Section 3 (:73-83) says a sheet that is not exactly 8x4 32-frame 'is silently cut wrong' and the only guard is a human checking the output filename says `_8x4_` before publishing - firebooks.py itself (references/firebooks-contract.md:7-9) never validates grid shape, it just slices and squashes whatever it is given. A dropped `--cols 8` or `--frames 32` on one of these desktop runs costs a 150-200s H3 job plus a cut pass, and ships a squashed sheet into the game with nothing short of a human eyeballing the filename to catch it.",
+      "files": [
+        ".claude/skills/tw-vfx-sheets/SKILL.md",
+        ".claude/skills/tw-vfx-sheets/references/firebooks-contract.md",
+        "trench-warfare-3d/Tools/firebooks.py"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "firebooks.py (or a small checker it calls) rejects a pack PNG whose dimensions are not a multiple of an 8x4 grid of square cells, with a message naming the bad file, instead of silently slicing it; a test feeds it a non-8x4 image and asserts the rejection",
+      "risk": [false, false, false, false, true],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "unity-pipeline/SKILL.md still contradicts itself on bare `unity` commands (still live, found 2026-10-16)",
+      "why": "The 2026-10-16 look's task 1 flagged this and it is still true today, unqueued: unity-pipeline/SKILL.md:3 says 'Assumes the `unity` CLI is on PATH', while lines 10 and 15 of the same file already route through `Tools/tw` and `workflow.md`/`CLAUDE.md` say a bare `unity` command from the wrong folder hits another checkout's editor (six relay checkouts share this machine). It is not in tasks.md or decisions.md and is not queued, so it is reported again because it is the worst still-live rule contradiction this leg found and nothing has fixed it since.",
+      "files": [".claude/skills/unity-pipeline/SKILL.md"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "grep in unity-pipeline/SKILL.md finds no line claiming `unity` is on PATH or inviting a bare `unity <cmd>`; the opening lines name Tools/tw or the full unity.exe path instead; validate.py stays green",
+      "risk": [false, true, true, false, false],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
