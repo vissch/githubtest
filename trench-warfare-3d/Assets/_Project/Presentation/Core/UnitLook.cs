@@ -49,12 +49,13 @@ namespace TW.Presentation
         {
             switch (archetype)
             {
-                // the Brute, the Croaker, the Hopper and the Mercy wear their own (rendered off their models, 2026-09-28);
+                // the Brute, the Croaker, the Hopper, the Mercy and the Frog wear their own (rendered off their models,
+                // 2026-09-28; the Frog 2026-11-03, cut off its own figure by Tools/frogportrait.py);
                 // a machine that wears another's model (TankRenderer.StandIns) wears its picture too
                 case VehicleArchetype.MarkIV: case VehicleArchetype.MarkV: return "Maw";
                 case VehicleArchetype.A7V: return "Brute";
                 case VehicleArchetype.RenaultFT: case VehicleArchetype.Whippet: case VehicleArchetype.Austin: return "Tusk";
-                case InfantryArchetype.Frog: case InfantryArchetype.DeathBattalion: return "Rifleman";
+                case InfantryArchetype.DeathBattalion: return "Rifleman";   // the Frog wears its own (2026-11-03)
                 case InfantryArchetype.Sentry: return "MG";
                 case InfantryArchetype.AtRifle: return "Sniper";
                 case InfantryArchetype.Sapper: return "Engineer";
