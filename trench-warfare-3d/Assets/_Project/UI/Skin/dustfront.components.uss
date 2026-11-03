@@ -280,6 +280,7 @@
 .tw-portrait-AtRifle { background-image: url("Portraits/AtRifle.png"); }
 .tw-portrait-Sentry { background-image: url("Portraits/Sentry.png"); }
 .tw-portrait-Flamer { background-image: url("Portraits/Flamer.png"); }
+.tw-portrait-Frog { background-image: url("Portraits/Frog.png"); }
 .tw-portrait-HeBarrage { background-image: url("Portraits/HeBarrage.png"); }
 .tw-portrait-ChlorineGas { background-image: url("Portraits/ChlorineGas.png"); }
 .tw-portrait-ParaDrop { background-image: url("Portraits/ParaDrop.png"); }

@@ -140,6 +140,7 @@ Import settings (applied by `UiSkinImport`, checked by the verifier): Sprite (2D
 - `Flamer.png` - not a placeholder: a cutout of the man with his fuel tanks and wand, taken from a CaptureRig
   still in GreyboxCorridor and cut by `docs/evidence/special-portraits-r2/portrait_cut.py` (2026-10-19).
 - `Sentry.png` - not a placeholder either: the same, of the gunner behind his 8 mm plate.
+- `Frog.png`
 - `HeBarrage.png`
 - `ChlorineGas.png`
 - `ParaDrop.png`
