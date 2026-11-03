@@ -471,10 +471,9 @@ def attempts(w, opens, dones, running, idle, extras=None):
         if (not tried and not refused and not deep) or not on:
             continue
         u = next(iter(on.values()))
-        mu = next((x for b, x in on.items() if Path(b) == Path(w.main)), None)
-        if cap and deep and w.acting and mu is not None and Path(w.main) not in idle and found.prio(mu) < PARKED:
-            if w.prio(uid, PARKED)[0] == 0:              # the relay's own prio: the main relay does not take a 99
-                out.append(f'attempts: {uid} set to {PARKED} on the main board: its goal family {cap["root"]} is over the cap')
+        # A capped unit on the main board while that relay runs is left as it is: relay.py prio writes the queue file
+        # and commits and pushes it on the board, which no step does during a leg. feed gives it to no extra relay,
+        # and it is parked below once the board is idle (the reviewer, S.1).
         if u.get('lane') in running or not all(Path(b) in idle for b in on):
             continue                                        # a leg works on it, or a board it is on is in a run: next round
         if sup is None and not refused and not deep and changed_since(w, rec.get('fp') or {}, u):

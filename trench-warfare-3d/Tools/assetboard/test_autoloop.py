@@ -972,10 +972,16 @@ def main():
     fl = autoloop.feed(wm)
     al = autoloop.attempts(wm)
     got = sorted(p.stem for b in wm.extras.values() for p in (b / 'relay' / 'queue').glob('*.json'))
+    prios_running = dict(wm.prios)
+    wm.text[wm.main] = IDLE
+    al2 = autoloop.attempts(wm)
+    stm = json.loads((wm.home / 'attempts.json').read_text(encoding='utf-8'))
     c.write_json(SUP_HOME / 'modules.json', {})
-    case('families on, the main relay running: a capped unit on the main queue is fed to no extra relay and is set to 99 '
-         'there, so the main relay does not take it either (the reviewer, SP.1)',
-         got == [] and wm.prios.get('goal-z-r6') == 99, (fl, al, got, wm.prios))
+    case('families on, the main relay running: a capped unit on the main queue is fed to no extra relay, and its queue '
+         'file on the main board is not written while that relay runs (relay.py prio commits and pushes the board during '
+         'a leg: the reviewer, S.1); it is parked once the board is idle',
+         got == [] and 'goal-z-r6' not in prios_running and bool((stm.get('goal-z-r6') or {}).get('parked')),
+         (fl, al, al2, got, prios_running, stm.get('goal-z-r6')))
 
     # ---- one round, and the lock ----
     calls = []
