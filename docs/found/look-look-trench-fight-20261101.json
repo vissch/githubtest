@@ -1,0 +1,106 @@
+{
+  "subject": "look:trench-fight",
+  "looked_at": [
+    "live battle in Assets/_Project/Scenes/GreyboxCorridor.unity, batch editor in Play (no -nographics), battlefield ShelledForest seed 1917, 90 m wide; our front trench 1 at z=69, theirs trench 2 at z=175. The scene's own match and its ScriptedEnemy ran throughout, so every frame holds its men as well as the staged attack.",
+    "STAGING TRY 1 (the ladder's own path, AssaultLadderTests.Run lines 60-130, through SimHost.WriteWorlds/Issue): 10 riflemen of team 1 at theirZ+8, 30 of team 0 (every fourth an Assault man) at ownZ-8, each given the trench goal, HoldFire=1 on every trench while they formed up. Measured at tick 19657: T1 own0 gar26, T2 own1 gar11, alive0=31 alive1=12 stray0=5 - the garrisons formed. HoldFire back to 0 and one TrenchAdvance for T1 (the only team-0 trench holding men), strays given the enemy goal and UnitFlags.Exposed. RESULT, 25 polls (leg folder polls.txt): the attack went about 60 m and stopped, closest=38.3 m short and unchanging for 20 polls, contact=0 foes=0 throughout, and the 10 defenders were all dead (a1=0) before the first poll. Rifle fire settled it at range; no melee, no flip to team 0.",
+    "STAGING TRY 2 (close): 14 defenders in the trench and 24 attackers 14 m out. Measured: a1=0 by the first poll again, contact=0 at every poll - 24 rifles killed the garrison at 14 m before anyone closed.",
+    "STAGING TRY 2b (contact forced, the one that worked): 12 interleaved pairs 2.2 m apart along the trench, then 14 pairs with Hp x8 so the clash would last long enough to shoot. MEASURED at tick 38048: contact=26 foes=26 disarmed=4; at tick 38847: contact=33 foes=33 disarmed=11 killed=1 inTheirs=12. Men really at arm's length, and the fists men really throwing their rifles down. The Hp x8 is staging and is disclosed here: it changes how long the clash lasts, not what it looks like.",
+    "THE TRENCH CHANGED HANDS, the other way: trench 1 (z=69) was team 0's at tick 8349 (T1:own0) and is team 1's front trench by tick 38048 (m.Fields.FrontTrench(1) returns the trench at z=69). The hands_* series brackets that loss.",
+    "Captures/trench-fight-1101/melee_a_z14.png + .json (zoom 14, focus 45,69, pose_error_m 0.047, blown_frac 0.0056, men_in_frame 9, fallen 19, contrast_median 0.1555: VALID) - the clash at contact=33",
+    "Captures/trench-fight-1101/melee_b_z26.png + .json (zoom 26, same focus and moment, pose_error_m 0.321, blown_frac 0.0037, men_in_frame 15, fallen 19, contrast_median 0.2338: VALID)",
+    "Captures/trench-fight-1101/melee_crowd_z16.png + .json (CaptureRig.ShotCrowd: Crowd() answered 52.8,174.6, the scene's own battle and not the staged one - kept, but not read as the staged fight)",
+    "Captures/trench-fight-1101/flip_00..07.png + .json (CaptureRig.Series, zoom 22 at 45,69 across the charge; pose_error_m 0, blown_frac 0.0075-0.0154, men_in_frame 47-48, fallen 15-16: all VALID) and flip_sheet.png",
+    "Captures/trench-fight-1101/hands_00..09.png + .json (CaptureRig.Series, zoom 20 at 45,69, 25 frames apart, across the trench being lost; pose_error_m 0, blown_frac 0.0006-0.0018, men_in_frame 6, fallen 2 rising to 4: all VALID) and hands_sheet.png",
+    "Captures/trench-fight-1101/bodies_z14.png + .json (zoom 14 at the trench centre after the fight; pose_error_m 0, blown_frac 0.0011, men_in_frame 22, fallen 24, contrast_median 0.2507: VALID) and bodies_z14_top.png (pitch 70, fallen 24: VALID)",
+    "crop_smoke.png, a 2x crop of melee_b_z26.png (560,0,1120,400)",
+    "a red-coverage measure over eight of the frames (saturated red: r > 1.7g and r > 1.7b, max > 50, sat > 0.45): melee_b_z26 33.05% of the frame and 15.54% of its top third; melee_a_z14 16.12%/4.87%; melee_crowd_z16 9.67%; flip_00 6.12%; bodies_z14 5.84%; hands_00 1.25%; hands_09 1.81%",
+    "trench-warfare-3d/Assets/_Project/Tests/Match/AssaultLadderTests.cs (lines 60-130, the staging copied)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/MeleeSystem.cs (Contact, Foe, Killed, ContactRange 2.5 m, lines 42-105)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Gags.cs (MaxGagMarks 192, line 91) and CombatFx.HitBlood.cs (HitMarkGrow, lines 76-91)",
+    "a grep for OwnerTeam under Presentation/ and UI/: BattleHud.cs, DebugOverlay.cs, TestPanel.cs, MatchStats.cs, ScriptedEnemy.cs, BattlefieldComposer.Buildings.cs, BattlefieldComposer.Scatter.cs, HudController.cs, HudMinimap.cs, ObjectiveTracker.cs, TrenchOrderCluster.cs - no world-space renderer among them",
+    "docs/found/look-look-trench-fight-20261019.json and look-look-trench-fight-20261017.json (the ban list): the objectives panel's fixed OUR/ENEMY text is already found and is not repeated here",
+    "docs/inbox/2026-09-28-all-melee.md and AnimationController.cs:83 (MeleeStab/MeleePunch/MeleeSmash all mapped to AnimRow.FireStanding): the melee pose being a firing pose is a known queued stand-in, seen again in melee_a_z14/melee_b_z26 and NOT reported",
+    "docs/found/look-look-night-20261101.json and the look-look-every-unit-close files: the men-against-mud contrast loss (contrast_median 0.1555 at zoom 14 here) and the lamp's pink/violet falloff (hue 307-359) are already measured and reported and are NOT repeated; the red reported below is hue 0-8, flat and puddle-edged, a different thing",
+    "docs/reference/decisions.md rows 2026-09-28 (melee at 8 m charge / 2.5 m contact, the 0.8 reach cut, blood on hits d-blood, deaths d-deaths, lighter leaner smoke), 2026-09-29 (the throw band, the night look and its two-tone smoke lit from below), 2026-10-07 (the effects pass as built), 2026-10-13 and 2026-10-15 (the gore's size follows the zoom, capped under the man, landed as built - which covers gore ON a man, while tasks.md:557 says the ground marks keep their own curve)",
+    "docs/reference/tasks.md lines 441-474 and 540-600 (the gore and ground-mark area, GoreScale.cs, HitMarkSizeTests, GoreZoomStills) and line 634 (GroundMark_URP.shader, shape 3 blood)"
+  ],
+  "tasks": [
+    {
+      "title": "Blood ground marks flood a third of the frame in a melee",
+      "why": "MEASURED, two views of the same moment (contact=33 men at arm's length). In melee_b_z26.png 33.05% of the frame, and 15.54% of its TOP THIRD, is flat saturated red (r>1.7g, r>1.7b, max>50, sat>0.45); in melee_a_z14.png at the same tick, 16.12%. The same measure over the quiet frames of this run: hands_00.png 1.25%, bodies_z14.png 5.84% with 24 fallen. crop_smoke.png (a 2x crop of melee_b_z26) shows what it is: an unshaded uniform red mask with stair-stepped edges lying over no-man's-land and over distant hillsides tens of metres past the nearest body, with none of the ground's painted value or texture showing through. It costs the player the whole read of the fight: the trench line, the mud, the lit parapet and the men standing on it all vanish under one red field at the exact second a trench is being decided. GUESS: the marks are laid per hit with no cap on their total ground coverage and are grown by HitMarkGrow at the zoom they are seen at (CombatFx.Gags.cs:91 caps the count at 192, not the area). This is not the 2026-10-15 'gore follows the zoom, capped under the man' row, which tasks.md:557 says the ground marks are explicitly outside of.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Gags.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.HitBlood.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/GoreScale.cs",
+        "trench-warfare-3d/Assets/_Project/Shaders/GroundMark_URP.shader"
+      ],
+      "lane": "show",
+      "role": "destruction-vfx-simulator",
+      "done_when": "A test stages a 30-man melee at the trench (as this leg's polls did, Contact sum >= 20) and captures at zoom 14 and 26; the saturated-red share of each frame (r>1.7g and r>1.7b, max>50, sat>0.45) is under 10% of the whole frame and under 4% of its top third, with the frames still showing blood where men fell (bodies_z14.png's 5.84% at 24 fallen is the level to keep), and HitMarkSizeTests stays green.",
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    },
+    {
+      "title": "A trench changing hands leaves no mark in the 3D world",
+      "why": "MEASURED. The hands_00..09 series is ten valid frames, 25 frames apart, spanning the loss of trench 1 at z=69 (team 0's at tick 8349, team 1's front trench by tick 38048). Nothing in the picture differs between hands_00.png and hands_09.png but four bodies and a tracer: the parapet, the duckboards, the sandbags and the lit lamps are identical, and the trench reads exactly the same when it is the enemy's as it did when it was ours. A grep for OwnerTeam under Presentation/ and UI/ returns only BattleHud, DebugOverlay, TestPanel, MatchStats, ScriptedEnemy, the two BattlefieldComposer files (generation time) and the four UI files - no world-space renderer reads it at all. So the only place the news lives is the HUD: a 3 s banner and the objectives list. A player watching the battle, where the player's eyes are, never sees the thing the whole game is about happen.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/TrenchSection.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/BattleHud.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "A trench carries a world-space mark of who holds it (a flag, a lamp colour or a parapet tint), driven by Fields.Trenches[t].OwnerTeam each frame. Proved by a test that captures the same trench at the same pose before and after its OwnerTeam flips, with CaptureRig.Hold() pinning the weather, and asserts CaptureRig.Diff reports over 1% of pixels moved inside a box over the trench and under 0.3% in a box on ground away from it.",
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    },
+    {
+      "title": "Smoke over the clash draws as a flat dark cutout",
+      "why": "TWO-VIEW, melee_a_z14.png and melee_b_z26.png at the same tick, clearest in crop_smoke.png (a 2x crop of melee_b_z26 at 560,0,1120,400). The smoke over the clash is one large dark grey mass with a crisp almost inked outline and no value change at all across its interior: it reads as a hole punched in the picture rather than as something with a lit and an unlit side. It is drawn in front of the rain streaks and in front of the far skyline, so the depth of the shot collapses where it sits. Beside it, large white ovals are scattered across the frame as individual hard-edged eggs with no density between them, so the smoke has no body. The decisions.md row of 2026-09-29 asks for 'two-tone smoke lit from below' and the 2026-09-28 row for 'lighter, leaner smoke'; what is on screen at the moment of a trench fight is one tone and flat, and it covers the men just when they have to be read.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.Smoke.cs",
+        "trench-warfare-3d/Assets/_Project/Shaders/Toon_URP.shader"
+      ],
+      "lane": "show",
+      "role": "destruction-vfx-simulator",
+      "done_when": "The same shot is retaken at zoom 14 and 26 over a 30-man melee with CaptureRig.Hold() pinning the weather, and inside a box on the smoke mass the luma standard deviation (python Tools/shotstats.py <png> --crop x,y,w,h, the spread figure) is at least 8 where it now sits near 0, while contrast_median over the men in the same frame does not fall.",
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        true
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    }
+  ]
+}
