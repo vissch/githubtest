@@ -381,6 +381,14 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   Options: (a) a SIM leg fixes the Burst/Mathematics package reference on integration, the default, since the
   broken files are all under `Assets/_Project/Sim/Core`; (b) the owner re-answers knowing all tests cannot pass
   until that lands. Nothing built here.
+  Update, 2026-11-03 (owner's answer to "close-relay-harness-lane: tried 2 times, no progress" -- "Try it once
+  more as it stands", `retry-relay-harness-asis`, third try): rebased onto integration tip `0aacc2bca` (one
+  conflict in this file, at this same row, resolved by keeping both sides); green on
+  `python Tools/selftest.py --only relay,health` (27 of 27) and on the edit gate for this exact tree (exit 0,
+  `validate.py` the only module reached, the lane's diff still only this file plus `trench-warfare-3d/.gitignore`).
+  The 10-31 exit 6 (Burst/Mathematics unresolved in `Assets/_Project/Sim/Core`) did not reappear: it was transient,
+  and options (a)/(b) under that row are moot. Pushed with
+  `git push --force-with-lease origin lane/show/relay-harness`. No further work is planned on this lane.
 - **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
   found-close-assault-fallback-skips-armour-and-can-20261018-0):** the finding says the `ownHits` path
   skips armour and can count a kill twice in a world with no `TankGunnerySystem`. Read in
