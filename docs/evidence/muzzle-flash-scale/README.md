@@ -39,3 +39,22 @@ The flamer's own fire pool is both the "hot" signal and the ground it stands on,
 a lesser extent `at`, which also fires into flame) does not reliably land on the shooter himself — see
 `flamer_boxes.png`. Neither class has a cap (the owner: "the flamer and the AT rifle may be bigger"), so this does
 not block the rifle/mg fix; a tighter flamer man-box is future work if the flamer ever gets its own cap.
+
+`mg_boxes.png` shows the same man-box fragility on a capped class: the blob nearest the flash's column was the
+turret beside the gunner, not the gunner himself, in this particular held frame. The ratio still passed (0.09, well
+under the 0.6 cap) and a tighter man box can only shrink the ratio further here (the turret reads taller than a man
+would), so it does not put the cap result in doubt; a steadier man pick (e.g. the sim's own screen-space bounds for
+`e.A` instead of a pixel diff) is future work alongside the flamer one above.
+
+## Result (after the per-class cap, CombatFx.Weapons.cs FlashCapM)
+
+| class  | before (probe-before.json) | after (probe.json) | cap  |
+|--------|-----------------------------|---------------------|------|
+| rifle  | 0.138                       | 0.027               | 0.4  |
+| mg     | 0.671                       | 0.090                | 0.6  |
+| flamer | 7.596                       | 4.058                | none |
+| at     | 8.56                        | 1.16                 | none |
+
+The rifle and mg were already, or are now, under their caps; the flamer and AT keep their present (bigger) size, as
+the owner asked. The after numbers were read from a fresh capture of all four `_fire.png` (same poses, same
+`CaptureRig.Bench` args, below), not edited by hand.
