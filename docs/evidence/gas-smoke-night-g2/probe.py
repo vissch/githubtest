@@ -11,11 +11,26 @@
 #     stands in the gas frame.
 #   * Gas is scored on two more numbers, because "a flat yellow stain" and "a cloud with a rim and some height" have
 #     the same contrast:
-#       rim      — Michelson of the cloud mask's top 6 rows per column against the mask's middle rows. A flat stain
-#                  scores about 0; a lit lip on top of the bank scores high.
-#       height_m — the mask rows standing ABOVE the cloud's own far ground edge, in metres (px_per_m). A stain painted
-#                  on the ground has none of its mask above its own far edge, so this is height a player sees at zoom
-#                  30, not screen spread.
+#       rim      — the SIGNED Michelson of the cloud mask's top 6 rows per column against the mask's middle rows:
+#                  max(0, (top - body) / (top + body)), so only a top that is BRIGHTER than the body scores. Unsigned,
+#                  a lip that is darker scored as well as a lit one, and brightening the edge walked the ratio through
+#                  1.0 where the rim is in fact 0. A flat stain scores about 0; a lit lip scores high.
+#       rise_m   — how far the cloud's top edge stands above the ground line its middle sits on, in metres (px_per_m).
+#                  Replaces height_m, which counted the mask rows above `far_edge`: far_edge is the farthest standing
+#                  cell within 30 m and projects ~160 px ABOVE the centroid, so "rows above it" was 0 for any cloud
+#                  and that bar was unreachable by construction. Screen rise over a 30 m-deep field carries the
+#                  field's depth as well as the card's height, which is why this bar is a baseline comparison against
+#                  the same field and the same pose, not a physical height.
+#
+#   * The gas mask is the chlorine's OWN COLOUR, not brightness against the ground. The old mask took a box pixel at
+#     Michelson >= 0.12 against the ground median; at night the SKY passes that test, so the mask ran up to y=0 and
+#     both gas numbers measured the mask box, not the cloud. Now a pixel is gas when its excess green
+#     G - 0.5*(R + B) >= 0.06 on 0-1. Luma stays the only brightness scale, for contrast, rim and the ground.
+#
+#   * The ground is the DARKER of the two strips, not the pool of both. Pooled, smoke_night's two strips (0.1856 and
+#     0.4369 luma) put the median in the gap between two modes, where a small change jumps it a whole mode and broke
+#     the floor without the smoke being touched. The darker strip is the plain field; the lighter one is lit by the
+#     other cloud, so a floor read against plain ground is the conservative one.
 #
 # Bars live in bars.json beside this file; the three takes they were set from live in baseline.json. Prints every
 # number against its bar and exits 1 on the first miss. `--baseline` prints the three takes instead and exits 0 when
@@ -27,35 +42,38 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STILLS = ("gas_night", "gas_day", "smoke_night", "smoke_day")
-MASK_CONTRAST = 0.12   # a box pixel belongs to the cloud at or above this contrast against the ground median
+MASK_GREEN = 0.06      # a box pixel is gas at or above this excess green, G - 0.5*(R + B), on 0-1
 RIM_ROWS = 6           # the mask's top rows per column that make the lip
-FAR_SPAN = 0.05        # the columns "around far_edge": this fraction of the frame width either side
+MID_SPAN = 0.05        # the columns "around the centroid": this fraction of the frame width either side
 
 DEFINITION = {
     "luma": "Rec.709 on 0-1, CaptureRig's scale (0.2126 R + 0.7152 G + 0.0722 B, bytes / 255)",
-    "ground": "median luma of ground_l and ground_r from the still's aim.json (the left and right tenth over the box's rows)",
+    "ground": "the DARKER of the two strip medians, min(median of ground_l, median of ground_r) from the still's aim.json (the left and right tenth over the box's rows)",
     "contrast": "median over the AIMED box of |Lc - Lg| / (Lc + Lg)",
-    "mask": "box pixels with contrast >= %.2f against the ground median" % MASK_CONTRAST,
-    "rim": "Michelson of the mask's top %d rows per column against the mask's middle rows" % RIM_ROWS,
-    "height_m": "median over the columns within %.2f of the frame width of far_edge of the mask rows ABOVE far_edge, / px_per_m" % FAR_SPAN,
+    "mask": "mask_box pixels whose excess green G - 0.5*(R + B) is >= %.2f on 0-1: the chlorine's own colour, so the night sky never joins the mask" % MASK_GREEN,
+    "rim": "signed Michelson, max(0, (top - body) / (top + body)), of the mask's top %d rows per column against the mask's middle rows" % RIM_ROWS,
+    "rise_m": "median over the columns within %.2f of the frame width of the centroid x of (centroid y - the mask's top row) / px_per_m: how far the cloud's top edge stands above the ground line its middle sits on. Screen rise over a 30 m-deep field carries the field's depth as well as the card, so this is a baseline comparison against the same field and pose, not a physical height" % MID_SPAN,
     "note": "no min of gas and smoke: every still keeps its own numbers and its own bar",
 }
 
 
 def load_luma(path):
-    """The still as a list of rows of luma, 0-1, y counted from the top as Pillow counts rows."""
+    """The still as rows of luma and rows of excess green, both 0-1, y from the top as Pillow counts rows."""
     from PIL import Image
     im = Image.open(path).convert("RGB")
     w, h = im.size
     px = im.load()
-    rows = []
+    rows, green = [], []
     for y in range(h):
         row = [0.0] * w
+        grow = [0.0] * w
         for x in range(w):
             r, g, b = px[x, y]
             row[x] = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0
+            grow[x] = (g - 0.5 * (r + b)) / 255.0
         rows.append(row)
-    return rows, w, h
+        green.append(grow)
+    return rows, green, w, h
 
 
 def box_lumas(rows, box, w, h):
@@ -73,6 +91,11 @@ def michelson(a, b):
     return abs(a - b) / (a + b) if (a + b) > 0 else 0.0
 
 
+def michelson_signed(top, body):
+    """Positive only when the top is brighter than the body: a darker lip is no rim."""
+    return max(0.0, (top - body) / (top + body)) if (top + body) > 0 else 0.0
+
+
 def measure(stem, where=None):
     """Every number this still carries, from its png and its aim.json. `where` films from another folder (the baseline's
     three takes live outside the checkout), `stem` still decides whether it is scored as gas."""
@@ -81,8 +104,9 @@ def measure(stem, where=None):
     aim_path = base + ".aim.json"
     with open(aim_path, encoding="utf-8") as f:
         aim = json.load(f)
-    rows, w, h = load_luma(png)
-    ground = statistics.median(box_lumas(rows, aim["ground_l"], w, h) + box_lumas(rows, aim["ground_r"], w, h))
+    rows, green, w, h = load_luma(png)
+    ground = min(statistics.median(box_lumas(rows, aim["ground_l"], w, h)),
+                 statistics.median(box_lumas(rows, aim["ground_r"], w, h)))
     box = aim["box"]
     cloud = box_lumas(rows, box, w, h)
     out = {
@@ -94,14 +118,13 @@ def measure(stem, where=None):
     if not os.path.basename(stem).startswith("gas"):
         return out
 
-    # The cloud mask, per column: which rows belong to the cloud. Taken over mask_box, the aimed box with its rows
-    # stretched to take the cloud's far ground edge in — that edge projects above the box's top row (farther away is
-    # higher up the picture), so a mask cut to the box would have nothing above it and height_m would read 0 for any
-    # cloud. contrast keeps the plain box.
+    # The cloud mask, per column: which rows belong to the cloud, by the chlorine's own colour. Taken over mask_box,
+    # the aimed box with its rows stretched upward, so a bank that stands tall is not cut off at the box's top row.
+    # contrast keeps the plain box.
     x0, y0, x1, y1 = aim.get("mask_box", box)
     cols = {}
     for x in range(max(0, x0), min(w, x1)):
-        ys = [y for y in range(max(0, y0), min(h, y1)) if michelson(rows[y][x], ground) >= MASK_CONTRAST]
+        ys = [y for y in range(max(0, y0), min(h, y1)) if green[y][x] >= MASK_GREEN]
         if ys:
             cols[x] = ys
 
@@ -115,20 +138,23 @@ def measure(stem, where=None):
             lo = len(body) // 4
             mid.extend(rows[y][x] for y in body[lo:len(body) - lo] or body)
     out["mask_columns"] = len(cols)
-    out["rim"] = round(michelson(statistics.median(top), statistics.median(mid)), 5) if top and mid else 0.0
+    out["mask_pixels"] = sum(len(ys) for ys in cols.values())
+    out["rim_top"] = round(statistics.median(top), 5) if top else 0.0
+    out["rim_body"] = round(statistics.median(mid), 5) if mid else 0.0
+    out["rim"] = round(michelson_signed(statistics.median(top), statistics.median(mid)), 5) if top and mid else 0.0
 
-    # height_m: what stands above the cloud's own far ground edge, in metres
-    fx, fy = aim["far_edge"]
-    span = w * FAR_SPAN
-    heights = []
+    # rise_m: how far the cloud's top edge stands above the ground line its middle sits on
+    cx, cy = aim["centroid"]
+    span = w * MID_SPAN
+    rises = []
     for x, ys in cols.items():
-        if abs(x - fx) > span:
+        if abs(x - cx) > span:
             continue
-        heights.append(sum(1 for y in ys if y < fy))
+        rises.append(cy - min(ys))
     ppm = aim["px_per_m"]
-    out["height_px"] = round(statistics.median(heights), 2) if heights else 0.0
+    out["rise_px"] = round(statistics.median(rises), 2) if rises else 0.0
     out["px_per_m"] = ppm
-    out["height_m"] = round(out["height_px"] / ppm, 4) if ppm > 0 else 0.0
+    out["rise_m"] = round(out["rise_px"] / ppm, 4) if ppm > 0 and rises else 0.0
     return out
 
 

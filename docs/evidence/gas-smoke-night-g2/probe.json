@@ -1,27 +1,27 @@
 {
   "definition": {
     "contrast": "median over the AIMED box of |Lc - Lg| / (Lc + Lg)",
-    "ground": "median luma of ground_l and ground_r from the still's aim.json (the left and right tenth over the box's rows)",
-    "height_m": "median over the columns within 0.05 of the frame width of far_edge of the mask rows ABOVE far_edge, / px_per_m",
+    "ground": "the DARKER of the two strip medians, min(median of ground_l, median of ground_r) from the still's aim.json (the left and right tenth over the box's rows)",
     "luma": "Rec.709 on 0-1, CaptureRig's scale (0.2126 R + 0.7152 G + 0.0722 B, bytes / 255)",
-    "mask": "box pixels with contrast >= 0.12 against the ground median",
+    "mask": "mask_box pixels whose excess green G - 0.5*(R + B) is >= 0.06 on 0-1: the chlorine's own colour, so the night sky never joins the mask",
     "note": "no min of gas and smoke: every still keeps its own numbers and its own bar",
-    "rim": "Michelson of the mask's top 6 rows per column against the mask's middle rows"
+    "rim": "signed Michelson, max(0, (top - body) / (top + body)), of the mask's top 6 rows per column against the mask's middle rows",
+    "rise_m": "median over the columns within 0.05 of the frame width of the centroid x of (centroid y - the mask's top row) / px_per_m: how far the cloud's top edge stands above the ground line its middle sits on. Screen rise over a 30 m-deep field carries the field's depth as well as the card, so this is a baseline comparison against the same field and pose, not a physical height"
   },
   "per_still": {
     "gas_day": {
       "bars": {
         "contrast": {
-          "min": 0.20745,
+          "min": 0.13586,
           "why": "a floor: the cloud may not read worse than the build before it"
         },
-        "height_m": {
-          "min": 0.02,
-          "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
-        },
         "rim": {
-          "min": 0.17394,
-          "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
+          "min": 0.17418,
+          "why": "outside the spread of three captures of the current build (max + spread + 0.02), on the signed rim: only a top brighter than the cloud's body counts as a lip"
+        },
+        "rise_m": {
+          "min": 4.6333,
+          "why": "outside the spread of three captures of the current build (max + spread + 0.02), on rise_m: the metres the cloud's top edge stands above the ground line its middle sits on, same field and same pose"
         }
       },
       "box": [
@@ -31,27 +31,30 @@
         450
       ],
       "cloud_median": 0.43611,
-      "contrast": 0.27634,
-      "ground_median": 0.76919,
-      "height_m": 0.0,
-      "height_px": 0.0,
+      "contrast": 0.15107,
+      "ground_median": 0.56858,
       "mask_columns": 384,
+      "mask_pixels": 58469,
       "px_per_m": 19.8598,
-      "rim": 0.15532
+      "rim": 0.20477,
+      "rim_body": 0.41989,
+      "rim_top": 0.63614,
+      "rise_m": 6.275,
+      "rise_px": 124.62
     },
     "gas_night": {
       "bars": {
         "contrast": {
-          "min": 0.47551,
+          "min": 0.47784,
           "why": "a floor: the cloud may not read worse than the build before it"
         },
-        "height_m": {
-          "min": 0.2717,
-          "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
-        },
         "rim": {
-          "min": 0.27397,
-          "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
+          "min": 0.08236,
+          "why": "outside the spread of three captures of the current build (max + spread + 0.02), on the signed rim: only a top brighter than the cloud's body counts as a lip"
+        },
+        "rise_m": {
+          "min": 8.0004,
+          "why": "outside the spread of three captures of the current build (max + spread + 0.02), on rise_m: the metres the cloud's top edge stands above the ground line its middle sits on, same field and same pose"
         }
       },
       "box": [
@@ -61,19 +64,22 @@
         450
       ],
       "cloud_median": 0.41042,
-      "contrast": 0.52279,
-      "ground_median": 0.12867,
-      "height_m": 0.2517,
-      "height_px": 5.0,
+      "contrast": 0.53383,
+      "ground_median": 0.12473,
       "mask_columns": 384,
+      "mask_pixels": 62080,
       "px_per_m": 19.8611,
-      "rim": 0.03838
+      "rim": 0.0,
+      "rim_body": 0.414,
+      "rim_top": 0.40003,
+      "rise_m": 5.614,
+      "rise_px": 111.5
     },
     "smoke_day": {
       "bars": {
         "contrast": {
           "min": 0.0,
-          "why": "a floor: the cloud may not read worse than the build before it; clamped to 0, because today's day smoke screen reads about 0.02 and min - spread - 0.02 went negative. The smoke screen's own look is out of this phase's scope: the floor only says it may not get worse."
+          "why": "a floor: the cloud may not read worse than the build before it; clamped to 0, because today's day smoke screen reads about 0.01 and min - spread - 0.02 went negative. The smoke screen's own look is out of this phase's scope: the floor only says it may not get worse."
         }
       },
       "box": [
@@ -83,13 +89,13 @@
         370
       ],
       "cloud_median": 0.74268,
-      "contrast": 0.01031,
-      "ground_median": 0.75554
+      "contrast": 0.00621,
+      "ground_median": 0.74741
     },
     "smoke_night": {
       "bars": {
         "contrast": {
-          "min": 0.3466,
+          "min": 0.50092,
           "why": "a floor: the cloud may not read worse than the build before it"
         }
       },
@@ -100,8 +106,8 @@
         370
       ],
       "cloud_median": 0.58239,
-      "contrast": 0.28288,
-      "ground_median": 0.33166
+      "contrast": 0.51757,
+      "ground_median": 0.18559
     }
   }
 }
