@@ -1,43 +1,43 @@
 {
-  "note": "Set from baseline.json: three takes of 4ce7ef9103, the build before the look change. The rim and the height bars sit OUTSIDE the spread of those three takes (max + spread + 0.02), so the current build FAILS them by design; that is what part 2 of the plan has to clear. Each contrast is a FLOOR (min - spread - 0.02): the rim and the height may not be bought by making the cloud read worse. Gas and smoke are scored each on its own bar, day and night each: no min of the two.",
+  "note": "Set from baseline.json: three takes of 4ce7ef9103, the build before the look change, re-measured with the probe's definitions as they stand now \u2014 the gas mask is the chlorine's own colour (excess green >= 0.06 on 0-1, so the night sky never joins it), rim is the SIGNED Michelson of the mask's top 6 rows against its body (only a brighter top scores), rise_m is how far the mask's top edge stands above the ground line the cloud's middle sits on, and the ground is the darker of the two strips. The rim and the rise bars sit OUTSIDE the spread of those three takes (max + spread + 0.02), so the build they were filmed from FAILS them by design; that is what part 2 of the plan has to clear. Each contrast is a FLOOR (min - spread - 0.02, clamped at 0): the rim and the rise may not be bought by making the cloud read worse. Gas and smoke are scored each on its own bar, day and night each: no min of the two.",
   "per_still": {
     "gas_day": {
       "contrast": {
-        "min": 0.20745,
+        "min": 0.13586,
         "why": "a floor: the cloud may not read worse than the build before it"
       },
-      "height_m": {
-        "min": 0.02,
-        "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
-      },
       "rim": {
-        "min": 0.17394,
-        "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
+        "min": 0.17418,
+        "why": "outside the spread of three captures of the current build (max + spread + 0.02), on the signed rim: only a top brighter than the cloud's body counts as a lip"
+      },
+      "rise_m": {
+        "min": 4.6333,
+        "why": "outside the spread of three captures of the current build (max + spread + 0.02), on rise_m: the metres the cloud's top edge stands above the ground line its middle sits on, same field and same pose"
       }
     },
     "gas_night": {
       "contrast": {
-        "min": 0.47551,
+        "min": 0.47784,
         "why": "a floor: the cloud may not read worse than the build before it"
       },
-      "height_m": {
-        "min": 0.2717,
-        "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
-      },
       "rim": {
-        "min": 0.27397,
-        "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
+        "min": 0.08236,
+        "why": "outside the spread of three captures of the current build (max + spread + 0.02), on the signed rim: only a top brighter than the cloud's body counts as a lip"
+      },
+      "rise_m": {
+        "min": 8.0004,
+        "why": "outside the spread of three captures of the current build (max + spread + 0.02), on rise_m: the metres the cloud's top edge stands above the ground line its middle sits on, same field and same pose"
       }
     },
     "smoke_day": {
       "contrast": {
         "min": 0.0,
-        "why": "a floor: the cloud may not read worse than the build before it; clamped to 0, because today's day smoke screen reads about 0.02 and min - spread - 0.02 went negative. The smoke screen's own look is out of this phase's scope: the floor only says it may not get worse."
+        "why": "a floor: the cloud may not read worse than the build before it; clamped to 0, because today's day smoke screen reads about 0.01 and min - spread - 0.02 went negative. The smoke screen's own look is out of this phase's scope: the floor only says it may not get worse."
       }
     },
     "smoke_night": {
       "contrast": {
-        "min": 0.3466,
+        "min": 0.50092,
         "why": "a floor: the cloud may not read worse than the build before it"
       }
     }
