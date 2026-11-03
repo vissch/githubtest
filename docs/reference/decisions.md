@@ -890,6 +890,22 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   grade lift fallen men generally, which touches every death, not just the frog's. **The default taken here is (b)
   measured as a ratio** — nothing is built on it and nothing is landed, because (a) and (c) both change a look you
   own. Blocked on this.
+- **`lane/show/heroes-off-bench` push retry exhausted; the owner's answer is half built, the other half needs one
+  command run by hand (2026-11-03, `loosen-push-rules-relay`):** the owner's answer to "lane/show/heroes-off-bench
+  cannot push: retry exhausted after six attempts" was "The loosened rules are published on a ref the runner reads
+  and relay.py update is run on the relay-run checkout". The first half holds: `origin/lane/show/heroes-off-bench`
+  (`9db97e979`) carries the loosened rules — its `Tools/relay/cmdrules.py` has the `if forced:` branch and its
+  `Tools/relay/prepush.py` `refusal` body refuses only another ref or a delete (both greps counted 1) — and the
+  frozen relay-run checkout's copies of both files are already byte-identical to that ref's copies (`diff -`
+  against the relay-run checkout's own tree exited 0 for both). The second half is not done: this leg ran
+  `relay.py update origin/lane/show/heroes-off-bench` once in the relay-run checkout and it refused with "relay: a
+  run is going (relay 20261103-060709-71676 loosen-push-rules-relay): update after it stops" — a leg cannot move
+  the frozen checkout while its own run holds the lock. Options: (a, recommended) the owner runs
+  `python Tools/relay/relay.py update origin/lane/show/heroes-off-bench` in the relay-run checkout once today's
+  runs have stopped; (b) a later unit teaches the runner to move the frozen copy itself before a run starts, so no
+  hand-run update is needed; (c) leave the frozen copy where it is, since the push itself already works with the
+  rules already loaded there. Default taken: none; recorded and stopped (this leg,
+  `loosen-push-rules-relay`, 2026-11-03).
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **Can small arms pin a machine's hull guns? (2026-10-18, bug-catcher look look-code-sim-combat-20261018):** nothing
   in the suppression path excludes a machine. `AddSuppression` (DirectFire.cs:326) skips only `Airborne`, and splash
