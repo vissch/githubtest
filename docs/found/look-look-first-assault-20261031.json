@@ -1,0 +1,20 @@
+{
+  "subject": "look:first-assault",
+  "looked_at": [
+    "trench-warfare-3d/Tools/health.py (FREE lock, branch lane/show/found at plan time)",
+    "SimProbe.Match() verbatim: \"seed 12648430 generated True battlefield seed 1917 ground ShelledForest bombardment 0/min (override -1) stress 0 (override -1) tick 472 mission ''\" - the default field, no Proving Ground override",
+    "four live Play sessions polled over SimHost's World (HighWater/IsAlive/Position/Team), rows kept verbatim: team0 collapses to 0-1 alive by tick 600-1300 in every one of the four runs, while team1 sits at 2 to 8 alive around frontZ 125-180 and never closes the ~90-100 unit gap to team0's frontZ 30-68; a representative row: \"tick 1526 t0 alive 6 frontZ 35.96 meanZ 32.55 | t1 alive 8 frontZ 127.34 meanZ 146.47\"",
+    "Captures/first-assault-1103/play30.png + .json (zoom 30, standard play view, paused at tick 175 with both teams out, 6 vs 6; men_in_frame 6, contrast_median 0.53341, contrast_p10 0.01309, luma_mean 0.19512, blown_frac 0.00185, pose_error_m 0)",
+    "Captures/first-assault-1103/wide60.png + .json (zoom 60 between the lines; men_in_frame 6, contrast_median 0.32217, blown_frac 0.00086) - no men visible crossing the open ground between the two camps",
+    "Captures/first-assault-1103/wide60yaw111.png + .json (men_in_frame 11, contrast_median 0.01677, contrast_p10 0.0048, warning \"men barely separate from the ground: unreadable\") - the already-queued infantry-visibility fault, re-measured, not repeated",
+    "Captures/first-assault-1103/close12.png + .json (zoom 12 on the knot; men_in_frame 2, contrast_median 0.22549, blown_frac 0.00377)",
+    "Captures/first-assault-1103/advance_00..07.png + sidecars and advance_sheet.png (8-frame series over sim ticks ~207-431 at fixed focus 27.6,64.4; men_in_frame 6 and luma_mean 0.1961 identical on every one of the 8 frames, contrast_median 0.466-0.469) - this knot did not visibly move or change in the sampled window, consistent with the ScriptedEnemy massing phase already named in the 2026-10-19 finding; not reported as new since it reads as the same settled behaviour, not a distinct fault",
+    "Captures/first-assault-1103/hud.png + .json (CaptureRig.Pending() 0 before reading; the only frame with the HUD: gauges 317/+2s, 6 vs 6, 00:08, six-row OBJECTIVES list all unlit since prog stayed 0, minimap with white/orange own trenches and red enemy trenches and a distinct camera box, two bright flat green tracer beams crossing the duckboards, support/armour cards showing grey '?' placeholders, a world-space '0 MEN' garrison label)",
+    "trench-warfare-3d/Assets/_Project/UI/TrenchOrderCluster.cs:341-342 (the '0 MEN' garrison-post label is the order cluster's own text, not a debug leftover)",
+    "docs/reference/decisions.md:97 (2026-09-23, placeholder HUD art decided, artist textures later - explains the '?' support/armour cards, not a new fault)",
+    "docs/reference/decisions.md:204 (2026-10-08, night tracers: today's beams stay until the owner has seen the side-by-side brief - explains the flat green tracer beams, not a new fault)",
+    "docs/found/look-look-first-assault-20261019.json, -20261016.json, look-look-hud-20261019.json (read whole; their six titles - support-card portraits, the unlabelled men gauge, infantry invisible against the ground, the aim hint/tooltip clash, cost/hotkey chips over small-card portraits, objectives and HQs on the minimap, the minimap camera box vs enemy trench colour - are not repeated here)",
+    "docs/reference/tasks.md, docs/reference/decisions.md grepped for support card / men gauge / invisible / aim hint / cost hotkey / minimap / objective / tracer / placeholder before any candidate went in this file"
+  ],
+  "tasks": []
+}
