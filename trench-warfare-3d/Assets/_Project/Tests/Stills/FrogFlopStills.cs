@@ -29,9 +29,9 @@
 // weather. CaptureRig.Hold stops the clock and pins the weather clock, and r3's three held shots of one pose
 // differed by exactly 0 px — that is the instrument the critic asked for.
 //
-// It asserts every take is honest (men_in_frame 0, fallen_in_frame 0, mark_in_frame 1, rain 0, pose_error_m < 0.5)
-// and fails the take rather than letting a lying set be committed; judging the pictures is probe.py's and the
-// critic's job.
+// Every still is checked honest (men_in_frame 0, fallen_in_frame 0, mark_in_frame 1, rain 0, pose_error_m < 0.5)
+// and a take with one dishonest still is shot again on the next remote patch rather than kept; judging the pictures
+// is probe.py's and the critic's job.
 using System.Collections;
 using System.Globalization;
 using System.IO;
@@ -92,32 +92,72 @@ namespace TW.Tests
             return float.TryParse(text.Substring(colon + 1, end - colon - 1).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float v) ? v : float.NaN;
         }
 
-        static void Honest(string png, bool marked)
+        /// <summary>The same honesty test as before, as a verdict instead of an assertion: a take spoiled by a living
+        /// man who walked into the frame is re-shot on the next patch (the player framing is 61 m wide, so no patch of
+        /// a 90 x 276 m map is safe from a man who keeps walking), while a dishonest still is still never kept. The
+        /// reason goes to the trace.</summary>
+        static bool Clean(string png, bool marked)
         {
-            Assert.That(File.Exists(png), "no still at " + png);
-            Assert.That(Side(png, "men_in_frame"), Is.EqualTo(0f), png + ": a living man shares the frame");
-            Assert.That(Side(png, "fallen_in_frame"), Is.EqualTo(0f), png + ": another body shares the frame");
-            Assert.That(Side(png, "rain"), Is.LessThan(0.001f), png + ": rain is not pinned off");
-            Assert.That(Side(png, "pose_error_m"), Is.LessThan(0.5f), png + ": the camera is not where the shot asked");
-            Assert.That(Side(png, "zoom"), Is.EqualTo(Zoom), png + ": not the player's zoom");
-            Assert.That(Side(png, "pitch"), Is.EqualTo(Pitch), png + ": not the player's pitch");
-            if (marked) Assert.That(Side(png, "mark_in_frame"), Is.EqualTo(1f), png + ": the marked frog is not in the frame");
+            string why = null;
+            if (!File.Exists(png)) why = "no still";
+            else if (Side(png, "men_in_frame") != 0f) why = "a living man shares the frame";
+            else if (Side(png, "fallen_in_frame") != 0f) why = "another body shares the frame";
+            else if (!(Side(png, "rain") < 0.001f)) why = "rain is not pinned off";
+            else if (!(Side(png, "pose_error_m") < 0.5f)) why = "the camera is not where the shot asked";
+            else if (Side(png, "zoom") != Zoom) why = "not the player's zoom";
+            else if (Side(png, "pitch") != Pitch) why = "not the player's pitch";
+            else if (marked && Side(png, "mark_in_frame") != 1f) why = "the marked frog is not in the frame";
+            if (why != null) Mark(Path.GetFileName(png) + " is not honest: " + why);
+            return why == null;
+        }
+
+        /// <summary>Where every living man is standing right now, read the way CaptureRig.Crowd reads them (the live
+        /// flag and the drawn position). A static method on purpose: see the note on the Sort below.</summary>
+        static System.Collections.Generic.List<Vector2> Living()
+        {
+            var list = new System.Collections.Generic.List<Vector2>();
+            var host = Object.FindFirstObjectByType<SimHost>();
+            if (host == null || host.Local == null) return list;
+            var w = host.Local.World;
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                if ((w.Flags[i] & 1u) == 0) continue;
+                var q = (Vector3)host.Presenter.Drawn(i);
+                list.Add(new Vector2(q.x, q.z));
+            }
+            return list;
+        }
+
+        /// <summary>The open patch with the most empty ground around it: of every candidate at least 40 m from a patch
+        /// already used or already spoiled, the one whose NEAREST living man is farthest away. Chosen fresh for each
+        /// take, because the men walk. The run of 2026-11-03 chose by distance from the corridor's centre instead and
+        /// lost five takes to men in the frame: on GreyboxCorridor the two sides spawn at the ENDS and march inward,
+        /// so "far from the middle" is exactly where the living are.</summary>
+        static Vector2 BestPatch(System.Collections.Generic.List<Vector2> open, System.Collections.Generic.List<Vector2> avoid,
+                                 System.Collections.Generic.List<Vector2> men, out float clearance)
+        {
+            var best = Vector2.zero; float bestClear = -1f;
+            for (int i = 0; i < open.Count; i++)
+            {
+                var c = open[i];
+                bool blocked = false;
+                for (int j = 0; j < avoid.Count; j++) if (Vector2.Distance(avoid[j], c) < 40f) blocked = true;
+                if (blocked) continue;
+                float near = float.MaxValue;
+                for (int j = 0; j < men.Count; j++) near = Mathf.Min(near, Vector2.Distance(men[j], c));
+                if (near > bestClear) { bestClear = near; best = c; }
+            }
+            clearance = bestClear;
+            return best;
         }
 
         /// <summary>Which fallen body the current take staged (VATRenderer's index).</summary>
         int Marked;
 
-        /// <summary>
-        /// Where the battle is, taken from the map and not from the sim: the middle of the corridor. Two different
-        /// reads of the living men threw a NullReferenceException here on four runs of this batch — CaptureRig.Crowd
-        /// (through SimHost.Presenter) and a direct read of the sim world's Position array alike, and a try/catch
-        /// around the direct read did not catch it, so whatever is null is not reachable from this test's code at
-        /// this moment in a batch-mode Play. It is not worth a blocked leg: this number only chooses WHERE to stage a
-        /// frog, GreyboxCorridor puts its two lines either side of the middle of its 90 x 276 m corridor by
-        /// construction, and Honest() is what makes a take honest — it fails any still whose sidecar counts a living
-        /// man in the frame, however the patch was picked.
-        /// </summary>
-        static Vector2 Battle(MapData map) => new Vector2(map.SizeMeters.x * 0.5f, map.SizeMeters.y * 0.5f);
+        /// <summary>Reading the living men threw a NullReferenceException on four runs of this batch, and the earlier
+        /// takes worked around it by guessing the battle's place from the map. The cause is now known and fixed (a
+        /// local captured by a lambda inside this coroutine; see the note at the patch choice), so Living() reads them
+        /// straight and BestPatch stages each frog by where the men actually are.</summary>
 
         /// <summary>A line straight to disk. TestContext.Out is buffered and everything written after the last
         /// flush is lost when the coroutine throws, so four runs of this capture reported an exception with no trace
@@ -214,16 +254,11 @@ namespace TW.Tests
             // run of this take staged its frog off the playable ground and photographed flat blue water
             var map = Host.Local.Map;
             Mark($"map {map.SizeMeters.x:F0} x {map.SizeMeters.y:F0} m, {map.Props.Length} props");
-            var crowd = Battle(map);
-            Mark($"battle taken as the corridor centre {crowd.x:F0}, {crowd.y:F0}");
-            // The FARTHEST open patches, not the first ones found. At zoom 30 the frame is 1920 px / 31.36 px per m =
-            // 61 m across, so the first run of this framing caught a living man walking into take2's frame from a
-            // battle 120 m away: the wide player framing sees eight times the ground r3's zoom 4.66 did. GreyboxCorridor
-            // is 90 x 276 m, so there is no corner of it a fixed distance bar can reach — a hard 120 m floor on a 90 m
-            // wide map is a bar the map cannot clear. Instead EVERY open candidate is collected, sorted by how far it
-            // lies from the thickest knot of men, and the three used are simply the most remote the map has, kept 40 m
-            // apart from each other (Stage clears the fallen list, so no neighbouring take's body can share a frame;
-            // the living are what distance has to buy). Honest() is still the guard: a man in the frame fails the take.
+            // Every patch of open ground on the map, collected once: which of them a take uses is decided per take,
+            // by where the living are then (BestPatch). At zoom 30 the frame is 1920 px / 31.36 px per m = 61 m across
+            // — eight times the ground r3's zoom 4.66 saw — and GreyboxCorridor is only 90 x 276 m, so no fixed
+            // distance bar can buy an empty frame on it. Stage clears the fallen list, so no other take's body can
+            // share a frame; Clean() is the guard for the living, and a man in the frame re-shoots the take.
             var candidates = new System.Collections.Generic.List<Vector2>();
             try
             {
@@ -231,27 +266,33 @@ namespace TW.Tests
                     for (float xx = 20f; xx < map.SizeMeters.x - 20f; xx += 4f)
                         if (Open(map, xx, zz, 8f)) candidates.Add(new Vector2(xx, zz));
             }
-            catch (System.Exception e) { TestContext.Out.WriteLine("SCAN THREW: " + e); throw; }
+            // to DISK, not to TestContext.Out: the run of 2026-11-03 died with a NullReferenceException and the
+            // only trace of it was a line number inside this method, because the buffered output of a coroutine
+            // that throws is lost (see Mark). Marked here, the exception and its real line survive the throw.
+            catch (System.Exception e) { Mark("SCAN THREW: " + e); throw; }
             Mark($"{candidates.Count} open candidates");
-            candidates.Sort((a, b) => Vector2.Distance(b, crowd).CompareTo(Vector2.Distance(a, crowd)));
-            var spots = new System.Collections.Generic.List<Vector2>();
-            foreach (var c in candidates)
-            {
-                if (spots.Count >= 3) break;
-                bool clear = true;
-                foreach (var u in spots) if (Vector2.Distance(u, c) < 40f) clear = false;
-                if (clear) spots.Add(c);
-            }
-            Assert.That(spots.Count, Is.EqualTo(3), "no three remote patches of open ground on this map");
-            foreach (var s in spots) Mark($"patch {s.x:F0}, {s.y:F0} is {Vector2.Distance(s, crowd):F0} m from the battle");
-            TestContext.Out.WriteLine("patches: " + string.Join(", ", spots));
-            int written = 0;
+            // No ranking by distance from the corridor's centre any more, and no lambda reading a local of this
+            // coroutine: a local a lambda captures lives in a display-class object that the compiler never allocates
+            // once the state machine has crossed a `yield return`, so writing it throws a NullReferenceException —
+            // the exception that killed five runs on 2026-11-03 at `var crowd = ...`, captured by the old Sort.
+            var used = new System.Collections.Generic.List<Vector2>();
+            int written = 0, spoiled = 0;
 
-            for (int take = 0; take < 3; take++)
+            // A take is kept only if every one of its six stills is honest, and its patch is chosen FRESH, from where
+            // the living men are standing at that moment (BestPatch): the player framing is 61 m wide, the two sides
+            // spawn at the corridor's ends and march inward, and a patch that was empty a minute ago is not empty now.
+            // A spoiled take is shot again on another patch rather than kept with a man in the frame.
+            for (int take = 0; take < 3; )
             {
+                Assert.That(spoiled, Is.LessThan(6), "six takes spoiled: no patch of this map stays clear of the living");
+                var men = Living();
+                float clearance;
+                var spot = BestPatch(candidates, used, men, out clearance);
+                Mark($"take {take}: {men.Count} living men, patch {spot.x:F0}, {spot.y:F0} with {clearance:F0} m of clear ground");
+                used.Add(spot);                       // used or spoiled, this patch is not offered again
                 string stem = $"take{take}";
-                var spot = spots[take];
-                Mark($"take {take} staging at {spot.x:F0}, {spot.y:F0}");
+                bool dirty = false;
+                int got = 0;
                 yield return Stage(spot.x, spot.y);
                 float death = Time.time;
                 Mark($"take {take} staged, Vat is {(Vat == null ? "NULL" : "there")}, Marked {Marked}");
@@ -270,7 +311,7 @@ namespace TW.Tests
                     Mark($"shooting {shot.name}");
                     CaptureRig.Shot(path, body.x, body.z, Zoom, Yaw, Pitch, W, H);
                     yield return Drain(path);
-                    Honest(path, true); written++;
+                    if (Clean(path, true)) got++; else dirty = true;
                     CaptureRig.Release();
                     for (int f = 0; f < 5; f++) yield return null;
                 }
@@ -284,7 +325,7 @@ namespace TW.Tests
                 Fresh(i1);
                 CaptureRig.Shot(i1, body.x, body.z, Zoom, Yaw, Pitch, W, H);
                 yield return Drain(i1);
-                Honest(i1, true); written++;
+                if (Clean(i1, true)) got++; else dirty = true;
 
                 Vat.ClearFallen();
                 yield return null;
@@ -295,10 +336,19 @@ namespace TW.Tests
                     Fresh(path);
                     CaptureRig.Shot(path, body.x, body.z, Zoom, Yaw, Pitch, W, H);
                     yield return Drain(path);
-                    Honest(path, false); written++;
+                    if (Clean(path, false)) got++; else dirty = true;
                 }
                 CaptureRig.Release();
                 for (int f = 0; f < 30; f++) yield return null;
+
+                if (dirty || got < 6)
+                {
+                    spoiled++;
+                    Mark($"take {take} spoiled ({got} of 6 honest): shooting it again on the next patch");
+                    continue;
+                }
+                written += got;
+                take++;
             }
 
             CaptureRig.MarkOff();

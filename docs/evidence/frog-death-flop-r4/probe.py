@@ -27,13 +27,19 @@ craftsmanship. So the 1 % is taken inside a square window of 6 m a side centred 
 looking at that spot is actually reading. frog_area_frac_full_frame is published beside it so nobody has to take the
 window on trust, and plate_area_frac_z30 shows what the same window measures with no frog in it.
 
-Bars (PASS needs all three)
-    frog_area_frac_z30         >= 0.01 and > 3x the worst plate floor
-    motion_in_mask_px          > 3x the worst idle floor
-    belly_up_from_pixels_takes == 3
+Bars, and what the build BEFORE the change measured (before.json, 18 stills shot 2026-11-03, this leg; the bars are
+fixed from here on, and no later leg may move them)
+    frog_area_frac_z30         >= 0.01 and > 3x the worst plate floor   before: 0.00028, plates 0.0, 0.0, 0.0
+    motion_in_mask_px          >= 30 and > 3x the worst idle floor      before: 10 px, idle floor 0, 0, 0
+    belly_up_from_pixels_takes == 3                                     before: 1 of 3
+The two floors the before run measured are both exactly 0 px: a held instant shot twice differs nowhere, so the
+"3x the floor" margins the goal asks for are cleared by anything above zero and cannot sort a good take from a bad
+one. The absolute bars are what the before run cannot reach: the area bar is 36x its 0.00028, and the motion bar is
+3x its 10 px. belly_up was already read off the pixels and the before run fails it in two takes of three.
 
 `--write NAME.json` writes the same numbers to NAME.json with no verdict and exits 0: that is how the before
-captures are published.
+captures are published. `--dir DIR` reads the stills from DIR instead of this script's own folder, so a run of the
+build as it stands can be measured where it was shot; the json is always written beside the script.
 """
 import argparse
 import glob
@@ -44,11 +50,13 @@ import sys
 import numpy as np
 from PIL import Image
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+HERE = SCRIPT_DIR        # where the stills are read from; --dir moves it (the before run reads the leg folder)
 
 WINDOW_M = 6.0        # the side of the window, in metres of ground
 DELTA = 30            # sum of the three channel differences a pixel must exceed to count as changed
-AREA_BAR = 0.01
+AREA_BAR = 0.01       # the critic's 1 %, in the 6 m window; the before run measured 0.00028
+MOTION_PX = 30        # the twitch must move this many body pixels in its second; the before run moved 10
 FLOOR_MARGIN = 3.0    # a bar must sit this many times above its measured floor
 BLOB_FRAC = 0.02      # a leg blob is at least this much of the body mask
 BLOB_GAP_FRAC = 0.15  # the two leg blobs' horizontal centroids, as a fraction of the mask's width
@@ -187,7 +195,10 @@ def one_take(t):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--write", metavar="NAME.json", help="write the numbers here with no verdict, and exit 0")
+    ap.add_argument("--dir", metavar="DIR", default=SCRIPT_DIR, help="where the stills are (default: beside this script)")
     a = ap.parse_args()
+    global HERE
+    HERE = os.path.abspath(a.dir)
 
     takes = sorted({os.path.basename(p).split("_")[0] for p in glob.glob(os.path.join(HERE, "take*_i1.png"))})
     if len(takes) < 3:
@@ -212,7 +223,7 @@ def main():
         "per_take": per_take,
     }
 
-    before = os.path.join(HERE, "before.json")
+    before = os.path.join(SCRIPT_DIR, "before.json")
     if os.path.exists(before) and not a.write:
         with open(before, encoding="utf-8") as f:
             b = json.load(f)
@@ -221,7 +232,7 @@ def main():
         result["before"] = {k: b.get(k) for k in ("frog_area_frac_z30", "motion_in_mask_px",
                                                   "belly_up_from_pixels_takes")}
 
-    out = os.path.join(HERE, a.write or "probe.json")
+    out = os.path.join(SCRIPT_DIR, a.write or "probe.json")
     if a.write:
         result["verdict"] = "none: --write publishes the numbers of the build as it stands"
     with open(out, "w", encoding="utf-8") as f:
@@ -239,6 +250,7 @@ def main():
     worst_idle = max(result["idle_floor_px"])
     ok = (result["frog_area_frac_z30"] >= AREA_BAR
           and result["frog_area_frac_z30"] > FLOOR_MARGIN * worst_plate
+          and result["motion_in_mask_px"] >= MOTION_PX
           and result["motion_in_mask_px"] > FLOOR_MARGIN * worst_idle
           and result["belly_up_from_pixels_takes"] >= 3)
     print("PASS" if ok else "FAIL")
