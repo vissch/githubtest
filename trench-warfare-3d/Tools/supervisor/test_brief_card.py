@@ -11,6 +11,7 @@ TEMP = Path(tempfile.mkdtemp(prefix='tw-briefcard-'))
 for _k in ('TW_NOTES', 'TW_BRIEFS', 'TW_ASSETBOARD_OUT'):        # never the live folders
     (TEMP / _k.lower()).mkdir(exist_ok=True)
     os.environ[_k] = str(TEMP / _k.lower())
+os.environ['TW_SUP_HOME'] = str(TEMP / 'sup')                   # the switch briefrules: never the machine's own
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / 'assetboard'))
 import brief_card  # noqa: E402
@@ -72,6 +73,10 @@ class Card(unittest.TestCase):
         self.assertEqual([x['id'] for x in briefs.read_all(Path(os.environ['TW_BRIEFS'])) if x['id'] == b['id']], [b['id']])
 
     def test_a_card_with_no_picture_is_refused_for_visual_work(self):
+        sup = Path(os.environ['TW_SUP_HOME'])
+        sup.mkdir(exist_ok=True)
+        (sup / 'modules.json').write_text('{"briefrules": "on"}', encoding='utf-8')    # the rule refuses only when on
+        self.addCleanup((sup / 'modules.json').unlink)
         c = brief_card.card(dict(self.unit, before=[], after=[]), 'held')
         with self.assertRaises(ValueError) as e:
             brief_card.post(Path(os.environ['TW_BRIEFS']), c)
