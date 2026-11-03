@@ -461,6 +461,8 @@ class World:
         return [got] if isinstance(got, dict) else got
 
     def kill(self, pid):
+        if not self.acting:         # print-only ends nothing (end_editors asks with no acting check of its own)
+            return 1, f'would end pid {pid} (print-only: nothing is ended)'
         r = subprocess.run(['taskkill', '/PID', str(pid), '/T', '/F'], capture_output=True, text=True, errors='replace',
                            stdin=subprocess.DEVNULL, timeout=60, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         return r.returncode, (r.stdout + r.stderr).strip()
@@ -1395,30 +1397,75 @@ def tidy(w):
     return out
 
 
-def round_(w):
-    lines = []
-    for step in (copy_back, take_answers, attempts, end_editors, wait_for_relay, rescue, tidy, loopsteps.route_ideas, feed):
-        try:
-            lines += step(w)
-        except Exception:       # noqa: BLE001  one step that fails must not stop the others
-            lines.append(f'{step.__name__}: failed: ' + traceback.format_exc().strip().splitlines()[-1][:300])
-    fw = w.found()
+_NO_FW = object()
+
+
+def found_world(w):
+    """found.py's World of this round: made once, when the reviews step (or, without it, the found step) first asks;
+    the two steps share it, as one round always did."""
+    fw = getattr(w, 'round_fw', _NO_FW)
+    if fw is _NO_FW:
+        fw = w.round_fw = w.found()
+    return fw
+
+
+def found_step(w, said=()):
+    """found.py take, then its rota (acting); in print-only, what waits. `said`: the lines this round's earlier steps
+    gave (idle_why reads feed's)."""
+    out = []
     try:
-        lines += loopsteps.reviews(w, fw)
-    except Exception:           # noqa: BLE001
-        lines.append('reviews: failed: ' + traceback.format_exc().strip().splitlines()[-1][:300])
-    try:
+        fw = found_world(w)
         if w.acting:
-            lines += found.take(fw)
-            why = idle_why(w, lines)
-            lines.append(found.rota(fw, why=why, held=held_looks(w) if why else ()))
+            out += found.take(fw)
+            why = idle_why(w, list(said) + out)
+            out.append(found.rota(fw, why=why, held=held_looks(w) if why else ()))
         else:
             left = found.takeable(fw)
-            lines.append(f'found: {found.waiting(fw)} fix units wait unstarted (the most is {found.FIX_MOST}); '
-                         + (f'the main queue has {len(left)} to take' if left else 'the main queue is dry: a look would be queued'))
+            out.append(f'found: {found.waiting(fw)} fix units wait unstarted (the most is {found.FIX_MOST}); '
+                       + (f'the main queue has {len(left)} to take' if left else 'the main queue is dry: a look would be queued'))
     except Exception:           # noqa: BLE001
-        lines.append('found: failed: ' + traceback.format_exc().strip().splitlines()[-1][:300])
+        out.append('found: failed: ' + traceback.format_exc().strip().splitlines()[-1][:300])
+    return out
+
+
+# The round's steps, in their order (back before answers before feed; tidy before feed, whose starts read w.tidied;
+# feed before found, whose idle_why reads feed's lines). Tools/supervisor/modules/loop_NN_<step>.py runs one each.
+STEPS = (('back', copy_back), ('answers', take_answers), ('attempts', attempts), ('editors', end_editors),
+         ('waits', wait_for_relay), ('rescue', rescue), ('tidy', tidy), ('ideas', loopsteps.route_ideas), ('feed', feed),
+         ('reviews', lambda w: loopsteps.reviews(w, found_world(w))), ('found', None))
+
+
+def step(w, name, said=()):
+    """One step of the round alone, by its name in STEPS: its log lines. A step that fails says so in one line and
+    does not raise, so the steps after it still run."""
+    fn = dict(STEPS)[name]
+    if fn is None:
+        return found_step(w, said)
+    try:
+        return list(fn(w))
+    except Exception:       # noqa: BLE001  one step that fails must not stop the others
+        label = 'reviews' if name == 'reviews' else fn.__name__
+        return [f'{label}: failed: ' + traceback.format_exc().strip().splitlines()[-1][:300]]
+
+
+def round_(w, skip=()):
+    """Every step in order. `skip`: the steps the supervisor runs now (supervised()), left out here."""
+    lines = []
+    w.round_fw = _NO_FW
+    for name, _ in STEPS:
+        if name not in skip:
+            lines += step(w, name, lines)
     return lines
+
+
+def supervised():
+    """The steps whose supervisor module (Tools/supervisor/modules/loop_NN_<step>.py) is switched 'on' in the
+    supervisor's modules.json: this loop leaves them to it, so no step runs twice. Nothing is there until a session
+    or the owner switches one on; a file that does not read is no switch."""
+    home = os.environ.get('TW_SUP_HOME') or Path(os.environ.get('LOCALAPPDATA') or Path.home()) / 'TrenchWarfare' / 'supervisor'
+    over = load(Path(home) / 'modules.json', {})
+    names = {n for n, _ in STEPS}
+    return {k[5:] for k, v in (over.items() if isinstance(over, dict) else []) if v == 'on' and k.startswith('loop_') and k[5:] in names}
 
 
 def take_lock(home: Path, now=None):
@@ -1455,7 +1502,7 @@ def main(argv=None):
     home.mkdir(parents=True, exist_ok=True)
     extras = tuple(int(x) for x in a.extras.split(',') if x.strip().isdigit())      # 'none' for none
     if not (a.once or a.watch):
-        print('\n'.join(round_(World(a.main, extras, home, acting=False))))
+        print('\n'.join(round_(World(a.main, extras, home, acting=False), skip=supervised())))
         return 0
     log = home / 'autoloop.log'
 
@@ -1473,7 +1520,10 @@ def main(argv=None):
             if (home / 'autoloop.stop').exists():
                 say('autoloop.stop is in its folder: standing by')
             else:
-                for line in round_(World(a.main, extras, home)):
+                skip = supervised()
+                if skip:
+                    say('left to the supervisor (its loop_* switch is on): ' + ', '.join(n for n, _ in STEPS if n in skip))
+                for line in round_(World(a.main, extras, home), skip=skip):
                     say(line)
                     if a.once:
                         print(line)

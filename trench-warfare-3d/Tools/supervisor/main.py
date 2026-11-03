@@ -19,6 +19,7 @@ import core  # noqa: E402
 
 
 def once(h, only=None, now=None):
+    now = now or time.time()        # one clock a pass: the loop_* modules of one pass share one World (looprun.py)
     mods, broken = core.discover()
     out = [f'broken module {b}' for b in broken]
     for m in mods:
