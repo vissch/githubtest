@@ -21,6 +21,15 @@ for _k in ('TW_NOTES', 'TW_BRIEFS', 'TW_ASSETBOARD_OUT'):
     _d = TEMP / _k.lower()
     _d.mkdir(exist_ok=True)
     os.environ[_k] = str(_d)
+SUP = TEMP / 'sup'          # the supervisor's switches (briefrules): never the machine's own
+os.environ['TW_SUP_HOME'] = str(SUP)
+
+
+def rules(mode):
+    """The supervisor's switch briefrules: 'on' refuses a brief that breaks a rule; 'dry', its default, warns."""
+    SUP.mkdir(exist_ok=True)
+    (SUP / 'modules.json').write_text(json.dumps({'briefrules': mode} if mode else {}), encoding='utf-8')
+
 
 import sys
 sys.path.insert(0, str(HERE))
@@ -87,6 +96,8 @@ class PlainTitleAndPicture(unittest.TestCase):
     """The owner, 2026-11-01: titles of jargon and no pictures; "i need something visual to tell what im deciding on"."""
 
     def setUp(self):
+        rules('on')                 # the refusals below are the switch's 'on'
+        self.addCleanup(rules, None)
         self.where = Path(tempfile.mkdtemp(prefix='briefs-', dir=str(TEMP)))
         self.png = Path(tempfile.mkdtemp(prefix='ev-', dir=str(TEMP))) / 'after.png'
         self.png.write_bytes(b'\x89PNG\r\n\x1a\n' + b'\0' * 32)
@@ -161,6 +172,42 @@ class PlainTitleAndPicture(unittest.TestCase):
                        ['Near-black where nobody works', 'Every room light'], "It is the site's own look", by='test',
                        no_evidence='a decision of words')
         self.assertTrue(b['id'])
+
+
+class DryRules(unittest.TestCase):
+    """The rules came with the relay harness v2 and refuse only when the supervisor's switch briefrules is 'on'. In dry,
+    its default, a writer with nobody to answer a refusal (runreport.brief, `briefs.py concepts`) still writes its
+    brief, and the brief says what the rules would refuse (the reviewer, Q.1)."""
+
+    def setUp(self):
+        rules(None)
+        self.addCleanup(rules, None)
+        self.where = Path(tempfile.mkdtemp(prefix='briefs-', dir=str(TEMP)))
+
+    def leg_brief(self):
+        """What runreport.brief writes: a leg's own title, which names its unit, on a look lane, with no picture."""
+        return briefs.add(self.where, 'Is sapper-look done', 'Whether the sapper reads as a sapper at play zoom.',
+                          ['Keep it', 'Send it back'], 'It reads at every zoom.', [], 'the editor was busy',
+                          lane='lane/show/sapper-look', by='runreport.py (run r1)',
+                          raised_by=dict(run='r1', unit='sapper-look', leg=2, key='k1'))
+
+    def test_a_leg_title_with_its_unit_id_is_written_and_warned_in_dry(self):
+        b = self.leg_brief()
+        self.assertEqual(b['title'], 'Is sapper-look done')
+        warned = ' '.join(b.get('rules_warned') or [])
+        self.assertIn('sapper-look', warned, 'the brief says what the title rule would refuse')
+        self.assertIn('visual work', warned, 'and that a look lane shows no picture')
+        rules('on')
+        with self.assertRaises(ValueError):
+            self.leg_brief()
+
+    def test_off_and_an_unreadable_switch(self):
+        rules('off')
+        self.assertNotIn('rules_warned', self.leg_brief())
+        SUP.mkdir(exist_ok=True)
+        (SUP / 'modules.json').write_text('["not a switch"]', encoding='utf-8')
+        self.assertEqual(briefs.rules_mode(), 'dry')
+        self.assertTrue(self.leg_brief()['rules_warned'])
 
 
 if __name__ == '__main__':

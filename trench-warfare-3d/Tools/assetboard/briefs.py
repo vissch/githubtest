@@ -40,7 +40,8 @@ SVG (photographed here). Nothing of that work is built before he has picked.
 --no-evidence "why" is for a decision nothing can be shown of; a brief without either is refused.
 PLAIN TITLES AND PICTURES (the owner, 2026-11-01: "i need something visual to tell what im deciding on"). A title is
 plain words, no unit id, -g1 chain or path; a brief about visual work (--role, --file, a show lane named for a look)
-shows at least one picture, which --no-evidence does not excuse. The rules are briefrules.py's.
+shows at least one picture, which --no-evidence does not excuse. The rules are briefrules.py's. They refuse only
+when the supervisor's switch briefrules is 'on' (rules_mode()); in dry, its default, the brief is written and warned.
 
 WHEN A CLICK IS A YES TO WORK (the owner, 2026-10-06). An option may say what happens then: "Then: ..." under it on the
 page, and the unit that is queued. A click on such an option is his yes for that unit, and only then: the page sends
@@ -68,6 +69,28 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import build  # noqa: E402
 import briefrules  # noqa: E402
+
+_SUP_CORE = []
+
+
+def rules_mode():
+    """The supervisor's switch briefrules (modules.json in its home, Tools/supervisor/core.py; TW_SUP_HOME in tests).
+    'on' refuses a brief that breaks the title or the picture rule (briefrules.py). 'dry', its default and the answer
+    whenever the supervisor cannot be read, writes the brief as before and says what the rules would refuse. 'off'
+    says nothing. The rules came with the relay harness v2: writers with nobody to answer a refusal (runreport.brief's
+    leg titles, `concepts`) are not stopped by them before the owner switches them on (the reviewer, Q.1)."""
+    try:
+        if not _SUP_CORE:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location('tw_sup_core_for_briefs', HERE.parent / 'supervisor' / 'core.py')
+            m = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(m)
+            _SUP_CORE.append(m)
+        c = _SUP_CORE[0]
+        m = (c.read_json(c.home() / 'modules.json', {}) or {}).get('briefrules', 'dry')
+        return m if m in c.MODES else 'dry'
+    except Exception:  # noqa: BLE001 - no supervisor in this checkout: the rules warn
+        return 'dry'
 
 FOR_WORDS = 45          # "really short": what the decision is for, in at most this many words
 OPTION_WORDS = 22       # ... an option
@@ -102,17 +125,23 @@ def one(s):
     return re.sub(r'\s+', ' ', str(s or '')).strip()
 
 
-def check(title, what_for, options, why, evidence, no_evidence, visual=False, ids=()):
+def check(title, what_for, options, why, evidence, no_evidence, visual=False, ids=(), rules='on', warned=None):
     """Why a brief would be refused: every reason, in words the writer can act on. An empty list is a brief. The title
     is plain words (briefrules.title_bad: no unit id, chain or path, `ids` are the brief's own unit and lane), and a
-    brief about `visual` work shows at least one picture (briefrules.picture_bad; the owner, 2026-11-01)."""
-    bad = []
+    brief about `visual` work shows at least one picture (briefrules.picture_bad; the owner, 2026-11-01). `rules` is
+    the switch briefrules (add() passes rules_mode()): 'on' counts those two rules as reasons, 'dry' puts them in the
+    list `warned` instead, 'off' leaves them out."""
+    bad, ruled = [], []
     if not one(title):
         bad.append('it has no title')
     else:
-        bad += briefrules.title_bad(title, ids)
+        ruled += briefrules.title_bad(title, ids)
     if visual:
-        bad += briefrules.picture_bad(evidence)
+        ruled += briefrules.picture_bad(evidence)
+    if rules == 'on':
+        bad += ruled
+    elif rules == 'dry' and warned is not None:
+        warned.extend(ruled)
     if not one(what_for):
         bad.append('it does not say what the decision is for')
     elif words(what_for) > FOR_WORDS:
@@ -176,10 +205,13 @@ def add(where: Path, title, what_for, options, why, evidence=(), no_evidence='',
     evidence = list(evidence)
     if visual is None:
         visual = briefrules.is_visual(role, lane, files)
+    warned = []
     bad = check(title, what_for, options, why, evidence, no_evidence, visual=visual,
-                ids=[lane, (raised_by or {}).get('unit') or ''])
+                ids=[lane, (raised_by or {}).get('unit') or ''], rules=rules_mode(), warned=warned)
     if bad:
         raise ValueError('not a brief yet: ' + '; '.join(bad))
+    if warned:          # briefrules is dry: the brief is written as before, and says what the rules would refuse
+        print('brief rules (dry, not refused): ' + '; '.join(warned), file=sys.stderr)
     now = now or datetime.datetime.now()
     if bid and (where / bid).exists():
         raise ValueError(f'the brief {bid} is there already')
@@ -196,6 +228,8 @@ def add(where: Path, title, what_for, options, why, evidence=(), no_evidence='',
     b = dict(id=bid, title=one(title), asked=f'{now:%Y-%m-%d %H:%M}', by=one(by), lane=one(lane), about=one(about), state='open',
              what_for=one(what_for), options=[dict(key='ABCD'[i], text=one(o)) for i, o in enumerate(options)], pick='A', why=one(why),
              evidence=shown, no_evidence=one(no_evidence))
+    if warned:
+        b['rules_warned'] = [one(x) for x in warned]
     if raised_by and raised_by.get('run'):
         b['raised_by'] = dict(run=one(raised_by['run']), unit=one(raised_by.get('unit')), leg=int(raised_by.get('leg') or 0), **(dict(key=one(raised_by['key'])) if raised_by.get('key') else {}))
     home.mkdir(parents=True, exist_ok=True)
