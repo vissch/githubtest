@@ -204,6 +204,14 @@ def main():
         le = supervisor_pass(we, he, 'on')
         case('autoloop.stop (pause-relays.ps1) holds every loop_* module: it stands by and changes nothing',
              le and all('standing by' in l for l in le) and snapshot(tmp / 'e') == before and not we.started and not we.killed, le)
+
+        # ---- one supervisor a home (main.py --watch; start-supervisor.ps1 counts on it) ----
+        hl = tmp / 'sup-lock'
+        first = sup_main.take_lock(hl, now=5000)
+        second = sup_main.take_lock(hl, now=5060)
+        stale = sup_main.take_lock(hl, now=5000 + sup_main.STALE + 1)
+        case('one --watch supervisor a home: a second is refused and says why; a lock that stopped beating is taken over',
+             first == '' and 'another supervisor holds' in second and stale == '', (first, second, stale))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print(f'\n{sum(results)} of {len(results)} cases behaved')

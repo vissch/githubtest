@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Health{% endblock %}
+{% block bodyclass %}overview health{% endblock %}
+{% block head %}<link rel="stylesheet" href="runs.css">{% endblock %}
+{% block main %}
+{# How the relay harness stands (src_health.py reads the supervisor home's state files, health.js draws them): the
+   breaker, the day's budget and the relays it carries, families over cap, critic holds, landing, the last canary,
+   and every module's switch and last turn. It replaces asking a watching session for a handoff. #}
+<section class="k-office r-page" id="health">
+  <header class="k-head">
+    <p class="k-eyebrow"><span class="k-star" aria-hidden="true"></span>Health</p>
+    <h2>How the relays stand, <span class="k-soft">from the supervisor's own records.</span></h2>
+    <p class="r-count" id="h-count" aria-live="polite">reading…</p>
+  </header>
+  <div class="r-board" id="h-board"></div>
+</section>
+<noscript><p class="warn">This page is drawn by a script.</p></noscript>
+{% endblock %}
+{% block script %}<script src="data/health.js"></script><script src="health.js"></script>{% endblock %}
