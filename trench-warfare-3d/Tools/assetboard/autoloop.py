@@ -49,7 +49,13 @@ sys.path.insert(0, str(HERE))
 import found  # noqa: E402
 import loopsteps  # noqa: E402
 sys.path.append(str(HERE.parent / 'supervisor'))     # last: no name here is shadowed
-import breaker_gate  # noqa: E402
+try:
+    import breaker_gate  # noqa: E402
+except Exception:  # noqa: BLE001 - a checkout without Tools/supervisor: every start is allowed, as before the breaker
+    class breaker_gate:  # noqa: N801
+        @staticmethod
+        def allow(home=None):
+            return True, 'no breaker in this checkout'
 try:
     import spend        # the supervisor's spend hooks (Tools/supervisor/spend.py): the owner's day figure, capacity
 except Exception:  # noqa: BLE001 - without them the loop runs as before

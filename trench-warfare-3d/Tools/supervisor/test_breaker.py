@@ -202,5 +202,26 @@ class Gate(unittest.TestCase):
         self.assertTrue(self.autoloop_start().startswith('not started: breaker'))
 
 
+class NoSupervisor(unittest.TestCase):
+    def test_autoloop_and_runner_import_in_a_checkout_without_the_gate(self):
+        """A checkout without Tools/supervisor: both hooks fall back to a gate that allows everything (M.2)."""
+        import subprocess
+        block = ('import sys\n'
+                 'class NoGate:\n'
+                 '    def find_spec(self, name, path=None, target=None):\n'
+                 '        if name == "breaker_gate":\n'
+                 '            raise ImportError("no Tools/supervisor in this checkout")\n'
+                 'sys.meta_path.insert(0, NoGate())\n'
+                 'sys.path.insert(0, sys.argv[1])\n'
+                 'm = __import__(sys.argv[2])\n'
+                 'print("ALLOW", m.breaker_gate.allow()[0])\n')
+        for folder, name in (('assetboard', 'autoloop'), ('relay', 'runner')):
+            r = subprocess.run([sys.executable, '-c', block, str(HERE.parent / folder), name], capture_output=True,
+                               text=True, timeout=120, cwd=str(HERE.parent.parent),
+                               env=dict(os.environ, TW_SUP_HOME=tempfile.mkdtemp(prefix='tw-sup-test-')))
+            self.assertEqual(r.returncode, 0, f'{name} does not import without the supervisor (M.2): {r.stderr[-600:]}')
+            self.assertIn('ALLOW True', r.stdout, r.stdout[-300:])
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

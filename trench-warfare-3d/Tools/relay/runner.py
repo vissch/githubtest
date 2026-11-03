@@ -25,7 +25,13 @@ sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                                                # noqa: E402
 import agents, boardio, config, gitio, launch, ledger, legdir, papers, sources   # noqa: E402
 sys.path.append(str(HERE.parent / "supervisor"))                    # last: no name here is shadowed
-import breaker_gate                                                 # noqa: E402
+try:
+    import breaker_gate                                             # noqa: E402
+except Exception:   # noqa: BLE001 - a checkout without Tools/supervisor: every leg is allowed, as before the breaker
+    class breaker_gate:                                             # noqa: N801
+        @staticmethod
+        def allow(home=None):
+            return True, "no breaker in this checkout"
 
 NO_WINDOW = ("\n- This run cannot open a window (it was not started from the owner's desktop). Only work that "
              "needs a visible window is blocked: end BLOCKED and say so. Unity itself works in batch mode; a "
