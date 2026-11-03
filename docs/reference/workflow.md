@@ -253,6 +253,12 @@ EditMode : 343 run, 343 passed, 0 failed, 0 skipped (test-results-EditMode.xml)
 ```
 Inconclusive tests are printed as `INCONCLUSIVE <test>` and are red; Ignored tests as `IGNORED <test>`, which is not.
 An Explicit skip only counts.
+
+**Running an `[Explicit]` test unattended** (a stills film from a batch editor, 2026-11-03): use the CLI's own
+runner, `unity test <project> --mode EditMode --filter <the test's FULL name> --output <xml>`, which starts its
+own editor (so the project must be free, and `TW_STILLS_*` is inherited from the shell). The pipeline command
+`cmd run_tests --include_explicit true` never picks an Explicit test up: it answers `0/0 passed` for the class
+name and for the full name alike, while `list_tests` shows the test with `"Explicit": true`.
 Every EditMode test takes about eleven minutes on the desktop; without the Long tests about four. After a full gate
 `test-results.xml` holds only PlayMode.
 

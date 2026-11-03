@@ -63,7 +63,13 @@ namespace TW.Tests
         {
             // Phase: gas-smoke-night-g2 (the owner, 2026-10-20: "a rim and some height a player can see at zoom 30").
             // The numbers the pure helpers must hold; what they come out as on the pixels is bars.json beside
-            // docs/evidence/gas-smoke-night-g2/probe.py, set from three takes of 4ce7ef9103.
+            // docs/evidence/gas-smoke-night-g2/probe.py, set from three takes of 4ce7ef9103: the night rim bar is
+            // 0.08236 and the night rise_m bar 8.0004, the day ones 0.17418 and 4.6333. Measured on six night takes
+            // this phase: the lip's brightness alone barely moves the signed rim (1.7 and 1.9 at GasEdgeAlpha 0.25
+            // both read about 0.069), the lifted ALPHA is what carries it, because the mask's top rows are the
+            // field's thin far cells; and rise_m moves only with the cards' height. Past GasEdgeAlpha 0.32 the gas
+            // lights the smoke scene's ground strips enough to push smoke_night's contrast under its 0.50092 floor
+            // (0.4993 at 0.35). Hence GasEdgeBright 1.9, GasEdgeAlpha 0.32, GasEdgeTall 1.45, GasBankTall 1.5.
             CombatFx.BankRim(false, 1f, out float inBright, out float inTall, out float inLift);
             CombatFx.BankRim(true, 1f, out float edBright, out float edTall, out float edLift);
             Assert.AreEqual(1f, inBright, 1e-6f, "an interior cell is drawn as before");

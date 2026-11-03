@@ -59,15 +59,20 @@ namespace TW.Presentation.Tactical
 
         // Phase: gas-smoke-night-g2 (the owner, 2026-10-20: "give the gas a rim and some height a player can see at
         // zoom 30"). A flat stain and a cloud have the same contrast, so the look is carried by two numbers the probe
-        // beside docs/evidence/gas-smoke-night-g2 measures off the pixels: the lip on top of the bank (rim) and what
-        // stands above the cloud's own far ground edge (height_m).
+        // beside docs/evidence/gas-smoke-night-g2 measures off the pixels: the lip on top of the bank (rim) and how far
+        // the cloud's top edge stands above the ground line its middle sits on (rise_m).
         //   the lip: the cells on the field's edge (a neighbour below the floor, or off the grid) are drawn brighter,
-        //            taller and denser, so the blanket ends in an edge instead of fading into the grass.
+        //            taller and denser, so the blanket ends in an edge instead of fading into the grass. The top rows
+        //            of a column are the field's FAR edge cells, which are thin, so brightness alone hardly moves the
+        //            signed rim (at 1.25 the night top sat at 0.926 of the body, i.e. no rim at all; 1.7 and 1.9 both
+        //            read about 0.069). It is the lifted ALPHA that thickens those far cells and makes the lip read,
+        //            and 0.32 is as far as it goes: at 0.35 the gas lights the smoke scene's ground enough to put
+        //            smoke_night's contrast under its floor.
         //   the height: a full cell's card is GasBankTall as tall as it is wide, its foot kept on the ground.
         // Width is untouched: the footprint does not grow and no card is added, only reshaped (the barrage frame is
         // already at 374 draws against 300).
-        public const float GasBankTall = 1.35f;
-        public const float GasEdgeBright = 1.25f, GasEdgeTall = 1.25f, GasEdgeAlpha = 0.15f;
+        public const float GasBankTall = 1.5f;
+        public const float GasEdgeBright = 1.9f, GasEdgeTall = 1.45f, GasEdgeAlpha = 0.32f;
 
         /// <summary>How a gas cell's card is lifted out of the blanket: the edge of the field gets the lip, the inside
         /// is drawn as before. Pure, so GasSmokeNightTests can hold the numbers. thick is the cell's thickness; the lip
