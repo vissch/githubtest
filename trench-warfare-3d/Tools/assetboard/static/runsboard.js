@@ -166,7 +166,7 @@
   function draw() {
     var R = window.RUNS || null, now = Date.now() / 1000, rows = T.rows(R);
     if (window.OPS && C && C.nowPill) C.nowPill(window.OPS);
-    var cnt = document.getElementById('r-count'); if (cnt) cnt.textContent = T.head(R);
+    var cnt = document.getElementById('r-count'); if (cnt) cnt.textContent = T.head(R) + (R.landed && R.landed.line ? ' ' + R.landed.line + '.' : '');
     var foot = document.getElementById('r-foot'); if (foot) foot.textContent = T.foot(R);
     var warn = T.warnings(R, now), w = document.getElementById('r-warn');
     if (w && changed(w, JSON.stringify(warn))) { w.hidden = !warn.length; warn.forEach(function (x) { w.appendChild(el('p', null, x)); }); }

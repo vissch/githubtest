@@ -206,7 +206,15 @@ def off_the_board(board):
     R = src_runs.read(board, [], {}, now=NOW)
     case('runs: the records are read off the board\'s origin/main with git, from a checkout that is behind and holds none of them; a board that is not there says so and gives no run',
          not (board / 'relay').exists() and [r['id'] for r in R['runs']] == [A, B, C, D] and R['board'] is True and len(R['commit']) == 8 and R['as_of'] > 0
-         and src_runs.read(TMP / 'no-board', [], {}, now=NOW) == dict(runs=[], read_at=NOW, as_of=0, commit='', most=20, board=False), [r['id'] for r in R['runs']])
+         and src_runs.read(TMP / 'no-board', [], {}, now=NOW) == dict(runs=[], read_at=NOW, as_of=0, commit='', most=20, board=False, landed=src_runs.landed(NOW)), [r['id'] for r in R['runs']])
+    sup = TMP / 'sup-home'
+    sup.mkdir(exist_ok=True)
+    y, w, _ = datetime.date.fromtimestamp(NOW).isocalendar()
+    none = src_runs.landed(NOW, sup)
+    (sup / 'landed.json').write_text(json.dumps(dict(weeks={f'{y}-W{w:02d}': 2, '2020-W01': 9}, last_landed_at='2026-11-03T10:15:00')), encoding='utf-8')
+    some = src_runs.landed(NOW, sup)
+    case('runs: what the landing stage landed this week is read from landed.json in the supervisor home; no file is 0 and other weeks do not count',
+         none['week'] == 0 and none['line'] == 'Landed this week: 0' and some['week'] == 2 and some['line'] == 'Landed this week: 2 (last 2026-11-03 10:15)', (none, some))
     keep = src_runs.tasks.git
     try:
         src_runs.CACHE.clear()

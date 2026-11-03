@@ -34,6 +34,7 @@ could not be used) is listed between them, short, and not counted.
 import datetime
 import hashlib
 import json
+import os
 import re
 import sys
 import time
@@ -370,7 +371,22 @@ def read(board, every=(), reports=None, shown=(), now=None, most=MOST):
         rep = (reports or {}).get(r['id'])
         r['report'] = rep if rep and rep.get('sig') == r['sig'] else None
         r['silent'] = r['state'] != 'ended' and bool(r['heard']) and now - r['heard'] > LIVE_OLD
-    return dict(runs=runs, read_at=int(now), as_of=int(as_of or 0), commit=sha[:8], most=most, board=bool(sha))
+    return dict(runs=runs, read_at=int(now), as_of=int(as_of or 0), commit=sha[:8], most=most, board=bool(sha),
+                landed=landed(now))
+
+
+def landed(now=None, h=None):
+    """What the landing stage landed this week (Tools/supervisor/modules/landing.py writes landed.json in the
+    supervisor's home): {week, last, line}. No file: nothing landed by it yet."""
+    h = h or os.environ.get('TW_SUP_HOME') or os.path.join(os.environ.get('LOCALAPPDATA') or str(Path.home()), 'TrenchWarfare', 'supervisor')
+    try:
+        m = json.loads(Path(h, 'landed.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        m = {}
+    y, w, _ = datetime.date.fromtimestamp(now or time.time()).isocalendar()
+    n = int(((m.get('weeks') if isinstance(m, dict) else None) or {}).get(f'{y}-W{w:02d}', 0))
+    last = str((m.get('last_landed_at') if isinstance(m, dict) else '') or '')
+    return dict(week=n, last=last, line=f'Landed this week: {n}' + (f' (last {last[:16].replace("T", " ")})' if last else ''))
 
 
 def site(R, out: Path):
