@@ -135,6 +135,21 @@ class PlainTitleAndPicture(unittest.TestCase):
             self.assertEqual(briefrules.title_bad(f, ['relay-proof-to-drive']), [], f'{t!r} -> {f!r}')
             self.brief(f, evidence=[(str(self.png), 'The sapper after')])
         self.assertEqual(briefrules.fit('The gas ability'), 'The gas ability')
+        # fit is given the ids add() refuses: a lane-named id is made words, and the park brief (a stop, not a
+        # look: visual=False) on a look lane is written without a picture
+        lane = 'lane/show/sapper-look'
+        f = briefrules.fit('sapper-look: chain of fix units 4 deep', ['sapper-look-g1-g2-g3-g4', lane])
+        b = briefs.add(self.where, f, 'The loop parked it.', ['Try it once more', 'Drop it'], 'It went nowhere.',
+                       no_evidence='a unit that went nowhere has nothing to show', lane=lane, by='test', visual=False,
+                       raised_by=dict(run='r', unit='sapper-look-g1-g2-g3-g4', leg=1))
+        self.assertTrue(b['title'].startswith('Sapper look'), b['title'])
+
+    def test_plain_words_with_a_slash_or_a_common_hyphen_pass(self):
+        import briefrules
+        for t in ('Fire/smoke look at night', 'Before/after of the sapper', 'Is the board up-to-date',
+                  'Hand-to-hand fights in the trench'):
+            self.assertEqual(briefrules.title_bad(t), [], t)
+            self.assertEqual(briefrules.fit(t), t)
         self.assertTrue(briefrules.fit('ability-fx-captures-r2-2-g1: tried 4 times').startswith('Ability fx captures: tried 4'))
 
     def test_an_old_style_non_visual_brief_still_passes(self):

@@ -60,7 +60,7 @@ class Gate(unittest.TestCase):
         core.write_json(self.home / 'modules.json', dict({'critic_gate': mode}, **more))
 
     def stub(self, fn):
-        def score(p, files, st, now, work):
+        def score(p, files, st, now, work, **kw):
             self.calls.append(p['uid'])
             s = fn(p)
             return dict(score=s, fixes=list(FIXES) if s is not None else [], by='stub', paper='', why='' if s is not None else 'no line')
@@ -133,10 +133,64 @@ class Gate(unittest.TestCase):
         cg.stills_of = lambda p, repo=None: ('HEAD', ['a.png']) if p is VISUAL[0] else ('', [])
         self.turn()
         st = core.read_state('critic_gate', self.home)
-        self.assertEqual(sorted(st['held']), sorted(p['uid'] for p in VISUAL[:2]))
+        self.assertEqual(sorted(st['held']), [VISUAL[1]['uid']], 'no stills: held at once')
         self.assertEqual(self.calls, [VISUAL[0]['uid']], 'a unit with no stills is not sent to a critic')
         for p in VISUAL[:2]:
+            self.assertFalse(cg.landing_ok(p['uid'], True, self.home)[0], 'unscored is not passed')
+        for m in range(1, cg.MAX_TRIES):                     # a critic that gives no score: offered again
+            self.turn(time.mktime((2026, 11, 3, 0, 10 * m, 0, 0, 0, -1)))
+        st = core.read_state('critic_gate', self.home)
+        self.assertEqual(len(self.calls), cg.MAX_TRIES)
+        self.assertEqual(sorted(st['held']), sorted(p['uid'] for p in VISUAL[:2]))
+        self.assertFalse((self.home / 'state' / 'critic_fixes').exists(), 'no fix unit without the critic\'s fixes')
+        for p in VISUAL[:2]:
             self.assertFalse(cg.landing_ok(p['uid'], True, self.home)[0])
+
+    def test_a_passing_fix_lets_the_work_it_fixed_land(self):
+        self.switch('on')
+        p = dict(VISUAL[0])
+        self.stub(lambda x: 41)
+        cg.find_passes = lambda since, until: [p]
+        self.turn()
+        self.assertFalse(cg.landing_ok(p['uid'], True, self.home)[0])
+        self.stub(lambda x: 78)
+        cg.find_passes = lambda since, until: [p, dict(p, uid=p['uid'] + '-c1')]
+        self.turn(time.mktime((2026, 11, 3, 1, 0, 0, 0, 0, -1)))
+        self.assertTrue(cg.landing_ok(p['uid'], True, self.home)[0])
+        self.assertTrue(cg.landing_ok(p['uid'] + '-c1', True, self.home)[0])
+
+    def test_landing_works_out_visual_from_the_role_or_report(self):
+        self.switch('on')
+        self.assertFalse(cg.landing_ok('unscored-look', False, self.home, role='character-simulator')[0])
+        self.assertFalse(cg.landing_ok('unscored-look', False, self.home, report='stills in docs/evidence/x/a.png')[0])
+        self.assertTrue(cg.landing_ok('a-sim-rule', False, self.home, role='lane', report='a test')[0])
+
+    def test_grok_is_asked_only_when_the_switch_says_so(self):
+        asked = []
+        cg._ping_grok = lambda: asked.append('ping') or True
+        cg._run_grok = lambda text, work: asked.append('grok') or ''
+        cg._run_claude = lambda text, work: 'CRITIC_RESULT {"score": 55, "fixes": ["a", "b", "c"]}'
+        p = dict(uid='x', role='character-simulator', report='')
+        r = cg.score_unit(p, ['a.png'], {}, 0, self.home)
+        self.assertEqual((r['score'], r['by'], asked), (55, 'sonnet', []))
+        r = cg.score_unit(p, ['a.png'], {}, 0, self.home, grok=True)
+        self.assertEqual((r['score'], r['by'], asked), (55, 'sonnet', ['ping', 'grok']), 'grok gave no line: Sonnet')
+
+    def test_stills_are_read_from_the_repo_root_and_the_report(self):
+        import subprocess
+        repo = self.home / 'repo'
+        for f in ('docs/evidence/u1/a.png', 'docs/evidence/parent/b.png', 'docs/evidence/u1/notes.txt',
+                  'trench-warfare-3d/docs/evidence/u1/wrong.png'):
+            (repo / f).parent.mkdir(parents=True, exist_ok=True)
+            (repo / f).write_bytes(b'png')
+        g = lambda *a: subprocess.run(['git', '-C', str(repo)] + list(a), capture_output=True, check=True)
+        g('init', '-q')
+        g('add', '-A')
+        g('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'x')
+        rev, names = self.saved['stills_of'](dict(uid='u1', head='HEAD', lane='', report='see docs/evidence/parent/b.png'), repo=repo)
+        self.assertEqual((rev, names), ('HEAD', ['docs/evidence/parent/b.png', 'docs/evidence/u1/a.png']))
+        files = self.saved['export'](rev, names, self.home / 'out', repo=repo)
+        self.assertEqual(sorted(f.name for f in files), ['a.png', 'b.png'])
 
     def test_a_non_visual_unit_is_never_scored_and_lands_on_the_relays_word(self):
         self.switch('on')

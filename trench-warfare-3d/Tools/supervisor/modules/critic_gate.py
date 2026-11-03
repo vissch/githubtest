@@ -7,18 +7,21 @@ goal, ability-fx-captures, spawned 120 fix units for $990 at a critic score near
 
 Each turn it finds the units that passed since its last turn (an execute leg said done and a board has the unit's done
 record) whose role is visual (Tools/assetboard/briefrules.VISUAL_ROLES) or whose report names stills under
-docs/evidence/. For each it reads the stills the unit committed (docs/evidence/<id>/ at the head it passed at) and
-gets a score 0-100 from a critic: Grok first when a ping shows it has balance, else a headless `claude -p --model
-sonnet` given the tw-critic skill, few tools, a turn and dollar cap and no background tasks. The score is read from
-one fixed line only, `CRITIC_RESULT {"score": N, "fixes": [three]}` (parse()): a number in the critic's prose is
-never a score, and a paper without that line is no score.
+docs/evidence/. For each it reads the stills the unit committed (docs/evidence/<id>/ at the repo root, and the ones
+its report names, at the head it passed at) and gets a score 0-100 from a critic: a headless `claude -p --model
+sonnet` given the tw-critic skill, few tools, a turn and dollar cap and no background tasks; Grok first (while a ping
+shows balance) only with {"critic_gate.grok": true} in modules.json, since nobody has yet shown its headless CLI opens
+the stills. The score is read from one fixed line only, `CRITIC_RESULT {"score": N, "fixes": [three]}` (parse()): a
+number in the critic's prose is never a score. A critic that gives no score is the tooling's fault: the unit is
+offered again next turn, and held (with no fix unit) only after MAX_TRIES.
 
-  on    below 70 (or no score, or no stills) the unit is HELD: state['held'][id] = {score, fixes, at}; and ONE fix unit
-        is written to <home>/state/critic_fixes/<id>-c1.json, in the relay queue's shape, with the critic's three
-        fixes. It is not queued here: the loop queues it with `python Tools/relay/relay.py add --unit <that file>` on
-        the board of the relay that ran the unit (state['units'][id]['relay']), and moves the file to sent/. A -c1
-        unit held again gets no -c2: it waits on the owner (a brief, Tools/supervisor/brief_card.py).
-        70 or more: state['passed'] lists it.
+  on    below 70 (or no stills, or no score after MAX_TRIES) the unit is HELD: state['held'][id] = {score, fixes, at};
+        and for a score below 70 ONE fix unit is written to <home>/state/critic_fixes/<id>-c1.json, in the relay
+        queue's shape, with the critic's three fixes. It is not queued here: the loop queues it with `python
+        Tools/relay/relay.py add --unit <that file>` on the board of the relay that ran the unit
+        (state['units'][id]['relay']), and moves the file to sent/. When <id>-c1 passes, <id> passes with it. A -c1
+        held again gets no -c2: it waits on the owner (a brief, Tools/supervisor/brief_card.py, kind held, with the
+        -c1's stills). 70 or more: state['passed'] lists it.
   dry   nothing that costs money: it lists the units it would score and the dollars that would take (EST_USD, Sonnet's
         price: an upper bound, Grok costs nothing while it has balance), in state['would']. With
         {"critic_gate.spend_in_dry": true} in <home>/modules.json it scores them into state['dry_units'] and still
@@ -43,6 +46,7 @@ DEFAULT_MODE = 'dry'
 
 BAR = 70
 MAX_PER_TURN = 4                    # a turn scores at most this many units: a backlog is worked off, not spent at once
+MAX_TRIES = 3                       # turns a unit is offered to a critic that gives no score, before it is held
 MOST_STILLS = 6
 LOOKBACK_S = 2 * 86400              # the first turn looks this far back
 EST_USD = {'sonnet': 0.6, 'grok': 0.0}
@@ -115,7 +119,7 @@ def live_legs(since):
     for lj in glob.glob(str(tw_home() / 'relay*' / 'runs' / '20*' / 'legs' / '*' / 'leg.json')):
         p = Path(lj)
         run = p.parts[-4]
-        if run[:8] < day:
+        if run[:8] < day or 'trial' in p.parts[-6]:       # a trial relay's units are not the game's work
             continue
         try:
             d = json.loads(p.read_text(encoding='utf-8', errors='replace'))
@@ -131,7 +135,8 @@ def live_done():
     """{id: done record} from every board's relay/done/ (the working tree, read only)."""
     out = {}
     boards = os.environ.get('TW_SUP_BOARDS')
-    dirs = [Path(b) for b in boards.split(';') if b] if boards else sorted(gh().glob('tw3d-board*'))
+    dirs = [Path(b) for b in boards.split(';') if b] if boards else [
+        b for b in sorted(gh().glob('tw3d-board*')) if 'trial' not in b.name]
     for b in dirs:
         for f in sorted((b / 'relay' / 'done').glob('*.json')):
             try:
@@ -156,11 +161,12 @@ def git(*a, repo=None):
 
 
 def stills_of(p, repo=None):
-    """(rev, [repo paths]) of the pictures the unit committed under docs/evidence/<id>/, at the head it passed at,
-    else at its lane on origin. ('', []) when neither is here."""
-    rel = (TW_ROOT.relative_to(REPO) / 'docs' / 'evidence' / p['uid']).as_posix() + '/'
+    """(rev, [repo paths]) of the pictures the unit committed under docs/evidence/<id>/ (at the repo root), and the
+    pictures under docs/evidence/ its report names (a fix unit may write into its parent's folder), at the head it
+    passed at, else at its lane on origin. ('', []) when neither is here. Read only: nothing is fetched."""
+    named = sorted(set(m.group(0) for m in EVIDENCE.finditer(str(p.get('report') or ''))))
     for rev in [x for x in (p.get('head'), 'origin/' + p['lane'] if p.get('lane') else '') if x]:
-        code, out = git('ls-tree', '-r', '--name-only', rev, '--', rel, repo=repo)
+        code, out = git('ls-tree', '-r', '--name-only', rev, '--', f'docs/evidence/{p["uid"]}/', *named, repo=repo)
         if code == 0:
             names = [n for n in out.decode('utf-8', 'replace').splitlines() if n.lower().endswith(PICTURES)]
             if names:
@@ -241,7 +247,8 @@ def _ping_grok():
         except (OSError, subprocess.TimeoutExpired):
             return False
     said = (r.stdout + r.stderr).decode('utf-8', 'replace')
-    return 'OK' in r.stdout.decode('utf-8', 'replace') and '402' not in said and 'Payment Required' not in said
+    return (r.stdout.decode('utf-8', 'replace').strip().rstrip('.').upper() == 'OK'
+            and '402' not in said and 'Payment Required' not in said)
 
 
 def _run_grok(text, work):
@@ -268,11 +275,15 @@ def _run_claude(text, work):
     return (r.stdout or b'').decode('utf-8', 'replace')
 
 
-def score_unit(p, files, st, now, work):
-    """The one scorer (tests replace it): {score, fixes, by, paper, why}. Grok first while a ping shows balance, then
-    Sonnet; a paper whose CRITIC_RESULT line does not parse is no score."""
+def score_unit(p, files, st, now, work, grok=False):
+    """The one scorer (tests replace it): {score, fixes, by, paper, why}. With `grok` (the switch
+    "critic_gate.grok": true) Grok first while a ping shows balance, then Sonnet; a paper whose CRITIC_RESULT line does
+    not parse is no score. Grok is off by default: nobody has yet shown that its headless CLI opens the stills, and a
+    critic that cannot see them could still print a well-formed 70."""
     text, tried = prompt(p, files), []
     for by, call in (('grok', _run_grok), ('sonnet', _run_claude)):
+        if by == 'grok' and not grok:
+            continue
         if by == 'grok' and not grok_ok(st, now):
             tried.append('grok: no balance')
             continue
@@ -306,14 +317,16 @@ def counts_as_pass(uid, state, visual, relay_passed=True):
     return rec.get('verdict') == 'pass' and not held
 
 
-def landing_ok(uid, visual, home=None, relay_passed=True):
-    """What the landing stage asks: (ok, why). Under switch off or dry today's rule stands (the relay's word), said so."""
+def landing_ok(uid, visual=False, home=None, relay_passed=True, role='', report=''):
+    """What the landing stage asks: (ok, why). Under switch off or dry today's rule stands (the relay's word), said so.
+    The unit is visual when the caller says so, or when its role or report says so (is_visual): give them."""
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import core
     import types
     if core.mode(types.SimpleNamespace(NAME=NAME, DEFAULT_MODE=DEFAULT_MODE), home) != 'on':
         return relay_passed, 'the critic gate is not on: the relay\'s word stands'
     st = core.read_state(NAME, home)
+    visual = bool(visual) or is_visual(dict(role=role, report=report))
     ok = counts_as_pass(uid, st, visual, relay_passed)
     rec = (st.get('units') or {}).get(uid) or {}
     return ok, ('passed the critic at %s' % rec.get('score') if ok else
@@ -333,10 +346,15 @@ def fix_unit(p, rec):
                 done_when=['python', 'validate.py'])
 
 
-def spend_in_dry(home):
+def switch(home, key):
+    """A word of the owner's beside the module's switch in modules.json: 'critic_gate.<key>'."""
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import core
-    return bool((core.read_json(Path(home) / 'modules.json', {}) or {}).get('critic_gate.spend_in_dry'))
+    return bool((core.read_json(Path(home) / 'modules.json', {}) or {}).get('critic_gate.' + key))
+
+
+def spend_in_dry(home):
+    return switch(home, 'spend_in_dry')
 
 
 def run(ctx):
@@ -353,48 +371,68 @@ def run(ctx):
     if ctx.dry and not spend_in_dry(ctx.home):
         st['would'] = [dict(uid=p['uid'], role=p['role'], at=p['at'], relay=p['relay']) for p in todo]
         usd = len(todo) * EST_USD['sonnet']
-        lines.append('would score %d visual unit(s) that passed since %s, about $%.2f with Sonnet ($0 with Grok while '
-                     'it has balance)%s' % (len(todo), since, usd, (': ' + ', '.join(p['uid'] for p in todo[:8]) +
+        lines.append('would score %d visual unit(s) that passed since %s, about $%.2f with Sonnet%s' % (len(todo), since, usd, (': ' + ', '.join(p['uid'] for p in todo[:8]) +
                                                                     (' ...' if len(todo) > 8 else '')) if todo else ''))
         ctx.save(st)
         return lines
+    tries = st.setdefault('tries', {})
     for p in todo[:MAX_PER_TURN]:
-        work = Path(ctx.home) / 'state' / 'critic_stills' / p['uid']
-        rev, names = stills_of(p)
-        files = export(rev, names, work) if names else []
+        uid = p['uid']
+        work = Path(ctx.home) / 'state' / 'critic_stills' / uid
+        try:
+            rev, names = stills_of(p)
+            files = export(rev, names, work) if names else []
+        except (OSError, subprocess.SubprocessError) as e:     # git did not answer: the unit is tried next turn
+            lines.append('%s: its stills could not be read (%s): tried next turn' % (uid, type(e).__name__))
+            continue
         if files:
-            r = score_unit(p, files, st, ctx.now, work)
+            r = score_unit(p, files, st, ctx.now, work, grok=switch(ctx.home, 'grok'))
         else:
-            r = dict(score=None, fixes=[], by='', paper='', why='no stills under docs/evidence/%s/' % p['uid'])
+            r = dict(score=None, fixes=[], by='', paper='', why='no stills under docs/evidence/%s/' % uid, stills=False)
         if r.get('paper'):
-            pp = Path(ctx.home) / 'state' / 'critic_papers' / (p['uid'] + '.txt')
+            pp = Path(ctx.home) / 'state' / 'critic_papers' / (uid + '.txt')
             pp.parent.mkdir(parents=True, exist_ok=True)
             pp.write_text(r['paper'], encoding='utf-8')
+        if r['score'] is None and files:
+            # no critic gave a score (it did not run, timed out, or wrote no CRITIC_RESULT line): that is the
+            # tooling's fault, not the unit's. Tried again next turn; after MAX_TRIES it is held, with no fix unit.
+            tries[uid] = tries.get(uid, 0) + 1
+            if tries[uid] < MAX_TRIES:
+                lines.append('%s: no critic score (%s): try %d of %d, again next turn' % (uid, r['why'], tries[uid], MAX_TRIES))
+                ctx.save(st)
+                continue
         rec = dict(score=r['score'], by=r['by'], at=iso(ctx.now), stills=[str(f) for f in files],
                    verdict=verdict(r['score']), fixes=r['fixes'], why=r.get('why', ''), relay=p['relay'],
                    role=p['role'], lane=p['lane'])
-        seen[p['uid']] = rec
+        seen[uid] = rec
         if rec['verdict'] == 'pass':
             if not ctx.dry:
-                held.pop(p['uid'], None)
-                if p['uid'] not in st['passed']:
-                    st['passed'].append(p['uid'])
-            lines.append('%s passed the critic: %s (%s)' % (p['uid'], rec['score'], rec['by']))
-            continue
-        if ctx.dry:
-            lines.append('%s would be held: critic %s (%s)' % (p['uid'], rec['score'], rec['by'] or rec['why']))
-            continue
-        held[p['uid']] = dict(score=rec['score'], fixes=rec['fixes'], at=rec['at'])
-        if p['uid'].endswith('-c1'):
-            lines.append('%s held again at %s: no -c2, it waits on the owner (brief_card kind held)' % (p['uid'], rec['score']))
-            continue
-        f = Path(ctx.home) / 'state' / 'critic_fixes' / (p['uid'] + '-c1.json')
-        if not f.exists():
-            u = fix_unit(p, rec)
-            f.parent.mkdir(parents=True, exist_ok=True)
-            f.write_text(json.dumps(u, indent=1, sort_keys=True) + '\n', encoding='utf-8')
-        lines.append('%s HELD at critic %s (%s); its fix unit %s: queue it with relay.py add --unit on relay %s\'s '
-                     'board' % (p['uid'], rec['score'], rec['by'] or rec['why'], f.name, p['relay']))
+                held.pop(uid, None)
+                if uid not in st['passed']:
+                    st['passed'].append(uid)
+                parent = uid[:-len('-c1')] if uid.endswith('-c1') else ''
+                if parent and parent in held:     # its fix passed: the work it fixed passes with it
+                    held.pop(parent)
+                    units[parent] = dict(units.get(parent) or {}, verdict='pass', score=rec['score'], by='fix ' + uid,
+                                         at=rec['at'])
+                    lines.append('%s passes with its fix %s' % (parent, uid))
+            lines.append('%s passed the critic: %s (%s)' % (uid, rec['score'], rec['by']))
+        elif ctx.dry:
+            lines.append('%s would be held: critic %s (%s)' % (uid, rec['score'], rec['by'] or rec['why']))
+        else:
+            held[uid] = dict(score=rec['score'], fixes=rec['fixes'], at=rec['at'])
+            f = Path(ctx.home) / 'state' / 'critic_fixes' / (uid + '-c1.json')
+            if uid.endswith('-c1'):
+                lines.append('%s held again at %s: no -c2, it waits on the owner (a brief_card of kind held)' % (uid, rec['score']))
+            elif not rec['fixes']:
+                lines.append('%s HELD: %s; no fix unit without the critic\'s fixes' % (uid, rec['why']))
+            else:
+                if not f.exists():
+                    f.parent.mkdir(parents=True, exist_ok=True)
+                    f.write_text(json.dumps(fix_unit(p, rec), indent=1, sort_keys=True) + '\n', encoding='utf-8')
+                lines.append('%s HELD at critic %s (%s); its fix unit %s: queue it with relay.py add --unit on relay '
+                             '%s\'s board' % (uid, rec['score'], rec['by'], f.name, p['relay']))
+        ctx.save(st)                        # after each unit: a fault later in the turn loses no paid score
     if len(todo) > MAX_PER_TURN:
         lines.append('%d more wait for the next turn' % (len(todo) - MAX_PER_TURN))
     if not todo:

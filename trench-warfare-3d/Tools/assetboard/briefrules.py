@@ -31,11 +31,32 @@ VISUAL_WORDS = ('look', 'looks', 'fx', 'vfx', 'anim', 'death', 'deaths', 'splash
 _CHAIN = re.compile(r'[a-z0-9]-(?:g|r|c)\d+\b', re.I)                    # sapper-look-3-g2, flamer-look-r2, x-c1
 _SLUG = re.compile(r'\b[a-z0-9]+(?:-[a-z0-9]+){2,}\b')                   # three or more lowercase parts: an id
 _DATED = re.compile(r'\b20\d{6}\b')                                      # 20261019: a dated id
-_PATH = re.compile(r'[/\\]|\b\w+\.(?:png|jpe?g|gif|webp|mp4|webm|cs|py|json|md|shader|mat|fbx|ps1|txt|log)\b', re.I)
+# a file (by its kind), two folders deep, a backslash, or a lane; "Fire/smoke look" and "Before/after" are words
+_PATH = re.compile(r'\\|\blane/|\S+/\S*/|\b\w+\.(?:png|jpe?g|gif|webp|mp4|webm|cs|py|json|md|shader|mat|fbx|ps1|txt|log)\b',
+                   re.I)
+PLAIN_HYPHENS = ('up-to-date', 'out-of-date', 'hand-to-hand', 'face-to-face', 'one-by-one', 'step-by-step',
+                 'day-to-day', 'end-to-end', 'side-by-side', 'man-to-man', 'well-to-do', 'run-of-the-mill')
 
 
 def one(s):
     return re.sub(r'\s+', ' ', str(s or '')).strip()
+
+
+def _ids(ids):
+    """The ids a title may not carry: each id, a lane by its last part; only ids with a hyphen or a digit (a plain
+    word such as "smoke" is no id)."""
+    out = []
+    for i in ids or ():
+        i = one(i).lower()
+        if i.startswith(('lane/sim/', 'lane/show/')):
+            i = i.split('/', 2)[2]
+        if i and ('-' in i or any(c.isdigit() for c in i)):
+            out.append(i)
+    return out
+
+
+def _slugs(t):
+    return [m.group(0) for m in _SLUG.finditer(t) if m.group(0).lower() not in PLAIN_HYPHENS]
 
 
 def title_bad(title, ids=()):
@@ -47,16 +68,13 @@ def title_bad(title, ids=()):
         bad.append('the title names a file, a folder or a lane: say in plain words what it is about')
     if _CHAIN.search(t):
         bad.append('the title carries a unit id chain (-g1, -r2, -c1): say in plain words what the work is')
-    elif _SLUG.search(t):
-        bad.append(f'"{_SLUG.search(t).group(0)}" in the title reads as an id: say in plain words what the work is')
+    elif _slugs(t):
+        bad.append(f'"{_slugs(t)[0]}" in the title reads as an id: say in plain words what the work is')
     if _DATED.search(t):
         bad.append('the title carries a dated id: say in plain words what the work is')
     low = t.lower()
-    for i in ids or ():
-        i = one(i).lower()
-        if i.startswith(('lane/sim/', 'lane/show/')):
-            i = i.split('/', 2)[2]
-        if i and ('-' in i or any(c.isdigit() for c in i)) and i in low:
+    for i in _ids(ids):
+        if i in low:
             bad.append(f'the title names the id {i}: say in plain words what the work is')
             break
     return bad
@@ -79,14 +97,13 @@ def fit(title, ids=()):
     A title that is plain already comes back as it is."""
     if not title_bad(title, ids):
         return one(title)
-    out = []
+    out, mine = [], _ids(ids)
     for tok in one(title).split():
         core_, end = re.match(r'(.*?)([.,;:!?)]*)$', tok).groups()
         if _PATH.search(core_):
             core_ = Path(core_.replace('\\', '/').rstrip('/')).stem or core_
             core_ = re.sub(r'^.*/', '', core_)
-        if _CHAIN.search(core_) or _SLUG.search(core_) or _DATED.search(core_) or any(
-                one(i) and one(i).lower().split('/')[-1] == core_.lower() for i in ids or ()):
+        if _CHAIN.search(core_) or _slugs(core_) or _DATED.search(core_) or any(i in core_.lower() for i in mine):
             core_ = id_words(core_) or core_
         out.append(core_ + end)
     t = ' '.join(w for w in ' '.join(out).split())

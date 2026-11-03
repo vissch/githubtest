@@ -334,7 +334,7 @@ class World:
         import notes
         r, c, marks = sc
         unit = fix_unit(t, look, 0)
-        b = briefs.add(briefs.folder(), title=briefs.briefrules.fit(t['title']), what_for=' '.join(one(t['why']).split()[:44]),
+        b = briefs.add(briefs.folder(), title=briefs.briefrules.fit(t['title'], [unit['lane']]), visual=False, what_for=' '.join(one(t['why']).split()[:44]),
                        options=['Do it', 'Not this'], why=' '.join((f'R{r} C{c} {" ".join(marks)} MAJOR. A look at old work found it' + (f'; {why_his}' if why_his else '') + '.').split()[:34]),
                        no_evidence=f'the look {look} names the lines: {", ".join(t["files"][:2])}'[:200], lane=unit['lane'], by='found.py')
         briefs.then(briefs.folder(), notes.read_all(notes.folder()), b['id'], 'A', 'It goes on the relay\'s queue as a fix', {k: v for k, v in unit.items() if k != 'kind'})

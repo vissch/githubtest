@@ -602,7 +602,8 @@ class World:
         import briefs
         import notes
         title, what_for, why = loopsteps.park_text(uid, rec, nxt)
-        b = briefs.add(briefs.folder(), title=title, what_for=what_for,
+        title = briefs.briefrules.fit(title, [uid, unit.get('lane', '')])   # the ids add() refuses in a title
+        b = briefs.add(briefs.folder(), title=title, what_for=what_for, visual=False,    # a stop, not a look
                        options=['Try it once more as it stands', 'Drop it: nothing more is built', 'Change it: write in a note what to do instead'],
                        why=why, no_evidence='a unit that went nowhere has nothing to show but its stop records', lane=unit.get('lane', ''), by='autoloop.py')
         ns = notes.read_all(notes.folder())

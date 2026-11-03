@@ -166,14 +166,16 @@ def keep(src: Path, dst: Path):
 
 
 def add(where: Path, title, what_for, options, why, evidence=(), no_evidence='', about='', lane='', by='', now=None, bid='', raised_by=None,
-        role='', files=()):
+        role='', files=(), visual=None):
     """Write a brief and return it. `evidence` is [(path, caption)]; the first option is the one the writer would take.
     A brief that is not short, shows nothing without saying why, or names a file that is not there, is a ValueError
     that says every reason. `raised_by` is the relay run a brief comes from, {run, unit, leg}: the Runs page lists the
     brief under that run (src_runs.py), which a brief with no such stamp can only be guessed onto. `role` (the unit's
-    relay role) and `files` (what the work changed) say whether it is visual work, which needs a picture."""
+    relay role) and `files` (what the work changed) say whether it is visual work, which needs a picture; `visual`
+    True or False says it outright (a writer whose decision is not about a look, such as the loop's park brief)."""
     evidence = list(evidence)
-    visual = briefrules.is_visual(role, lane, files)
+    if visual is None:
+        visual = briefrules.is_visual(role, lane, files)
     bad = check(title, what_for, options, why, evidence, no_evidence, visual=visual,
                 ids=[lane, (raised_by or {}).get('unit') or ''])
     if bad:
@@ -735,7 +737,7 @@ def steps(where: Path, board: Path, states=None, landed=(), now=None, write=True
             after = f'Your yes lets the step {stages[n + 1]["id"]} build on it.' if n + 1 < len(stages) else 'It is the last step before the gate.'
             what_for = f'{head}. Its step {sid} passed on the {r.get("station") or "board"}, {str(r.get("finished_at", ""))[:10]}. {after}'
             why = ' '.join(f'It passed its own check, attempt {r.get("attempt", 1)}{": " + one(r["note"]) if one(r.get("note")) else ""}'.split()[:WHY_WORDS])
-            b = add(where, briefrules.fit(f'{iid}: the {sid} step'), what_for, STEP_OPTIONS, why, ev, lane=item.get('lane', ''), by='briefs.py steps', now=now, bid=bid)
+            b = add(where, briefrules.fit(f'{iid}: the {sid} step', [item.get('lane', '')]), what_for, STEP_OPTIONS, why, ev, lane=item.get('lane', ''), by='briefs.py steps', now=now, bid=bid)
             b['step'] = dict(item=iid, stage=sid, job=r.get('job', ''), attempt=r.get('attempt', 1))
             b['options'][0]['then'] = dict(says=STEP_THEN, stamp=stamp(STEP_THEN))
             put(where / bid, b)
