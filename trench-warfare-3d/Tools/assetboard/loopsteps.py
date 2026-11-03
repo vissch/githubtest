@@ -624,6 +624,40 @@ def answered(w, uid):
     return out
 
 
+FAMILY_ABOUT = 'goal family '       # the `about` of a goal family's one brief (Tools/supervisor/modules/families.py)
+
+
+def family_go_on(a):
+    """His A ('Go on: put its units back on the queue') on a goal family's one brief, an answers() record."""
+    return a.get('option') == 'A' and str(a.get('about') or '').startswith(FAMILY_ABOUT)
+
+
+def resumed_by(w, bid):
+    """His Go on, on a goal family's one brief `bid`: every unit parked under it goes back on the queue at its old
+    priority, its counts start over, and it is kept (the cap and the depth rule do not park it again: his answer
+    stands). A unit that came back by itself meanwhile is kept too. One that cannot be queued stays parked with no
+    brief, so a fresh one is written next round (as in answered)."""
+    st, out = load(w.home / 'attempts.json', {}), []
+    for k, r in sorted(st.items()):
+        if r.get('brief') != bid:
+            continue
+        if not r.get('parked'):
+            r.update(brief='', drop=False, dropped=False, kept=True)
+            continue
+        u = {a: b for a, b in r['parked'].items() if a not in ('fp', 'boards', 'old_priority', 'at', 'priority')}
+        ok, said = w.add(u)
+        if ok:
+            code, psaid = w.prio(k, r['parked'].get('old_priority', 50))
+            r.update(parked=None, fails=[], fp={}, refused=[], brief='', dropped=False, drop=False, deep=False, kept=True)
+            out.append(f'attempts: {k} is back on the queue with his Go on, on its goal family\'s brief'
+                       + (f' (priority was refused: {str(psaid)[:80]})' if code else ''))
+        else:
+            r.update(brief='', dropped=False)
+            out.append(f'attempts: {k} could not go back on the queue with his Go on ({str(said)[:120]}): it gets a fresh brief next round')
+    save(w.home / 'attempts.json', st)
+    return out
+
+
 def dropped_by(w, bid):
     """His answer closed brief `bid` with nothing built: when it is a parked unit's brief and the unit came back by
     itself meanwhile, the next round takes it off the queue again."""

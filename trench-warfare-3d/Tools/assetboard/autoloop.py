@@ -741,6 +741,11 @@ def take_answers(w):
                     out.append(f'answers: {a["id"]}: would close it, nothing is built')
                     continue
                 w.take(a, outcome=a.get('says') or 'his option builds nothing')
+                if loopsteps.family_go_on(a):              # his Go on, on a goal family's one brief: its units go back
+                    out += loopsteps.resumed_by(w, a['id'])
+                    w.log_decision(f'| {a["when"][:10]} | **Taken up by the loop.** **{a["title"]}: {a["option"]}: {a["text"]}** Its parked units go back on the queue. (owner, Decide page, note {a["note"]}) |')
+                    out.append(f'answers: {a["id"]}: his Go on sent the goal\'s parked units back; the brief is closed')
+                    continue
                 loopsteps.dropped_by(w, a['id'])           # his B on a parked unit's brief
                 w.log_decision(f'| {a["when"][:10]} | **Taken up by the loop.** **{a["title"]}: {a["option"]}: {a["text"]}** Nothing is built. (owner, Decide page, note {a["note"]}) |')
                 out.append(f'answers: {a["id"]}: his answer builds nothing; the brief is closed')

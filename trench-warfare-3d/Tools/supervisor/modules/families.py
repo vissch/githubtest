@@ -109,14 +109,23 @@ def brief_of(root, f):
     best, worst = best_worst(f)
     ev = [(best, 'the best still its legs made')] + ([(worst, 'the worst still')] if worst and worst != best else []) \
         if best else []
-    title = f'{root}: stopped at ${f["usd"]:.0f}, {len(f["units"])} units, {f["depth"]} fix generations'
+    sys.path.insert(0, str(SUP.parent / 'assetboard'))
+    import briefrules
+    title = briefrules.fit(f'{root}: stopped at ${f["usd"]:.0f}, {len(f["units"])} units, {f["depth"]} fix generations',
+                           [root])                     # a goal's id in a title is jargon to him (briefrules.py)
     what_for = (f'The goal {root} went over your cap ({f["over"]}), so its queued units are off the queues. '
-                f'What happens to the goal now?')
-    options = ['Stop here: keep the best result, build nothing more',
-               'Go on: put its units back on the queue',
+                f'A puts them back, B stops the goal, C is your own words.')
+    # A and B as on a parked unit's brief (autoloop.World.park_brief): A puts the work back, B builds nothing more
+    options = ['Go on: put its units back on the queue',
+               'Stop here: keep the best result, build nothing more',
                'Change it: write in a note what to do instead']
-    why = f'Over your cap of ${CAP_USD:.0f} or {CAP_GENERATIONS} fix generations; more rounds of the same fix rarely pass.'
+    why = (f'A, as on any parked unit, sends them back; it went over your cap of ${CAP_USD:.0f} or {CAP_GENERATIONS} '
+           f'fix generations, and more rounds of the same fix rarely pass, so B is the cheap answer.')
     return title, what_for, options, why, ev, ('' if ev else 'no leg report of the family names a still that is on disk')
+
+
+THEN = (('A', 'Its parked units go back on the queue; the cap holds them no more'),
+        ('B', 'Nothing more of the goal is built; its units stay off the queue'))
 
 
 def write_brief(root, f):
@@ -126,6 +135,15 @@ def write_brief(root, f):
     title, what_for, options, why, ev, none = brief_of(root, f)
     b = briefs.add(briefs.folder(), title=title, what_for=what_for, options=options, why=why, evidence=ev,
                    no_evidence=none, about=f'goal family {root}', by='supervisor/families.py')
+    # A Then line on A and B makes his click a plain answer the loop takes up (autoloop.take_answers): his A sends the
+    # family's parked units back (loopsteps.resumed_by), his B leaves them off (loopsteps.dropped_by). The reviewer, S.2.
+    import notes
+    ns = notes.read_all(notes.folder())
+    for key, says in THEN:
+        try:
+            briefs.then(briefs.folder(), ns, b['id'], key, says, None)
+        except ValueError:      # the brief stands: his click is then read by a leg as his words (go 'write')
+            pass
     return b['id']
 
 

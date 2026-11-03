@@ -158,6 +158,30 @@ class Module(unittest.TestCase):
         title, what_for, options, why, ev, none = families.brief_of('goal-x', f)
         self.assertEqual(briefs.check(title, what_for, options, why, ev, none), [])
         self.assertEqual(ev, [], 'a still that is not on disk is no evidence')
+        self.assertTrue(options[0].startswith('Go on') and options[1].startswith('Stop'),
+                        'A puts its units back and B stops it, as on a parked unit\'s brief (S.2): %s' % options)
+
+    def test_the_brief_says_what_a_and_b_do_and_names_no_id(self):
+        import briefs
+        t = Path(self.tmp.name)
+        old = {k: os.environ.get(k) for k in ('TW_BRIEFS', 'TW_NOTES')}
+        for k in old:
+            (t / k).mkdir()
+            os.environ[k] = str(t / k)
+        try:
+            bid = self.real('ability-fx-captures', families.decide(self.legs)['goal-x'])
+            b = briefs.find(briefs.folder(), bid)
+        finally:
+            for k, v in old.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        self.assertEqual(b['about'], 'goal family ability-fx-captures')
+        self.assertTrue(b['options'][0]['text'].startswith('Go on') and (b['options'][0].get('then') or {}).get('says'),
+                        'his A must have a Then line: without one his click is no plain answer the loop takes up')
+        self.assertTrue((b['options'][1].get('then') or {}).get('says'), b['options'])
+        self.assertNotIn('ability-fx-captures', b['title'])
 
 
 if __name__ == '__main__':
