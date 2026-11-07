@@ -1,0 +1,62 @@
+{
+  "subject": "review:Z013",
+  "looked_at": [
+    "git diff 6959ad812b438a3bc3671c44f8333508a43e72aa..origin/claude/trench-warfare-2d-3d-plan-idt7lf for the 12 files (5 changed, 36 insertions, 23 deletions)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs (1318 lines; the Hit case 715-775 and the Explosion case 817-930 read close)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Bodies.cs (272 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Abilities.cs (331 lines, the diffed block)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Barrage.cs (103 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Support.cs (128 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Deaths.cs (134 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/DebrisRenderer.Figure.cs (213 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/GibPlan.cs (106 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/AbilityAim.cs (132 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AimShape.cs (21 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.Death.cs (266 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/DeathGags.cs (260 lines)",
+    "callees read for the diff's new calls: CombatFx.Bursts.cs BurstLookFor 45-49, CombatFx.ShellFire.cs DayEarth/ColumnWidth 29-44, Presentation/Core/ViewEye.cs (39 lines), Presentation/Units/VATRenderer.cs Sockets 323-354 and ScaleAt 84, CombatFx.Weapons.cs ViewNow 190-198, Presentation/Core/FigureMetrics.cs 23-28",
+    "tests read: Tests/Show/ViewEyeTests.cs, Tests/Show/ImpactDustFeetTests.cs, Tests/Show/StaticLifecycleTests.cs (the Explained row, line 37)",
+    "docs/found/look-review-z013-20261018.json, and docs/reference/tasks.md + decisions.md grepped for DustFeetY, ChestHeight, ViewEye, FigurePart"
+  ],
+  "tasks": [
+    {
+      "title": "Impact dust floats when the hit man is in the air",
+      "why": "CombatFx.cs:725 takes feetY = DustFeetY(p.y, ChestOf(e.B), scale) from the socketed chest, and VATRenderer.cs:341 has already added anim.Hop[slot] * scale to that socket's base before the chest socket is built (VATRenderer.cs:353). A man a shell has lifted off the ground therefore gets his Spurt at his airborne feet: the dust card (Upright | Anchored, CombatFx.cs:766-769) hangs in mid-air, where the old RenderGround line always put it on the ground. Nothing clamps feetY to the terrain. The same line also assumes the baked chest socket sits at exactly ChestHeight's nominal 1.2/0.8/0.3 m above his feet; a firing or running clip whose chest socket differs moves the dust by that difference, times scale. P2: the dust is the ground mark of a rifle hit, and the 2026-10-18 fix did not consider the hop. Not the 2026-10-18 finding (that was the raw ground resample, now fixed) and not in tasks.md:593.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Bodies.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "ImpactDustFeetTests gains a case where the chest is lifted (a hop) above the step he stands on and asserts the dust y never rises above the surface he stands on, plus a case pinning the baked chest socket's height against CombatFx.ChestHeight for the standing clip",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Debris figure cut is tried once per process and never retried",
+      "why": "DebrisRenderer.Figure.cs:44-45 sets figureTried = true before the Resources.Load, and every later return path (mesh null, mesh not readable, UV/colour count mismatch) leaves figure null with the latch set. Nothing resets either static: DebrisRenderer registers no SceneStatics.Register in any of its parts, and StaticLifecycleTests.cs:37 excuses the type with an Explained row that lists Gore, ZoomShare, Biome, LavaLevel, Instance and Watch and does not mention this cache, so the ratchet cannot catch it. One failed read (Resources not up yet, a non-readable mesh in a test) makes every flying part a stand-in box (DebrisRenderer.Parts.cs:18) for the rest of the session, and with Enter Play Mode without domain reload for the rest of the editor's life. P2: silently wrong gore for a whole session and the guard that exists for exactly this has a hole.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/DebrisRenderer.Figure.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Show/StaticLifecycleTests.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a test clears the cut cache through the new SceneStatics reset and shows FigurePart succeeds again after a failed attempt, and StaticLifecycleTests' DebrisRenderer row no longer has to excuse the figure cache",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Two formulas for one figure size; CombatFx keeps the removed grow",
+      "why": "The owner settled that units are one size at every zoom (FigureMetrics.cs:25-26, Grow => 1f), and VATRenderer scales its sockets by ScaleAt(zoom) = UnitScale * FigureMetrics.Grow(zoom) (VATRenderer.cs:84, used at :340). CombatFx still computes its own scale the old way, UnitScale * Clamp(zoom / GrowFromZoom, 1, MaxGrow), in two places: CombatFx.Weapons.cs:197 (ViewNow, the scale DustFeetY and every Hit card use) and CombatFx.Bodies.cs:15-19 (FigureScale). The two agree only while the inspector's MaxGrow stays 1; set it above 1 and the effects scale off a size the renderer no longer draws, which puts the new feetY (CombatFx.cs:725) under or over the ground by the difference. P3, fragile code rather than a wrong frame today.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Bodies.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Weapons.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "UnitOneSizeTests asserts CombatFx's figure scale equals VATRenderer.ScaleAt(zoom) at several zooms, and fails if a grow comes back in only one of the two",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
