@@ -377,6 +377,13 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   hand-run update is needed; (c) leave the frozen copy where it is, since the push itself already works with the
   rules already loaded there. Default taken: none; recorded and stopped (this leg,
   `loosen-push-rules-relay`, 2026-11-03).
+  Update, 2026-11-07: the owner answered "Try it once more as it stands" on the Decide page. The retry was run on
+  a tree rebased onto integration; the push itself works — the lane's tip is on
+  `origin/lane/show/heroes-off-bench`, pushed forced under the lane's full name, so the push part of this question
+  is closed. What is still open is only option (a) above: the owner runs
+  `python Tools/relay/relay.py update origin/lane/show/heroes-off-bench` in the relay-run checkout once the day's
+  runs have stopped, because a leg cannot move the frozen copy while its own run holds the lock
+  (`push-heroes-off-bench-retry`, this leg).
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
   found-close-assault-fallback-skips-armour-and-can-20261018-0):** the finding says the `ownHits` path
