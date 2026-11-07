@@ -163,7 +163,7 @@ namespace TW.Tests
             int it = SpawnBreaker(m, 0, 120f, TrenchZ(m, t) - 25f);
             for (int k = 0; k < 400 && (BreakerPhase)m.Breaker.Phase[it] != BreakerPhase.Windup; k++) Step(m);
             Assert.AreEqual((int)BreakerPhase.Windup, m.Breaker.Phase[it], "[U10] setup: it never wound up");
-            m.Vehicles.HaltTicks[it] = 30;   // the halt the wind-up asks for (Breaker.cs:99), still standing
+            m.Vehicles.HaltTicks[it] = 30;   // the halt the wind-up asks for (Breaker.cs:101), still standing
             short target = m.Breaker.TargetTrench[it];
             Assert.GreaterOrEqual(target, 0, "[U10] setup: it has a target trench");
             var state = m.Fields.Trenches[target]; state.OwnerTeam = m.World.Team[it]; m.Fields.Trenches[target] = state;
