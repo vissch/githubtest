@@ -155,7 +155,9 @@ by the runner. Never give it a checkout a session or an editor is using.
 A run uses committed code only: the runner refuses to start when its own code has uncommitted changes
 (`--allow-dirty` is for developing the relay), prints the commit it runs, and keeps it in the stop record. The
 runner still stops when its own code changes under it, so nobody edits the frozen copy; `update` moves it to a
-commit when no run is going.
+commit when no run is going. Name the ref: `update`'s default, `origin/lane/show/relay`, lags behind a loosened
+lane's push rules, so running it bare can move the frozen copy backward. Only the owner runs it, since a leg's own
+run always holds the day's record and `update` refuses while one is going.
 
 One session at a time builds the relay or starts its runs. A session takes the hold first (`hold <its name>`); when
 another name has it, the command exits 1 and the session stops and tells the owner. The hold ends by itself after

@@ -329,6 +329,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   (see `docs/inbox/2026-10-16-all-relay-push-guard.md`). The work itself already sits on origin as
   `lane/show/heroes-off-bench-d`. (owner, 2026-10-16, on the Decide page; built this leg) |
 | 2026-11-03 | **`lane/show/heroes-off-bench` rebased clean and pushed as a forced push onto its own name, as the owner directed.** The owner, on the Decide page, to "heroes-off-bench-c: tried 2 times, no progress": "Try it once more as it stands". Integration's `Tools/relay/` rules (as of `a95b9c088` in the frozen relay-run checkout) now let a leg force-push onto the lane named in full (`cmdrules.py push_ok`), and `prepush.py refusal` no longer refuses a rebased lane as "not an ancestor" — only another ref or a delete. So the lane's own `<lane>-<suffix>` fallback (`bdb01972e`, 2026-10-16, below) is superseded: it solved the same stuck-push problem the other way, and keeping it would let `cmdrules.py` wave through a push that upstream's hook now refuses by a different rule, two layers disagreeing. The lane rebased onto integration, resolved by hand (this file, and `Tools/relay/cmdrules.py` / `prepush.py` / `test_relay.py` taking integration's version over the lane's superseded fallback), and pushed with `git push --force-with-lease origin lane/show/heroes-off-bench`. (this leg, heroes-off-bench-retry, 2026-11-03)
+| 2026-11-08 | **`lane/show/heroes-off-bench` push retry closed: the loosened rules are published and the lane pushes under its own name again.** The owner's answer to "lane/show/heroes-off-bench cannot push: retry exhausted after six attempts" was "The loosened rules are published on a ref the runner reads and relay.py update is run on the relay-run checkout". Re-measured this leg: `origin/lane/show/heroes-off-bench` (`4f6105cf8`) is where the frozen relay-run checkout's HEAD (`0aacc2bca`) came from (`git merge-base --is-ancestor 0aacc2bca origin/lane/show/heroes-off-bench` exits 0); the frozen checkout's `Tools/relay/cmdrules.py` and `Tools/relay/prepush.py` are byte-identical to that ref's copies (both `diff -q` exits 0); and this lane's `HEAD` (`4f6105cf8`) equals `origin/lane/show/heroes-off-bench` on `git ls-remote` — the push works, the retry does not exhaust. The one command never run is the literal `relay.py update` (no ref named): it is refused by design inside a run (`relay: a run is going (...): update after it stops`, tried once more this leg against `origin/lane/show/heroes-off-bench` with the same refusal) and would in any case move nothing, because the frozen copy already sits on that ref's line. If the owner ever runs it by hand he must name the ref: `relay.py update`'s default is `origin/lane/show/relay`, which is still behind — its `Tools/relay/cmdrules.py` has no `if forced:` branch (grep count 0) — so a bare call would move the frozen copy back and lose the loosening. (this leg, `loosen-push-rules-relay`, 2026-11-08) |
 
 ## Open: waiting on the owner
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
@@ -361,29 +362,6 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   garrison's heads down, and `WreckDecayTests.AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind` asserts exactly
   that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
   only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
-- **`lane/show/heroes-off-bench` push retry exhausted; the owner's answer is half built, the other half needs one
-  command run by hand (2026-11-03, `loosen-push-rules-relay`):** the owner's answer to "lane/show/heroes-off-bench
-  cannot push: retry exhausted after six attempts" was "The loosened rules are published on a ref the runner reads
-  and relay.py update is run on the relay-run checkout". The first half holds: `origin/lane/show/heroes-off-bench`
-  (`9db97e979`) carries the loosened rules — its `Tools/relay/cmdrules.py` has the `if forced:` branch and its
-  `Tools/relay/prepush.py` `refusal` body refuses only another ref or a delete (both greps counted 1) — and the
-  frozen relay-run checkout's copies of both files are already byte-identical to that ref's copies (`diff -`
-  against the relay-run checkout's own tree exited 0 for both). The second half is not done: this leg ran
-  `relay.py update origin/lane/show/heroes-off-bench` once in the relay-run checkout and it refused with "relay: a
-  run is going (relay 20261103-060709-71676 loosen-push-rules-relay): update after it stops" — a leg cannot move
-  the frozen checkout while its own run holds the lock. Options: (a, recommended) the owner runs
-  `python Tools/relay/relay.py update origin/lane/show/heroes-off-bench` in the relay-run checkout once today's
-  runs have stopped; (b) a later unit teaches the runner to move the frozen copy itself before a run starts, so no
-  hand-run update is needed; (c) leave the frozen copy where it is, since the push itself already works with the
-  rules already loaded there. Default taken: none; recorded and stopped (this leg,
-  `loosen-push-rules-relay`, 2026-11-03).
-  Update, 2026-11-07: the owner answered "Try it once more as it stands" on the Decide page. The retry was run on
-  a tree rebased onto integration; the push itself works — the lane's tip is on
-  `origin/lane/show/heroes-off-bench`, pushed forced under the lane's full name, so the push part of this question
-  is closed. What is still open is only option (a) above: the owner runs
-  `python Tools/relay/relay.py update origin/lane/show/heroes-off-bench` in the relay-run checkout once the day's
-  runs have stopped, because a leg cannot move the frozen copy while its own run holds the lock
-  (`push-heroes-off-bench-retry`, this leg).
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
   found-close-assault-fallback-skips-armour-and-can-20261018-0):** the finding says the `ownHits` path
