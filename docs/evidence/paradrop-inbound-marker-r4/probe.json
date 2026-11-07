@@ -1,5 +1,19 @@
 {
-  "streaks": 208,
+  "streaks": 0,
   "men": 8,
-  "streak_ratio": 26.0
+  "streak_ratio": 0.0,
+  "raw_streaks": 0,
+  "noise_streaks": 0,
+  "series": {
+    "after_00.png": 0,
+    "after_02.png": 0,
+    "after_04.png": 0,
+    "after_08.png": 0
+  },
+  "window_half_px": 140,
+  "floor": 60.0,
+  "px_per_m": 6.5,
+  "ring_near_px": 45.5,
+  "ring_far_px": 74.75,
+  "ring_tol_px": 12.0
 }

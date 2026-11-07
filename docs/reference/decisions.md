@@ -301,6 +301,16 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   garrison's heads down, and `WreckDecayTests.AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind` asserts exactly
   that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
   only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
+- **The paradrop's drop-zone marker does not read at the overview band (2026-11-07, harsh critic r2 fix 3):** the
+  flare and the one falling streak per man are added (32 `ShellFall` + `Smoulder` + `Star`, on the 7 m and 11.5 m
+  rings) and `FarGrowTests.DropStreaksOnePerMan` passes, but a held-clock pair at zoom 120, overlays off, pose error
+  0, counts **0 streaks of 8** and 0 noise, and a 3x crop on the mark shows nothing to the eye
+  (`docs/evidence/paradrop-inbound-marker-r4/`). Even at the best case, the tactical camera at zoom 120 so
+  `FarGrow` = 1.50 and the card is 4.5 m wide, it does not reach the screen. Options: (a) leave the marker as it is,
+  reading at T1 and not at O120 - **the default taken here**, nothing changed; (b) make it read at O120 - a wider,
+  brighter `ShellFall` card and a bigger `Smoulder` flare when the drop is called from an overview zoom; (c) have
+  `FarGrow` re-read the zoom each frame instead of once at the event, so a drop called at zoom 30 still grows when
+  the player pulls out. (b) and (c) both change an accepted look.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The Banner's front legs, shot and recoil, redone: land it? (2026-10-13):** his answer of 2026-10-12 is built on
   `lane/show/banner-day-film`. Leg against leg never came closer than 0.488 m, so nothing crossed; the right front leg
