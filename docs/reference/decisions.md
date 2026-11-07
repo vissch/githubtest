@@ -486,6 +486,16 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   open a critique round against these four stills as a new unit, which is where the remaining value is. Default
   taken here: (a), and (c) is recommended as the follow-up unit (this leg, because the step's own premise is
   measured false and no bar asks for the change).
+- **The paradrop landing puff cannot reach 150 px at zoom 240 with the sheet it has (2026-11-07, lane
+  `lane/show/paradrop-inbound-marker-r6`):** measured on real stills (`docs/evidence/paradrop-inbound-marker-r6`),
+  only 20 px (landTick + 3) and 61 px (+ 6) of the 180 x 180 window hold **any** puff ink above 0.01 luma, so the
+  gate's 150 is above the ceiling at any brightness. The planned width lever is also a no-op at this zoom
+  (`DropDustOverview(240) = clamp(240/120, 1, 2.2) = 2`, short of the cap), and clearing 150 by width alone would
+  need a ~50 m puff, far past the 12 m cap that stops it swallowing the zone it marks. Options: (a) raise the
+  puff's density in the recipe — several overlapping DustPuff cards per man at the overview, cheap and reversible;
+  (b) redraw `DustPuff.png` denser, which touches every other user of that book; (c) accept the puff as it is and
+  drop the 150 bar. **Default taken this leg: none of them** — the probe, the stills and the measured frame table
+  are committed honestly and the number is reported as a shortfall; nothing was widened or lowered to pass.
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
   lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
   is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every
