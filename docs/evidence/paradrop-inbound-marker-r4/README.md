@@ -65,7 +65,40 @@ however far out it is then watched from. The set above was shot with the tactica
 zoom 120 first (`TacticalCamera.FrameFrom(target, 120, 30)`), which is the best case: `FarGrow(120)` = 1.50,
 a 4.5 m card, 29 px. That best case is what measured 0.
 
+## r4: is it the geometry, or the amplitude?
+r2 fix 3's ring positions were computed by formula (`PX_PER_M`, an ellipse for pitch 25), never projected - the
+weak link this leg replaces. `ringpx.cs`, run once per point through `Tools/tw run eval_file` (Play, same pose,
+no drop), sets `CaptureRig.Rig.Mark` to each of the 8 men's world points and reads back `mark_px_x/y`, the rig's
+own `Camera.main.WorldToScreenPoint`. Every point's sidecar reproduced the stills' camera exactly
+(`cam_x/y/z` = 290.2854, 132.07288, -59.4156; the centre point's `mark_px` 800.00012, 445.94928 against the
+stills' 800.0, 446.0), so the 8 measured points in `ringpx.json` apply to the committed `after_*.png` stills
+without re-capturing. The measured points land close to where the formula put them (the formula's radius was
+within its own 12 px tolerance for 6 of 8 points; `k=5` was 2 px over) - **the geometry was already about right.**
+
+Rewriting `streakprobe.py`'s place test to match each diff component against its nearest measured point (20 px
+tolerance: half a 29 px card plus the jitter) still counts **0 streaks of 8**, same as the formula version
+(`python docs/evidence/paradrop-inbound-marker-r4/streakprobe.py` -> exit 1). So step 4: in a 20 px disc centred
+on each measured point, the drop's own `|after - before|` max against the control pair's max in the identical
+disc (`probe.json`'s `amplitudes`) -
+
+| man (k) | drop max | control max | ratio |
+|---|---|---|---|
+| 0 | 263 | 77  | 3.42x |
+| 1 | 318 | 168 | 1.89x |
+| 2 | 244 | 121 | 2.02x |
+| 3 | 158 | 99  | 1.60x |
+| 4 | 167 | 230 | 0.73x |
+| 5 | 321 | 120 | 2.68x |
+| 6 | 330 | 230 | 1.43x |
+| 7 | 340 | 152 | 2.24x |
+
+Only 1 of 8 clears the control's own noise by 3x or more; one man's disc (k=4) sits **below** the control's own
+noise in the same disc. The discs sit near the control's level, not clearly above it, so this is not "a measured
+floor hid a real card": the cards do not reach the screen at this band, by amplitude as well as by shape and
+place.
+
 ## So
-The marker reads in the sim and in the test, and does not read on the screen at the overview band. Making it
-read means a bigger or brighter card, which is a change to an accepted look - the owner's call, filed under
-"Open: waiting on the owner" in `docs/reference/decisions.md`.
+The marker reads in the sim and in the test, and does not read on the screen at the overview band - confirmed by
+projection, not by a formula that happened to be close. Making it read means a bigger or brighter card, which is
+a change to an accepted look - the owner's call, filed under "Open: waiting on the owner" in
+`docs/reference/decisions.md`. Nothing in the look is touched here.

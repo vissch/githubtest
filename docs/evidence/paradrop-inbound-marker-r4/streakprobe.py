@@ -4,15 +4,13 @@ at zoom 120 so FlipbookFx.FarGrow sizes the cards for the band they are photogra
 python docs/evidence/paradrop-inbound-marker-r4/streakprobe.py
 
 Method. A per-pixel |after - before| carries the men walking and the muzzle flashes as well as the drop, so
-a component only counts as a streak when its SHAPE and its PLACE both fit a ShellFall card standing on the
-zone's ring. Every threshold is anchored to the pose, never fitted to the answer:
-
-  zoom 120 over 900 px -> view height 1.1547 * 120 = 138.6 m, so PX_PER_M = 6.50 px/m;
-  a card is 3 * FlipbookFx.FarGrow(120) = 4.5 m wide = 29 px, and stands upright on the ground;
-  the two rings (DropStreakRingNear 7 m, DropStreakRingFar 11.5 m) are 45 px and 75 px from the mark on the
-  ground, and at pitch 25 the ground's screen y is squashed by sin(25) = 0.4226, so the rings are ELLIPSES:
-  the elliptical radius of a card's ground anchor (its component's BOTTOM edge, not its centre) is
-  hypot(dx, dy / sin(25)), and a streak's anchor lies on 45 px or 75 px.
+a component only counts as a streak when its SHAPE and its PLACE both fit a ShellFall card. r2 fix 3's
+PLACE test computed where the 8 men's rings should be from the pose by formula (PX_PER_M, an ellipse for
+pitch 25); r4 replaces that with `ringpx.json`, the 8 points measured by CaptureRig's own screen projection
+(Rig.Mark) at this same pose (see `ringpx.cs`). A man counts once when a diff component's bottom edge
+(its ground anchor) is within RING_TOL_PX of that man's measured point - half a 29 px card (3 m x
+FarGrow(120) = 4.5 m at 6.50 px/m) plus the 0.3 rad jitter CombatFx adds, which moves a point at 7 m by
+up to ~14 px.
 
 The mark is CaptureRig.Rig.Mark projected by the rig itself (mark_px_x/y in the sidecar), so the window is
 found by projection and never by eye. The same counter is run on the control pair - two stills of the
@@ -22,7 +20,6 @@ Exit 0 only when streak_ratio >= 0.8 and noise_streaks <= 1.
 """
 import glob
 import json
-import math
 import os
 import sys
 
@@ -32,11 +29,10 @@ from scipy import ndimage
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-PX_PER_M = 6.50            # 900 px / (1.1547 * 120 m)
-PITCH_SIN = math.sin(math.radians(25.0))
-RING_NEAR_PX = 7.0 * PX_PER_M      # DropStreakRingNear
-RING_FAR_PX = 11.5 * PX_PER_M      # DropStreakRingFar
-RING_TOL_PX = 12.0         # half a card's width: a card's anchor is on the ring, give or take its own size
+with open(os.path.join(HERE, "ringpx.json"), encoding="utf-8") as f:
+    RING_POINTS = [(p["px_x"], p["px_y"]) for p in json.load(f)["points"]]
+
+RING_TOL_PX = 20.0         # half a 29 px card (14.5) + up to ~14 px of jitter at 7 m, rounded up
 HALF = 140                 # window half-size: the far ring is 75 px out, a card ~30 px tall over it
 FLOOR = 60.0               # sum over RGB of |after - before|, 0-765
 MIN_AREA_PX = 40
@@ -54,18 +50,30 @@ def streak_components(before_path, after_path, mark_px):
         return 0
     objs = ndimage.find_objects(labels)
     sizes = ndimage.sum(mask, labels, index=range(1, n + 1))
-    streaks = 0
+    matched = set()
     for sl, sz in zip(objs, sizes):
         h = sl[0].stop - sl[0].start
         w = sl[1].stop - sl[1].start
         if sz < MIN_AREA_PX or h < MIN_H_PX or h < w:
             continue
-        cx = (sl[1].start + sl[1].stop) / 2.0 - HALF      # the card's ground anchor: bottom edge, middle
-        by = sl[0].stop - HALF
-        rr = math.hypot(cx, by / PITCH_SIN)
-        if abs(rr - RING_NEAR_PX) <= RING_TOL_PX or abs(rr - RING_FAR_PX) <= RING_TOL_PX:
-            streaks += 1
-    return streaks
+        cx = (sl[1].start + sl[1].stop) / 2.0 - HALF + mx    # the card's ground anchor: bottom edge, middle
+        by = sl[0].stop - HALF + my
+        for i, (px, py) in enumerate(RING_POINTS):
+            if i in matched:
+                continue
+            if ((cx - px) ** 2 + (by - py) ** 2) ** 0.5 <= RING_TOL_PX:
+                matched.add(i)
+                break
+    return len(matched)
+
+
+def disc_stats(before_path, after_path, px, py, r=20):
+    a = np.asarray(Image.open(before_path).convert("RGB")).astype(np.float32)
+    b = np.asarray(Image.open(after_path).convert("RGB")).astype(np.float32)
+    diff = np.abs(b - a).sum(axis=2)
+    x, y = int(round(px)), int(round(py))
+    disc = diff[y - r:y + r, x - r:x + r]
+    return {"max": float(disc.max()), "p999": float(np.percentile(disc, 99.9)), "mean": float(disc.mean())}
 
 
 def main():
@@ -74,13 +82,26 @@ def main():
         sidecar = json.load(f)
     mark_px = (sidecar["mark_px_x"], sidecar["mark_px_y"])
     before = os.path.join(here, "z120-before.png")
-    noise = streak_components(os.path.join(here, "z120-control.png"),
-                              os.path.join(here, "z120-control-b.png"), mark_px)
+    after = os.path.join(here, "after_04.png")
+    control_b = os.path.join(here, "z120-control.png")
+    control_a = os.path.join(here, "z120-control-b.png")
+    noise = streak_components(control_b, control_a, mark_px)
     series = {os.path.basename(p): streak_components(before, p, mark_px)
               for p in sorted(glob.glob(os.path.join(here, "after_*.png")))}
     raw = streak_components(before, os.path.join(here, "z120-after.png"), mark_px)
     men = 8
     streaks = max(0, raw - noise)
+
+    # step 4: per man, in a 20 px disc on the measured point, the drop's own amplitude against the
+    # control pair's amplitude in the same disc - a measurement, not a fitted threshold.
+    amplitudes = []
+    for i, (px, py) in enumerate(RING_POINTS):
+        drop = disc_stats(before, after, px, py)
+        ctrl = disc_stats(control_b, control_a, px, py)
+        ratio = drop["max"] / ctrl["max"] if ctrl["max"] > 0 else float("inf")
+        amplitudes.append({"k": i, "px_x": px, "px_y": py, "drop": drop, "control": ctrl,
+                            "max_ratio": ratio, "clears_3x": ratio >= 3.0})
+
     out = {
         "streaks": streaks,
         "men": men,
@@ -90,13 +111,11 @@ def main():
         "series": series,
         "window_half_px": HALF,
         "floor": FLOOR,
-        "px_per_m": PX_PER_M,
-        "ring_near_px": RING_NEAR_PX,
-        "ring_far_px": RING_FAR_PX,
         "ring_tol_px": RING_TOL_PX,
+        "amplitudes": amplitudes,
+        "amplitudes_clearing_3x": sum(1 for a in amplitudes if a["clears_3x"]),
     }
-    with open(os.path.join(here, "probe.json"), "w", encoding="utf-8", newline="
-") as f:
+    with open(os.path.join(here, "probe.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(out, f, indent=2)
     print(json.dumps(out, indent=2))
     sys.exit(0 if out["streak_ratio"] >= 0.8 and noise <= 1 else 1)

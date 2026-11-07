@@ -305,7 +305,11 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   flare and the one falling streak per man are added (32 `ShellFall` + `Smoulder` + `Star`, on the 7 m and 11.5 m
   rings) and `FarGrowTests.DropStreaksOnePerMan` passes, but a held-clock pair at zoom 120, overlays off, pose error
   0, counts **0 streaks of 8** and 0 noise, and a 3x crop on the mark shows nothing to the eye
-  (`docs/evidence/paradrop-inbound-marker-r4/`). Even at the best case, the tactical camera at zoom 120 so
+  (`docs/evidence/paradrop-inbound-marker-r4/`). r4 replaced the formula rings with the 8 points as CaptureRig's own
+  camera actually projects them (`ringpx.json`, same pose as the stills) and re-counted: still 0 of 8, and in a
+  20 px disc on each measured point only 1 of 8 men's amplitude clears the control pair's own noise in that disc
+  by 3x (ratios 0.7-3.4x, most 1.4-2.2x) - the geometry was not the problem, the cards plainly do not clear the
+  noise floor at this band. Even at the best case, the tactical camera at zoom 120 so
   `FarGrow` = 1.50 and the card is 4.5 m wide, it does not reach the screen. Options: (a) leave the marker as it is,
   reading at T1 and not at O120 - **the default taken here**, nothing changed; (b) make it read at O120 - a wider,
   brighter `ShellFall` card and a bigger `Smoulder` flare when the drop is called from an overview zoom; (c) have
