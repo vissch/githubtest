@@ -3,7 +3,9 @@
 // (22/100): its probe compared a 0-255 channel spread against 0.06, so any 1-level drop counted and the puff was
 // never actually shown; and one shot at landTick + 1 cannot tell a puff that holds from a single frame. This version
 // shoots at landTick + 3 and landTick + 6, each with a twin that has the puff's book hidden
-// (CombatFx.HideBookForTests), plus a re-shot of the +3 pose in the same frozen state for the noise floor, so
+// (CombatFx.HideBookForTests), plus a re-shot of the +3 pose back to back with it, in the same frozen state, for the
+// noise floor (r5 left ten idle frames between the two, which sat in a transient bright state and made the floor
+// measure the transient, not render noise: window mean luma 0.2753 -> 0.305), so
 // docs/evidence/paradrop-inbound-marker-r6/probe.py can take the minimum of the two ticks' puff-minus-nopuff counts.
 // The support disc stays masked (CombatFx.ShowOverlays = false, r5's fix 2: it is HUD drawn in the world and expires
 // on real time, which moved it 173 px between r2's shots).
@@ -137,7 +139,7 @@ namespace TW.Tests
             CaptureRig.Shot(before, dropX, dropZ, 240f, 21f, 25f);
             yield return Drain(before);
 
-            // +3: the puff is up. Shot frozen, then re-shot in the same frozen state for the noise floor, then once
+            // +3: the puff is up. Shot frozen, then re-shot back to back in the same frozen state for the noise floor, then once
             // more with the puff's book hidden — the men and the ground are identical in all three, so the only
             // difference the probe can see is the puff.
             Time.timeScale = 1f;
@@ -145,7 +147,6 @@ namespace TW.Tests
             Time.timeScale = 0f;
             CaptureRig.Shot(p3, dropX, dropZ, 240f, 21f, 25f);
             yield return Drain(p3);
-            for (int f = 0; f < 10; f++) yield return null;
             CaptureRig.Shot(p3b, dropX, dropZ, 240f, 21f, 25f);
             yield return Drain(p3b);
             fx.HideBookForTests(FlipbookFx.Book.DustPuff, true);

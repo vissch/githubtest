@@ -120,6 +120,12 @@ namespace TW.Tests
             float pxPerM = 900f / (2f * 240f * Mathf.Tan(30f * Mathf.Deg2Rad));
             Assert.GreaterOrEqual(CombatFx.DropDustWidth(240f) * pxPerM, 30f, "the landing puff is a read, not a speck, at zoom 240");
             Assert.That(CombatFx.DropDustWidth(240f), Is.LessThanOrEqualTo(12f), "and not so wide it covers the zone it marks");
+
+            // the open frame is measured from the sheet, not from the renderer's arithmetic: the 28-cell coverage
+            // table in docs/evidence/paradrop-inbound-marker-r6/README.md is its only source (frame 0 is 0.0316 of
+            // a cell, frame 2 is 0.1369 = 93 % of the book's maximum, the earliest cell over 60 %).
+            Assert.AreEqual(2f, CombatFx.DropDustOpenFrame, 1e-6f, "the overview card opens on the measured frame of the DustPuff book");
+            Assert.Less(CombatFx.DropDustOpenFrame, 28f, "and inside the book (DustPuff is 28 frames)");
         }
     }
 }
