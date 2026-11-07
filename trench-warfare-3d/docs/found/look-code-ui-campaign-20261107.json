@@ -1,0 +1,74 @@
+{
+  "subject": "code:UI/Campaign — ParaDrop never sellable in campaign, enemy chip lies, tier stored by line index, staging regenerates its map picture",
+  "looked_at": [
+    "Assets/_Project/UI/Campaign/CampaignGraph.cs",
+    "Assets/_Project/UI/Campaign/FactionBuildings.cs",
+    "Assets/_Project/UI/Campaign/HomeFrontScreen.cs",
+    "Assets/_Project/UI/Campaign/StagingScreen.cs",
+    "Assets/_Project/UI/Campaign/StrategicMapScreen.cs",
+    "Assets/_Project/UI/Campaign/ShellPick.cs",
+    "Assets/_Project/Tests/UI/CampaignGraphTests.cs",
+    "Assets/_Project/Tests/UI/FactionBuildingsTests.cs",
+    "Assets/_Project/Tests/UI/ShellUxmlTests.cs",
+    "Assets/_Project/Presentation/Core/CampaignProfile.cs",
+    "Assets/_Project/Sim/Core/RosterEntry.cs",
+    "Assets/_Project/Sim/Core/FactionRoster.cs",
+    "Assets/_Project/UI/HudView.cs",
+    "Assets/_Project/UI/Shell/ShellRouter.cs",
+    "Assets/_Project/UI/Shell/ShellScreen.cs",
+    "Assets/_Project/UI/Shell/MapThumbnail.cs"
+  ],
+  "tasks": [
+    {
+      "title": "Sell ParaDrop on a Brass building so the campaign can unlock it",
+      "why": "P1: FactionBuildings.BaseAbilityMask (FactionBuildings.cs:118) is only HeBarrage|ChlorineGas, and Signals() (FactionBuildings.cs:117-125) sells CreepingBarrage, SmokeScreen, StrafeRun, Beam — six of HudView.SupportAbilities' seven cards (HudView.cs:88-94), ParaDrop left out. StagingScreen.BuildAbilities (StagingScreen.cs:158-161) only offers bits already in FactionBuildings.AbilityMask(profile, Faction), so a Brass player's ability-row can never contain a ParaDrop button, and HudView.SeatMask (HudView.cs:88-94) intersects the launch mask with FactionRoster.AbilityMask (FactionRoster.cs:118-119, Brass-only) anyway. Net result: a Brass campaign player never sees the drop card in any battle, though a skirmish (launchMask 0) gives it free. HudView.cs:65-66 calls the drop 'Brass's alone' and decisions.md 2026-09-27 keeps it Brass-only, but never says the campaign should withhold it entirely. Fix: append a new UpgradeLine unlocking ParaDrop as the LAST line of a Brass building (e.g. the raiders' lodge) so existing saved line indices do not shift — finding 3 below is the same storage-by-index problem, so order matters: append, do not insert.",
+      "files": [
+        "Assets/_Project/UI/Campaign/FactionBuildings.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "A new FactionBuildingsTests.cs case buys the new line and asserts the ParaDrop bit is set in FactionBuildings.AbilityMask(p, Brass) and absent for Iron, plus a case that every HudView.SupportAbilities entry is either in BaseAbilityMask or sold by some faction's building.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Fix StrategicMapScreen's enemy chip: every node claims the enemy is Brass",
+      "why": "P2: StrategicMapScreen.SelectNode (StrategicMapScreen.cs:128) prints n.EnemyFaction, which CampaignGraph.Build sets to 1 (Brass) on every node (CampaignGraph.cs:92, :103, :114, :126, :138 and the citadel further down), while StagingScreen.BuildRequest (StagingScreen.cs:191-192) actually makes the enemy the other side of the player's own faction ('the enemy is the other side... critic r5'). A Brass player reads 'ENEMY · BRASS' on the map, then fights Iron in the mission. EnemyFaction is now dead-and-wrong data: nothing reads it correctly. Fix is one line (compute 1 - profile.Faction at display time) plus removing or re-purposing the field so it cannot drift from the actual match-up again.",
+      "files": [
+        "Assets/_Project/UI/Campaign/StrategicMapScreen.cs",
+        "Assets/_Project/UI/Campaign/CampaignGraph.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "A ShellUxmlTests.cs case binds the map with new CampaignProfile { Faction = 1 } (Brass) and asserts info-enemy contains \"IRON\" (today it reads BRASS).",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Key CampaignProfile.LineState by name, clamp tier to the line's own MaxTier",
+      "why": "P3: CampaignProfile.SetTier/TierOf (CampaignProfile.cs:58-67) key a LineState by (Faction, Building, Line), where Line is the position in Building.Lines, and Migrate (CampaignProfile.cs:78-90) clamps Tier to CampaignProfile.MaxTier = 6 — not to the line's own UpgradeLine.MaxTier (FactionBuildings.cs:30: 3 for a global row, 1 for an AbilityUnlock, TrackCosts.Length for a unit track). Finding 1's fix (appending a line) is safe only because it appends; inserting or reordering any line would move every saved purchase onto a different upgrade. Worse, today a tier can already land above a line's own cap: FactionBuildings.CanBuy (FactionBuildings.cs:276) refuses tier > l.MaxTier with 'AT THE TOP', but nothing stops a hand-edited or migrated save from carrying Line.Tier = 6 on WAR CHEST (GlobalCosts has 3 entries, FactionBuildings.cs:70), and StartingSilverBonus = SilverPerTier * GlobalTier(...) (FactionBuildings.cs:331) then pays 50 x 6 = 300 instead of the row's real cap of 150. Fix: clamp each LineState.Tier to its own UpgradeLine.MaxTier in Migrate (needs the building/line looked up by name), and key Lines by a stable line name instead of its array index.",
+      "files": [
+        "Assets/_Project/Presentation/Core/CampaignProfile.cs",
+        "Assets/_Project/UI/Campaign/FactionBuildings.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "A CampaignProfileTests case writes SetTier(Iron, \"supply-depot\", 0, 6) (or the renamed equivalent) and asserts FactionBuildings.StartingSilverBonus is 150, not 300.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, true, false]
+    },
+    {
+      "title": "Cache StagingScreen's map thumbnail instead of regenerating the battlefield every open",
+      "why": "P4: StagingScreen.OnBind (StagingScreen.cs:56) calls MapThumbnail.Render(mission.Seed, mission.Ground), which runs BattlefieldGenerator.Create on a 90x240 m field and builds a fresh uncached Texture2D (MapThumbnail.cs:16-43); StagingScreen.OnUnbind (StagingScreen.cs:77) destroys it every time the screen unbinds. So map -> staging -> back -> staging regenerates the whole battlefield and texture again for the same seed, and MissionSelectScreen pays the same cost once per mission card shown. Fix: cache the last rendered texture by (seed, ground) and stop destroying a texture that might still be cached/shared.",
+      "files": [
+        "Assets/_Project/UI/Shell/MapThumbnail.cs",
+        "Assets/_Project/UI/Campaign/StagingScreen.cs"
+      ],
+      "lane": "show",
+      "role": "optimizer",
+      "done_when": "A test asserts MapThumbnail.Render(1917, Ground.ShelledForest) called twice returns the same Texture2D instance, and that StagingScreen no longer calls Discard on a cached thumbnail in OnUnbind.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
