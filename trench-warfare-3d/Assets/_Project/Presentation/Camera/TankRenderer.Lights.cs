@@ -12,7 +12,9 @@
 //  - tank.lampPull: how far toward the camera a card is drawn, so the hull does not hide it (1 m);
 //  - tank.lightReach: how far from the camera a machine still shows them (110 m; the standard view stands 77.6 m off).
 // With NightLights' machine pool (lights.machinePool, 4 by default; 0 none), real lights of their own: a burning machine's
-// fire, held while it burns; its cook-off, 1.2 s; the Maw's furnace, held. A gun keeps the shared flash it always had.
+// fire, held while it burns, and a burning wreck's too, at the same dying curve (WreckFire) that lights the flames
+// Smoulder draws on it; its cook-off, 1.2 s; the Maw's furnace, held, while it is alive. A gun keeps the shared flash it
+// always had.
 using UnityEngine;
 using TW.Sim;
 
@@ -125,11 +127,22 @@ namespace TW.Presentation.Tactical
                 while (j > 0 && litD[j - 1] > d2) { litD[j] = litD[j - 1]; litV[j] = litV[j - 1]; j--; }
                 litD[j] = d2; litV[j] = v;
             }
+            if (lights)
+                foreach (var v in wrecks)
+                {
+                    if (v.World == null) continue;
+                    float d2 = (v.Pos - eye).sqrMagnitude;
+                    if (d2 > reach2) continue;
+                    if (n == litD.Length) { System.Array.Resize(ref litD, n * 2); System.Array.Resize(ref litV, n * 2); }
+                    int j = n++;
+                    while (j > 0 && litD[j - 1] > d2) { litD[j] = litD[j - 1]; litV[j] = litV[j - 1]; j--; }
+                    litD[j] = d2; litV[j] = v;
+                }
             int g = 0, asked = 0;
             for (int i = 0; i < n; i++)
             {
                 var v = litV[i];
-                if (cards && g < MaxMachineGlows) g = MachineCards(v, eye, g);
+                if (cards && !v.Dead && g < MaxMachineGlows) g = MachineCards(v, eye, g);
                 if (lights && asked < MachineLightsPerFrame) asked += AskMachineLights(v, now);
             }
             for (int i = 0; i < n; i++) litV[i] = null;
@@ -187,18 +200,24 @@ namespace TW.Presentation.Tactical
         /// per-object light limit does not put out the lanterns beside it.</summary>
         public static float FireLightPeak(float fire) => 5f + 9f * Mathf.Clamp01(fire);
 
+        /// <summary>A wreck's fire, dying down from the fire it carried when it died (same curve Smoulder draws its
+        /// flames with, TankRenderer.cs: a cook-off burns itself out in 40 s; an ordinary fire fades over 30 s).</summary>
+        public static float WreckFire(bool cookOff, float fireAtDeath, float age)
+            => cookOff ? Mathf.Clamp01(1f - age / 40f) : Mathf.Clamp01(fireAtDeath - age / 30f);
+
         /// <summary>The lights one machine asks NightLights' machine pool for this frame; returns how many it asked.</summary>
         int AskMachineLights(View v, float now)
         {
             int asked = 0;
-            if (v.Fire > 0.02f)
+            float fire = v.Dead ? WreckFire(v.CookOff, v.Fire, now - v.DiedAt) : v.Fire;
+            if (fire > 0.02f)
             {
                 float flick = 0.82f + 0.18f * Mathf.Sin(now * 11f + v.Slot) * Mathf.Sin(now * 4.3f + v.Slot * 1.7f);
                 var at = SocketWorld(v, "Socket_Fire0", out _) + Vector3.up * 0.8f;
-                SceneHooks.MachineLight(v.Slot * 4 + 1, 2, at, FireHot, FireLightPeak(v.Fire) * flick, MachineLightReach, 0f);
+                SceneHooks.MachineLight(v.Slot * 4 + 1, 2, at, FireHot, FireLightPeak(fire) * flick, MachineLightReach, 0f);
                 asked++;
             }
-            if (!v.Stalled && FurnaceFor(v.Model, out Vector3 mouth))
+            if (!v.Dead && !v.Stalled && FurnaceFor(v.Model, out Vector3 mouth))
             {
                 var at = v.World[0].MultiplyPoint3x4(mouth);
                 SceneHooks.MachineLight(v.Slot * 4 + 3, 1, at, FurnaceHot, 1.5f * v.Furnace, 6f, 0f);
