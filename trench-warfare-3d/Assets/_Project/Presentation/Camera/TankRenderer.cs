@@ -1362,7 +1362,7 @@ namespace TW.Presentation.Tactical
             v.Burn = Mathf.MoveTowards(v.Burn, age < 180f ? 0.15f : 0f, dt / (v.CookOff ? 70f : 45f));
             v.Flash = Mathf.Max(0f, v.Flash - dt * 5f);
             Pose(v, v.Model.Lods[0], v.World);
-            float fire = v.CookOff ? Mathf.Clamp01(1f - age / 40f) : Mathf.Clamp01(v.Fire - age / 30f);
+            float fire = WreckFire(v.CookOff, v.Fire, age);
             float smoke = Mathf.Clamp01(1f - age / 120f);
             Burning(v, now, fire, smoke);
             foreach (var d in v.Pieces)
