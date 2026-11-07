@@ -1,0 +1,49 @@
+{
+  "subject": "tools:trench-warfare-3d/Tools/assetboard",
+  "looked_at": [
+    "trench-warfare-3d/Tools/assetboard/floor.py",
+    "trench-warfare-3d/Tools/assetboard/looks.py",
+    "trench-warfare-3d/Tools/assetboard/thumbs.py",
+    "trench-warfare-3d/Tools/assetboard/render.py",
+    "trench-warfare-3d/Tools/assetboard/src_files.py",
+    "trench-warfare-3d/Tools/assetboard/src_docs.py",
+    "trench-warfare-3d/Tools/assetboard/src_board.py",
+    "trench-warfare-3d/Tools/assetboard/sprites.py",
+    "trench-warfare-3d/Tools/assetboard/src_priorities.py",
+    "trench-warfare-3d/Tools/assetboard/src_relay.py",
+    "trench-warfare-3d/Tools/assetboard/src_acts.py",
+    "trench-warfare-3d/Tools/assetboard/src_ops.py (MACHINES, roster, skill_for, checkouts only)",
+    "trench-warfare-3d/Tools/relay/limits.json",
+    "trench-warfare-3d/Tools/relay/sources/__init__.py (grep for AREAS, area_of, kind_of)",
+    "trench-warfare-3d/Tools/assetboard/test_priorities.py (grep for SHARES, limits.json, AREAS)"
+  ],
+  "tasks": [
+    {
+      "title": "Guard src_priorities.py SHARES against drift from relay limits.json shares",
+      "why": "src_priorities.py:34-35 retypes the relay's day shares as SHARES = dict(finish=60, fix=25, critique=15) and QUEUE_PRIORITY = 50, commented 'as it stood 2026-10-12' and 'limits.json queue_priority'. They still match Tools/relay/limits.json today (share_finish 60, share_fix 25, share_critique 15, queue_priority 50), but no test reads limits.json and compares: the relay can change its shares and the priority page keeps showing the old split with nothing red to catch it. test_priorities.py never mentions limits.json or SHARES.",
+      "files": [
+        "trench-warfare-3d/Tools/assetboard/src_priorities.py",
+        "trench-warfare-3d/Tools/relay/limits.json",
+        "trench-warfare-3d/Tools/assetboard/test_priorities.py"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "a test_priorities.py case loads Tools/relay/limits.json and fails if share_finish/share_fix/share_critique/queue_priority differ from src_priorities.py's SHARES/QUEUE_PRIORITY",
+      "risk": [false, false, false, false, false],
+      "change": [true, true, false, false, false]
+    },
+    {
+      "title": "Fix src_priorities.py's wrong pointer to AREAS and area_of in relay sources",
+      "why": "src_priorities.py:37 says the AREAS table is 'the area of the game a unit counts under (Tools/relay/sources/__init__.py AREAS, area_of)', but Tools/relay/sources/__init__.py has no AREAS constant and no area_of function anywhere in the file (grep confirms only kind_of is there, matching the other citation on line 93). An agent told to check or update AREAS against 'the source of truth' opens a file that does not have it and either gives up or edits the wrong place.",
+      "files": [
+        "trench-warfare-3d/Tools/assetboard/src_priorities.py",
+        "trench-warfare-3d/Tools/relay/sources/__init__.py"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "the comment on src_priorities.py:37 names where AREAS actually comes from (or says it is this file's own table, kept by hand), and grepping AREAS in Tools/relay/sources/ no longer contradicts the comment",
+      "risk": [false, false, false, false, true],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
