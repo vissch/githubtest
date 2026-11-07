@@ -98,7 +98,7 @@ namespace TW.Tests
 
         /// <summary>
         /// [T9] Folds every system's own Hash(), in the same order FirstDifference reads them, into one value. Tick
-        /// itself is folded into World.Hash() (SimWorld.cs:392), so a world0/world-after compare against LastHash or
+        /// itself is folded into World.Hash() (SimWorld.cs:440), so a world0/world-after compare against LastHash or
         /// World.Hash() can only ever prove the tick counter moved; this is the one value that can actually say the
         /// SYSTEMS' state changed.
         /// </summary>
@@ -147,8 +147,8 @@ namespace TW.Tests
 
         /// <summary>
         /// [T9] Proves the guard this file relies on actually guards something. LastHash is 0UL on both worlds
-        /// before the first Step (SimWorld.cs:247-253), so a start check that reads LastHash cannot tell two
-        /// different worlds apart; World.Hash() can, because it folds Silver in (SimWorld.cs:163, :402).
+        /// before the first Step (SimWorld.cs:289, :292), so a start check that reads LastHash cannot tell two
+        /// different worlds apart; World.Hash() can, because it folds Silver in (SimWorld.cs:449).
         /// </summary>
         [Test]
         public void TheStartGuardCatchesTwoWorldsThatDifferBeforeTheFirstStep()
@@ -295,7 +295,7 @@ namespace TW.Tests
             Pi("TargetSlot", w.TargetSlot); Pi("GoalId", w.GoalId); Pu("Flags", w.Flags);
             Pus("Generation", w.Generation); Pi("Cooldown", w.Cooldown); Pi("FireCooldown", w.FireCooldown);
             Pf3("Knock", w.Knock);
-            Pf("Alarm", w.Alarm);     // [T24b] folded at SimWorld.cs:439 since v27, never probed here
+            Pf("Alarm", w.Alarm);     // [T24b] folded at SimWorld.cs:477 since v27, never probed here
 
             Assert.IsEmpty(blind,
                 "SimWorld.Hash() does not notice a change in these, so two peers can differ in them for a whole "
@@ -326,7 +326,7 @@ namespace TW.Tests
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = 300; cfg.SilverPerSecond = 2f;
             using var m = MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(SceneSeed));
-            // [T9] not m.World.LastHash: Tick is folded into World.Hash() (SimWorld.cs:392), so comparing it before
+            // [T9] not m.World.LastHash: Tick is folded into World.Hash() (SimWorld.cs:440), so comparing it before
             // and after 400 ticks only ever proves the tick counter moved. SystemsHash folds the systems' own
             // Hash() instead, which is the value that can actually say their STATE changed.
             ulong systems0 = SystemsHash(m.World), ground0 = m.Map.Hash(SimHash.Offset);
