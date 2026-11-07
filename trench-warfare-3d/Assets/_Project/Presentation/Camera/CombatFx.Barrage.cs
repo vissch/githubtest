@@ -100,6 +100,12 @@ namespace TW.Presentation.Tactical
         public const float DropDustOverviewFrom = 120f;
         public const float DropDustOverviewMax = 2.2f;
 
+        /// <summary>The frame of the DustPuff book the overview card opens on. Measured from the sheet itself
+        /// (docs/evidence/paradrop-inbound-marker-r6/README.md, the frame table): frame 0 covers 0.0316 of a cell
+        /// and frame 2 covers 0.1369, 93 % of the book's maximum, so at landTick + 3 the card is 0.05 s old and
+        /// frame 0 drew the first near-empty wisp (7 px measured). Overview only, so T3/T2/T1 are untouched.</summary>
+        public const float DropDustOpenFrame = 2f;
+
         /// <summary>The overview-only extra scale, 1 at and below DropDustOverviewFrom so T3/T2/T1 are untouched by
         /// construction. Pure, so a test can hold it.</summary>
         public static float DropDustOverview(float zoom) => Mathf.Clamp(zoom / DropDustOverviewFrom, 1f, DropDustOverviewMax);
@@ -152,7 +158,8 @@ namespace TW.Presentation.Tactical
             Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
             bool overview = DropDustOverview(ViewEye.Zoom) > 1f;
             books.Add(FlipbookFx.Book.DustPuff, at + Vector3.up * 0.1f, DropDustWidth(ViewEye.Zoom), 28f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored,
-                alpha: overview ? 0.95f : 0.7f, glow: overview ? (SceneMood.Night ? 2.2f : 1.2f) : 1f);
+                alpha: overview ? 0.95f : 0.7f, glow: overview ? (SceneMood.Night ? 2.2f : 1.2f) : 1f,
+                startFrame: overview ? DropDustOpenFrame : 0f);
         }
     }
 }
