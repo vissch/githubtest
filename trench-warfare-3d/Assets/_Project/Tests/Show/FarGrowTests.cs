@@ -140,22 +140,18 @@ namespace TW.Tests
                 Assert.LessOrEqual(off.magnitude, 0.5f * stackWidth, "the cluster still fits inside the 12 m cap (card " + k + ")");
             }
 
-            // probe.json: dustprobe3.py's units are fixed (spread_scale 1), held so a future regression in the
-            // probe itself is caught here too. NOT the dust_minus_nopuff_px >= 150 gate: `CombatFx.OnDropLanded`
-            // sizes the puff from `ViewEye.Zoom` at the instant the sim event fires, but `CaptureRig.Shot`
-            // (Assets/_Project/Editor/CaptureRig.cs ~124, ~164) only holds the shot's zoom for the one frame it
-            // renders and restores the live camera's own zoom right after — so through the ticks
-            // DropLandingDustStills.cs advances to reach landTick, the camera sits at its ordinary zoom (measured
-            // zoom=30 at every OnDropLanded firing, a scratch Debug.Log). DropDustOverview(30) == 1, so these
-            // stills can never exercise the overview branch above, by the harness's own design: raising
-            // DropDustCards to 8 and rerunning reproduced the committed stills byte-for-byte. Decision needed on
-            // how the harness proves the overview puff (docs/reference/decisions.md, "the paradrop stills can
-            // never show the overview puff"); asserting the 150 px gate here would hold a test red for a reason
-            // no change to this file's production code can fix.
+            // probe.json: measured on the real stills this unit commits, with the probe's units fixed
+            // (spread on 0..1, "spread_scale": 1) and the count only pixels that brightened by >= 0.05 luma.
+            // The earlier blocker is gone: `CombatFx.OnDropLanded` still bakes the recipe from `ViewEye.Zoom` at
+            // the instant the sim event fires, so `DropLandingDustStills.cs` now holds the live TacticalCamera at
+            // zoom 240 for the whole Play session instead of only for the frame each `CaptureRig.Shot` renders
+            // (landzoom.json: zoom_at_droplanded 240 over 8 DropLanded events). Measured there:
+            // dust_minus_nopuff_px 1913 (the minimum of +3's 2681 and +6's 1913), noise floor 0.
             string probePath = Path.Combine(Application.dataPath, "..", "..", "docs", "evidence", "paradrop-inbound-marker-r6", "probe.json");
             Assert.IsTrue(File.Exists(probePath), "probe.json: " + probePath);
             var probe = JsonUtility.FromJson<ProbeResult>(File.ReadAllText(probePath));
             Assert.AreEqual(1, probe.spread_scale, "the probe's units are fixed: spread on 0..1, not 0..255");
+            Assert.GreaterOrEqual(probe.dust_minus_nopuff_px, 150, "the landing puff shows on the overview stills");
         }
 
         [System.Serializable]

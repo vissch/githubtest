@@ -10,7 +10,9 @@ the harsh critic's fix 3 on r5 (score 22/100): r5's probe compared a 0-255 chann
 Six real `CaptureRig` stills from one Play session in `GreyboxCorridor` (night look), all at zoom 240, yaw 21,
 pitch 25, lamps (`lights.realLamps` 43, `lights.waterLamps` 0) and the weather clock (`Atmosphere.PinnedClock`
 120) pinned, the support disc masked (`CombatFx.ShowOverlays = false`). Every sidecar reads `pose_error_m` 0 and
-`mark_on_screen` 1. `DropLandingDustStills.cs` shoots them; `probe.py` measures them and writes `probe.json`.
+`mark_on_screen` 1. `DropLandingDustStills.cs` shoots them; `probe.py` measures them and writes `probe.json`; the same test writes
+`landzoom.json`, the camera's zoom at the instant the drop landed. Both open questions this folder carried
+(`docs/reference/decisions.md`) are closed by this run: option (a), the harness holds the overview.
 
 | still | what it is |
 |---|---|
@@ -30,6 +32,40 @@ state (window mean luma 0.2753 -> 0.305) and made `noise_puff_px` read 5977. Sho
 sidecar `luma_mean` is identical to five places (0.20603 both) and the measured floor is **`noise_puff_px` 0,
 `noise_blob_px` 0**.
 
+## The puff shows: dust_minus_nopuff_px 1913 (gate 150)
+
+`probe.json`, this run: `dust_minus_nopuff_px` **1913** (`_p3` 2681, `_p6` 1913 — the reported number is the
+minimum of the two ticks), `spread_scale` 1, `noise_puff_px` 0, `noise_blob_px` 0, `landing_dust_px_z240` 74,
+`luma_delta` 0.3746 against a noise floor of 0.0, `centre_off_px` 13.5, `yellow_px_delta` 0.
+
+Nothing in the probe was loosened to get there: the window is still 180 x 180 px around `CaptureRig`'s own screen
+projection of the landing point, the threshold is still 0.05 luma, and the count is still one term with no
+morphology.
+
+## What actually changed: the harness now stages the scenario
+
+Earlier legs measured 6 px and reported it honestly as a shortfall. The reason was the proof, not the puff.
+`CombatFx.OnDropLanded` bakes the puff's width, alpha, glow, open frame and card count from `ViewEye.Zoom` **at
+the instant the sim event fires**, and `CaptureRig.Shot` sets the live `TacticalCamera`'s zoom only for the one
+frame it renders, restoring the camera's own zoom right after (`Assets/_Project/Editor/CaptureRig.cs` ~124, ~164).
+The landing tick falls between shots, so the puff was always spawned with the close recipe (zoom 30: 5 m wide, one
+card, frame 0, alpha 0.7, glow 1) and then photographed from zoom 240. Raising `DropDustCards` to 8 reproduced the
+stills byte-for-byte, which is how that was proved.
+
+`DropLandingDustStills.cs` now sets `TacticalCamera.Zoom = 240` right after the pins and re-sets it after every
+shot drains, so the **whole Play session** runs at the overview — a drop landing while the player is zoomed out,
+which is the scenario this unit is about. It is checked, not assumed: a latch on `SimHost.Events` records
+`ViewEye.Zoom` at the first `DropLanded` and the test asserts it is at or above `CombatFx.DropDustOverviewFrom`.
+`landzoom.json` carries the number: **`zoom_at_droplanded` 240, `droplanded_events` 8**.
+
+The overview recipe is what the new stills hold: width 5 m -> 10 m (4 x the area), the open frame 0 -> 3, alpha
+0.7 -> 0.95, night glow 1 -> 2.2, and 3 stacked cards.
+
+**These six stills are a new baseline.** The session no longer snaps to the overview for one frame at a time, so
+the men render at their overview tier in every shot, not only in the shot. Comparisons against the older
+`z240-*` images in this folder's history are not frame-to-frame comparable; the probe's pairs are, because each
+pair is two shots of the same frozen frame.
+
 ## The DustPuff book, measured from the sheet
 
 `Assets/_Project/Resources/VFX/DustPuff.png`, 2048 x 1024, an 8 x 4 sheet of 28 frames. Mean of `alpha * luma`
@@ -46,31 +82,7 @@ Maximum 0.1476 at frame 4. The earliest frame at or above 60 % of it was **frame
 part 1 used for `CombatFx.DropDustOpenFrame`. Part 2 (below) re-measures on the sheet's own alpha channel instead
 of brightness alone, since the two disagree past the peak, and moves it to frame 3.
 
-## The puff still does not reach the owner's 150 px. Measured numbers
-
-`probe.json`, this run: `dust_minus_nopuff_px` **6** (`_p3` 6, `_p6` 37), `spread_scale` 1, `noise_puff_px` 0,
-`landing_dust_px_z240` 27, `luma_delta` 0.1329 against a noise floor of 0.0, `yellow_px_delta` 0.
-
-The shortfall is not the threshold. The whole luma-delta distribution of the two puff pairs, counted down to
-0.01 (a fifth of the gate):
-
-| pair | max | px >= 0.01 | >= 0.02 | >= 0.03 | >= 0.05 | >= 0.1 |
-|---|---|---|---|---|---|---|
-| + 3 | 0.1973 | 20 | 10 | 8 | 6 | 3 |
-| + 6 | 0.2973 | 61 | 48 | 43 | 37 | 26 |
-
-Only 20 and 61 pixels of the 32 400-pixel window hold **any** puff ink at all. 150 is therefore out of reach of
-brightness at any setting: the ceiling at + 3 is 20 px. It is also out of reach of the planned width lever, and
-that lever is a no-op here besides: `DropDustOverview(240) = clamp(240 / 120, 1, 2.2) = 2`, short of the cap, so
-raising `DropDustOverviewMax` to 2.6 changes nothing at zoom 240 (checked, then reverted). Count scales with area,
-so clearing 150 at + 3 from 6 px would need about 5 x the width — a 50 m puff, far past the 12 m the test caps to
-stop the puff swallowing the zone it marks.
-
-Reaching 150 needs the puff's **density** raised: a denser sheet, or several overlapping cards per man. That is a
-decision about the art and the recipe, not a knob, and it is left to the owner rather than closed by widening this
-probe's window or lowering its 0.05 threshold.
-
-## Fix 3 part 2: the density lever is built, but this harness can never exercise it
+## The open frame and the card stack, measured from the sheet's alpha
 
 `CombatFx.DropDustOpenFrame` is now measured from the sheet's own alpha channel (`probe.py --frames`: fraction of
 cell pixels with alpha > 0.1, and mean of `alpha * luma`, printed per frame), not the old brightness-only read:
@@ -85,24 +97,5 @@ frame 24: 0.0262 25: 0.0197 26: 0.0126 27: 0.0057
 Frame 9 is the book's maximum coverage (0.2499 of a cell), frame 3 is the earliest at or above 80 % of it
 (0.2143, 86 %) — frame 2 (0.1965, 79 %) falls just short. `DropDustCards`
 (3), `DropDustCardCount(zoom)` and `DropDustCardOffset(k, width)` stack cards one frame apart on a golden-angle
-ring at the overview, cheap (same book, batched) and reversible, as option (a) of the open question below asked
-for. `FarGrowTests.ParaDropLandingDustShowsAtOverview` holds all of it, plus the probe's own gate.
-
-**It does not move a single pixel on these stills, and no change inside `CombatFx.OnDropLanded`'s overview branch
-ever can.** `CaptureRig.Shot` (`Assets/_Project/Editor/CaptureRig.cs` ~124, ~164) sets the live `TacticalCamera`'s
-zoom to the shot's zoom only for the one frame it renders, then restores the camera's own zoom (`keepZoom`)
-immediately after. Between shots — including the whole stretch of simulated ticks that crosses `landTick`, where
-`OnDropLanded` actually fires — the camera sits at its ordinary zoom. A scratch build with
-`Debug.Log("zoom=" + ViewEye.Zoom)` inside `OnDropLanded`, run through this exact test, printed `zoom=30` at every
-firing, never 240. `CombatFx.DropDustOverview(30) == 1`, so `overview` is `false` and the small, non-stacked,
-frame-0 recipe is what gets baked into the card — regardless of `DropDustCards`, `DropDustWidth`, or
-`DropDustOpenFrame`. Raising `DropDustCards` to 8 and rerunning the stills (same build, same test) reproduced the
-baseline images **byte-for-byte** (`cmp` against the committed PNGs: identical), which is the proof, not an
-inference. `dust_minus_nopuff_px` measured by this probe is therefore reading the puff's close-range recipe
-(`2 m` wide, opening on frame 0) viewed through a camera that is only zoomed out for the instant of the picture —
-never the overview recipe this whole unit, and r5 before it, was meant to size.
-
-Closing this needs the stills harness itself to hold the camera at the overview zoom through the tick that lands
-the drop — not just at each `Shot` call — which is `DropLandingDustStills.cs`, a file this plan marked read-only.
-That is a change to the proof, not the recipe, and is the owner's call (or the next leg's, with it put to them):
-see the open question below.
+ring at the overview, cheap (same book, batched) and reversible.
+`FarGrowTests.ParaDropLandingDustShowsAtOverview` holds all of it, plus the probe's own 150 px gate.
