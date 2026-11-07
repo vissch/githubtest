@@ -1441,9 +1441,12 @@ namespace TW.Presentation.Tactical
                     TakeTopKick(v, e.B);   // and the top takes a little of it (TankRenderer.Weight.cs)
                     if (gunHullFlash > 0f) v.Flash = Mathf.Max(v.Flash, gunHullFlash);   // the gun lights its own hull
                     CameraShake.Add(muzzle, 4f);
+                    bool byCards = recipes >= 0.5f;   // L20 (fx.recipes): every card of the shot comes from FireCards, below (TankRenderer.Guns.cs)
                     // the gun lights the ground in front of it; a gun with its own blast drawing by day through FireLight, whose glow
-                    // card is a fraction of Flash's 2.6 (r19: that card was the white disc over the Tusk's crack and the Salvo)
-                    if (classGuns && !SceneMood.Night && BlastBookOf(v.Archetype) != FlipbookFx.Book.GunBlast)
+                    // card is a fraction of Flash's 2.6 (r19: that card was the white disc over the Tusk's crack and the Salvo). The
+                    // own book is what FireCards draws whenever byCards, whatever fx.classArms says (FireCards never reads it).
+                    bool ownBlast = (byCards || classGuns) && BlastBookOf(v.Archetype) != FlipbookFx.Book.GunBlast;
+                    if (ownBlast && !SceneMood.Night)
                         SceneHooks.FireLight?.Invoke(muzzle + dir * 1.2f, new Color(1f, 0.72f, 0.38f), 34f, 14f, 0.16f, OwnBlastLightCard);
                     else SceneHooks.Flash?.Invoke(muzzle + dir * 1.2f, new Color(1f, 0.72f, 0.38f), 34f, 14f, 0.16f);
                     if (books == null || !books.Ready) break;
@@ -1453,7 +1456,6 @@ namespace TW.Presentation.Tactical
                     var muz = MuzzleLook(classGuns ? v.Archetype : VehicleArchetype.Maw);   // its near smoke (TankRenderer.Guns.cs); the old look when fx.classArms is off
                     var world = Host.Local.World;
                     byte team = e.A < world.HighWater ? world.Team[e.A] : (byte)0;
-                    bool byCards = recipes >= 0.5f;   // L20 (fx.recipes): every card of the shot comes from FireCards, below (TankRenderer.Guns.cs)
                     if (byCards)
                     {
                         // L20: the round itself, a heavy tracer from the muzzle to where it went: who shot whom

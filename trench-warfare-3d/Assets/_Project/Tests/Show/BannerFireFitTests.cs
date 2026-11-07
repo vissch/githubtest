@@ -323,7 +323,7 @@ namespace TW.Tests
                                 {
                                     var c = cards[i];
                                     var book = (FlipbookFx.Book)Field(c, "Book");
-                                    if (book != FlipbookFx.Book.GunBlast && book != FlipbookFx.Book.Flash) continue;
+                                    if (book != TankRenderer.BlastBookOf(VehicleArchetype.Banner) && book != FlipbookFx.Book.Flash) continue;
                                     fire++;
                                     DrawnQuad(cam, (Vector3)Field(c, "Pos"), (Vector3)Field(c, "Axis"), (float)Field(c, "Width"), (float)Field(c, "Height"),
                                         (float)Field(c, "Roll"), ((FlipbookFx.Kind)Field(c, "Kind") & FlipbookFx.Kind.Mirror) != 0, book, out Vector3 root, out Vector3 end);
