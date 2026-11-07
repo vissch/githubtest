@@ -1,0 +1,65 @@
+{
+  "subject": "review:U046",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/AbilityArgsTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/AirDropTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/BarragePatternTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/BattlefieldLockstepTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/BattlefieldTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/BeamTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/BreakerTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/BurningSystemTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/ChassisTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/CoastTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/CombatTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/CommandSeatTests.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/OffMapAbilities.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/AmbientBombardment.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/MatchSim.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/BeamSystem.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatTables.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Units/Breaker.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/Replay.cs",
+    "git diff 7943d2b9..origin/claude/trench-warfare-2d-3d-plan-idt7lf -- the twelve U046 files (336 insertions)",
+    "docs/reference/tasks.md",
+    "docs/reference/decisions.md",
+    ".claude/agents/tw-reviewer.md",
+    ".claude/skills/tw-review/SKILL.md"
+  ],
+  "tasks": [
+    {
+      "title": "Dispose the MatchSim in DirectFireWithoutTankGunneryRefusesToStep",
+      "why": "P2, CombatTests.cs:373. The new test builds the sim with a plain `var m = MatchSim.CreateGreybox(cfg, combat: false);` -- no `using`, and nothing else in the method disposes it. The test's whole point is that the next Step throws (CombatTests.cs:376), so even a trailing Dispose would be skipped. Every MatchSim holds Allocator.Persistent NativeArrays (SimWorld.cs:156-181), so each run of this test leaks a whole world and Unity reports \"A Native Collection has not been disposed\" later, against whatever test or domain reload happens to trip it -- a red the gate blames on an innocent test. It is the only `CreateGreybox(cfg, combat: false)` in the tests without `using` (the other seven at LockstepLoopbackTests.cs:45, LaneAndEngageRulesTests.cs:225, SpreadAndEngageTests.cs:277,307 all have it).",
+      "files": ["trench-warfare-3d/Assets/_Project/Tests/Sim/CombatTests.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "the test reads `using var m = ...` (or wraps the throw in try/finally with m.Dispose()), the EditMode run of CombatTests is green, and its log holds no \"Native Collection has not been disposed\" line",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Probe SimWorld.Roster in the tick-hash blind-spot test",
+      "why": "P2, BattlefieldLockstepTests.cs:287-298. The probe list says it is \"every array SimWorld.Hash() folds in, in the order it folds them\", but Hash() folds Roster (SimWorld.cs:448, `SimHash.Array(Roster, h)`) between AliveCount and Silver and no probe touches it. Roster is the per-player deploy table (SimWorld.cs:50, MaxPlayers * RosterEntry.SlotCount, written by FillRosters at :112-134), the seam's own RosterEntry.SlotCount surface: if it were dropped from Hash() two peers could deploy different units from the same slot and every lockstep test in the repo would stay green. This is exactly the gap [T24b] just closed for Alarm, left open one array earlier in the same fold.",
+      "files": ["trench-warfare-3d/Assets/_Project/Tests/Sim/BattlefieldLockstepTests.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "a Roster probe (NativeArray<RosterEntry>, perturb element 0 and put it back) sits in the list where Hash() folds it, the test is green, and it goes red when the `SimHash.Array(Roster, h)` line in SimWorld.Hash() is commented out",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Fix the five wrong line citations in the new lockstep comments",
+      "why": "P3, BattlefieldLockstepTests.cs:100-102, :150-151, :298, :329 and BreakerTests.cs:166. The [T9]/[T24b] rewrite justifies itself by citing lines, and four of its five citations point at unrelated code: \"Tick is folded into World.Hash() (SimWorld.cs:392)\" -- 392 is inside ClampToMap, Tick is folded at :440; \"it folds Silver in (SimWorld.cs:163, :402)\" -- 163 allocates Layer and 402 is a Phase0MoveJob field, Silver is folded at :449; \"LastHash ... (SimWorld.cs:247-253 / :240-253 only writes it on a tick it hashes)\" -- that range is Spawn/Despawn, LastHash is written at :289 and :292; \"Alarm, folded at SimWorld.cs:439 since v27\" -- 439 is `SimHash.Value(Tick, h)`, Alarm is at :477. BreakerTests.cs:166's \"the halt the wind-up asks for (Breaker.cs:99)\" is the Phase assignment; the halt is Breaker.cs:101. Every claim is true; only the pointers are wrong, so the next reader who checks the reasoning at the line (the review rule) finds unrelated code and cannot tell a stale comment from a wrong one. MatchSim.cs:76 and Replay.cs:17 both read true.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Tests/Sim/BattlefieldLockstepTests.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Sim/BreakerTests.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "each cited SimWorld.cs/Breaker.cs line number names the statement the comment describes, checked by reading the file at that line; no test behaviour changes and the EditMode modules for these two files stay green",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
