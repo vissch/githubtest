@@ -73,5 +73,65 @@ namespace TW.Tests
             Assert.AreEqual(1.6f, fx.SmokeGrow, 1e-4f, name);
             Assert.AreEqual(0.03f, fx.SmokeDelayStep, 1e-4f, name);
         }
+
+        // [P2] FireCards emitted one blast, one flash and three smokes with no Puff card: with fx.recipes on, no
+        // machine drew the ring of smoke the shot leaves. MuzzleFx.PuffWidth/PuffLife/PuffAlpha/PuffPush and the
+        // Banner's own refit of them were then read nowhere.
+        [TestCase("Maw", VehicleArchetype.Maw)]
+        [TestCase("Tusk", VehicleArchetype.Tusk)]
+        [TestCase("Pavise", VehicleArchetype.Pavise)]
+        [TestCase("Kettle", VehicleArchetype.Kettle)]
+        [TestCase("Salvo", VehicleArchetype.Salvo)]
+        [TestCase("Banner", VehicleArchetype.Banner)]
+        public void EveryMachinesShotDrawsTheMuzzlePuff(string name, byte archetype)
+        {
+            var cards = new TankRenderer.FireCard[TankRenderer.MaxFireCards];
+            int n = TankRenderer.FireCards(archetype, cards);
+            var muz = TankRenderer.MuzzleLook(archetype);
+
+            bool found = false;
+            for (int i = 0; i < n; i++)
+            {
+                if (cards[i].Book != TW.Presentation.Tactical.FlipbookFx.Book.Puff) continue;
+                found = true;
+                Assert.AreEqual(muz.PuffWidth, cards[i].Width, 1e-4f, $"[P2] {name} puff width");
+                Assert.AreEqual(muz.PuffLife, cards[i].Life, 1e-4f, $"[P2] {name} puff life");
+                Assert.AreEqual(muz.PuffPush, cards[i].Push, 1e-4f, $"[P2] {name} puff push");
+            }
+            Assert.IsTrue(found, $"[P2] {name} drew no Puff card");
+
+            if (archetype == VehicleArchetype.Banner)
+            {
+                Assert.AreEqual(2.6f, muz.PuffWidth, 1e-4f, "[P2] the Banner's puff width");
+                Assert.AreEqual(0.8f, muz.PuffLife, 1e-4f, "[P2] the Banner's puff life");
+                Assert.AreEqual(2.2f, muz.PuffPush, 1e-4f, "[P2] the Banner's puff push");
+            }
+        }
+
+        // [P2] FireCards:154 always took FlashWidthPlain, so a gun with its own blast drawing (the Tusk, the
+        // Pavise, the Banner) no longer got the small flash under it: MuzzleFx.FlashWidth was read nowhere.
+        [TestCase("Maw", VehicleArchetype.Maw)]
+        [TestCase("Tusk", VehicleArchetype.Tusk)]
+        [TestCase("Pavise", VehicleArchetype.Pavise)]
+        [TestCase("Kettle", VehicleArchetype.Kettle)]
+        [TestCase("Salvo", VehicleArchetype.Salvo)]
+        [TestCase("Banner", VehicleArchetype.Banner)]
+        public void AGunWithItsOwnBlastDrawingGetsTheSmallFlash(string name, byte archetype)
+        {
+            var cards = new TankRenderer.FireCard[TankRenderer.MaxFireCards];
+            int n = TankRenderer.FireCards(archetype, cards);
+            var muz = TankRenderer.MuzzleLook(archetype);
+            bool ownBlast = TankRenderer.BlastBookOf(archetype) != TW.Presentation.Tactical.FlipbookFx.Book.GunBlast;
+            float expected = ownBlast ? muz.FlashWidth : muz.FlashWidthPlain;
+
+            bool found = false;
+            for (int i = 0; i < n; i++)
+            {
+                if (cards[i].Book != TW.Presentation.Tactical.FlipbookFx.Book.Flash) continue;
+                found = true;
+                Assert.AreEqual(expected, cards[i].Width, 1e-4f, $"[P2] {name} flash width");
+            }
+            Assert.IsTrue(found, $"[P2] {name} drew no Flash card");
+        }
     }
 }
