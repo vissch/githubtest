@@ -283,8 +283,11 @@ namespace TW.Tests
             { var o = a[0]; ulong b = w.Hash(); a[0] = o + 1; Check(name, b); a[0] = o; Restored(name, b); }
             void Pu(string name, NativeArray<uint> a)
             { var o = a[0]; ulong b = w.Hash(); a[0] = o + 1u; Check(name, b); a[0] = o; Restored(name, b); }
+            void Pr(string name, NativeArray<RosterEntry> a)
+            { var o = a[0]; ulong b = w.Hash(); var e = o; e.Cost = o.Cost + 1; a[0] = e; Check(name, b); a[0] = o; Restored(name, b); }
 
             // every array SimWorld.Hash() folds in, in the order it folds them
+            Pr("Roster", w.Roster); // [P2] folded at SimWorld.cs:448 between AliveCount and Silver, never probed here
             Pi("Silver", w.Silver); Pf("SilverFraction", w.SilverFraction); Pf3("Rally", w.Rally);
             Pi("SlotCooldown", w.SlotCooldown); Pb("SlotUnlocked", w.SlotUnlocked);
             Pf3("Position", w.Position); Pf3("Velocity", w.Velocity); Pf("Yaw", w.Yaw);
