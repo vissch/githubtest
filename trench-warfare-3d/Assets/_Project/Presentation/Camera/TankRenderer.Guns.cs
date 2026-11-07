@@ -133,7 +133,7 @@ namespace TW.Presentation.Tactical
             public float NearEdge => Push - Width * 0.5f;
         }
 
-        /// <summary>No shot draws more cards than this (the recipe branch: one blast, one flash, three smokes).</summary>
+        /// <summary>No shot draws more cards than this (the recipe branch: one blast, one flash, one puff, three smokes).</summary>
         public const int MaxFireCards = 8;
         /// <summary>A card that lives longer than this is carried with the machine: shorter ones are gone before it moves.</summary>
         public const float CarriedOver = 0.2f;
@@ -158,6 +158,8 @@ namespace TW.Presentation.Tactical
             // the small flash at the mouth under it: under its own drawing a thin card (r19/r20: a 3.2 m bloom was the
             // white disc the own book exists to replace), without one the plain width
             into[n++] = new FireCard { Book = FlipbookFx.Book.Flash, Push = 0.4f, Width = own ? muz.FlashWidth : muz.FlashWidthPlain, Life = muz.FlashLife, Smoke = -1 };
+            // the ring of smoke the shot leaves
+            into[n++] = new FireCard { Book = FlipbookFx.Book.Puff, Push = muz.PuffPush, Width = muz.PuffWidth, Life = muz.PuffLife, Smoke = -1 };
             // and the three smoke cards that follow the shot out along the barrel
             for (int k = 0; k < 3; k++)
                 into[n++] = new FireCard { Book = FlipbookFx.Book.Smoke, Push = muz.SmokePushOf(k), Width = muz.SmokeSizeOf(k), Life = muz.SmokeLifeOf(k), Smoke = k };
@@ -219,6 +221,9 @@ namespace TW.Presentation.Tactical
                 else if (c.Book == FlipbookFx.Book.Flash)
                     // a laid flash takes its roll from the bore, not from a die: a 2 m card rolled at random points anywhere
                     books.Add(c.Book, at, c.Width, c.Life, velocity: vel, roll: c.AlongAxis ? 0f : UnityEngine.Random.value * 6.28f, glow: own ? (SceneMood.Night ? 1.5f : 0.8f) : SceneMood.Night ? 4f : 2f, pop: 0.5f, axis: axis);
+                else if (c.Book == FlipbookFx.Book.Puff)
+                    // the ring of smoke the shot leaves: it still reads in a busy frame
+                    books.Add(c.Book, at, c.Width, c.Life, velocity: vel + dir * 1.5f + Vector3.up * 0.4f, grow: 1.2f, alpha: muz.PuffAlpha, pop: 0.3f);
                 else
                 {
                     int k = Mathf.Max(0, c.Smoke);
