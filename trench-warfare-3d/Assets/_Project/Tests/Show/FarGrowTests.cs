@@ -1,5 +1,6 @@
 // Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-5) - FlipbookFx.FarGrow, how much wider the burst recipes'
 // far-reading parts (the plume, the ground ring) are drawn at a zoom: 1 up to zoom 80, then with the zoom, capped.
+using System.IO;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation.Tactical;
@@ -121,11 +122,47 @@ namespace TW.Tests
             Assert.GreaterOrEqual(CombatFx.DropDustWidth(240f) * pxPerM, 30f, "the landing puff is a read, not a speck, at zoom 240");
             Assert.That(CombatFx.DropDustWidth(240f), Is.LessThanOrEqualTo(12f), "and not so wide it covers the zone it marks");
 
-            // the open frame is measured from the sheet, not from the renderer's arithmetic: the 28-cell coverage
-            // table in docs/evidence/paradrop-inbound-marker-r6/README.md is its only source (frame 0 is 0.0316 of
-            // a cell, frame 2 is 0.1369 = 93 % of the book's maximum, the earliest cell over 60 %).
-            Assert.AreEqual(2f, CombatFx.DropDustOpenFrame, 1e-6f, "the overview card opens on the measured frame of the DustPuff book");
+            // the open frame is measured from the sheet's own alpha channel, not from the renderer's arithmetic:
+            // the 28-cell coverage table in docs/evidence/paradrop-inbound-marker-r6/README.md (probe.py --frames)
+            // is its only source (frame 9 is 0.2499 coverage, the book's maximum, frame 3 is 0.2143 = 86 %, the
+            // earliest cell at or above 80 %).
+            Assert.AreEqual(3f, CombatFx.DropDustOpenFrame, 1e-6f, "the overview card opens on the measured frame of the DustPuff book");
             Assert.Less(CombatFx.DropDustOpenFrame, 28f, "and inside the book (DustPuff is 28 frames)");
+
+            // r6 fix 3 part 2: 209 px of real ink at landTick + 6 is 5x the 42 at + 3 (same card width), so area
+            // was still filling in at + 3 - the lever left is density, several overlapping cards, not width.
+            Assert.AreEqual(1, CombatFx.DropDustCardCount(30f), "T3/T2/T1 keep exactly one card, byte-identical by construction");
+            Assert.GreaterOrEqual(CombatFx.DropDustCardCount(240f), 3, "the overview stacks cards to raise the puff's density");
+            float stackWidth = CombatFx.DropDustWidth(240f);
+            for (int k = 0; k < CombatFx.DropDustCardCount(240f); k++)
+            {
+                Vector2 off = CombatFx.DropDustCardOffset(k, stackWidth);
+                Assert.LessOrEqual(off.magnitude, 0.5f * stackWidth, "the cluster still fits inside the 12 m cap (card " + k + ")");
+            }
+
+            // probe.json: dustprobe3.py's units are fixed (spread_scale 1), held so a future regression in the
+            // probe itself is caught here too. NOT the dust_minus_nopuff_px >= 150 gate: `CombatFx.OnDropLanded`
+            // sizes the puff from `ViewEye.Zoom` at the instant the sim event fires, but `CaptureRig.Shot`
+            // (Assets/_Project/Editor/CaptureRig.cs ~124, ~164) only holds the shot's zoom for the one frame it
+            // renders and restores the live camera's own zoom right after — so through the ticks
+            // DropLandingDustStills.cs advances to reach landTick, the camera sits at its ordinary zoom (measured
+            // zoom=30 at every OnDropLanded firing, a scratch Debug.Log). DropDustOverview(30) == 1, so these
+            // stills can never exercise the overview branch above, by the harness's own design: raising
+            // DropDustCards to 8 and rerunning reproduced the committed stills byte-for-byte. Decision needed on
+            // how the harness proves the overview puff (docs/reference/decisions.md, "the paradrop stills can
+            // never show the overview puff"); asserting the 150 px gate here would hold a test red for a reason
+            // no change to this file's production code can fix.
+            string probePath = Path.Combine(Application.dataPath, "..", "..", "docs", "evidence", "paradrop-inbound-marker-r6", "probe.json");
+            Assert.IsTrue(File.Exists(probePath), "probe.json: " + probePath);
+            var probe = JsonUtility.FromJson<ProbeResult>(File.ReadAllText(probePath));
+            Assert.AreEqual(1, probe.spread_scale, "the probe's units are fixed: spread on 0..1, not 0..255");
+        }
+
+        [System.Serializable]
+        class ProbeResult
+        {
+            public int spread_scale;
+            public int dust_minus_nopuff_px;
         }
     }
 }

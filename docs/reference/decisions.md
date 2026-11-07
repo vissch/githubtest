@@ -302,6 +302,25 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 
 ## Open: waiting on the owner
+- **The paradrop stills can never show the overview puff, by the harness's own design (2026-11-07, lane
+  `lane/show/paradrop-inbound-marker-r6`, fix 3 part 2):** `CombatFx.OnDropLanded` sizes the puff from
+  `ViewEye.Zoom`, the live `TacticalCamera`'s zoom, at the instant the sim event fires. `CaptureRig.Shot`
+  (`Assets/_Project/Editor/CaptureRig.cs` ~124, ~164) only sets that zoom for the one frame it renders, then
+  restores the camera's own zoom right after — so through the whole stretch of ticks `DropLandingDustStills.cs`
+  advances to reach `landTick` (where `OnDropLanded` actually fires), the camera sits at its ordinary zoom.
+  A scratch build logging `ViewEye.Zoom` inside `OnDropLanded`, run through this exact test, printed `zoom=30` at
+  every firing. `DropDustOverview(30) == 1`, so the puff is always drawn with the small, non-overview recipe,
+  baked in at spawn time; no change to the overview branch (width, open frame, stacked cards — all built and
+  tested this leg) can move a pixel on these stills, confirmed by raising `DropDustCards` to 8 and reproducing the
+  baseline images byte-for-byte. Options: (a) `DropLandingDustStills.cs` holds the camera at the overview zoom
+  through the tick that lands the drop, not just at each `Shot` call (changes the proof, not the recipe); (b) the
+  dust recipe reads the zoom live rather than at spawn (a bigger change, the same shape as the `VATRenderer`/
+  `IZoomSource.CurrentZoom` note already in `CaptureRig.cs`); (c) accept that the overview puff is judged in real
+  play, where a drop landing while the player is actually zoomed out is the normal case, and this harness is not
+  the right proof for it. **Default taken this leg: none** — `DropDustOpenFrame` (now 3, measured from the
+  sheet's alpha channel) and the card-stacking infrastructure (`DropDustCards`, `DropDustCardCount`,
+  `DropDustCardOffset`) are committed and held by `FarGrowTests`, honestly reported as unable to move the probe's
+  gate for the reason above.
 - **The paradrop landing puff cannot reach 150 px at zoom 240 with the sheet it has (2026-11-07, lane
   `lane/show/paradrop-inbound-marker-r6`):** measured on real stills (`docs/evidence/paradrop-inbound-marker-r6`),
   only 20 px (landTick + 3) and 61 px (+ 6) of the 180 x 180 window hold **any** puff ink above 0.01 luma, so the

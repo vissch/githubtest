@@ -100,11 +100,31 @@ namespace TW.Presentation.Tactical
         public const float DropDustOverviewFrom = 120f;
         public const float DropDustOverviewMax = 2.2f;
 
-        /// <summary>The frame of the DustPuff book the overview card opens on. Measured from the sheet itself
-        /// (docs/evidence/paradrop-inbound-marker-r6/README.md, the frame table): frame 0 covers 0.0316 of a cell
-        /// and frame 2 covers 0.1369, 93 % of the book's maximum, so at landTick + 3 the card is 0.05 s old and
-        /// frame 0 drew the first near-empty wisp (7 px measured). Overview only, so T3/T2/T1 are untouched.</summary>
-        public const float DropDustOpenFrame = 2f;
+        /// <summary>The frame of the DustPuff book the overview card opens on. Measured from the sheet's alpha
+        /// channel itself (docs/evidence/paradrop-inbound-marker-r6/README.md, the coverage table, `probe.py
+        /// --frames`): frame 9 covers 0.2499 of a cell (the book's maximum coverage) and frame 3 is the earliest
+        /// at or above 80 % of it (0.2143). Overview only, so T3/T2/T1 are untouched.</summary>
+        public const float DropDustOpenFrame = 3f;
+
+        /// <summary>How many DustPuff cards the overview draws per man, stacked to raise the puff's density: width
+        /// alone cannot clear the owner's 150 px gate at zoom 240 without a puff past the 12 m cap (measured,
+        /// docs/evidence/paradrop-inbound-marker-r6/README.md). Overview only; the non-overview branch keeps
+        /// exactly one card so T3/T2/T1 stay byte-identical.</summary>
+        public const int DropDustCards = 3;
+
+        /// <summary>How many cards to draw at a zoom: the stack at the overview, one everywhere else. Pure, so a
+        /// test can hold it without a scene.</summary>
+        public static int DropDustCardCount(float zoom) => DropDustOverview(zoom) > 1f ? DropDustCards : 1;
+
+        /// <summary>The k-th card's offset from the landing point: card 0 at the centre, the rest on a ring at the
+        /// golden angle apart so no two sit on a line. Radius 0.22 of the card's own width keeps the cluster well
+        /// inside the 12 m cap that stops the puff swallowing the zone it marks. Pure, so a test can hold it.</summary>
+        public static Vector2 DropDustCardOffset(int k, float width)
+        {
+            if (k == 0) return Vector2.zero;
+            float radius = 0.22f * width, angle = k * 2.3999f;
+            return new Vector2(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius);
+        }
 
         /// <summary>The overview-only extra scale, 1 at and below DropDustOverviewFrom so T3/T2/T1 are untouched by
         /// construction. Pure, so a test can hold it.</summary>
@@ -157,9 +177,17 @@ namespace TW.Presentation.Tactical
             if (recipes < 0.5f || books == null || !books.Ready) return;
             Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
             bool overview = DropDustOverview(ViewEye.Zoom) > 1f;
-            books.Add(FlipbookFx.Book.DustPuff, at + Vector3.up * 0.1f, DropDustWidth(ViewEye.Zoom), 28f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored,
-                alpha: overview ? 0.95f : 0.7f, glow: overview ? (SceneMood.Night ? 2.2f : 1.2f) : 1f,
-                startFrame: overview ? DropDustOpenFrame : 0f);
+            float width = DropDustWidth(ViewEye.Zoom);
+            int cards = DropDustCardCount(ViewEye.Zoom);
+            for (int k = 0; k < cards; k++)
+            {
+                Vector2 off = DropDustCardOffset(k, width);
+                Vector3 p = at + new Vector3(off.x, 0f, off.y);
+                p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z);
+                books.Add(FlipbookFx.Book.DustPuff, p + Vector3.up * 0.1f, width, 28f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored,
+                    alpha: overview ? 0.95f : 0.7f, glow: overview ? (SceneMood.Night ? 2.2f : 1.2f) : 1f,
+                    startFrame: overview ? DropDustOpenFrame + k : 0f);
+            }
         }
     }
 }

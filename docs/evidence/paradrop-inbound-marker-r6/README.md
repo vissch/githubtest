@@ -42,10 +42,9 @@ per cell, frames 0..27:
 0.0107 0.0079 0.0052 0.0023
 ```
 
-Maximum 0.1476 at frame 4. The earliest frame at or above 60 % of it is **frame 2** (0.1369, 93 %). That is the
-only source for `CombatFx.DropDustOpenFrame = 2`, which the overview card now opens on (`startFrame`), so the
-0.05 s-old card no longer draws frame 0's near-empty wisp. Close-up is untouched by construction
-(`overview ? DropDustOpenFrame : 0f`, as `DropDustWidth(30) == 2` already is).
+Maximum 0.1476 at frame 4. The earliest frame at or above 60 % of it was **frame 2** (0.1369, 93 %), which fix 3
+part 1 used for `CombatFx.DropDustOpenFrame`. Part 2 (below) re-measures on the sheet's own alpha channel instead
+of brightness alone, since the two disagree past the peak, and moves it to frame 3.
 
 ## The puff still does not reach the owner's 150 px. Measured numbers
 
@@ -70,3 +69,40 @@ stop the puff swallowing the zone it marks.
 Reaching 150 needs the puff's **density** raised: a denser sheet, or several overlapping cards per man. That is a
 decision about the art and the recipe, not a knob, and it is left to the owner rather than closed by widening this
 probe's window or lowering its 0.05 threshold.
+
+## Fix 3 part 2: the density lever is built, but this harness can never exercise it
+
+`CombatFx.DropDustOpenFrame` is now measured from the sheet's own alpha channel (`probe.py --frames`: fraction of
+cell pixels with alpha > 0.1, and mean of `alpha * luma`, printed per frame), not the old brightness-only read:
+
+```
+frame  0: coverage=0.0503  1: 0.0682  2: 0.1965  3: 0.2143  4: 0.2305  5: 0.2346  6: 0.2357  7: 0.2412
+frame  8: 0.2452  9: 0.2499 10: 0.2463 11: 0.2256 12: 0.2038 13: 0.2039 14: 0.1830 15: 0.1666
+frame 16: 0.1469 17: 0.1103 18: 0.0939 19: 0.0793 20: 0.0658 21: 0.0569 22: 0.0443 23: 0.0367
+frame 24: 0.0262 25: 0.0197 26: 0.0126 27: 0.0057
+```
+
+Frame 9 is the book's maximum coverage (0.2499 of a cell), frame 3 is the earliest at or above 80 % of it
+(0.2143, 86 %) — frame 2 (0.1965, 79 %) falls just short. `DropDustCards`
+(3), `DropDustCardCount(zoom)` and `DropDustCardOffset(k, width)` stack cards one frame apart on a golden-angle
+ring at the overview, cheap (same book, batched) and reversible, as option (a) of the open question below asked
+for. `FarGrowTests.ParaDropLandingDustShowsAtOverview` holds all of it, plus the probe's own gate.
+
+**It does not move a single pixel on these stills, and no change inside `CombatFx.OnDropLanded`'s overview branch
+ever can.** `CaptureRig.Shot` (`Assets/_Project/Editor/CaptureRig.cs` ~124, ~164) sets the live `TacticalCamera`'s
+zoom to the shot's zoom only for the one frame it renders, then restores the camera's own zoom (`keepZoom`)
+immediately after. Between shots — including the whole stretch of simulated ticks that crosses `landTick`, where
+`OnDropLanded` actually fires — the camera sits at its ordinary zoom. A scratch build with
+`Debug.Log("zoom=" + ViewEye.Zoom)` inside `OnDropLanded`, run through this exact test, printed `zoom=30` at every
+firing, never 240. `CombatFx.DropDustOverview(30) == 1`, so `overview` is `false` and the small, non-stacked,
+frame-0 recipe is what gets baked into the card — regardless of `DropDustCards`, `DropDustWidth`, or
+`DropDustOpenFrame`. Raising `DropDustCards` to 8 and rerunning the stills (same build, same test) reproduced the
+baseline images **byte-for-byte** (`cmp` against the committed PNGs: identical), which is the proof, not an
+inference. `dust_minus_nopuff_px` measured by this probe is therefore reading the puff's close-range recipe
+(`2 m` wide, opening on frame 0) viewed through a camera that is only zoomed out for the instant of the picture —
+never the overview recipe this whole unit, and r5 before it, was meant to size.
+
+Closing this needs the stills harness itself to hold the camera at the overview zoom through the tick that lands
+the drop — not just at each `Shot` call — which is `DropLandingDustStills.cs`, a file this plan marked read-only.
+That is a change to the proof, not the recipe, and is the owner's call (or the next leg's, with it put to them):
+see the open question below.

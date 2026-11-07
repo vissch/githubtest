@@ -126,7 +126,42 @@ def load(name):
     return np.asarray(Image.open(os.path.join(HERE, name)).convert("RGB")).astype(np.float32)
 
 
+SHEET_PATH = os.path.normpath(os.path.join(
+    HERE, "..", "..", "..", "trench-warfare-3d", "Assets", "_Project", "Resources", "VFX", "DustPuff.png"))
+SHEET_COLS, SHEET_ROWS, SHEET_FRAMES = 8, 4, 28
+
+
+def sheet_coverage():
+    """Per-frame coverage of the DustPuff book: the fraction of cell pixels with alpha > 0.1, and the mean of
+    alpha * luma over the cell (both on 0..1, using the sheet's own alpha channel, not a derived mask). One row
+    per `Add` frame, in book order (row-major, left to right, top to bottom)."""
+    sheet = np.asarray(Image.open(SHEET_PATH).convert("RGBA")).astype(np.float32)
+    h, w = sheet.shape[0], sheet.shape[1]
+    cell_h, cell_w = h // SHEET_ROWS, w // SHEET_COLS
+    rows = []
+    for i in range(SHEET_FRAMES):
+        r, c = divmod(i, SHEET_COLS)
+        cell = sheet[r * cell_h:(r + 1) * cell_h, c * cell_w:(c + 1) * cell_w]
+        a = cell[..., 3] / 255.0
+        cell_luma = luma(cell[..., :3])
+        rows.append({
+            "frame": i,
+            "coverage": float((a > 0.1).mean()),
+            "alpha_luma_mean": float((a * cell_luma).mean()),
+        })
+    return rows
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--frames":
+        rows = sheet_coverage()
+        for row in rows:
+            print(f"{row['frame']:2d}  coverage={row['coverage']:.4f}  alpha_luma_mean={row['alpha_luma_mean']:.4f}")
+        return
+    main_measure()
+
+
+def main_measure():
     with open(os.path.join(HERE, "z240-p3.json"), "r", encoding="utf-8") as f:
         sidecar = json.load(f)
     mark_x, mark_y = sidecar["mark_px_x"], sidecar["mark_px_y"]
