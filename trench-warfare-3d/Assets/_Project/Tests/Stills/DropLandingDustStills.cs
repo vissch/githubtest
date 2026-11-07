@@ -39,6 +39,7 @@ namespace TW.Tests
     {
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
         const uint WarmupTicks = 100;   // OffMapAbilities.cs: AbilityStats for ParaDrop
+        const float Overview = 240f;    // the zoom every shot is posed at, and now the zoom the whole session runs at
 
         /// <summary>Open ground player 0 may actually drop on (CanLand: not water, not a trench, short of the enemy's
         /// rear line by ParaDropKeepOut), found by scanning rather than guessed at from a map this test does not own.</summary>
@@ -76,6 +77,21 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>Records ViewEye.Zoom at the instant a DropLanded event fires — the instant CombatFx.OnDropLanded
+        /// bakes the puff's recipe from it. This is the number the whole unit turns on, so it goes in the evidence
+        /// folder (landzoom.json) rather than a log line.</summary>
+        sealed class LandedZoom
+        {
+            public float Zoom = -1f;
+            public int Count;
+            public void Hear(SimEvent e)
+            {
+                if (e.Type != SimEventType.DropLanded) return;
+                if (Count == 0) Zoom = ViewEye.Zoom;
+                Count++;
+            }
+        }
+
         [UnityTest, Explicit("Zoom-240 stills at landTick -2, +3 and +6 with puff-hidden twins, lamps and rain pinned; run by name, with a graphics device.")]
         public IEnumerator DropLandingShotBeforeAndAfter()
         {
@@ -104,6 +120,17 @@ namespace TW.Tests
             Knobs.Set("lights.waterLamps", "0");
             Atmosphere.PinnedClock = 120f;
             CombatFx.ShowOverlays = false;
+            // Hold the live camera at the overview for the WHOLE session, not just for the frame each Shot renders.
+            // CombatFx.OnDropLanded bakes the puff's width, alpha, glow, open frame and card count from ViewEye.Zoom
+            // at the instant the sim event fires, which is landTick — a tick the harness advances to with the camera
+            // at its own zoom, so every earlier run measured the close recipe (zoom 30) on overview-posed stills
+            // (docs/reference/decisions.md, "the paradrop stills can never show the overview puff": option (a)).
+            // TacticalCamera.Zoom is a plain field only input moves (TacticalCamera.cs ~158-185) and batch mode has
+            // no input, so it stays put; CaptureRig.Run() restores the zoom it captured when its coroutine started,
+            // so it is re-set after every Drain as well.
+            var tc = Object.FindFirstObjectByType<TacticalCamera>();
+            Assert.That(tc, Is.Not.Null, "no TacticalCamera to hold at the overview");
+            tc.Zoom = Overview;
             for (int f = 0; f < 10; f++) yield return null;
 
             Vector2 drop = FindDropGround(host);
@@ -112,7 +139,9 @@ namespace TW.Tests
             CaptureRig.Rig.Mark = landing;
 
             var latch = new Latch { Near = drop };
+            var landed = new LandedZoom();
             host.Events.OnEvent += latch.Hear;
+            host.Events.OnEvent += landed.Hear;
             TankCapture.Silver();
             host.Issue(new SimCommand { Tick = host.Local.World.Tick, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.ParaDrop, Pos = new Unity.Mathematics.float3(dropX, 0f, dropZ) });
 
@@ -138,6 +167,7 @@ namespace TW.Tests
             Time.timeScale = 0f;
             CaptureRig.Shot(before, dropX, dropZ, 240f, 21f, 25f);
             yield return Drain(before);
+            tc.Zoom = Overview;
 
             // +3: the puff is up. Shot frozen, then re-shot back to back in the same frozen state for the noise floor, then once
             // more with the puff's book hidden — the men and the ground are identical in all three, so the only
@@ -147,11 +177,14 @@ namespace TW.Tests
             Time.timeScale = 0f;
             CaptureRig.Shot(p3, dropX, dropZ, 240f, 21f, 25f);
             yield return Drain(p3);
+            tc.Zoom = Overview;
             CaptureRig.Shot(p3b, dropX, dropZ, 240f, 21f, 25f);
             yield return Drain(p3b);
+            tc.Zoom = Overview;
             fx.HideBookForTests(FlipbookFx.Book.DustPuff, true);
             CaptureRig.Shot(nopuff3, dropX, dropZ, 240f, 21f, 25f);
             yield return Drain(nopuff3);
+            tc.Zoom = Overview;
             fx.HideBookForTests(FlipbookFx.Book.DustPuff, false);
 
             // +6: the same pair again, three ticks later, so one number proves the puff holds and is not one frame
@@ -160,10 +193,21 @@ namespace TW.Tests
             Time.timeScale = 0f;
             CaptureRig.Shot(p6, dropX, dropZ, 240f, 21f, 25f);
             yield return Drain(p6);
+            tc.Zoom = Overview;
             fx.HideBookForTests(FlipbookFx.Book.DustPuff, true);
             CaptureRig.Shot(nopuff6, dropX, dropZ, 240f, 21f, 25f);
             yield return Drain(nopuff6);
+            tc.Zoom = Overview;
             fx.HideBookForTests(FlipbookFx.Book.DustPuff, false);
+
+            host.Events.OnEvent -= landed.Hear;
+            Assert.AreEqual(Overview, tc.Zoom, 1e-3f, "something else moved the camera's zoom during the session");
+            Assert.Greater(landed.Count, 0, "DropLanded never fired, so no puff was spawned at all");
+            Assert.GreaterOrEqual(landed.Zoom, CombatFx.DropDustOverviewFrom,
+                "the stick landed while the camera was at the overview (zoom at DropLanded: " + landed.Zoom + ")");
+            File.WriteAllText(Path.Combine(dir, "landzoom.json"), string.Format(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "{{\"zoom_at_droplanded\": {0:0.###}, \"droplanded_events\": {1}}}", landed.Zoom, landed.Count));
 
             Time.timeScale = 1f;
             Atmosphere.PinnedClock = -1f;
