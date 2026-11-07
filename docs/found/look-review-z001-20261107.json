@@ -1,0 +1,45 @@
+{
+  "subject": "review:Z001",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Sim/Core/AbilityArgs.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/ChassisKind.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/Faction.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/FactionRoster.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/IAuraProvider.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/ISeaLift.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/ISimSystem.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/InfantrySpec.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/Lane.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/OrderGroup.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/PerfMarkers.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/PropTarget.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs",
+    "trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/FactionRosterTests.cs",
+    "docs/reference/tasks.md",
+    "docs/reference/decisions.md",
+    ".claude/skills/tw-review/SKILL.md"
+  ],
+  "tasks": [
+    {
+      "title": "Register each sim system marker once in PerfBench, not twice",
+      "why": "PerfBench.cs:546 opens a recorder for every name in PerfMarkers.Names, then :547 opens one more for each host.Local.World.Systems entry as \"TW.Sim.Sys.\" + type. PerfMarkers.cs:26 now routes ForSystem through M(...), and SimWorld.cs:212 calls ForSystem inside AddSystem before the bench opens, so every system name is already in Names: each system gets two ProfilerRecorders and two Series under one key (New at :482 and Marker at :524 do not dedupe). The bench JSON's series and per_tick_ms blocks (:914, :918) then carry the same key twice; a reader keeps only the last, so the per-system numbers docs/05 is checked against come out of an output with duplicate keys. PerfMarkers.cs:15's comment (\"in declaration order\") is also stale once system names are appended out of that order.",
+      "files": ["trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a check that the bench's series/per_tick_ms keys are unique (e.g. json.load with an object_pairs_hook that refuses a repeat) over a fresh bench run, plus no TW.Sim.Sys.* name registered twice",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Make the two FactionRoster mask tests able to fail",
+      "why": "FactionRosterTests.cs:193 asserts OrderGroup.Of(a) & OrderGroup.All != 0, but OrderGroup.cs:50 returns Line for every id it does not name, so no archetype can ever fail it. FactionRosterTests.cs:135 asserts each faction MayCall(..., HeBarrage), which after FactionRoster.cs:116 (EveryAbility = ~1u) is true for every id 1..31 but 12, so it no longer proves the barrage bit specifically is in the mask. Both lines are green but guard nothing: a mask regression would pass unnoticed.",
+      "files": ["trench-warfare-3d/Assets/_Project/Tests/Sim/FactionRosterTests.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "the rewritten tests assert the whole mask against the literals 0xFFFFEFFE for every faction but Brass and 0xFFFFFFFE for Brass (from FactionRoster.cs:116-119), and go red when FactionOnly is set to 0",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
