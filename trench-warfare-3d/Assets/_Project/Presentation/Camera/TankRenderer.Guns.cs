@@ -148,15 +148,21 @@ namespace TW.Presentation.Tactical
             var gun = GunFor(archetype);
             var muz = MuzzleLook(archetype);
             int n = 0;
-            // a big gun's blast, rooted at the card's left edge, so its centre is half its width out along the barrel
-            into[n++] = new FireCard { Book = FlipbookFx.Book.GunBlast, Push = gun.Blast * 0.5f, Width = gun.Blast, Life = 1f, RootLeft = true, Smoke = -1 };
-            // the small flash at the mouth under it
-            into[n++] = new FireCard { Book = FlipbookFx.Book.Flash, Push = 0.4f, Width = muz.FlashWidthPlain, Life = muz.FlashLife, Smoke = -1 };
+            // the gun's own blast drawing: the Tusk's and Salvo's crack, the Pavise's and Banner's long-gun cone, the
+            // rest the shared GunBlast (BlastBookOf, r15/r17/r19) - rooted at the card's left edge, so its centre is
+            // half its width out along the barrel
+            var book = BlastBookOf(archetype);
+            bool own = book != FlipbookFx.Book.GunBlast;
+            float blastWide = gun.Blast * CalibreScale(book);
+            into[n++] = new FireCard { Book = book, Push = blastWide * 0.5f, Width = blastWide, Life = own ? 0.75f : 1f, RootLeft = true, Smoke = -1 };
+            // the small flash at the mouth under it: under its own drawing a thin card (r19/r20: a 3.2 m bloom was the
+            // white disc the own book exists to replace), without one the plain width
+            into[n++] = new FireCard { Book = FlipbookFx.Book.Flash, Push = 0.4f, Width = own ? muz.FlashWidth : muz.FlashWidthPlain, Life = muz.FlashLife, Smoke = -1 };
             // and the three smoke cards that follow the shot out along the barrel
             for (int k = 0; k < 3; k++)
                 into[n++] = new FireCard { Book = FlipbookFx.Book.Smoke, Push = muz.SmokePushOf(k), Width = muz.SmokeSizeOf(k), Life = muz.SmokeLifeOf(k), Smoke = k };
             // Only the Banner's shot is refitted: the owner complained of its fire and of no other machine's, and the
-            // rest keep exactly the picture they had (GunMuzzleLookTests).
+            // rest keep their own blast book but the plain fit (GunMuzzleLookTests).
             if (archetype != VehicleArchetype.Banner) return n;
             for (int i = 0; i < n; i++)
             {
@@ -170,7 +176,7 @@ namespace TW.Presentation.Tactical
                 c.Carried = c.Life > CarriedOver;
                 // the fire of the shot - the blast and the flash under it - is laid along the bore from the mouth, so it
                 // stays on the barrel from any eye; the smoke is a cloud and keeps its world push
-                c.AlongAxis = c.Book == FlipbookFx.Book.GunBlast || c.Book == FlipbookFx.Book.Flash;
+                c.AlongAxis = c.Book == book || c.Book == FlipbookFx.Book.Flash;
                 into[i] = c;
             }
             return n;
@@ -197,6 +203,8 @@ namespace TW.Presentation.Tactical
         void DrawFireCards(View v, Vector3 muzzle, Vector3 dir, float roll, Vector3 fwd)
         {
             var muz = MuzzleLook(v.Archetype);
+            var book = BlastBookOf(v.Archetype);
+            bool own = book != FlipbookFx.Book.GunBlast;
             Vector3 carry = fwd * v.Felt.Value;
             int n = FireCards(v.Archetype, fireCards);
             for (int i = 0; i < n; i++)
@@ -206,11 +214,11 @@ namespace TW.Presentation.Tactical
                 Vector3 at = muzzle + dir * (c.AlongAxis ? c.NearEdge : c.Push);
                 Vector3 axis = c.AlongAxis ? dir : Vector3.zero;
                 Vector3 vel = c.Carried ? carry : Vector3.zero;
-                if (c.Book == FlipbookFx.Book.GunBlast)
-                    books.Add(c.Book, at, c.Width, c.Life, velocity: vel, roll: roll, glow: SceneMood.Night ? 2.2f : 1.4f, axis: axis);   // 12 frames at 12 fps
+                if (c.Book == book)
+                    books.Add(c.Book, at, c.Width, c.Life, velocity: vel, roll: roll, glow: SceneMood.Night ? (own ? 1.1f : 2.2f) : own ? OwnBlastDayGlow : 1.4f, axis: axis);
                 else if (c.Book == FlipbookFx.Book.Flash)
                     // a laid flash takes its roll from the bore, not from a die: a 2 m card rolled at random points anywhere
-                    books.Add(c.Book, at, c.Width, c.Life, velocity: vel, roll: c.AlongAxis ? 0f : UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : 2f, pop: 0.5f, axis: axis);
+                    books.Add(c.Book, at, c.Width, c.Life, velocity: vel, roll: c.AlongAxis ? 0f : UnityEngine.Random.value * 6.28f, glow: own ? (SceneMood.Night ? 1.5f : 0.8f) : SceneMood.Night ? 4f : 2f, pop: 0.5f, axis: axis);
                 else
                 {
                     int k = Mathf.Max(0, c.Smoke);

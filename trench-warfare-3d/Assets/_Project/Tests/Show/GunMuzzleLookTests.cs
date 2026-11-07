@@ -73,5 +73,31 @@ namespace TW.Tests
             Assert.AreEqual(1.6f, fx.SmokeGrow, 1e-4f, name);
             Assert.AreEqual(0.03f, fx.SmokeDelayStep, 1e-4f, name);
         }
+
+        // [P1] the recipe path (FireCards) must draw each gun's own blast book, not the shared GunBlast for every
+        // machine: BlastBookOf(archetype) and gun.Blast * CalibreScale(book) for card 0, the book's own 9-frame
+        // (0.75 s) or 12-frame (1 s) life, and card 1's flash narrowed to FlashWidth under an own drawing.
+        [TestCase("Tusk", VehicleArchetype.Tusk, TW.Presentation.Tactical.FlipbookFx.Book.GunCrack, 4.20f, 0.75f, 1.6f)]
+        [TestCase("Salvo", VehicleArchetype.Salvo, TW.Presentation.Tactical.FlipbookFx.Book.GunCrack, 4.48f, 0.75f, 1.6f)]
+        [TestCase("Pavise", VehicleArchetype.Pavise, TW.Presentation.Tactical.FlipbookFx.Book.GunLong, 7.20f, 0.75f, 1.6f)]
+        [TestCase("Banner", VehicleArchetype.Banner, TW.Presentation.Tactical.FlipbookFx.Book.GunLong, 7.20f, 0.75f, 1.6f)]
+        [TestCase("Kettle", VehicleArchetype.Kettle, TW.Presentation.Tactical.FlipbookFx.Book.GunBlast, 4.16f, 1.00f, 3.2f)]
+        [TestCase("Maw", VehicleArchetype.Maw, TW.Presentation.Tactical.FlipbookFx.Book.GunBlast, 7.20f, 1.00f, 3.2f)]
+        public void EveryMachineKeepsItsBlastBook(string name, byte archetype, TW.Presentation.Tactical.FlipbookFx.Book book,
+            float blastWidth, float blastLife, float flashWidth)
+        {
+            var cards = new TankRenderer.FireCard[TankRenderer.MaxFireCards];
+            int n = TankRenderer.FireCards(archetype, cards);
+            Assert.GreaterOrEqual(n, 2, $"[P1] {name} drew too few cards");
+            var blast = cards[0];
+            Assert.AreEqual(book, blast.Book, $"[P1] {name} did not draw its own blast book");
+            Assert.AreEqual(blastWidth, blast.Width, 1e-4f, $"[P1] {name} blast width");
+            Assert.AreEqual(blastLife, blast.Life, 1e-4f, $"[P1] {name} blast life");
+            Assert.AreEqual(0f, blast.NearEdge, 1e-4f, $"[P1] {name} the fire does not start at the mouth");
+            Assert.IsTrue(blast.RootLeft, $"[P1] {name} the blast card is not rooted at its left edge");
+            var flash = cards[1];
+            Assert.AreEqual(TW.Presentation.Tactical.FlipbookFx.Book.Flash, flash.Book, $"[P1] {name} card 1 is not the flash");
+            Assert.AreEqual(flashWidth, flash.Width, 1e-4f, $"[P1] {name} flash width");
+        }
     }
 }
