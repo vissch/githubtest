@@ -1,0 +1,50 @@
+{
+  "subject": "tools:trench-warfare-3d/Tools/pipeline",
+  "looked_at": [
+    "trench-warfare-3d/Tools/pipeline/pipeline.py",
+    "trench-warfare-3d/Tools/pipeline/run_detached.py",
+    "trench-warfare-3d/Tools/pipeline/test_pipeline.py",
+    "trench-warfare-3d/Tools/pipeline/roles.json",
+    "trench-warfare-3d/Tools/pipeline/stations.json",
+    "trench-warfare-3d/Tools/relay/sources/pipeline.py",
+    "trench-warfare-3d/Tools/relay/sources/lane.py",
+    "trench-warfare-3d/Tools/toolcheck.py",
+    "docs/reference/stations.md",
+    ".claude/skills/pipeline/SKILL.md",
+    "docs/reference/decisions.md",
+    "docs/reference/tasks.md",
+    "docs/found/look-tools-trench-warfare-3d-tools-pipeline-20261018.json"
+  ],
+  "tasks": [
+    {
+      "title": "Make complete check the evidence layout, not just that the path exists",
+      "why": "cmd_complete (pipeline.py:431-437) only checks the given board-relative path exists. The relay's own checker wants evidence/<item>/<stage>/<band>.jpg with a <band>.json sidecar, a frames.txt line starting '<band>.jpg:', and a size under limits.json evidence_max_kb (Tools/relay/sources/pipeline.py:115-140). stations.md:50 shows a path one folder short (evidence/<item>/t1.jpg). Three places state the rule three ways: a worker's hand PASS is evidence the relay's critic cannot read and the runner would fail, so the capture gets shot twice. This was reported in the 2026-10-18 look and never queued (not in tasks.md, not in decisions.md, and the only file under relay/queue/ on the board is this look unit) — found twice, still open.",
+      "files": ["trench-warfare-3d/Tools/pipeline/pipeline.py", "docs/reference/stations.md", "Tools/relay/sources/pipeline.py"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "a test_pipeline.py case where a PASS with evidence/t1.jpg is refused and one with evidence/crate/sim/t1.jpg plus sidecar and frames.txt passes, and stations.md's example shows the same path",
+      "risk": [false, false, true, false, false],
+      "change": [true, true, false, false, false]
+    },
+    {
+      "title": "Give claim a live worker pid of its own, so no agent hunts one",
+      "why": "worker_pid (pipeline.py:310-318) refuses unless TW_WORKER_PID names a running process that outlives one command. Every instruction an agent reads says only that: stations.md:35 and :48 ('export TW_WORKER_PID=<a pid that outlives one command>'), .claude/skills/pipeline/SKILL.md:92. On Windows an agent's shell is per-command, so a station session spends a refused claim plus a pid hunt every time it claims a job, and a pid that dies mid-work lets another session take the job over (claim_alive, pipeline.py:~291). The relay never hits this: Tools/relay/sources/pipeline.py:194 sets the runner's own pid, and a leg is refused anyway by refuse_in_leg.",
+      "files": ["trench-warfare-3d/Tools/pipeline/pipeline.py", "docs/reference/stations.md", ".claude/skills/pipeline/SKILL.md"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "a test_pipeline.py case where 'claim <job> --hold' with TW_WORKER_PID unset succeeds and the written claim's pid is a process still alive after the command returns",
+      "risk": [false, false, false, false, false],
+      "change": [true, true, false, false, false]
+    },
+    {
+      "title": "Drop text=True from refuse_in_leg's git call",
+      "why": "pipeline.py:398 passes text=True to the git rev-parse call that finds the git dir, against the module's own docstring at line 23 ('Git output is read as bytes and decoded as UTF-8: workflow.md: never text=True'). On a non-ASCII checkout path this mangles the path, the relay-leg marker check finds no marker, and a leg may claim a job its runner should refuse. Also unqueued since the 2026-10-18 look.",
+      "files": ["trench-warfare-3d/Tools/pipeline/pipeline.py"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "grep -c \"text=True\" trench-warfare-3d/Tools/pipeline/*.py is 0 and test_pipeline.py's two 'refuses inside a relay leg' cases stay green",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
