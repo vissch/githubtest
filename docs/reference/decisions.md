@@ -486,6 +486,25 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   open a critique round against these four stills as a new unit, which is where the remaining value is. Default
   taken here: (a), and (c) is recommended as the follow-up unit (this leg, because the step's own premise is
   measured false and no bar asks for the change).
+- **The paradrop stills can never show the overview puff, by the harness's own design (2026-11-07, lane
+  `lane/show/paradrop-inbound-marker-r6`, fix 3 part 2):** `CombatFx.OnDropLanded` sizes the puff from
+  `ViewEye.Zoom`, the live `TacticalCamera`'s zoom, at the instant the sim event fires. `CaptureRig.Shot`
+  (`Assets/_Project/Editor/CaptureRig.cs` ~124, ~164) only sets that zoom for the one frame it renders, then
+  restores the camera's own zoom right after — so through the whole stretch of ticks `DropLandingDustStills.cs`
+  advances to reach `landTick` (where `OnDropLanded` actually fires), the camera sits at its ordinary zoom.
+  A scratch build logging `ViewEye.Zoom` inside `OnDropLanded`, run through this exact test, printed `zoom=30` at
+  every firing. `DropDustOverview(30) == 1`, so the puff is always drawn with the small, non-overview recipe,
+  baked in at spawn time; no change to the overview branch (width, open frame, stacked cards — all built and
+  tested this leg) can move a pixel on these stills, confirmed by raising `DropDustCards` to 8 and reproducing the
+  baseline images byte-for-byte. Options: (a) `DropLandingDustStills.cs` holds the camera at the overview zoom
+  through the tick that lands the drop, not just at each `Shot` call (changes the proof, not the recipe); (b) the
+  dust recipe reads the zoom live rather than at spawn (a bigger change, the same shape as the `VATRenderer`/
+  `IZoomSource.CurrentZoom` note already in `CaptureRig.cs`); (c) accept that the overview puff is judged in real
+  play, where a drop landing while the player is actually zoomed out is the normal case, and this harness is not
+  the right proof for it. **Default taken this leg: none** — `DropDustOpenFrame` (now 3, measured from the
+  sheet's alpha channel) and the card-stacking infrastructure (`DropDustCards`, `DropDustCardCount`,
+  `DropDustCardOffset`) are committed and held by `FarGrowTests`, honestly reported as unable to move the probe's
+  gate for the reason above.
 - **The paradrop landing puff cannot reach 150 px at zoom 240 with the sheet it has (2026-11-07, lane
   `lane/show/paradrop-inbound-marker-r6`):** measured on real stills (`docs/evidence/paradrop-inbound-marker-r6`),
   only 20 px (landTick + 3) and 61 px (+ 6) of the 180 x 180 window hold **any** puff ink above 0.01 luma, so the
