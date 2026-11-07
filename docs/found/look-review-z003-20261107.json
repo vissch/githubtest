@@ -1,0 +1,53 @@
+{
+  "subject": "review:Z003",
+  "looked_at": [
+    "git log --oneline and git diff 7943d2b923141fb34d3fc6a5ae2301ce0e57c932..origin/claude/trench-warfare-2d-3d-plan-idt7lf for the 12 files (5 changed: Guns +151, TankModel +58, HullRide +48, DriveStyle +17, Lights +8)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Guns.cs (338 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/HullRide.cs (169 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankModel.cs (by diff, 126 lines of it: the root fallback, MuzzlePart/MuzzleLocal derivation, LegRig.Seat/Held)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.DriveStyle.cs (107 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Lights.cs (219 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Deaths.cs (515 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/RiderSeats.cs (447 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Fizzers.cs (134 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.HopLegs.cs (111 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/HopLegs.cs (102 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/MachineLamps.cs (87 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/MachineSockets.cs (29 lines)",
+    "callees, by line range: TankRenderer.cs VehicleFired 1430-1500, SocketWorld 982-987, MuzzleWorld 989-1013, Burning 1090-1120, EmitMachineLights call site 481; TankRenderer.Weight.cs 60-115 (Flair and LurchOnTheBrakes call sites, TankRenderer.cs:614 and :631); CombatFx.Recipes.cs 28-34 (fx.recipes defaults to 1)",
+    "docs/05-performance-budgets.md, the seam section of CLAUDE.md, docs/reference/tasks.md (the Z003 rows 464-525 and the fire-card tests 592-608), docs/reference/decisions.md (grepped: puff, lurch, lamp, light, FireCards)",
+    "Tests/Show/GunMuzzleLookTests.cs, BannerFireFitTests.cs and BannerFireInkTests.cs (what the new code is pinned by)"
+  ],
+  "tasks": [
+    {
+      "title": "Draw each gun's own blast book in the recipe path",
+      "why": "P1, TankRenderer.Guns.cs:152. FireCards hardcodes FlipbookFx.Book.GunBlast for every machine, and TankRenderer.cs:1456 (byCards, fx.recipes defaults to 1: CombatFx.Recipes.cs:30) takes that path for every shot, so the else-branch at TankRenderer.cs:1466-1470 that picked BlastBookOf and CalibreScale is now dead code. The Tusk's and Salvo's GunCrack and the Pavise's and Banner's GunLong cone are no longer drawn: every gun flashes the same shared book again, undoing critiques r15, r17 and r19 (scale contrast, 'the Tusk and Pavise read alike at z40'). Worse, the light still believes the old picture: TankRenderer.cs:1446 keys SceneHooks.FireLight (the dim OwnBlastLightCard 0.35) off BlastBookOf, so a long gun by day lights the ground as if it carried its own drawing while the shared GunBlast card is what is drawn. The comment at Guns.cs:158-160, 'the rest keep exactly the picture they had', does not hold.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Guns.cs", "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a new case in Tests/Show/GunMuzzleLookTests.cs (EveryMachineKeepsItsBlastBook) asserts FireCards(a) emits BlastBookOf(a) and width gun.Blast * CalibreScale for the Tusk, Salvo, Pavise and Banner; it is red on this tree and green on the fix, and BannerFireInkTests stays green",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Put the muzzle puff ring back into FireCards",
+      "why": "P2, TankRenderer.Guns.cs:146-177 against TankRenderer.cs:1472. FireCards emits one blast, one flash and three smokes; the Puff ring 'the shot leaves' is only added in the old branch, so with fx.recipes on no machine draws it at all. MuzzleFx.PuffWidth/PuffLife/PuffAlpha/PuffPush (Guns.cs:90) and the Banner's own puff refit (Guns.cs:101: thinner, shorter, pushed 2.2 m out past the front leg) are then values nothing reads. The same for MuzzleFx.FlashWidth (1.6, Guns.cs:89): FireCards:154 always takes FlashWidthPlain, so a gun with its own blast drawing no longer gets the small flash under it. GunMuzzleLookTests:57 asserts FlashWidth and the puff numbers, so the test is green over a picture that is not drawn - it cannot catch this.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Guns.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a case in Tests/Show/GunMuzzleLookTests.cs asserts FireCards emits a Puff card at PuffPush/PuffWidth/PuffLife for every machine and the flash width FireCards uses equals FlashWidth where BlastBookOf is not GunBlast; red on this tree, green on the fix",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Let a burning wreck ask for the fire light too",
+      "why": "P2, TankRenderer.Lights.cs:120 against :188 and :198. The commit raised FireLightPeak from 3 + 6 * fire to 5 + 9 * fire so 'a burning machine lights the mud it stands on', but EmitMachineLights skips every view with v.Dead, so only a machine still alive while it burns ever reaches AskMachineLights. The machine that burns longest and brightest is the wreck, and it gets the painted FirePool (TankRenderer.cs:1115) and no real light, so the number that was raised does not reach the case the leg was measuring. The skip is older than this commit; raising the peak is what makes it worth a unit.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Lights.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a case in Tests/Show/MachineLightPoolTests.cs asserts a dead burning view (v.Dead, v.Fire 1) asks the machine pool for a light at FireLightPeak(1), and that forty burning wrecks still never light more than the pool; red on this tree, green on the fix",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
