@@ -1,0 +1,57 @@
+{
+  "subject": "review:Z014",
+  "looked_at": [
+    ".claude/agents/tw-reviewer.md (whole), .claude/skills/tw-review/SKILL.md (whole)",
+    ".claude/skills/tw-run-report/SKILL.md (1-123)",
+    "trench-warfare-3d/Tools/assetboard/runreport.py (1-694)",
+    "trench-warfare-3d/Tools/assetboard/src_runs.py (1-435)",
+    "trench-warfare-3d/Tools/assetboard/test_runs.py (1-140, 496-536, 578-612, 612-629, plus the case list)",
+    "trench-warfare-3d/Tools/assetboard/static/runs.js (1-210)",
+    "trench-warfare-3d/Tools/assetboard/static/runsboard.js (1-193)",
+    "trench-warfare-3d/Tools/assetboard/src_floor.py (1-407), floor.py (1-63)",
+    "trench-warfare-3d/Tools/assetboard/ops.py (335-370, the runs' reading), Tools/toolcheck.py (9-33), Tools/assetboard/briefs.py (68-170, the brief's own checks)",
+    "docs/reference/tasks.md and docs/reference/decisions.md (grep only: the 2026-10-09 and 2026-10-10 rows)"
+  ],
+  "tasks": [
+    {
+      "title": "The run reader's own example is refused by its tool",
+      "why": "P1. runreport.py:68 refuses the word \"lands\" (HIS = landed|lands|merged) in the title, --did, --left and every unit sentence, but the skill the agent follows shows exactly that word in its model example: .claude/skills/tw-run-report/SKILL.md:41 (\"lands them on the far bank\") and :43 (\"carries two tanks across and lands them\"). SKILL.md:62 announces only \"landed\" and \"merged\", so the agent has no warning. An agent that copies the shape it was given is refused and must rewrite inside a 20-minute, $2 reading; and a normal game sentence (a ferry lands a tank, troops landed on the bank) cannot be written at all.",
+      "files": ["trench-warfare-3d/Tools/assetboard/runreport.py", ".claude/skills/tw-run-report/SKILL.md", "trench-warfare-3d/Tools/assetboard/test_runs.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a new case in test_runs.py feeds the skill's own example words to runreport.check() and gets no refusal, and the existing case 'report: \"landed\" and \"merged\" are refused wherever they stand' still passes; python Tools/assetboard/test_runs.py exits 0",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "A brief's own words are never checked for code",
+      "why": "P2. check() at runreport.py:268 scans only the title, --did, --left and the unit sentences for file names, backticks and \"landed\" (CODE at :70, HIS at :68). The brief the same agent writes for the owner goes through brief() at :364 into briefs.add(), which caps words (briefs.py:108) and checks nothing else, so a brief's title, --for, --option and --why may carry a file name, a backtick or a finding tag straight onto his Decide page. That is the one page where the plain-words rule matters most, and the skill (SKILL.md:63, 108) tells the agent the tool checks the words.",
+      "files": ["trench-warfare-3d/Tools/assetboard/runreport.py", "trench-warfare-3d/Tools/assetboard/test_runs.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a case in test_runs.py writes a brief whose title or --for names a .cs file and is refused with that reason, and the plain brief of the existing case is still written; python Tools/assetboard/test_runs.py exits 0",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "Without node, the page's forty-odd cases silently pass",
+      "why": "P2. test_runs.py:497 and :579 look for node with shutil.which and, when it is missing, print a line and return; every case of page_rules() (:532-561) and drawn() (:601-610) is then never added to `results`, and the run still exits 0 at :629. toolcheck.py:33 runs each Tools/**/test_*.py as the only guard a tool lane has, and nothing else reads runs.js or runsboard.js, so on a station or a CI shell without node the whole Runs page is unguarded while the gate reports green.",
+      "files": ["trench-warfare-3d/Tools/assetboard/test_runs.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "with node hidden from PATH, python Tools/assetboard/test_runs.py exits non-zero and names the missing node as a failed case; with node present it exits 0",
+      "risk": [false, true, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "The Drive going away at a reading's end wedges the watcher",
+      "why": "P2. finish() at runreport.py:520-530 appends the reading's line with where.mkdir() and open(...,'a') outside any try, and deletes state()/running.json only afterwards. G:/My Drive is the folder (build.py:40), so if it is away when a reading ends the OSError leaves running.json in place; ops.py:364 catches it and src_runs.failed() blanks the Runs page to \"could not be read\" on every watch cycle, and the next tick tries the same finish again. Nothing in the module's own Drive-away guard (runreport.py tick, the DRIVE_WAS line) covers the end of a reading.",
+      "files": ["trench-warfare-3d/Tools/assetboard/runreport.py", "trench-warfare-3d/Tools/assetboard/test_runs.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a case in test_runs.py ends a reading with the reports folder made unwritable and finish() returns, running.json is gone and the next tick starts a reading again; python Tools/assetboard/test_runs.py exits 0",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
