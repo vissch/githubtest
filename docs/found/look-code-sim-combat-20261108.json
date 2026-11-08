@@ -43,7 +43,23 @@
   "trench-warfare-3d/Assets/_Project/Sim/Core/ISimSystem.cs:33-69 (Hero 805, Leap 1105, Engage 1108, Melee 1109, Movement 1110, Pounce 1125 against who reads whose output)",
   "trench-warfare-3d/Assets/_Project/Sim/Nav/VehicleKinematics.cs:386 (CrushUnder spares a man InTrench) and Sim/Match/SeaLanding.cs:95,316 (order Economy+20: a ranked man ashore still reaches HeroSystem's veteran pass)",
   "trench-warfare-3d/Assets/_Project/Presentation/Camera/RiderSeats.cs:1-360 and TankRenderer.cs:417-422 (the two readers of a machine's guns outside the match table)",
-  "docs/reference/decisions.md:227 (2026-10-12 R2 C3: smoke does not stop fire at a wreck) and greps of tasks.md for RiderSeats, TankSpec.For, smoke"
+  "docs/reference/decisions.md:227 (2026-10-12 R2 C3: smoke does not stop fire at a wreck) and greps of tasks.md for RiderSeats, TankSpec.For, smoke",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/Blast.cs:1-328 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/Mines.cs:1-354 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/Burning.cs:1-321 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/GasSmokeField.cs:1-262 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/BeamSystem.cs:1-222 (whole)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/MineTests.cs:1-421 (whole, the brute-force Reference included)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/BurningSystemTests.cs:1-282 (whole)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/BeamTests.cs:1-246 (whole)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/SmokeScreenTests.cs:1-182 (whole)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/DirectionalBlastTests.cs:1-191 (whole: every [T8] hardening read against Blast.cs)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/FlamethrowerTests.cs:1-170 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/ISimSystem.cs:23-71 and Sim/Units/VehicleModules.cs:58 (Blast 720, Beam 723, Burning 725, VehicleModules 730, GasSmoke 900, Deformation 1000, Mines 1130: who reads whose output, and that a beamed hull is knocked out the same tick)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/MapData.cs:12-15,91-103 and BattlefieldGenerator.cs:17,51-89 (NavCellSize 2 m, FieldCellSize 4 m, a 90-120 x 170-240 m field: the gas/smoke grid is about 1,700 cells, so the whole-grid sweep is not the cost it looks)",
+  "greps: every caller of BurningSystem.Ignite/IgniteCell (DirectFire.cs:187-188, BeamSystem.cs:133, Burning.cs:152,227) and every consumer of SimEventType.CellBurning (Perf/GymCatalogue.cs:165 claims Covered; nothing in Presentation/, UI/ or Editor/ reads it)",
+  "trench-warfare-3d/Assets/_Project/Presentation/Camera/Flamethrower.cs:1-45,66-72,226-265,940-960 (the POOL drawing: the jet spills its own sim-flagged pools every 0.28 s, 4-7 s each, so the ground fire a man catches from IS drawn - by the jet, not by the sim's cell)",
+  "docs/reference/decisions.md:180,240,259,263 and greps of tasks.md for Burning, CellBurning, flamethrower, mine, beam, smoke (nothing here is already queued, decided or rejected)"
  ],
  "tasks": [
   {
