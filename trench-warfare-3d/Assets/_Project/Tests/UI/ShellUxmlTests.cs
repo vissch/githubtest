@@ -30,6 +30,30 @@ namespace TW.Tests
 
         [Test] public void PauseMenu() => Check("PauseMenu", PauseMenuScreen.RequiredNames, new PauseMenuScreen());
         [Test] public void Settings() => Check("Settings", SettingsScreen.RequiredNames, new SettingsScreen());
+
+        [Test]
+        public void ASecondKeyCapPutsTheFirstOneBack()
+        {
+            var root = Instantiate("Settings");
+            var screen = new SettingsScreen();
+            screen.Bind(root, null);
+            try
+            {
+                var up = root.Q<Button>("key-PanUp"); var down = root.Q<Button>("key-PanDown");
+                Assert.That(up, Is.Not.Null); Assert.That(down, Is.Not.Null);
+                string wasUp = up.text;                       // what the screen itself shows for PAN UP's binding
+                Assert.That(wasUp, Is.Not.EqualTo(SettingsScreen.PressAKey));
+                screen.ClickCap(GameAction.PanUp);
+                Assert.That(up.text, Is.EqualTo(SettingsScreen.PressAKey), "the cap clicked is listening");
+                screen.ClickCap(GameAction.PanDown);
+                Assert.That(down.text, Is.EqualTo(SettingsScreen.PressAKey), "the second cap is listening");
+                Assert.That(up.text, Is.EqualTo(wasUp), "the first cap shows its key again, not PRESS A KEY");
+                Assert.That(up.ClassListContains("tw-keycap--listening"), Is.False);
+                Assert.That(down.ClassListContains("tw-keycap--listening"), Is.True);
+            }
+            finally { screen.Unbind(); }   // drops the capture and clears InputFocus.Listening
+        }
+
         [Test] public void Debrief() => Check("Debrief", DebriefScreen.RequiredNames, new DebriefScreen(new MatchReport { Winner = 0 }));
         [Test] public void MainMenu() => Check("MainMenu", MainMenuScreen.RequiredNames, new MainMenuScreen());
         [Test] public void MissionSelect() => Check("MissionSelect", MissionSelectScreen.RequiredNames, new MissionSelectScreen());
