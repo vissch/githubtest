@@ -140,8 +140,9 @@ namespace TW.UI
             if (interactive && armed != OffMapAbilityId.None && mouse != null && p.TryGroundPoint(out var aim))
             {
                 // a line ability is counted along its corridor (AbilityAim.Shape), a point ability round the reticle
-                if (p.Aim.Shape(aim, 0, out var shape) && shape.Line) aimReadout.ShowLine(Picker.Units, armed, shape, ToHud(mouse.position.ReadValue()));
-                else aimReadout.Show(Picker.Units, armed, aim, ToHud(mouse.position.ReadValue()));
+                Vector2 cursorPx = ToHud(CursorAt(mouse));
+                if (p.Aim.Shape(aim, 0, out var shape) && shape.Line) aimReadout.ShowLine(Picker.Units, armed, shape, cursorPx);
+                else aimReadout.Show(Picker.Units, armed, aim, cursorPx);
             }
             else aimReadout.Hide();
             if (kb != null && fieldOwnsInput) HandleKeys(kb);
@@ -200,10 +201,14 @@ namespace TW.UI
             return w == null ? 0f : w.Hp[u.Slot] / Mathf.Max(1f, w.MaxHp[u.Slot]);
         }
 
+        /// <summary>Where the cursor is taken to be (screen px): CursorOverride when a capture or test driver set one,
+        /// else the real mouse. Every cursor read in this class goes through here.</summary>
+        Vector2 CursorAt(Mouse mouse) => CursorOverride ?? mouse.position.ReadValue();
+
         // ---- the mouse -------------------------------------------------------------------------------------------
         void HandleMouse(Mouse mouse, Keyboard kb, bool strikeClick)
         {
-            Vector2 at = CursorOverride ?? mouse.position.ReadValue();
+            Vector2 at = CursorAt(mouse);
             bool overUi = HudBridge.IsPointerOverUi(at);
             bool shift = kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed;
             bool ctrl = kb.leftCtrlKey.isPressed || kb.rightCtrlKey.isPressed;

@@ -3,6 +3,8 @@
 // nearer on a tie, the box takes only our units, the double-click only that type and side on the screen; the hexagon
 // the markers are cut from is a hexagon.
 using System.Collections.Generic;
+using System.IO;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 using TW.UI;
@@ -12,6 +14,34 @@ namespace TW.Tests
     public class SelectionTests
     {
         static UnitHandle H(int slot, ushort gen = 1) => new UnitHandle(slot, gen);
+
+        /// <summary>The source with comments blanked, newlines kept so a match's line number is still right.</summary>
+        static string Code(string path)
+        {
+            string src = File.ReadAllText(path);
+            src = Regex.Replace(src, @"/\*.*?\*/", m => Regex.Replace(m.Value, @"[^\n]", " "), RegexOptions.Singleline);
+            return Regex.Replace(src, @"//[^\n]*", "");
+        }
+
+        [Test]
+        public void TheAimReadoutFollowsTheCursorOverride()
+        {
+            const string path = "Assets/_Project/UI/Selection/SelectionController.cs";
+            Assert.That(File.Exists(path), Is.True, path + " is missing: the test would pass by reading nothing");
+            string code = Code(path);
+            var reads = Regex.Matches(code, @"mouse\.position\.ReadValue\s*\(\s*\)");
+            Assert.That(reads.Count, Is.EqualTo(1),
+                "every cursor read goes through CursorAt, or the aim readout stays on the real mouse while picking follows CursorOverride");
+            int lineStart = code.LastIndexOf('\n', reads[0].Index) + 1;
+            int lineEnd = code.IndexOf('\n', reads[0].Index);
+            string line = code.Substring(lineStart, (lineEnd < 0 ? code.Length : lineEnd) - lineStart);
+            Assert.That(Regex.IsMatch(line, @"Vector2\s+CursorAt\s*\("), Is.True,
+                "the one remaining mouse.position.ReadValue() must be inside CursorAt, not a second direct read");
+            Assert.That(code, Does.Match(@"aimReadout\.Show\s*\("));
+            Assert.That(code, Does.Match(@"aimReadout\.ShowLine\s*\("));
+            Assert.That(Regex.Matches(code, @"CursorAt\s*\(").Count, Is.GreaterThanOrEqualTo(2),
+                "CursorAt must be used by both HandleMouse and the aim readout, not just defined");
+        }
 
         [Test]
         public void AReusedSlotIsNotTheSameUnit()
