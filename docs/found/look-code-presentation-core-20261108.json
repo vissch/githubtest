@@ -19,7 +19,38 @@
     "grep of PortraitCount across Assets/_Project (BattleHud.UnitIcons, HudText, UiSkinVerifier, HudBindTests, HudTextTests)",
     "docs/found/look-code-presentation-core-20261017.json (the previous look: its three tasks checked in the code; SimHost animTime now scales by TimeScale and AnimClockPlayTests guards it, so it is fixed and left out; the other two are already found and left out)",
     "docs/reference/tasks.md (grep AnimationController, DeathGags, UnitLook, FigureMetrics, AimShape, reload, clip)",
-    "docs/reference/decisions.md (grep reload, turn in place, crouched turn, machinegun)"
+    "docs/reference/decisions.md (grep reload, turn in place, crouched turn, machinegun)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/MatchStats.cs (whole, 1-105)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/ShotLog.cs (whole, 1-102)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/MatchLaunch.cs (whole, 1-149)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/GameSettings.cs (whole, 1-156)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/SettingsStore.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/Knobs.cs (whole, 1-263)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/ProfileStore.cs (whole, 1-128)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/CampaignProfile.cs (whole, 1-105)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/CampaignSession.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/FxQuality.cs (whole, 1-106)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AudioLevels.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/KeyMap.cs (whole, 1-279)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/LocalSeat.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/InputFocus.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/SceneStatics.cs (lines 1-60: Reset, Register, ResetSession)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/EventPump.cs (whole: Collect, Dispatch, Skip)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/SimHost.cs (lines 200-275: Update, LocalStepped, Restart, OnDestroy)",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs (lines 239-277: Spawn's Team write, Despawn's Death/VehicleDestroyed events, Step's Events.Clear)",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/SettingsApplier.cs (whole: ApplyAll, ApplyVideo, ApplyAudioOnLaunch, ApplyEffects)",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/ShellRouter.cs (lines 70-110: Bind, MatchStats.Attach)",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/DebriefScreen.cs (grep: line 37, which report fields the plate fills)",
+    "trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs (lines 85-115: Boot, the bench string's Knobs.Parse)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/ShotLogTests.cs (whole, every assert)",
+    "trench-warfare-3d/Assets/_Project/Tests/Match/LaunchLoadoutTests.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/PlayMode/MatchLaunchPlayTests.cs (whole, 1-135)",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/FxQualityTests.cs (lines 1-60: the tier and Resolve tests)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/StaticLifecycleTests.cs (grep FxQuality: the explained-statics row, line 30)",
+    "grep of FxQuality.Apply / FxQuality.Now / ApplyEffects / fx.quality across Assets/_Project, Tools and docs",
+    "grep of MatchStats across Assets/_Project (only ShellRouter.Bind attaches it)",
+    "docs/reference/tasks.md (lines 303-306: MatchStats and the debrief, 'Nothing tests MatchStats directly')",
+    "docs/reference/decisions.md (grep debrief, men lost, fx.quality, effects detail: nothing on either finding)"
   ],
   "tasks": [
     {
@@ -31,8 +62,20 @@
       "lane": "show",
       "role": "character-simulator",
       "done_when": "an EditMode test on InfantryFiringTests' rig ticks a standing machinegunner (archetype 2) past 50 Shot events with a long FireCooldown and asserts he plays a reload clip and that State[man].Shots fell back to 0; and either ReloadStoop is reached by the crouched MG or it is dropped from the table and the bake row with it",
-      "risk": [false, false, false, false, false],
-      "change": [false, false, true, false, false]
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
     },
     {
       "title": "A kneeling man never plays a turn clip: five baked turns are dead",
@@ -43,8 +86,44 @@
       "lane": "show",
       "role": "character-simulator",
       "done_when": "an EditMode test places a kneeling man (StanceOf = Crouch) with a target 150 degrees behind him, ticks the controller, and asserts State[man].Rung == Rung.Turn with a KneelTurn/StoopTurn clip; the drawn yaw must not move more than the clip's own Turn while it plays",
-      "risk": [false, false, false, false, false],
-      "change": [false, false, true, false, false]
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    },
+    {
+      "title": "The debrief counts every destroyed vehicle as a man lost",
+      "why": "SimWorld.Despawn emits a Death event for EVERY slot (SimWorld.cs:259, unconditional) and then a VehicleDestroyed on top of it when the slot was a vehicle (line 262). MatchStats takes the two as separate things: MatchStats.cs:63 `case SimEventType.Death: menLost[TeamOf(ev.A)]++;` with no vehicle test at all, and line 64 counts the same slot again under vehiclesLost. So the debrief's MEN LOST (DebriefScreen.cs:37 fills men-lost from report.MenLost) is inflated by exactly the number of tanks, armoured cars and walkers that side lost, and the same slot is reported twice on one plate: a side that lost 40 men and 6 machines reads 46 / 6. MenFielded has the mirror of it: line 65 counts UnitSpawned for every slot, so a deployed tank is a man fielded as well. A subscriber cannot even recover the truth from the flags, because Despawn zeroes Flags[slot] (line 256) before the event is dispatched - the vehicle bit is gone by then, which is presumably how this got past the author. Nothing guards it: tasks.md:306 says 'Nothing tests MatchStats or ObjectiveTracker directly'. Read in code, not confirmed in Play.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Core/MatchStats.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a new EditMode test builds a world, spawns one man and one tank per side, despawns both, and asserts the report reads MenLost 1 and VehiclesLost 1 for that team (not 2 and 1), and the same for MenFielded; it must go red on today's MatchStats",
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
     },
     {
       "title": "DeathGagTests guards the gag maths with the gag maths' own constants",
@@ -55,8 +134,46 @@
       "lane": "show",
       "role": "review-fix",
       "done_when": "the three asserts quote a measured number instead of the production constant (e.g. the rocket's throw in metres against the plain throw, and a RestQ bound strictly inside the clamp, say <= -24 and > -32), and flipping RocketFar, RocketHigh or the pancake's 0.12 in DeathGags.cs makes DeathGagTests go red",
-      "risk": [false, false, false, false, false],
-      "change": [false, false, false, false, false]
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "title": "A bench's fx.quality knob never reaches the effects' tier",
+      "why": "Two [RuntimeInitializeOnLoadMethod(BeforeSceneLoad)] hooks race, and the effects' tier loses. SettingsApplier.cs:44-45 (ApplyAudioOnLaunch) is the ONLY production caller of ApplyEffects, and ApplyEffects reads the knob once, there: FxQuality.Apply -> Knobs.Get(\"fx.quality\", -1). PerfBench.cs:85-99 is the other BeforeSceneLoad hook, and the bench string's knobs only enter Knobs at its line 99 (Knobs.Parse(o.Knobs)). Unity does not order RuntimeInitializeOnLoadMethods across classes, and nothing re-applies the tier afterwards - grep across the project finds FxQuality.Apply at exactly one site and FxQuality.Set only in tests. So `knobs=fx.quality=0` in a bench string pins nothing except by load-order luck: the run draws at whatever tier settings.json resolved to (High by default) while the report says LOW, and every number it measured is a High number filed under the wrong tier. The knob is advertised as a bench's handle in FxQuality.cs:6 and in StaticLifecycleTests.cs:30 ('a bench pins it with the knob fx.quality'), and FxQualityTests only ever exercises the pure Resolve(setting, level, count, knob) - 'the knob wins over both' is asserted on the function, never on the wiring, which is why a knob that reaches nothing reads green. Read in code, not confirmed in a bench run.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Shell/SettingsApplier.cs",
+        "trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Core/FxQuality.cs"
+      ],
+      "lane": "show",
+      "role": "optimizer",
+      "done_when": "a test sets the knob fx.quality after launch (Knobs.Set) and asserts FxQuality.Tier follows it, and a bench run with knobs=fx.quality=0 reports Low in its summary with a Low chunk cap in force; the test goes red on today's code",
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
     }
   ]
 }
