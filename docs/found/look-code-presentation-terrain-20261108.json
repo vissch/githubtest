@@ -1,0 +1,123 @@
+{
+ "subject": "code:Presentation/Terrain",
+ "looked_at": [
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropDestruction.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropDestruction.Ram.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropWear.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldProps.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropLayout.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropHandle.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/TrenchSection.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/HouseKit.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Core/RenderGround.cs (FrameBudget.Draw, to check the loose-chunk draw reuses its arrays safely)",
+  "trench-warfare-3d/Assets/_Project/Tests/Show/PropWearTests.cs",
+  "trench-warfare-3d/Assets/_Project/Tests/Show/HouseKitTests.cs",
+  "trench-warfare-3d/Assets/_Project/Tests/Show/TrenchSectionTests.cs",
+  "trench-warfare-3d/Assets/_Project/Tests/Show/HollowRescanTests.cs",
+  "docs/reference/tasks.md (the debris/destruction and props/composition rows)",
+  "docs/reference/decisions.md (the shelter rows)",
+  "docs/found/look-code-presentation-terrain-20261017.json (so nothing already built is refiled)"
+ ],
+ "tasks": [
+  {
+   "title": "Drop knocked props when the composition renumbers pages",
+   "why": "jolts holds (page, slot) and is cleared only in PropWear.cs:195, inside Wear, which returns at PropWear.cs:192 for up to WearTicks ticks (0.2 s). Twitch runs every frame (PropDestruction.cs:215) and ApplyComposition (BattlefieldProps.cs:371-379) calls Batch.Clear and re-Adds every instance, so every page and slot is renumbered. In the 0.2 s after a crater recomposes the field (PropChanged / WireBreached / CraterStamp all set dirty, BattlefieldProps.cs:179) Twitch calls props.Move on a stale slot: another instance of the same module is dragged to the knocked prop's old matrix, and the k>=1 branch (PropWear.cs:405) leaves it parked there until the next composition. Worse, PropWear.Home matches the same stale (page, slot), so Strike, Crush and Ram key that wrong instance at the knocked prop's position (PropDestruction.cs:380, 494; PropDestruction.Ram.cs:87) and charge its damage to the wrong prop. Both conditions are the normal case in a barrage: machine guns knocking light props while shells recompose the field.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropWear.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropDestruction.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/PropWearTests.cs"
+   ],
+   "lane": "show",
+   "role": "lane",
+   "done_when": "A new PropWearTests case knocks a prop (KnockForTests), adds a second instance of the same module, forces a recomposition so props.Generation changes, then calls TwitchForTests: Knocked is 0 and every drawn instance of the module still lies where it was placed. It is red before the fix.",
+   "risk": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "change": [
+    false,
+    false,
+    true,
+    false,
+    false
+   ]
+  },
+  {
+   "title": "Spend a shelter's sandbags whether or not debris draws",
+   "why": "ShedBags returns at PropDestruction.cs:598 (debris == null || !debris.Ready) before it reads or writes bagsLeft, so a shelter's stock of 16 bags is never spent in any session with no ready DebrisRenderer: a headless bench, a capture harness, or a test. PropWear's WearShelter then spends the gathered pool anyway (pool -= WearPerBag, PropWear.cs:326-331) and counts WornBags, so the counter the capture tools read says the parapet was stripped while bagsLeft stays at 16 and the shelter can never reach the second half of WearShelter and open at all (PropWear.cs:334-343). This is the same fault the lining ration had and was fixed for (critic r7, PropDestruction.cs:430 'the ration is charged whether or not a renderer is up'); the bags were left behind. The decision it breaks is live: decisions.md 2026-09-24 says bags go first, then the shell at concrete's rate. Nothing catches it because PropWearTests only reads RoundsToStrip/RoundsToOpenShelter, which are pure arithmetic over the constants.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropDestruction.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropWear.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/PropWearTests.cs"
+   ],
+   "lane": "show",
+   "role": "lane",
+   "done_when": "A new PropWearTests case puts a dugout in a scene with no DebrisRenderer, pours RoundsToOpenShelter rounds into its cell through RoundsForTests/WearForTests, and asserts WornBags reaches ShelterBags and then Worn reaches 1 (the shelter opens). It is red before the fix.",
+   "risk": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "change": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "title": "Give HollowRescanTests' oracle its own bank and flooding",
+   "why": "The test's whole claim is that it keeps the pre-C40 scan verbatim as an independent oracle (HollowRescanTests.cs:19-21, 68-69), but OldScan asks the surface under test for two of the scan's own inputs: surface.BankDistance at line 31, which decides which cells are even considered, and surface.Flooding at line 50, which decides whether a hollow holds water. A regression inside either moves the oracle and the subject together and the test stays green over 150 craters and 16 barrage rounds. C40's note says the optimisation reordered work around BankDistance, which is exactly the function left unguarded; the hollows feed the drawn ground, the rills and the pools, so a silent change there shows up on every shelled map.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Tests/Show/HollowRescanTests.cs"
+   ],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "OldScan computes bank distance and the flooding roll from the map alone (or from a frozen copy), and the test goes red when BankDistance's 4 m threshold or Flooding is perturbed by a few per cent in a throwaway edit; it is green on the unmodified code.",
+   "risk": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "change": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "title": "TrenchSectionTests' gone-section knock test passes either way",
+   "why": "A_Gone_Section_Keeps_No_Knock (TrenchSectionTests.cs:91-116) is the test written for found-a-destroyed-lining-section-keeps-its-jolt-tw-20261017-4, but it cannot fail for the code it names. Twitch has its own guard: it keys the jolt through KeyOf and drops it when destroyed holds the key (PropWear.cs:402-404), and a gone section's key is in destroyed. So deleting the UnjoltSlot calls the finding added (PropDestruction.cs:410 in Section, PropWear.cs:281/298/341 in WearCell and WearShelter) leaves the test green: TwitchForTests at line 112 removes the jolt itself before it would move anything, and Knocked is 0 at line 113 whichever path cleared it. The UnjoltSlot that actually matters is the Damaged one (PropDestruction.cs:415), where the panel is hidden but not destroyed, and nothing asserts it at all.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Tests/Show/TrenchSectionTests.cs"
+   ],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "The test asserts the jolt is gone before Twitch is ever called (Knocked is 0 straight after the finishing strike), and a second case takes a section only to Damaged and asserts the panel's slot is no longer being moved. Both go red when the UnjoltSlot calls are removed in a throwaway edit.",
+   "risk": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "change": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  }
+ ]
+}
