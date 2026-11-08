@@ -3,6 +3,7 @@
 // the table names must appear in docs/17-ui-art-spec.md, so the artist's document cannot drift from the code the way
 // a HUD comment once claimed numbers nobody had checked (HudTextTests).
 using System.IO;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Editor;
@@ -13,6 +14,35 @@ namespace TW.Tests
     public class SkinAssetTests
     {
         static string DocPath => Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "docs", "17-ui-art-spec.md"));
+        static string SpecSrc => File.ReadAllText(Application.dataPath + "/_Project/UI/Skin/SkinSpec.cs");
+        static string ComponentsUss => File.ReadAllText(Path.GetFullPath(Path.Combine(Application.dataPath, "..", SkinSpec.Root, "dustfront.components.uss")));
+
+        [Test]
+        public void EverySkinDocCitationExists()
+        {
+            foreach (var src in new[] { SpecSrc, ComponentsUss })
+                foreach (Match m in Regex.Matches(src, @"docs/[-\w.]+\.md"))
+                    Assert.That(File.Exists(Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", m.Value))),
+                        $"[C1] SkinSpec.cs cites {m.Value}, which is not a file");
+        }
+
+        [Test]
+        public void TheCornerCommentNamesTheGeneratorVersion()
+        {
+            var m = Regex.Match(ComponentsUss, @"corners:[^\n]*\(v(\d+)\)");
+            Assert.That(m.Success, "[C2] the corners comment says v<n> but UiSkinGenerator paints v<GeneratorVersion>");
+            Assert.That(int.Parse(m.Groups[1].Value), Is.EqualTo(SkinSpec.GeneratorVersion),
+                "[C2] the corners comment says v<n> but UiSkinGenerator paints v<GeneratorVersion>");
+        }
+
+        [Test]
+        public void ThePortraitCommentCoversEveryArchetype()
+        {
+            var m = Regex.Match(SpecSrc, @"one per archetype 0\.\.(\d+)");
+            Assert.That(m.Success, "[C3] the PortraitNames comment stops at archetype <n>, but Skimmer and Salvo are 19 and 20");
+            Assert.That(int.Parse(m.Groups[1].Value), Is.EqualTo(HudText.PortraitCount - 1),
+                "[C3] the PortraitNames comment stops at archetype <n>, but Skimmer and Salvo are 19 and 20");
+        }
 
         [Test]
         public void EverySkinFileMatchesTheSpec()

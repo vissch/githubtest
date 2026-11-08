@@ -1,7 +1,7 @@
 // Phase: B6 (implemented) — the single table of every sprite the interface skin is made of.
 // The importer (UiSkinImport) applies each entry's border and settings, the generator (UiSkinGenerator) paints a
 // placeholder for it, the verifier (UiSkinVerifier / SkinAssetTests) checks that the file on disk matches it, and
-// docs/16-ui-art-spec.md must mention every name in it. No file name is typed anywhere else, so an artist's
+// docs/17-ui-art-spec.md must mention every name in it. No file name is typed anywhere else, so an artist's
 // replacement PNG can only be wrong in ways this table catches.
 namespace TW.UI
 {
@@ -127,8 +127,9 @@ namespace TW.UI
         };
 
         /// <summary>
-        /// Portrait file stems under Portraits/: one per archetype 0..18 — the four line infantry, the eight machines,
-        /// the six units of 2026-09-25 that go up the line on foot and the Breaker — then the three support emblems.
+        /// Portrait file stems under Portraits/: one per archetype 0..20 — the four line infantry, the eight machines,
+        /// the six units of 2026-09-25 that go up the line on foot, the Breaker, then the Skimmer and the Salvo
+        /// (2026-09-28) — then the playground's five and the three support emblems: 29 stems.
         /// UnitLook.PortraitName(archetype) yields a stem from this list for every archetype either faction's roster
         /// hands out, and UiSkinVerifier fails if one is missing.
         /// </summary>
