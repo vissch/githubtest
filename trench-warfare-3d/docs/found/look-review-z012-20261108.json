@@ -1,0 +1,32 @@
+{
+  "subject": "review:Z012",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Chunks.cs (full, diff +1)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/DebrisRenderer.cs (full, diff +5; Throw, Burst, Heave, Put)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankModel.cs (full, diff +58; Load, Assemble, LegRig)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs (full, diff +155; Pose, MuzzleWorld, Burning, DrawFlames, QueueDisc, HullRotation, PartLocal, FireCards branch)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/WalkerGait.cs (grepped and read around Stand, Home, SolveHeld, MaxSpan for every Hip/Seat call site)",
+    "trench-warfare-3d/Assets/_Project/Shaders/TankDisc_URP.shader (full, both passes)",
+    "trench-warfare-3d/Assets/_Project/Tests/Stills/GoreZoomStills.cs (Watch usage, lines 90-150)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/TankDiscRingTests.cs (BandLuma usage, line 17)",
+    "git diff 7943d2b923141fb34d3fc6a5ae2301ce0e57c932..origin/claude/trench-warfare-2d-3d-plan-idt7lf for CombatFx.Chunks.cs, DebrisRenderer.cs, TankModel.cs, TankRenderer.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/DebrisRenderer.Figure.cs, DebrisRenderer.Parts.cs, TankRenderer.Deaths.cs, TankRenderer.WreckStages.cs, WreckModel.cs, WreckStages.cs, trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldComposer.Buildings.cs (unchanged since last review; not re-read in full this pass)",
+    "trench-warfare-3d/Assets/_Project/Playground/Art/Tanks/Bullfrog/tank3.json (head and part/socket names only; unchanged in this diff)"
+  ],
+  "tasks": [
+    {
+      "title": "Make TankDiscRingTests assert against a real capture, not BandLuma's mirror",
+      "why": "TankRenderer.cs:55-60 BandLuma is a second, hand-written copy of the ring's shader blend (TankDisc_URP.shader's frag, the `ring`/`color` lines ~140-148), kept only as an approximation ('peak ring 1, alpha 0.55 of strength' per its own comment). TankDiscRingTests.cs:17 asserts only against this C# mirror. If the shader's blend constants or curve change, BandLuma does not move with it and the test keeps passing on a shader it no longer describes - exactly the 'test that cannot fail' the review brief calls P2. Costs: nothing today, but the next shader tune to this ring ships unguarded.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Show/TankDiscRingTests.cs",
+        "trench-warfare-3d/Assets/_Project/Shaders/TankDisc_URP.shader"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "TankDiscRingTests.cs reads the ring's actual drawn luma (CaptureRig.Shot + a sampled pixel, or an EditMode shader-replacement readback) rather than only TankRenderer.BandLuma, and still catches the regression the 2026-10-16 finding fixed",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
