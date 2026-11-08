@@ -1,0 +1,38 @@
+{
+  "subject": "branch:lane/show/ability-fx-captures-r2",
+  "looked_at": [
+    "git log origin/lane/show/ability-fx-captures-r2 -3 --oneline",
+    "git diff origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/ability-fx-captures-r2 --stat",
+    "docs/found/look-branch-lane-show-ability-fx-captures-20261108.json (today's r1 look, read for the contradiction)",
+    "docs/evidence/ability-fx-captures-r2/README.md (branch-only, git show)",
+    "docs/evidence/ability-fx-captures-r2/probe.py (branch-only, git show)",
+    "docs/evidence/ability-fx-captures-r2/probe.json (branch-only, git show)",
+    "docs/evidence/ability-fx-captures-r2/manifest.json (branch-only, git show)",
+    "docs/evidence/ability-fx-captures-r2/gas-t1.json (branch-only, git show)",
+    "docs/evidence/ability-fx-captures-r2/gas-t1.jpg (opened as an image, extracted to the leg folder)",
+    "docs/evidence/ability-fx-captures-r2/gas-t1-plate.jpg (opened as an image, extracted to the leg folder)",
+    "docs/evidence/ability-fx-captures-r2/gas-o240.jpg (opened as an image, extracted to the leg folder)",
+    "trench-warfare-3d/Assets/_Project/Tests/Stills/GasBankStills.cs (branch-only, diff stat only)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Banks.cs diff against ability-fx-captures (r1)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/BurstRecipeTests.cs diff against ability-fx-captures (r1)",
+    "docs/reference/decisions.md diff (the new Open row) and current text (grep for gas bank / ability-fx)",
+    "docs/reference/tasks.md diff (the GasBankStills row and Stills list) and current text"
+  ],
+  "tasks": [
+    {
+      "title": "Verdict: missing something named — land the harness, drop the duplicated constant/test",
+      "why": "r2 settles the contradiction with r1's look (docs/found/look-branch-lane-show-ability-fx-captures-20261108.json: 'the squash visibly pools the bank on the ground, checked by eye'): opening gas-t1.jpg beside gas-t1-plate.jpg here shows the two frames are visually identical — no green cloud, only the same mud/fence/building pixels — and gas-o240.jpg shows nothing at the gas coordinates either, at a distance where a man-sized object is already unreadable. probe.json backs the eye: gas_t1_green_low_share 0.89 of only 28 masked pixels (noise), gas_t1_height_frac -0.0, gas_o240_effect_area_frac 0.027 (the bar is 0.03), all four pose_error_m 0.0, manifest.json's calls_taken 5/5 and 1/1 proving the sim did take every call. r1's picture most likely showed the yellow ability-area marker disc, not the bank. BUT r2 carries CombatFx.Banks.cs:24 (GasBankSquash = 0.55f) and BurstRecipeTests.cs's TheGasBankLiesOnTheGround_NotOverAMansHead as its own copy of r1's already-landed-elsewhere constant and guard test (git diff ability-fx-captures..ability-fx-captures-r2 on CombatFx.Banks.cs: same constant, only the doc-comment and field order differ; same assertions, renamed test) — a straight duplicate that cannot land twice. So r2 is not simply 'finished and worth landing' as-is: what's genuinely new and worth keeping is GasBankStills.cs + probe.py (a plate-subtraction, hue-gated, metres-based measurement nothing else in the repo has, with a --selftest), the four stills+sidecars, and the decisions.md Open row recording the capture-path-vs-look-fault question for the owner. What should NOT land a second time is the GasBankSquash constant and its guard test, since whichever of r1/r2 lands first makes the other a straight rebase conflict on CombatFx.Banks.cs (plan step 4 confirmed this).",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Banks.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Show/BurstRecipeTests.cs",
+        "docs/evidence/ability-fx-captures-r2/README.md",
+        "docs/reference/decisions.md"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "lane/show/ability-fx-captures-r2 is rebased onto whichever of integration/r1 already landed GasBankSquash, the duplicate constant and guard test are dropped from the rebase (git diff shows CombatFx.Banks.cs and BurstRecipeTests.cs unchanged by this branch), GasBankStills.cs + probe.py + the four evidence stills + the decisions.md Open row remain, and gate.ps1 -EditOnly is green",
+      "risk": [true, false, false, false, false],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
