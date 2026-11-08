@@ -1,0 +1,68 @@
+{
+  "subject": "code:Sim/Core",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/ISimSystem.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimHash.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimRandom.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimMath.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimConfig.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimCommand.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/UnitPose.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/Lane.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/StanceRules.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/PerfMarkers.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/AbilityArgs.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/UnitCatalogue.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/FactionRoster.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/Faction.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/Replay.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/SimHashTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/HashIntervalTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/SlotHashBoundTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/CommandValidationTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/SimMathTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/SimStubTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/PerfMarkersTests.cs"
+  ],
+  "tasks": [
+    {
+      "title": "Name every live system order in SimSystemOrder, drop the dead",
+      "why": "ISimSystem.cs:8 says a system's order value is 'listed in SimSystemOrder', and SimWorld.cs:203-208 (AddSystem's throw) is the only thing stopping two systems from sharing one. The list is neither complete nor true. Eight registered systems hold an order it does not name: CombatCatalogue TerrainHash-10 = 40, TrenchOrders Command+10 = 110, OffMapAbilities Command+30 = 130, SeaLanding Economy+20 = 320, TankGunnery DirectFire+5 = 705, Burning Blast+5 = 725, VehicleModules Blast+10 = 730, Mines VehicleKinematics+10 = 1130. Seven constants are taken by no system at all: Mission 200 (ISimSystem.cs:28), SpatialHash 500 (:31), IndirectFire 710 (:36), Building 728 (:44), Stance 810 (:51), Separation 1100 (:55), Death 1300 (:71). Building 728 even carries a doc comment describing a live buildings system ('what a burst broke, which storeys come down next, and the masonry that falls on the men underneath'); nothing named BuildingSystem exists anywhere under Assets/_Project, so a lane reading that list believes blast damage to houses is already in the sim, which decisions.md still has as unbuilt (2026-10-08, houses give 35 % cover). The cost: a new system given 710 or 728 off the list compiles, and only throws from the world constructor in a world that registers its clashing neighbour. SeaLanding at 320 is registered only when map.HasSea (MatchSim.cs:84), so such a clash can pass a greybox edit gate and go red first on a coast map.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Core/ISimSystem.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Sim/SimHashTests.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "A new EditMode test beside SimHashTests.TheHashChainIsTheOneItsFormatVersionNames builds MatchSim.CreateGreybox and MatchSim.CreateBattlefield(Landing) and asserts (a) every registered system's Order equals some public const int on SimSystemOrder, and (b) every such const is taken by exactly one system across the two worlds. Red on today's tree for 40, 110, 130, 320, 705, 725, 730 and 1130 and for the seven orphan constants; green once each live order is named and the dead ones are deleted. No order NUMBER changes, so both golden pins in SimHashTests stay green and ReplayRecorder.FormatVersion stays 54.",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, true, false]
+    },
+    {
+      "title": "PerfMarkersTests: two of its three asserts cannot fail",
+      "why": "PerfMarkersTests.cs:16, CollectionAssert.AllItemsAreUnique(PerfMarkers.Names), can never fail: PerfMarkers.cs:18 adds a name only 'if (!names.Contains(name))', so Names is unique by construction whatever ForSystem does. PerfMarkersTests.cs:17, Assert.AreEqual(\"TW.Sim.Step\", PerfMarkers.Names[0]), can never fail either: SimStep is the first M(...) static field initialiser in PerfMarkers, so it is always Names[0]. Only line 15 can go red, and it names one system. So the test tasks.md:46-47 describes as 'every registered system's marker name lands in PerfMarkers.Names' checks exactly one of the thirty-one systems in the greybox chain: PerfMarkers.ForSystem (PerfMarkers.cs:23, called once per system per AddSystem at SimWorld.cs:212) could stop registering every system but MovementSystem and the gate would stay green, while PerfBench, which reads Names instead of keeping a list of its own, would record almost nothing.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Tests/Sim/PerfMarkersTests.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "The test asserts PerfMarkers.Names contains \"TW.Sim.Sys.\" + s.GetType().Name for every s in match.World.Systems, and the two tautological asserts are gone. Proved by a mutant: make PerfMarkers.ForSystem return new ProfilerMarker(name) without calling M, then `Tools/tw run run_tests -- --mode EditMode --filter TW.Tests.PerfMarkersTests` goes red; today's test stays green under that same mutant.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Replay Parse checks every length but no config number",
+      "why": "ReplayPlayer.Parse reads the header's config straight off the stream at Replay.cs:260 (TickRate, InputDelayTicks, MaxSlots, Seed) with no range check at all, while the same method goes to real trouble (Replay.cs:277 and :285, the S8 guards) to prove every count fits the bytes on hand. A file with MaxSlots = int.MaxValue makes the world built from that header ask for the 23 persistent per-slot arrays of SimWorld.cs:150-172 at that length; TickRate 0 makes SimConfig.TickSeconds (SimConfig.cs:46) infinite, so every per-tick step is NaN and the first hash is garbage instead of a named mismatch; EventCapacity negative throws out of the NativeList inside SimEventBuffer rather than InvalidDataException. Latent today, and say so plainly: ReplayPlayer's only non-test caller is MatchSim.VerifyReplay (MatchSim.cs:169), which is handed a world somebody else built. It is a hole left open for the replay and spectator UI that Replay.cs:6 promises, in the one class whose whole job is to refuse a file it cannot trust.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Core/Replay.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Sim/ReplayGuardTests.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "Parse throws InvalidDataException naming the field for TickRate outside 1..240, MaxSlots outside 1..4x SimConfig.Default.MaxSlots, InputDelayTicks outside 0..240 and EventCapacity outside 1..4194304. New cases in ReplayGuardTests patch each of those four words in a freshly serialized good replay and assert the throw; `Tools/tw run run_tests -- --mode EditMode --filter TW.Tests.ReplayGuardTests` green after the fix and red on today's tree.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
