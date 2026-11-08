@@ -7,7 +7,8 @@ transcripts in a temp folder (every kind of tool call lands as the right kind of
 found, a full graph folds its oldest files into their folders, a transcript is never read twice, an agent hangs under
 the one that sent it, a relay leg is its run's records). static/touch.js lays the graph out with no page in it, so
 node runs it here: the same data gives the same picture, a thing that is added moves nothing else, nothing lies on
-the worker. The picture itself (touchdraw.js) is looked at, not tested.
+the worker. The picture itself (touchdraw.js) is looked at, not tested: only the class names board.css styles are
+checked against the ones touchdraw.js adds.
 """
 import datetime
 import json
@@ -421,11 +422,39 @@ def node_cases(tmp: Path):
          o['none'] == [0, 0, True] and [g[:2] for g in o['run'][0]] == [['the run', 'run'], ['rv-06', 'unit'], ['rv-07', 'unit']] and o['run'][0][1][2] == 3 and o['run'][1] and o['run'][2] == 0, (o['none'], o['run']))
 
 
+def css_cases():
+    css = (HERE / 'static' / 'board.css').read_text(encoding='utf-8')
+    js = (HERE / 'static' / 'touchdraw.js').read_text(encoding='utf-8')
+    py = (HERE / 'src_touch.py').read_text(encoding='utf-8')
+
+    # [U1]
+    case('css U1: the log row the script makes pickable is styled',
+         '.tg-log li.tg-pickable' in css and '.tg-log li.tg-pickable:focus-visible' in css and 'li.t-pickable' not in css
+         and "classList.add('tg-pickable')" in js, '[U1] the pickable log row has no cursor and no focus ring')
+
+    # [U2]
+    case('css U2: a cluster this worker never reached is dimmed',
+         '.tg-group.tg-far' in css and '.tg-group.tg-far b' in css and '.tg-group.t-far' not in css
+         and "' tg-far'" in js, '[U2] a cluster this worker never reached is not dimmed')
+
+    # [U3]
+    case('css U3: the page does not scroll behind the full-size overlay on a phone',
+         'body.tg-open { overflow: hidden' in css and 'body.t-open' not in css
+         and "classList.add('tg-open')" in js, '[U3] on a phone the page scrolls behind the full-size overlay')
+
+    # [U4]
+    case('css U4: a run\'s files counter is coloured like changed',
+         '.tg-c-files b' in css and 'tg-c-files-named' not in css
+         and "'tg-count tg-c-' + String(c[0]).replace" in js and "['files', files]" in py,
+         '[U4] a run\'s files counter is not coloured like changed')
+
+
 def main():
     tmp = Path(tempfile.mkdtemp(prefix='tw-touch-'))
     try:
         python_cases(tmp)
         node_cases(tmp)
+        css_cases()
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print(f'{sum(results)} of {len(results)} cases behaved')
