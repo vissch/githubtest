@@ -209,12 +209,12 @@ button.g-tile { font: inherit; text-align: left; cursor: pointer; }
 .tg-count { padding: 7px 8px 6px; border-radius: 10px; background: var(--s-well); border: 1px solid var(--s-line); min-width: 0; }
 .tg-count b { display: block; font: 600 19px/1.1 var(--sans); color: #fff; font-variant-numeric: tabular-nums; }
 .tg-count i { display: block; margin-top: 2px; font: 500 10px/1.2 var(--mono); font-style: normal; color: var(--t-dim); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tg-c-read b { color: #9cc3ff; } .tg-c-changed b, .tg-c-files-named b { color: #ff9a76; } .tg-c-ran b, .tg-c-commits b { color: #6ee7b7; } .tg-c-sent-out b { color: #ff9cc8; }
+.tg-c-read b { color: #9cc3ff; } .tg-c-changed b, .tg-c-files b { color: #ff9a76; } .tg-c-ran b, .tg-c-commits b { color: #6ee7b7; } .tg-c-sent-out b { color: #ff9cc8; }
 .tg-log { list-style: none; margin: 8px 0 0; padding: 0; font: 11.5px/1.55 var(--mono); }
 .tg-log li { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 8px; padding: 1px 4px; border-radius: 4px; color: var(--t-body); }
 .tg-log time { color: var(--t-faint); font-variant-numeric: tabular-nums; }
 .tg-log span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tg-log li.t-pickable { cursor: pointer; } .tg-log li.t-pickable:hover, .tg-log li.t-pickable:focus-visible { background: rgba(160, 178, 235, .1); outline: none; }
+.tg-log li.tg-pickable { cursor: pointer; } .tg-log li.tg-pickable:hover, .tg-log li.tg-pickable:focus-visible { background: rgba(160, 178, 235, .1); outline: none; }
 .tg-log li.on { background: rgba(160, 178, 235, .18); color: #fff; }
 .tg-v, .tg-tip i { font-style: normal; }
 .tg-v-read { color: #7fb2ff; } .tg-v-changed { color: #ff8a63; } .tg-v-picture { color: #c9a6ff; } .tg-v-command { color: #5fe0b0; } .tg-v-search { color: #7fe0ea; }
@@ -279,7 +279,7 @@ body.tg-open > aside.b-panel:not(.b-docked) { visibility: hidden; }          /* 
 .tg-group span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .tg-group b { flex: none; font-weight: 500; color: var(--t-soft); font-variant-numeric: tabular-nums; }
 .tg-group i { position: absolute; left: 6px; bottom: 1px; height: 2px; border-radius: 2px; max-width: calc(100% - 12px); }
 .tg-group:hover, .tg-group:focus-visible, .tg-group.on { background: rgba(160, 178, 235, .13); color: #fff; outline: none; }
-.tg-group.t-far { color: var(--t-low); } .tg-group.t-far b { color: var(--t-faint); }
+.tg-group.tg-far { color: var(--t-low); } .tg-group.tg-far b { color: var(--t-faint); }
 .tg-heat-row { display: grid; grid-template-columns: 66px minmax(0, 1fr); align-items: center; gap: 6px; margin-bottom: 4px; font-size: 10.5px; color: var(--t-dim); text-transform: uppercase; letter-spacing: .05em; }
 .tg-heat-row div { display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 2px; }
 .tg-heat-row div i { height: 14px; border-radius: 2px; background: #1c2333; }
@@ -290,7 +290,7 @@ body.tg-open > aside.b-panel:not(.b-docked) { visibility: hidden; }          /* 
 }
 @media (max-width: 860px) {
   .tg-host { min-height: 0; }
-  body.t-open { overflow: hidden; }
+  body.tg-open { overflow: hidden; }
   .tg-full { --tg-top: 0px !important; position: fixed; inset: 0; z-index: 95; border: 0; border-radius: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: min-content; align-content: start; overflow-y: auto; padding: 8px; }
   .tg-stage { height: max(340px, 58vh); }
   .tg-who b { max-width: 60vw; font-size: 15px; } .tg-close { min-height: 44px; margin-left: auto; } .tg-bar { gap: 6px 10px; } .tg-stats { flex: 1 1 100%; order: 3; gap: 6px 12px; font-size: 10.5px; }
