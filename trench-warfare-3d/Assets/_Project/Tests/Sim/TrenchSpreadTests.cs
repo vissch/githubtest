@@ -20,6 +20,14 @@ namespace TW.Tests
 {
     public class TrenchSpreadTests
     {
+        /// <summary>
+        /// 0.8 of the 40 men both full-garrison tests spawn — the same ratio the sibling
+        /// AHalfEmptyTrenchDoesNotStandTwoMenInsideEachOther_OnTheMapWeActuallyPlay guards with its own
+        /// "garrison >= 24 of 30" assert. Deliberately fixed, not bounded by the map's cell count: this is a claim
+        /// about the garrison search finding posts for its men, not about how big a trench this map happens to dig.
+        /// </summary>
+        const int GarrisonFloor = 32;
+
         static MatchSim NewMatch(uint seed = 0xC0FFEE)
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = 100000; cfg.Seed = seed;
@@ -271,14 +279,16 @@ namespace TW.Tests
                 garrison++;
                 if (m.World.PostCell[i] >= 0) posted++;
             }
-            // [T28] "men reached a trench" was only > 8 of the 40 spawned (the sibling ShelledForest test below
-            // guards >= 24 of 30 = 0.8): raised to the same ratio, falling back to the front trench's own
-            // capacity if it genuinely cannot hold that many.
-            // [S2.2] the cell count is a premise, so it is asserted before the floor it feeds, and the floor never
-            // drops below the pre-T28 assert's own strength (> 8).
-            Assert.Greater(front.CellCount, 0, "[S2.2] setup: the front trench has cells to stand in");
-            int need = math.max(9, math.min(32, front.CellCount));
-            Assert.GreaterOrEqual(garrison, need, "[T28] nearly the whole 40-man garrison reached a trench");
+            // [T28] "men reached a trench" was only > 8 of the 40 spawned: raised to GarrisonFloor (32 = 0.8 of 40,
+            // the same ratio the sibling ShelledForest test guards with >= 24 of 30). The floor is fixed, not
+            // bounded by front.CellCount: on a map whose front trench is short, min(32, CellCount) collapsed back
+            // to the pre-T28 strength (> 8) while this assert's message still read "nearly the whole 40-man
+            // garrison reached a trench" — a count of men compared against a count of cells is only the same
+            // thing while one man stands per cell. The premise below asserts the trench actually has room for the
+            // floor, so the fixed number stays reachable.
+            Assert.GreaterOrEqual(front.CellCount, GarrisonFloor,
+                $"[S2.2] setup: the front trench has only {front.CellCount} cells, fewer than the {GarrisonFloor}-man floor needs");
+            Assert.GreaterOrEqual(garrison, GarrisonFloor, "[T28] nearly the whole 40-man garrison reached a trench");
             Assert.GreaterOrEqual(posted, (int)(garrison * 0.9f),
                 $"{garrison - posted} of {garrison} men have nowhere to be and fall back to separation alone");
         }
@@ -361,11 +371,12 @@ namespace TW.Tests
                 garrison++;
                 if (m.World.PostCell[i] >= 0) posted++;
             }
-            // [T28] same weak guard as AFullGarrisonFindsPostsForNearlyEveryone above (> 8 of 40); raised to the
-            // sibling's 0.8 ratio, bounded by the front trench's own cell count on this map.
-            // [S2.2] same floor as the sibling: never weaker than the pre-T28 assert (> 8).
-            int need = math.max(9, math.min(32, def.CellCount));
-            Assert.GreaterOrEqual(garrison, need, "[T28] nearly the whole 40-man garrison reached a trench on ShelledForest");
+            // [T28] same fixed floor as the sibling above, for the same reason: GarrisonFloor (32 = 0.8 of 40) is
+            // a claim about the garrison search, not about how many cells ShelledForest's front trench happens to
+            // dig. The premise below asserts this map's trench actually has room for the floor.
+            Assert.GreaterOrEqual(def.CellCount, GarrisonFloor,
+                $"[S2.2] setup: ShelledForest's front trench has only {def.CellCount} cells, fewer than the {GarrisonFloor}-man floor needs");
+            Assert.GreaterOrEqual(garrison, GarrisonFloor, "[T28] nearly the whole 40-man garrison reached a trench on ShelledForest");
             Assert.GreaterOrEqual(posted, (int)(garrison * 0.9f),
                 $"ShelledForest: {garrison - posted} of {garrison} garrisoned men have nowhere to be and fall back "
                 + $"to separation alone (front trench has {def.CellCount} cells, {def.FireStepCount} fire steps)");
