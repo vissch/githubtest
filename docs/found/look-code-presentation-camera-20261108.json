@@ -29,9 +29,58 @@
     "trench-warfare-3d/Assets/_Project/Tests/Show/KnobsTests.cs (1-60, and a grep of its knob names)",
     "docs/found/look-code-presentation-camera-20261016.json (its four tasks; 1-3 have since landed as ViewEye and LocalSeat)",
     "docs/reference/tasks.md (lines 440-560, 640-680, 788-810, 1128)",
-    "docs/reference/decisions.md (grep settle/lamp/camera; the row 2026-09-29 'Phase 1's looks are on by default')"
+    "docs/reference/decisions.md (grep settle/lamp/camera; the row 2026-09-29 'Phase 1's looks are on by default')",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.GunFx.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Recipes.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Banks.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Wrecks.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/GoreScale.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TrackDust.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/GibPlan.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/DebrisRenderer.Parts.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.FarFire.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.Smoke.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs (700-800: Add and Draw; 870-888: Pack, ScreenRoll; 268)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/GunFxTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/GibPlanTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/TrackDustTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/FlipbookOrdinalTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/HitMarkSizeTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/TracerMuzzleTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/TracerGlowTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/CameraCloseFitTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/FrameBudgetCoverageTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/ComponentLookupAllocationTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/FarGrowTests.cs (33-39)",
+    "grep of FarKeep / Glow / FlushGlow / FarBlendNow over Presentation/Camera",
+    "grep of MuzzleVariant, MuzzleStartCels, MaxGlowCells, FarGlowCell over tasks.md and decisions.md (no row)"
   ],
   "tasks": [
+    {
+      "title": "Spread the muzzle flash's start cel; a quarter share cel 3",
+      "why": "CombatFx.GunFx.cs:41 is Start = Mathf.Min(MuzzleStartCels, FxQuality.Hash01(...) * (MuzzleStartCels + 1f)) = min(3, h*4) with h in [0,1). Every shooter whose hash is 0.75 or above lands on exactly 3.0, so a quarter of all flashes start on the same cel at the same sub-frame phase: in the pass's own twenty-man firing line (GunFxTests.Shooters) about five men draw the identical card in the same frame. That is the very fault the pass was written for (the 2026-10-14 review's 'one copied quad twenty times'). The intended uniform spread over [0, 3] is h * MuzzleStartCels; the +1 with the Min was meant to reach cel 3 and instead piles the top quartile on it. GunFxTests cannot see it: EveryFlashStaysInsideTheLivePartOfItsSheet's five asserts (Start >= 0, Start <= MuzzleStartCels, Start + 2.16 < 7.999, Scale in [0.85, 1.25], |Roll| <= 0.25) all restate the Min and the Lerp bounds of the same expression, so none of them can fail for any hash, and TwentyShootersInOneFrame_ShowDifferentFlashes only asks for 3 distinct cels out of 20.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.GunFx.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Show/GunFxTests.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "A GunFxTests case bins MuzzleVariant(tick, shooter).Start into the four cels over several thousand (tick, shooter) pairs and asserts no cel takes more than about 30 % and the top cel is not a spike; red on the tree as it stands (cel 3 takes 25 % against 25/25/25 for a 4-way split, and the exact value 3.0 recurs), green once the start is a plain h * MuzzleStartCels spread. The clamp-restating asserts are replaced by ones a wrong formula fails.",
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    },
     {
       "title": "tank.traverseSettle cannot be turned up past its default",
       "why": "TankRenderer.Weight.cs:38 reads it as Mathf.Clamp(Knobs.Get(\"tank.traverseSettle\", DefaultTraverseSettle), 0f, 0.6f), and settleDeg is then the maxDegrees handed to HullRide.SettleDegrees and the cap on v.Settle, so the knob's whole upper range is dead: tank.traverseSettle=2 draws exactly the 0.6 degrees of the default the owner set (decisions.md 2026-09-29). Every sibling knob in the same method has headroom above its default (tank.shotRock Mathf.Max(0f, ...), tank.lampSize Mathf.Max(0.05f, ...), tank.lightReach Mathf.Max(0f, ...)); only this one is capped at its own default. The cost is a sweep: an agent asked to show the owner more swing sets the knob, measures no change in the WeightLab trace, and reports the look as impossible.",
@@ -42,8 +91,20 @@
       "lane": "show",
       "role": "lane",
       "done_when": "A KnobsTests case parses tank.traverseSettle=2, reads the renderer's settleDeg by reflection (the way HullRideTests drives TakeTopKick) and asserts it is 2 and not 0.6, with 0 still drawing no settle; red on the tree as it stands, green once the clamp is widened.",
-      "risk": [false, false, false, false, false],
-      "change": [false, false, true, false, false]
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
     },
     {
       "title": "Make four MachineLampTests asserts able to fail",
@@ -54,12 +115,24 @@
       "lane": "show",
       "role": "review-fix",
       "done_when": "The four asserts are replaced by ones a wrong Place would fail (a lamp near a hull corner in x and z, not merely above the hull's middle; a pair read off the mesh on both sides rather than off one side's mirror), each shown red against a deliberately broken Place and green against the real one.",
-      "risk": [false, false, false, false, true],
-      "change": [false, false, false, false, false]
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        true
+      ],
+      "change": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
     },
     {
       "title": "Ratchet Camera.main too, not only the zoom source",
-      "why": "ViewEye.cs was written because 'Camera.main is a tagged find and IZoomSource comes off it with a component lookup', and it exposes ViewEye.Main for the first half. Its ratchet, ViewEyeTests.No_Presentation_File_Looks_The_Zoom_Source_Up_Again, greps only for TryGetComponent<IZoomSource>, so a plain Camera.main read is still free: 51 remain under Presentation, 16 under Presentation/Camera alone (TankRenderer.Guns.cs:283 inside the per-shot mortar-round draw, TankRenderer.Lights.cs:214 CookOffLight once per cooking machine, Riders.cs:757/883/915, Fizzers.cs:68, Salvo.cs:128/219). The test cannot fail for the half it is named after and nothing stops the next site. Most sites are already hoisted out of their inner loops, so this is a ratchet and a tidy, not a measured win.",
+      "why": "ViewEye.cs was written because 'Camera.main is a tagged find and IZoomSource comes off it with a component lookup', and it exposes ViewEye.Main for the first half. Its ratchet, ViewEyeTests.No_Presentation_File_Looks_The_Zoom_Source_Up_Again, greps only for TryGetComponent<IZoomSource>, so a plain Camera.main read is still free: 51 remain under Presentation, 16 under Presentation/Camera alone (TankRenderer.Guns.cs:283 inside the per-shot mortar-round draw, TankRenderer.Lights.cs:214 CookOffLight once per cooking machine, Riders.cs:757/883/915, Fizzers.cs:68, Salvo.cs:128/219), and FlipbookFx.cs:721 reads it once per frame in Draw() to place laid cards. The test cannot fail for the half it is named after and nothing stops the next site. Most sites are already hoisted out of their inner loops, so this is a ratchet and a tidy, not a measured win.",
       "files": [
         "trench-warfare-3d/Assets/_Project/Tests/Show/ViewEyeTests.cs",
         "trench-warfare-3d/Assets/_Project/Presentation/Core/ViewEye.cs",
@@ -67,13 +140,52 @@
         "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Lights.cs",
         "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Riders.cs",
         "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Salvo.cs",
-        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Fizzers.cs"
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Fizzers.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs"
       ],
       "lane": "show",
       "role": "optimizer",
       "done_when": "ViewEyeTests greps the presentation sources for 'Camera.main' as well and allows only ViewEye.cs; red on the tree as it stands, green once every site reads ViewEye.Main, with the gate green.",
-      "risk": [false, false, false, false, false],
-      "change": [true, false, false, false, false]
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "title": "Far fire silently loses its halo past 96 grid cells",
+      "why": "FlipbookFx.FarFire.cs:24 caps the halo grid at MaxGlowCells 96 and Glow() line 71 is 'if (glowCount == MaxGlowCells) return;' — a fire whose 8 m cell (FarGlowCell) is the 97th of the frame is counted into nothing. One budget of 96 covers every fire book of the frame, because Draw() (FlipbookFx.cs:777) flushes once for all books after the per-book loop. The same cards are still thinned: FlipbookFx.cs:742-744 drops all but FarKeepMin 0.4 of the small ones at FarFireFull. So past the 96th cell a fire loses 60 % of its cards AND gets no halo to stand in for them, which is exactly backwards — the halo is the far read the feature was built for (the owner, 2026-09-28: 'improve fire from far away'). At the overview zooms the blend is full at (200 and up) a barrage across a 400 m field passes 96 occupied cells easily, and the loss is order-dependent on the book loop, so which fires go dark changes frame to frame. Nothing reports the overflow: FarGrowTests only checks the pure blend and keep-share functions.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.FarFire.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Show/FarGrowTests.cs"
+      ],
+      "lane": "show",
+      "role": "optimizer",
+      "done_when": "A FarGrowTests case feeds more than MaxGlowCells distinct 8 m cells of fire through the halo path and asserts every cell is drawn (the Flash card count equals the cell count, or the grid coarsens so the count stays under the cap) and that a card is never thinned in a cell that got no halo; red against the cap as it stands, green after. The frame cost is read off CaptureRig Profile at zoom 240 so the fix does not buy the halo with frame time.",
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
     }
   ]
 }
