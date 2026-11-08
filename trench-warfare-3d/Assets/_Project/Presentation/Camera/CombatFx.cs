@@ -98,7 +98,10 @@ namespace TW.Presentation.Tactical
         System.Func<int, Vector3> drawnAt; System.Func<float, float, float> groundAt;   // cached: Update must not allocate
         Material dirtMat, woodMat, smokeMat;
         /// <summary>Painted steel for the Sentry's plate: the night ground is dirtMat's own colour, so a plate flushed
-        /// with dirtMat has no contrast against it. Light grey with a heavy outline, so the plate keeps an ink edge at T1.</summary>
+        /// with dirtMat has no contrast against it. Light grey with a heavy outline, so the plate keeps an ink edge at T1.
+        /// The night ground sets the ceiling on albedo alone (measured at r2: plate 0.0943 vs the 2-6 px ground ring
+        /// 0.0684, against a 0.10 bar), so a faint emission is added -- a straight add in the shader that does not
+        /// depend on the night light -- to read as self-lit steel rather than a light source.</summary>
         Material plateMat;
         Material smokeThin, smokeFaint;
         readonly List<Matrix4x4> batch = new List<Matrix4x4>(1023);
@@ -275,6 +278,7 @@ namespace TW.Presentation.Tactical
             }
             dirtMat = Painted(new Color(0.27f, 0.235f, 0.20f), 0.7f);
             plateMat = Painted(new Color(0.60f, 0.62f, 0.66f), 0.9f);
+            plateMat.SetColor("_Emission", new Color(0.058f, 0.060f, 0.060f));
             woodMat = Painted(new Color(0.43f, 0.35f, 0.25f), 0.6f);
             burstMat = Painted(new Color(0.53f, 0.46f, 0.35f), 1.1f);
             smokeMat = Transparent(unlit, new Color(0.34f, 0.32f, 0.29f, 0.36f));

@@ -1,11 +1,12 @@
 {
-  "xor_t3": 0.6192,
-  "xor_t1": 0.7049,
-  "xor_o120": 0.6724,
-  "plate_ground_contrast_t3": 0.0259,
-  "xor_control_t3": 0.8259,
-  "xor_control_t1": 0.5435,
-  "xor_control_o120": 0.7174,
+  "xor_t3": 0.7986,
+  "xor_t1": 0.7254,
+  "xor_o120": 0.6522,
+  "plate_ground_contrast_t3": 0.109,
+  "plate_vs_bare_ground_t3": 0.117,
+  "xor_control_t3": 0.7081,
+  "xor_control_t1": 0.8183,
+  "xor_control_o120": 0.5,
   "thresholds": {
     "xor": 0.15,
     "plate_ground_contrast_t3": 0.1
@@ -29,69 +30,70 @@
   },
   "bands": {
     "t3": {
-      "xor": 0.6192,
-      "xor_control": 0.8259,
-      "sentry_px": 14382,
-      "gunner_px": 16679,
-      "control_px": 11002,
-      "union_px": 22495,
-      "xor_px": 13929,
+      "xor": 0.7986,
+      "xor_control": 0.7081,
+      "sentry_px": 21424,
+      "gunner_px": 43662,
+      "control_px": 97718,
+      "union_px": 54177,
+      "xor_px": 43268,
       "box": [
-        315,
-        549
+        316,
+        550
       ],
       "tall_px": [
-        232.92,
-        233.15,
-        233.09
+        185.05,
+        232.61,
+        233.75
       ],
       "pose_check_m": 0.0
     },
     "t1": {
-      "xor": 0.7049,
-      "xor_control": 0.5435,
-      "sentry_px": 837,
-      "gunner_px": 1458,
-      "control_px": 1257,
-      "union_px": 1772,
-      "xor_px": 1249,
+      "xor": 0.7254,
+      "xor_control": 0.8183,
+      "sentry_px": 3010,
+      "gunner_px": 6416,
+      "control_px": 2110,
+      "union_px": 7395,
+      "xor_px": 5364,
       "box": [
         76,
         132
       ],
       "tall_px": [
-        56.06,
-        56.08,
-        56.08
+        54.38,
+        56.02,
+        56.11
       ],
       "pose_check_m": 0.0
     },
     "o120": {
-      "xor": 0.6724,
-      "xor_control": 0.7174,
-      "sentry_px": 44,
-      "gunner_px": 33,
-      "control_px": 26,
-      "union_px": 58,
-      "xor_px": 39,
+      "xor": 0.6522,
+      "xor_control": 0.5,
+      "sentry_px": 30,
+      "gunner_px": 32,
+      "control_px": 28,
+      "union_px": 46,
+      "xor_px": 30,
       "box": [
         25,
         28
       ],
       "tall_px": [
+        8.73,
         8.7,
-        8.71,
-        8.71
+        8.7
       ],
       "pose_check_m": 0.0001
     }
   },
   "plate_t3": {
-    "plate_px": 2519,
-    "measured_px": 706,
-    "ring_px": 981,
-    "mean_luma_plate": 0.0943,
-    "mean_luma_ground_ring": 0.0684
+    "plate_px": 10770,
+    "measured_px": 3910,
+    "ring_px": 2036,
+    "mean_luma_plate": 0.1808,
+    "mean_luma_ground_ring": 0.0718,
+    "mean_luma_bare_ground": 0.0638
   },
-  "pass": false
+  "pass": true
 }

@@ -187,11 +187,18 @@ def main():
     mean_in, mean_ring = float(pair_t3[inside].mean()), float(pair_t3[ring].mean())
     contrast = abs(mean_in - mean_ring)
 
+    # the same pixels, with the plate and without it: catches a ring reading flattered by the painted outline
+    # ink (_OutlineWidth is drawn outside the geometry, so it can fall inside the 2-6 px ring) rather than the steel.
+    empty_t3 = luma("empty_t3.png")
+    mean_bare = float(empty_t3[inside].mean())
+    vs_bare = abs(mean_in - mean_bare)
+
     out = {
         "xor_t3": out_bands["xor_t3"],
         "xor_t1": out_bands["xor_t1"],
         "xor_o120": out_bands["xor_o120"],
         "plate_ground_contrast_t3": round(contrast, 4),
+        "plate_vs_bare_ground_t3": round(vs_bare, 4),
         "xor_control_t3": out_bands["xor_control_t3"],
         "xor_control_t1": out_bands["xor_control_t1"],
         "xor_control_o120": out_bands["xor_control_o120"],
@@ -203,7 +210,8 @@ def main():
         "bands": bands,
         "plate_t3": {"plate_px": int(np.count_nonzero(plate)), "measured_px": int(np.count_nonzero(inside)),
                      "ring_px": int(np.count_nonzero(ring)),
-                     "mean_luma_plate": round(mean_in, 4), "mean_luma_ground_ring": round(mean_ring, 4)},
+                     "mean_luma_plate": round(mean_in, 4), "mean_luma_ground_ring": round(mean_ring, 4),
+                     "mean_luma_bare_ground": round(mean_bare, 4)},
     }
     xors = [out["xor_t3"], out["xor_t1"], out["xor_o120"]]
     out["pass"] = bool(min(xors) >= XOR_MIN and contrast >= CONTRAST_MIN)
@@ -221,6 +229,8 @@ def main():
     print("plate_ground_contrast_t3 %.4f  (>= %.2f)   %s   plate %.4f vs ground ring %.4f over %d/%d px"
           % (contrast, CONTRAST_MIN, "pass" if contrast >= CONTRAST_MIN else "FAIL",
              mean_in, mean_ring, int(np.count_nonzero(inside)), int(np.count_nonzero(ring))))
+    print("plate_vs_bare_ground_t3 %.4f   plate %.4f vs the same pixels with no plate %.4f"
+          % (vs_bare, mean_in, mean_bare))
     return 0 if out["pass"] else 1
 
 

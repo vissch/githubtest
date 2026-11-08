@@ -871,6 +871,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   colour) and far off `CombatFx.PlateGrow` grows it up to 3x to an 8 px floor.
   A card's picture is the USS class `.tw-portrait-<name>` in `UI/Skin/dustfront.components.uss`: a portrait
   baked without its class is a blank card (eight were, until 2026-09-28; ProvingGroundScreenTests holds them).
+  At night albedo alone cannot lift the plate off the ground that sets its ceiling (a vertical face catches almost
+  nothing in the dark), so `plateMat` also carries a faint emission: self-lit steel, not the night's own light on it.
 - **Tests:** ProvingGroundTests (runs offline in otr: the catalogue, placing, waves placed and through slots, the
   timer, the enemy's support, the sappers' orders, the request, the same on two worlds, the Sentry's own portrait),
   SentryLookTests (his plate's shape, his gun being an MG's, that his tooltip is no longer a stand-in's,
