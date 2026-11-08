@@ -6,8 +6,8 @@
       "legs_px_expected": 21.3,
       "px_per_m": 25.98,
       "vpm": 23.55,
-      "aim_y": 1.83,
-      "man_y": 0.26,
+      "aim_y": 1.935,
+      "man_y": 0.36,
       "ground_row": 461,
       "window": {
         "x0": 769,
@@ -24,8 +24,8 @@
       "legs_px_expected": 21.3,
       "px_per_m": 25.98,
       "vpm": 23.55,
-      "aim_y": 2.92,
-      "man_y": 1.35,
+      "aim_y": 2.343,
+      "man_y": 0.77,
       "ground_row": 461,
       "window": {
         "x0": 769,
@@ -42,8 +42,8 @@
       "legs_px_expected": 21.3,
       "px_per_m": 25.98,
       "vpm": 23.55,
-      "aim_y": 2.05,
-      "man_y": 0.48,
+      "aim_y": 2.139,
+      "man_y": 0.57,
       "ground_row": 461,
       "window": {
         "x0": 769,
@@ -52,7 +52,7 @@
         "y1": 460
       },
       "ok": false,
-      "reason": "area 1 < gate 48",
+      "reason": "area 4 < gate 48",
       "contrast": null
     }
   ],

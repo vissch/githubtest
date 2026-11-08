@@ -1,3 +1,69 @@
+Three rocketed men planted head first in the mud (DeathGag.Planted) and one close still of the same man, captured
+against the current build in GreyboxCorridor, 2026-11-08 (leg rocketed-man-planted-g2/03), from a batch-mode editor.
+These REPLACE the stills of earlier the same day: same scene, same aim rule, but timed and sited properly, and each
+one now carries what the renderer actually DREW, not only where the man was.
+
+How they were taken, and the two things that went wrong before they were:
+  - the shot is queued by an EditorApplication.update watcher armed BEFORE the shell, and taken one GAME second
+    after the man lands. Game time in this batch editor runs several times wall-clock, so the earlier way (poll
+    DeathLab.Planted() from outside, then sleep "lands in T, +1 s" on the wall clock) took its stills 20 to 25 game
+    seconds late: the legs had already folded (squash -15, feet 0.467 m). Nothing about the look; a harness fault.
+  - a fresh Play session and a site of its own per man. Shelling one spot over and over craters the ground and the
+    hole floods: one run's stills came back as open water with the man sunk in it (drawn ground -1.2 to -1.5 m,
+    CaptureRig warning "unreadable"). A man under water is not evidence either way.
+  - T1 standard throughout (zoom 30, yaw +21, pitch 25, 1600x900), aimed at his legs: aimY = man y + PlantDepth
+    1.120 + 0.45 (mid-legs), where man y is Path.Rest, his sunk origin.
+  - close_1.png is the same man as plant_1 at zoom 7.5, queued in the same frame. It is NOT a plant_*.png, so the
+    probe still sees exactly three captures.
+
+What was drawn (VATRenderer.TryPlantedMan's new third output, recorded in each plant_N.man.json):
+  plant_1  man 89.50 0.36 136.04, aimY 1.93
+    tier near figure 0 (planted never goes to the box tier by distance) clipAtlas on row 110 (DeathThrown) animT 0.020 frozen pitch 16/32 roll 28 squash 0 age 3.55 s drawnY 0.365 ground 1.505 feet 0.885 m above the drawn ground
+  plant_2  man 89.50 0.77 205.22, aimY 2.34
+    tier near figure 0 (planted never goes to the box tier by distance) clipAtlas on row 110 (DeathThrown) animT 0.020 frozen pitch 16/32 roll 3 squash 0 age 3.35 s drawnY 0.773 ground 1.913 feet 0.885 m above the drawn ground
+  plant_3  man 89.50 0.57 204.33, aimY 2.14
+    tier near figure 0 (planted never goes to the box tier by distance) clipAtlas on row 110 (DeathThrown) animT 0.020 frozen pitch 16/32 roll 1 squash 0 age 3.15 s drawnY 0.569 ground 1.709 feet 0.885 m above the drawn ground
+
+On all three the renderer drew him on the NEAR FIGURE tier (never the box tier), row 110 (Clip.DeathThrown) held
+frozen at animT 0.020, pitch 16 of 32 (upside down, half a turn), squash 0 (not yet folded) and his feet 0.885 m
+above the drawn ground. That is the planted look exactly as it was specified. So none of the suspected harness
+faults is the cause: not the far tier, not a wrong row, not pitch 0, not an early fold.
+
+THE FINDING: the frozen pose itself is flat.
+PlantedPoseTests (new, Assets/_Project/Tests/Show/PlantedPoseTests.cs; EditMode, no GPU, no scene) reads the baked
+atlas Resources/Units/FigureSoldier, samples row Clip.DeathThrown at phase 0.02 -- the exact phase VATRenderer
+freezes a GagFlags.Freeze gag at -- the way the shader samples it (RowTable, frame floor/ceil, lerp, dequantised
+with PosMin/PosSize), then applies the drawn transform (upside down about VatTint.Pivot, squash 0, UnitScale 1.125,
+his Pos PlantDepth under the mud) and measures the bounding box of everything above the mud:
+
+    height 0.916 m   width 1.202 m   (x 1.202, z 1.126)   452 of 917 vertices above the mud
+
+The height is right: 0.905 m +- 0.08, the spec (DeathGags.PlantLegsAboveM). The shape is wrong: it is 1.3 times
+WIDER than tall, and half his vertices are above the mud, so what stands up is half a splayed body, not a pair of
+legs. VATBaker.Throw tips a Thrown-baked clip back to flat over the first third of AnimationController.ThrownLands,
+and phase 0.02 is already past upright. The probe's own shape gate (bbox height > bbox width) is therefore failed by
+the pose before a single pixel is drawn, which is why every pixel measurement of every still, by every method tried
+over two legs, has come back wider than tall.
+
+The probe still FAILS on these three (python docs/evidence/rocketed-man-planted-g2/probe.py, exit 1):
+  plant_1.png FAIL area 1 < gate 48
+  plant_2.png FAIL bbox height 31 not > width 62
+  plant_3.png FAIL area 4 < gate 48
+Nothing in probe.py was touched: BAR stays 0.10, the shape gate stays, three captures stay required.
+
+The close still settles it by eye: close_1.png (zoom 7.5, where 0.905 m of legs would be about 85 px) shows a
+splayed stub in the mud with blood around it, about as wide as it is tall -- not a pair of legs standing up.
+
+So this is a BUG in the drawn pose, not the owner's look question, and part 2 of the plan fixes that one thing.
+PlantedPoseTests carries the measurement: its height assertion is green now, and the shape assertion is written
+out in a comment beside it with these numbers, for the fix to add back as a test (a red or [Ignore]d test fails the
+gate, so it cannot be left running). See docs/reference/decisions.md, "Answered, and NOT by the owner".
+
+The mask_plant_*.png of the earlier dump were deleted with the stills they were made from; the dump's numbers are
+kept below, as the history of how the question was sharpened.
+
+--- the superseded stills of earlier on 2026-11-08, and the 2026-10-27 pair before them ---
+
 Three rocketed men planted head first in the mud (DeathGag.Planted), one man per shell, captured fresh against the
 current build in GreyboxCorridor at the standard zoom (T1: zoom 30, yaw +21, pitch 25, 1600x900), 2026-11-08, from
 a batch-mode editor driven by one scripted loop (no hand retries). Each still is taken one GAME second after that
