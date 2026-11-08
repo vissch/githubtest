@@ -491,6 +491,8 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.DeathLab.Later(seconds, act)` | Editor/DeathLab.cs | `act` once, `seconds` of play from now (a frame at a time, from the editor's update). |
 | `TW.Editor.DeathLab.Disarm(slot)` | Editor/DeathLab.cs | A machine's guns put out of action (GunHealth 0, as a knocked-out gun) once its gunnery has taken the slot on: the first tick after a spawn sets ... |
 | `TW.Editor.EnvPropEditing.LearnLooks()` | Editor/EnvPropEditor.cs | Makes each kind's look from the hand edits (the owner's way of setting them, 2026-09-22): the scale the edited props were given becomes the kind's ... |
+| `TW.Editor.FlinchCapture.Set(dir)` | Editor/FlinchCapture.cs | Stages the man, walks him in, shells him near and writes before.png/duck.png/cut.png plus set.json into `dir`. |
+| `TW.Editor.FlinchCapture.Status()` | Editor/FlinchCapture.cs | "done", a failure, or what stage the run is on. |
 | `TW.Editor.Gym.Run(options)` | Editor/Gym.cs | Play the catalogue unattended. |
 | `TW.Editor.Gym.Root()` | Editor/Gym.cs | The folder gym runs go in: TW_GYM, else %LOCALAPPDATA%\TrenchWarfare\gym. |
 | `TW.Editor.InkLinesSetup.Install()` | Editor/InkLinesSetup.cs | (no summary: read the method) |
