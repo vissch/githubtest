@@ -1,0 +1,51 @@
+{
+  "subject": "code:Presentation/Meta",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/StrategicMapView.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/HomeFrontDiorama.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/HomeFrontStages.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/ContinentMesh.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/MapFog.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/MetaCamera.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/MetaMeshes.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/MetaKeyLight.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/MetaPick.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/MetaBoot.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/StrategicMapMeshTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/MetaCameraTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/HomeFrontDioramaTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/MetaPickTests.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/RenderGround.cs",
+    "docs/found/look-code-presentation-meta-20261017.json",
+    "docs/reference/tasks.md",
+    "docs/reference/decisions.md"
+  ],
+  "tasks": [
+    {
+      "title": "Fog's sea-thinning samples the clamped edge, so the off-map margin reads as land",
+      "why": "MapFog.Alpha (MapFog.cs:81) thins alpha by SeaShare only where ContinentMesh.HeightAt(...) < 0f, but x/z there range over the whole fog grid, which reaches FogMargin (14 m) past the land on every side (StrategicMapView.FogMargin, FogGrid). HeightAt clamps u/v to 0..1 (ContinentMesh.cs:62), so every texel in that 14 m, 28-texel-wide perimeter band samples the nearest in-bounds edge row instead of being off the map. The basin's own edge height (ContinentMesh.Heights, ContinentMesh.cs:31) is only -0.2 before noise, and the noise amplitude is +-0.6 (NoiseAmplitude, ContinentMesh.cs:17), so a coastal row that lands above zero is read all the way out across the margin: the fog there stays at full Density over open water the Sea mesh already shows as sea, instead of the SeaShare thinning StrategicMapMeshTests.The_Fog_Is_Thinner_Over_The_Sea_And_Along_The_Front only checks at one interior point (grid.Index(-10f,-10f)), not along a noisy edge.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Meta/MapFog.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Meta/ContinentMesh.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "An EditMode test asserts MapFog.Alpha is thinned by SeaShare for every texel in the FogMargin perimeter band regardless of the nearest edge row's raw height, and is red against today's HeightAt.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "MetaKeyLight's Take(Color,float), the overload both views call, has no test",
+      "why": "StrategicMapView.Show (StrategicMapView.cs:99) and HomeFrontDiorama.Show (HomeFrontDiorama.cs:91) both call keyLight.Take(color, intensity) (MetaKeyLight.cs:14-23), the overload that searches the scene for the one directional light with FindObjectsByType and silently does nothing if none is found. MetaPickTests.Take_Saves_Then_ReTints_On_A_Second_Take only exercises the other overload, Take(Light,...) (MetaKeyLight.cs:25-34), which neither production caller uses. The search loop and its null-light early return could be deleted or broken and no test would go red.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Meta/MetaKeyLight.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/UI/MetaPickTests.cs"
+      ],
+      "lane": "show",
+      "role": "bug-catcher",
+      "done_when": "A new MetaPickTests case calls MetaKeyLight.Take(Color,float) (no Light argument) against a scene directional light and fails if the FindObjectsByType search is removed or returns the wrong light.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
