@@ -1,0 +1,69 @@
+{
+  "subject": "review:U049",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/WreckDecayTests.cs (whole diff +259, and 1-120, 383-560, 723-790)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/TankTests.cs (diff, +56)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/TankMobilityTests.cs (diff, +47)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/WalkerArmamentTests.cs (diff, +46)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/StrafeRunTests.cs (diff, +26)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/TrenchSpreadTests.cs (diff, +24)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/UnitDefinitionTests.cs (diff, +23)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/UnitCatalogueTests.cs (diff, +16)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/SupportAbilityTests.cs (diff, +15)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs (whole, 1-222: AnyGunIdle, BuildShelters, AtWreck, InShadow)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/TargetAcquisition.cs (the stagger, :4 and :336)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatTables.cs (WeaponFor, :86-124: the Tusk's MG, 110 m x RangeScale)",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/RosterEntry.cs (:45, :78-86 Maw and Tusk)",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/UnitCatalogue.cs (Default(), :39-48)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatCatalogue.cs (:18-62, Weapon filled from WeaponFor)",
+    "trench-warfare-3d/Assets/_Project/Sim/Units/VehicleModules.cs (:136-137, :250-260 the hit table, :316-318, :537-545 repair)",
+    "docs/03-determinism-rules.md (1-120)",
+    "docs/reference/workflow.md (the Long tier, :261-268)",
+    "docs/reference/tasks.md (grepped; the add-a-unit recipe :393-418, the A4 wreck and unit-table rows) and docs/reference/decisions.md (grepped; the 2026-10-09 [N5.3] and 2026-10-16 wreck-shadow rows)",
+    "docs/found/look-review-u048-20261108.json (dedupe)",
+    ".claude/agents/tw-reviewer.md, .claude/skills/tw-review/SKILL.md",
+    "NOT read this leg, unchanged since the last review and lowest priority: SpreadAndEngageTests.cs, SupportUnitTests.cs, WinterMapTests.cs"
+  ],
+  "tasks": [
+    {
+      "title": "Pin the hull's side in AKnockedOutHullDoesNotFireAtAWreck",
+      "why": "P2, WreckDecayTests.cs:500-537 (new). The test asserts an absence -- 0 Shot events from a knocked-out Tusk over 60 ticks -- and nothing in it shows a live hull would have fired, so two ways to a false green are open. The hull's spot is the first of +30z, -30z, +30x, -30x with open ground and sight of the wreck (:508), and only one of the four can reliably produce a shot: AtWreck fires only when InShadow returns non-zero (DirectFire.Wrecks.cs:168), and the shadow is the strip past the wreck on the shooter->wreck line no wider than Shelter.Body = WreckBlastReach * 0.5 * size = 1 m at scale 1 (:102). The three men stand at the trench centre, 2 m from the wreck along z (Hidden, :412-418): from +30x or -30x every one of them is about 2 m off that line and InShadow returns 0, and from the side of the wreck the men are not behind, t < 0 excludes them too (:206). In those cases the hull fires nothing whether KnockedOut is tested or not, the [N5.2] guard is gone and the test still reads green. The sibling tests added in the very same diff do carry the control the brief asks for (TankTests.cs:327-331 '[T32] setup: nobody was throwing grenades', WalkerArmamentTests.cs:84-94 the hurt flag), so this one is out of step with its own commit.",
+      "files": ["trench-warfare-3d/Assets/_Project/Tests/Sim/WreckDecayTests.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "the test places the hull on the men's own side of the gun->wreck line (or asserts the chosen offset is one that puts the men in its shadow) and adds a setup assert that the same hull left live fires at the wreck at least once; it then goes red when the KnockedOut test is removed from AtWreck (DirectFire.Wrecks.cs:138), and WreckDecayTests stays green",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Time WreckDecayTests and mark its whole-map runs Long",
+      "why": "P2, WreckDecayTests.cs: not one [Category(\"Long\")] in 775 lines, and this diff roughly doubles the sim it runs. New: HeOnlyTurnsOnTheWreckOnHisOwnScanTick 400 ticks (:540), AManOnTheWrecksFlankIsNeitherShelteredNorSuppressed 400 (:563), AManOffTheLineButInsideTheOldBodyIsNotKeptDown 400 (:589), ABlindingScreenOnTheLineDoesNotStopTheFireAtTheWreck up to 360 (:645), TheShelterListIsBuiltOnlyWhenAGunHasNoTarget 16 + 310 on two matches (:675). On top of the existing AnIdleMachineGunFiresAtTheWreck... 400 ticks on two matches in lockstep (:460), ARifleFiresAtItButDoesNotWearIt 400 (:472) and ALivingTargetAlwaysWins 300 (:481). Every one is a full CreatePlaytest battlefield. The rule is flat: a test over 3 s carries [Category(\"Long\")] (workflow.md:261), and -EditOnly leaves the Long tier out precisely so the run before every commit of either lane stays under 300 s. Reading cannot settle a duration, so this is a measurement first; if these are over 3 s, every commit on the project is paying for about 3,000 ticks of battlefield that only the full gate needs.",
+      "files": ["trench-warfare-3d/Assets/_Project/Tests/Sim/WreckDecayTests.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "an EditMode run reports each WreckDecayTests test's duration; each one over 3 s carries [Category(\"Long\")] and the rest do not, the gate's -EditOnly time drops by what they cost, and the full gate stays green with no assert changed",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Make the T28 garrison floor the ratio its comment promises",
+      "why": "P3, TrenchSpreadTests.cs:276-281 and :364-368 (new). Both say the > 8 of 40 guard is 'raised to the sibling's 0.8 ratio', but what they compute is need = math.max(9, math.min(32, front.CellCount)). The min() hands the bound to the map: if the front trench has 12 cells the raised assert is 12 of 40 men, and the max(9) floor is literally the pre-T28 strength (> 8) it claims to have replaced -- so on a map whose front trench is small the test is no stronger than before while its message reads 'nearly the whole 40-man garrison reached a trench'. It also compares a man count to a cell count, which is the same thing only while one man stands per cell. Nothing here is wrong today; the guard is weaker than it reads, which is how a regression in the garrison search gets through a green run.",
+      "files": ["trench-warfare-3d/Assets/_Project/Tests/Sim/TrenchSpreadTests.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "the floor is either a fixed 32 (the 0.8 ratio, with the measured cell count asserted as the premise that makes it reachable) or the comment is rewritten to say what min(32, CellCount) really guards; both tests stay green and go red when the garrison search radius is halved",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "List the two newly pinned tests in the add-a-unit recipe",
+      "why": "P3, docs/reference/tasks.md:415-417 against WalkerArmamentTests.cs:80-84, :131-135 and UnitCatalogueTests.cs:41-55 (all new). The two archetype loops now hard-pin their own skipped sets -- Assert.AreEqual(38, occupied) and Assert.AreEqual(22, armoured), read off commit 46ef6bad9 -- and UnitCatalogueTests pins nine shipped numbers (rifleman 25/100, Maw 350/3600/1.6/600, Tusk 260/2000, officer aura 15). That is the right call, but step 6 of the recipe, 'Tests to run: FactionRosterTests, UnitDefinitionTests, CrabTests or TankTests, GaitTests, HudTextTests, HudBindTests, UnitArtTests, then the full gate', names neither, and the unit-table row at :373 does not name WalkerArmamentTests either. So the next unit added, or the next balance pass, reds two tests the written procedure never sent its author to; their messages say 'add it to this test' but only after the full gate has already burned.",
+      "files": ["docs/reference/tasks.md"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "step 6 of the add-a-unit recipe names WalkerArmamentTests (the 38/22 count pins) and the unit-table row names UnitCatalogueTests (the price pins); python trench-warfare-3d/Tools/validate.py exits 0",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
