@@ -214,6 +214,25 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>[found-replace-two-raw-hex-tints-that-bypass-the-pa-20261108-3] line 157 (.tw-card.is-poor >
+        /// .tw-card__portrait) tinted with #6A6A6A and line 168 (.tw-row--alt) tinted with #F0F0F0, both bypassing
+        /// the --tw-* token sheet.</summary>
+        [Test]
+        public void TheComponentSheetUsesTokensNotLiteralColours()
+        {
+            string uss = File.ReadAllText(Path.GetFullPath(Path.Combine(Application.dataPath, "..", SkinSpec.Root, "dustfront.components.uss")));
+            string stripped = Regex.Replace(uss, @"/\*.*?\*/", "", RegexOptions.Singleline);
+            var hexLines = new System.Collections.Generic.List<string>();
+            var rgbaLines = new System.Collections.Generic.List<string>();
+            foreach (var line in stripped.Split('\n'))
+            {
+                if (Regex.IsMatch(line, @"#[0-9A-Fa-f]{3,8}")) hexLines.Add(line.Trim());
+                if (line.Contains("rgba(")) rgbaLines.Add(line.Trim());
+            }
+            Assert.That(hexLines, Is.Empty, "[found-replace-two-raw-hex-tints-that-bypass-the-pa-20261108-3] the component sheet still paints with a literal hex instead of a --tw-* token:\n" + string.Join("\n", hexLines));
+            Assert.That(rgbaLines, Is.Empty, "[found-replace-two-raw-hex-tints-that-bypass-the-pa-20261108-3] the component sheet still paints with a literal rgba(...) instead of a --tw-* token:\n" + string.Join("\n", rgbaLines));
+        }
+
         static Texture2D Png(string rel)
         {
             var t = new Texture2D(2, 2);

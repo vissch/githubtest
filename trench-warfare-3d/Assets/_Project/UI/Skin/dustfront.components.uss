@@ -1,8 +1,9 @@
 /* Dust Front skin: components. Classes only; positions belong to each screen's own sheet.
-   Rules: plates are painted sprites and never tinted; icons are white glyphs coloured through
-   -unity-background-image-tint-color; a state is a sprite swap for a plate, a tint swap for a glyph and a colour swap
-   for text, never opacity alone. Every rule that names a sprite also names its slices and a background-color, so a
-   missing PNG degrades to a flat plate instead of a hole. Paths are relative to this file. */
+   Rules: plates are painted sprites and never tinted (the one exception is .tw-row--alt, marked where it
+   appears); icons are white glyphs coloured through -unity-background-image-tint-color; a state is a sprite swap
+   for a plate, a tint swap for a glyph and a colour swap for text, never opacity alone. Every rule that names a
+   sprite also names its slices and a background-color, so a missing PNG degrades to a flat plate instead of a
+   hole. Paths are relative to this file. */
 
 /* ---- type ------------------------------------------------------------------------------------------------ */
 .tw-caps { -unity-font-definition: url("Fonts/DustFrontLabel.asset"); font-size: var(--tw-size-label); color: var(--tw-text); letter-spacing: 1px; -unity-font-style: bold; }
@@ -154,7 +155,7 @@
 .tw-card.is-locked > .tw-card__nameplate { color: var(--tw-text-mute); }
 .tw-card.is-cooling > .tw-card__cost { color: var(--tw-text-dim); }
 .tw-card.is-poor > .tw-card__cost { color: var(--tw-alarm); }
-.tw-card.is-poor > .tw-card__portrait { -unity-background-image-tint-color: #6A6A6A; }
+.tw-card.is-poor > .tw-card__portrait { -unity-background-image-tint-color: var(--tw-tint-poor); }
 .tw-card.is-over > .tw-card__portrait { -unity-background-image-tint-color: var(--tw-plate-400); }
 .tw-card:disabled { opacity: 1; }
 
@@ -165,7 +166,9 @@
 .tw-keycap--listening { color: var(--tw-accent); background-color: var(--tw-accent-dim); }
 .tw-keycap--conflict { color: var(--tw-alarm); }
 .tw-row { flex-direction: row; align-items: center; min-height: 40px; padding: 4px 12px; margin-bottom: 2px; background-color: var(--tw-plate-700); background-image: url("Sprites/row_plate.png"); -unity-slice-left: 12; -unity-slice-top: 8; -unity-slice-right: 12; -unity-slice-bottom: 8; }
-.tw-row--alt { -unity-background-image-tint-color: #F0F0F0; }
+/* the one place in this sheet that tints a plate: the settings list's only banding, one shade lighter
+   than every other row, relative to row_plate.png's own paint */
+.tw-row--alt { -unity-background-image-tint-color: var(--tw-tint-row-alt); }
 .tw-row__label { flex-grow: 1; font-size: var(--tw-size-label); color: var(--tw-text); letter-spacing: 1px; }
 .tw-row__control { flex-direction: row; align-items: center; min-width: 320px; justify-content: flex-end; }
 .tw-tab { background-color: var(--tw-plate-700); background-image: url("Sprites/tab_plate.png"); -unity-slice-left: 12; -unity-slice-top: 8; -unity-slice-right: 12; -unity-slice-bottom: 8; min-height: 40px; padding: 4px 22px; margin: 0 2px 0 0; border-width: 0; color: var(--tw-text-dim); font-size: var(--tw-size-label); letter-spacing: 1px; -unity-font-style: bold; }
