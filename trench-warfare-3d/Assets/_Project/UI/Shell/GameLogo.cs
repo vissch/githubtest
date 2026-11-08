@@ -2,7 +2,8 @@
 // The art was cut into layers by Seedream 5 Pro Layerize (background removed; the cog's window and the small cog in it
 // rebuilt from the original) and ships in Resources/Logo, back to front: window, cog_top, gear (the big cog, whole, so
 // it can turn), plate, side_left, side_right, cog_left, cog_right, word_top (DIESELFRONT), word_bottom (TOADSTEEL), with
-// layout.json placing each in the logo's box; plus logo_full (all of it, flat) and wordmark (DIESELFRONT alone). A screen marks where it wants one and GameLogo.Fill (ShellScreen.Bind) puts it there:
+// layout.json placing each in the logo's box and naming the flat, wordmark and glint images too (logo_full is all
+// of it, flat; wordmark is DIESELFRONT alone). A screen marks where it wants one and GameLogo.Fill (ShellScreen.Bind) puts it there:
 //   .tw-logo--animated   the layers: the plates drop in (with the logo's soft shadow) while the big cog spins up behind
 //                        them, DIESELFRONT slams in, then TOADSTEEL, each landing with a small punch of the whole logo
 //                        and a kick of the cog; then the cog turns slowly, the words breathe, and a glint sweeps across
@@ -23,7 +24,10 @@ namespace TW.UI
         public const string Name = "DIESELFRONT: TOADSTEEL";
 
         [Serializable] class Layer { public string name; public int x, y, w, h; }
-        [Serializable] class Layout { public int w, h, glintFrames; public Layer[] layers; }
+        [Serializable] class Layout { public int w, h, glintFrames; public Layer[] layers; public string flat, wordmark; public string[] glintTop, glintBottom; }
+
+        static string FlatName(Layout l) => string.IsNullOrEmpty(l?.flat) ? "logo_full" : l.flat;
+        static string WordmarkName(Layout l) => string.IsNullOrEmpty(l?.wordmark) ? "wordmark" : l.wordmark;
 
         static Layout layout;
         static readonly Dictionary<string, Texture2D> textures = new Dictionary<string, Texture2D>();
@@ -47,8 +51,8 @@ namespace TW.UI
         {
             if (root == null) return;
             root.Query(className: "tw-logo--animated").ForEach(Animated);
-            root.Query(className: "tw-logo").ForEach(e => Flat(e, "logo_full"));
-            root.Query(className: "tw-wordmark").ForEach(e => Flat(e, "wordmark"));
+            root.Query(className: "tw-logo").ForEach(e => Flat(e, FlatName(GetLayout())));
+            root.Query(className: "tw-wordmark").ForEach(e => Flat(e, WordmarkName(GetLayout())));
         }
 
         /// <summary>A single image, scaled to the element's width with the art's aspect.</summary>
@@ -78,13 +82,13 @@ namespace TW.UI
         static void Animated(VisualElement e)
         {
             var L = GetLayout();
-            if (L == null || L.layers == null || L.w <= 0) { Flat(e, "logo_full"); return; }
+            if (L == null || L.layers == null || L.w <= 0) { Flat(e, FlatName(L)); return; }
             e.Clear();
             e.pickingMode = PickingMode.Ignore;
             KeepAspect(e, L.h / (float)L.w);
             var group = new List<VisualElement>();
             VisualElement top = null, bottom = null, gear = null;
-            var glintTop = GlintFrames("top", L.glintFrames); var glintBottom = GlintFrames("bottom", L.glintFrames);
+            var glintTop = GlintFrames(L.glintTop, L.glintFrames); var glintBottom = GlintFrames(L.glintBottom, L.glintFrames);
             VisualElement topGlint = null, bottomGlint = null;
             foreach (var l in L.layers)
             {
@@ -117,12 +121,16 @@ namespace TW.UI
             public int ShownTop = -2, ShownBottom = -2;
         }
 
-        static Texture2D[] GlintFrames(string word, int n)
+        static Texture2D[] GlintFrames(string[] names, int n)
         {
             if (n <= 0) return null;
             var f = new Texture2D[n];
-            for (int i = 0; i < n; i++) if ((f[i] = Tex($"glint_{word}_{i}")) == null) return null;
-            return f;
+            if (names != null && names.Length == n)
+            {
+                for (int i = 0; i < n; i++) if ((f[i] = Tex(names[i])) == null) return null;
+                return f;
+            }
+            return null;
         }
 
         /// <summary>The glint over a word: a child filling it, so it follows the word's slam and breath.</summary>
