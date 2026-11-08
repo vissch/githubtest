@@ -210,7 +210,7 @@ namespace TW.Tests
         /// pass it and still desync a real match. This pins the value itself.
         ///
         /// [T24b] The match is SCRIPTED (Script above), not idle: with an empty command array nothing ever spawns,
-        /// HighWater stays 0, and the 23 per-unit arrays SimWorld.Hash() folds at SimWorld.cs:417-439 fold zero
+        /// HighWater stays 0, and the 23 per-unit arrays SimWorld.Hash() folds at SimWorld.cs:455-477 fold zero
         /// bytes - a field deleted, inserted or reordered among them left both pins green through seven seam
         /// commits (replay v38 to v44). The asserts below say men exist, a machine is on the field and somebody was
         /// hit BEFORE the hash is compared, so the match cannot go idle again unnoticed.
@@ -236,7 +236,7 @@ namespace TW.Tests
             using var match = ScriptedGreybox();
             var fight = Script(match);
             Assert.Greater(match.World.HighWater, 0,
-                "[T24b] nobody deployed: the 23 per-unit arrays SimWorld.Hash() folds at SimWorld.cs:417-439 fold " +
+                "[T24b] nobody deployed: the 23 per-unit arrays SimWorld.Hash() folds at SimWorld.cs:455-477 fold " +
                 "zero bytes and the pin below is blind to every one of them");
             Assert.Greater(fight.Vehicles, 0, "[T24b] no machine on the field, so the vehicle state is unhashed");
             Assert.Greater(fight.Hits + fight.Deaths + fight.Wounded, 0,
@@ -271,7 +271,7 @@ namespace TW.Tests
             using var match = TW.Sim.Match.MatchSim.CreateBattlefield(ScriptedConfig(), TW.Sim.Terrain.BattlefieldParams.Landing(Seed));
             var fight = Script(match);
             Assert.Greater(match.World.HighWater, 0,
-                "[T24b] nobody deployed: the 23 per-unit arrays SimWorld.Hash() folds at SimWorld.cs:417-439 fold " +
+                "[T24b] nobody deployed: the 23 per-unit arrays SimWorld.Hash() folds at SimWorld.cs:455-477 fold " +
                 "zero bytes and the pin below is blind to every one of them");
             Assert.Greater(fight.Vehicles, 0, "[T24b] no machine on the field, so the vehicle state is unhashed");
             Assert.Greater(fight.Hits + fight.Deaths + fight.Wounded, 0,
