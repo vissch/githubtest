@@ -335,6 +335,27 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   about as wide as it is tall. The fix is part 2 of this plan (the pose the planted gag freezes); the probe stays
   as it is and still exits 1 until then. (this leg; the numbers are in
   `docs/evidence/rocketed-man-planted-g2/frames.txt` and `Assets/_Project/Tests/Show/PlantedPoseTests.cs`)
+  **Open again, and it IS his after all (2026-11-08, rocketed-man-planted-g2 leg 03, second half): the flat part is
+  his ARMS, and every way to a column costs something he owns.** Leg 03's own "it is a bug, not a look choice" above
+  was measured on the whole silhouette. Taking the same frozen pose apart by limb (`PlantedPoseTests`.
+  `LegsAboveTheMud_AreAColumn_HisArmsAreWhatLiesFlat`, green, it prints these) says where the width comes from:
+  his **legs are a column** -- 0.916 m tall, 0.826 m wide, 271 of 917 vertices -- and what lies flat is his **arms**,
+  flung out 1.013 m across and 0.178 m tall at the mud line, with his pelvis 0.820 m across beside them. The rifle
+  box, the first suspect, is innocent (12 vertices, 0.114 m). And the mud line falls at his waist by construction:
+  feet 0.905 m above the ground, upside down about `VatTint.Pivot` 0.9 at `UnitScale` 1.125, so the ground cuts him
+  at object y 0.804, just under his hips -- whatever his arms do at hip height is at the mud line in every pose.
+  Swept over all 112 baked rows x 20 phases, the best height/width above the mud is `Burning` t 0.10 (1.14, but
+  1.090 m tall breaks the 0.905 m +- 0.08 spec) and the best within the spec is `Burning` t 0.50 (0.955/0.879 =
+  1.09): a 9% margin in geometry, thinner than the stills' own blood and mud, so no choice of frozen clip or phase
+  carries the probe's shape gate. Options, all three his: **(e) a deeper plant** -- bury the arms, which is his
+  option (a) over again (the 0.905 m number is his); **(f) a different frozen pose for the planted gag** (`Burning`
+  t 0.50, one line in `VATRenderer.Fallen`'s `Fallen()`), bought at a 9% margin and a man who is not burning;
+  **(g) cut his arms off** -- `VAT_URP`'s limb cut already takes limbs 2 and 3 and `DebrisRenderer` throws them, so
+  a rocketed man loses both arms with his head: legs 0.826 and pelvis 0.820 against 0.916 of height, an 8% margin,
+  and a harder look. **The default taken here is none of them:** nothing is built, `probe.py` is untouched (BAR
+  0.10, the shape gate, three captures; selftest 7/7) and still exits 1 with its three per-still reasons, and the
+  leg ends blocked on him. (this leg; the numbers are in `docs/evidence/rocketed-man-planted-g2/frames.txt` and
+  `Assets/_Project/Tests/Show/PlantedPoseTests.cs`)
 - **Withdrawn 2026-10-27 — the planted man's two FAILs were a probe bug, not a look finding
   (rocketed-man-planted-g2):** the question asked here on 2026-10-27 (does the planted gag need a read fix at T1?)
   is withdrawn unanswered; nothing was landed on it, so nothing is undone. Why: both g2 stills were taken with the
