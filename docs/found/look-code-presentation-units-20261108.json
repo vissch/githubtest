@@ -2,10 +2,7 @@
   "subject": "code:Presentation/Units",
   "looked_at": [
     "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs",
-    "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Fallen.cs",
-    "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Gags.cs",
     "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Extras.cs",
-    "trench-warfare-3d/Assets/_Project/Presentation/Units/FallenFlight.cs",
     "trench-warfare-3d/Assets/_Project/Presentation/Units/ProceduralSoldier.cs",
     "trench-warfare-3d/Assets/_Project/Presentation/Units/VatCodec.cs",
     "trench-warfare-3d/Assets/_Project/Presentation/Units/VatAssetData.cs",
@@ -20,12 +17,19 @@
     "trench-warfare-3d/Assets/_Project/Tests/Show/VatEarlyZTests.cs",
     "trench-warfare-3d/Assets/_Project/Tests/Show/VatFallenReuseTests.cs",
     "trench-warfare-3d/Assets/_Project/Tests/Show/UnitOneSizeTests.cs",
-    "trench-warfare-3d/Assets/_Project/Tests/Show/FallenFlightTests.cs",
     "trench-warfare-3d/Assets/_Project/Tests/Show/DeathVarietyTests.cs (every assertion, by name)",
     "docs/found/look-code-presentation-units-20261017.json",
     "docs/reference/tasks.md (the VAT rendering and camera rows)",
     "docs/reference/decisions.md",
-    "docs/05-performance-budgets.md (the VertexBudget passages)"
+    "docs/05-performance-budgets.md (the VertexBudget passages)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Fallen.cs (reread whole: Heap, NewFallen, both AddFallen, FallenAt, DrawFallen, Fallen)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Gags.cs (reread whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/FallenFlight.cs (reread whole: Make, EndAt, At, PitchStep, RollStep, Squash)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/RenderGround.cs (RenderGroundGrid.Sample and RenderGround.Sample)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs (FillRow writing renderGrid.Heights, and OnSimEvent dirtying a crater's chunks)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/VatTintTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/FallenFlightTests.cs (every assertion, by name)",
+    "trench-warfare-3d/Assets/_Project/Shaders/VAT_URP.shader (the Tint decode block: roll, squash, feet pivot, wound)"
   ],
   "tasks": [
     {
@@ -39,8 +43,20 @@
       "lane": "show",
       "role": "optimizer",
       "done_when": "The shadow decision becomes a pure function of the near, far, fallen and extra vertex counts against the budget, VATRenderer calls it with all four, and VerticesThisFrame reports the whole frame. A new EditMode case feeds it a 1,500-man living count plus 600 near corpses and 512 extras and asserts shadows go off; it is red on today's code, where the same inputs leave ShadowsThisFrame true because only the living are summed.",
-      "risk": [false, false, false, false, false],
-      "change": [false, false, true, false, false]
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
     },
     {
       "title": "Reject a loaded bake that is not a clip atlas, per figure",
@@ -52,8 +68,45 @@
       "lane": "show",
       "role": "review-fix",
       "done_when": "A figure counts as present only when its own decoded atlas carries a row per Clip (VatAsset.ClipAtlas), so a short bake falls back to the Soldier like a missing one. A new VatAssetTests case asserts a figure whose bake is not a clip atlas is treated as absent (slot 1 maps to 0, not 1); it is red today, where nothing but asset[0] is consulted.",
-      "risk": [false, false, false, false, false],
-      "change": [false, false, true, false, false]
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    },
+    {
+      "title": "Re-sample the ground under a body that has come to rest",
+      "why": "A corpse's height is sampled once, when he dies, and never again. VATRenderer.Fallen.cs AddFallen takes land.y from RenderGround.Sample at the moment of death, and FallenAt returns that frozen f.Pos (or FallenFlight.At's frozen plan: its file header says so in as many words, 'planned once when he falls and read back every frame without a ground sample'; every arc's To and the Rest came from OnGround at plan time). The drawn ground under him does move: GreyboxTerrainView.OnSimEvent marks a crater's chunks dirty, FillRow rebuilds them and writes renderGrid.Heights, and RenderGround.Sample reads that grid, which is why the living follow the new ground (the fill job is handed Ground every frame, VATRenderer.cs:262). So a shell landing on the spot where men have just died -- the normal case, since the shells are what kills them -- leaves its dead hanging in mid-air over the new hole, or buried in a new rim, by the crater's depth, for the rest of their 21-39 s (CharredLies 12-16 s), up to 600 of them.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Fallen.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/FallenFlight.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "A body past his settling time takes his y from the drawn ground again (a slice of the list per frame is enough: nothing else about him moves). A new EditMode case lays a body on a flat IGroundHeight, drops the ground 1.2 m under him as a crater would, and asserts his drawn y follows within a few frames; red on today's code, where FallenAt returns the height sampled at death for ever.",
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
     },
     {
       "title": "Release the box soldier's atlas in the test that builds it",
@@ -64,8 +117,45 @@
       "lane": "show",
       "role": "lane",
       "done_when": "The test releases the asset it builds, and a VatAtlasMemoryTests case asserts no live Texture2D named SoldierVatPositions or SoldierVatNormals survives a build-and-release round trip (Resources.FindObjectsOfTypeAll); red today with the missing Release still in place.",
-      "risk": [false, false, false, false, false],
-      "change": [false, false, false, false, false]
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "title": "Key a heaped body on the cell he lands on",
+      "why": "VATRenderer.Fallen.cs Heap computes cell = PileCell(man.Pos) before it moves him, then shoves him PileNudge = 0.4 m sideways at a random angle and still records man.Cell = cell -- the cell he came from, not the one he now lies on. The pile grid is 2 m, so about a third of nudged bodies are filed on a neighbouring cell: the next man to die where he actually lies does not see him and is drawn inside him, while a man dying back on his old cell is lifted PileStep = 0.28 m (and tilted) over bare mud with no body under him. The same wrong cell drives the LiesUnder extension loop a few lines below, so the lie times of bodies on the old cell are stretched to cover a man who is not above them. HeapUnder/DownUnder, which DeathVarietyTests holds, are both fed this cell, so the test agrees with the bug.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Fallen.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Show/DeathVarietyTests.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "Heap files a body on the cell of his final resting position (re-cell after the nudge, or nudge inside his own cell), with the nudge in a pure static so a test can drive it. A new DeathVarietyTests case puts a body 0.1 m inside a cell boundary, nudges him across it, and asserts the recorded cell is the cell of the drawn position; red today.",
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
     }
   ]
 }
