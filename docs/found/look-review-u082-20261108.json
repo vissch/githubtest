@@ -1,0 +1,48 @@
+{
+  "subject": "review:U082",
+  "looked_at": [
+    ".claude/agents/tw-reviewer.md (whole)",
+    ".claude/skills/tw-review/SKILL.md (whole)",
+    "trench-warfare-3d/Tools/assetboard/static/board.css (whole, 305 lines)",
+    "trench-warfare-3d/Tools/assetboard/static/control.css (whole, 175 lines)",
+    "trench-warfare-3d/Tools/assetboard/static/house.css (whole, 87 lines)",
+    "trench-warfare-3d/Tools/assetboard/static/ideas.css (whole, 61 lines)",
+    "trench-warfare-3d/Tools/assetboard/templates/_house.html (whole)",
+    "trench-warfare-3d/Tools/assetboard/templates/base.html (whole)",
+    "trench-warfare-3d/Tools/assetboard/templates/house.html, templates/index.html (head blocks only, to settle sheet loading)",
+    "trench-warfare-3d/Tools/assetboard/static/touchdraw.js (classList/className call sites: lines 25,310,370,383,459,473,499,506,310-330,385-395)",
+    "trench-warfare-3d/Tools/assetboard/static/housedraw.js (lines 401-402,532,562,675-677,695-709)",
+    "trench-warfare-3d/Tools/assetboard/static/ideas.js (lines 60-90)",
+    "trench-warfare-3d/Tools/assetboard/src_touch.py (lines 380-390,505-522)",
+    "trench-warfare-3d/Tools/assetboard/test_assetboard.py (lines 2260-2294, the ideas-route case)",
+    "trench-warfare-3d/Tools/assetboard/static/kinetic.css, static/site.css (grep only, for the variables board.css/house.css use)",
+    "docs/reference/tasks.md, docs/reference/decisions.md (grep only: assetboard/board.css/touchdraw/housedraw)",
+    "docs/found/look-review-z014-20261108.json (shape only)"
+  ],
+  "tasks": [
+    {
+      "title": "Fix four tg- class-name typos: board.css styles no node touchdraw.js draws",
+      "why": "P1. The new touchdraw block (board.css:196-304) carries four rules the script can never trigger, each a one-letter-prefix typo: board.css:217 `.tg-log li.t-pickable` (touchdraw.js:459,499 only ever add `tg-pickable`) carries `cursor: pointer` and the `:focus-visible` background for a log row that `tabIndex = 0` makes keyboard-focusable, so it shows no cursor and no focus ring at all; board.css:282 `.tg-group.t-far` (touchdraw.js:506 adds `tg-far`) is the dim colour for a cluster this worker never touched, so a reached and a not-reached cluster look the same; board.css:293 `body.t-open { overflow: hidden }` inside `@media (max-width: 860px)` (touchdraw.js:370,383 add/remove `tg-open` on body) never applies, so on a phone the full-size overlay sits fixed over the page while the page behind it still scrolls; board.css:212 `.tg-c-files-named b` (src_touch.py:516 labels a run's fourth counter plain `files`, which touchdraw.js:324 turns into class `tg-c-files`) never colours that counter orange like its sibling `changed`. Reread at board.css:212,217,282,293 and touchdraw.js:370,383,459,499,506 and src_touch.py:516 on the head commit.",
+      "files": [
+        "trench-warfare-3d/Tools/assetboard/static/board.css"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "grep -c 'tg-pickable\\|tg-far\\b\\|tg-open\\|tg-c-files\\b' Tools/assetboard/static/board.css reports the four fixed selectors present, and grep -n 't-pickable\\|tg-group.t-far\\|body.t-open\\|tg-c-files-named' Tools/assetboard/static/board.css finds none of the old ones",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Add a test case for the i-s-again route state ideas.js can emit",
+      "why": "P3. ideas.js:87 builds class `i-s-' + at[n]` and `at[n]` can be `again` (SAID.again = 'Checked again', ideas.js:84), matching ideas.css:46 `.i-route li.i-s-again`. test_assetboard.py:2294 only asserts `.i-route li.i-s-{w}` for `('done', 'next', 'you')`, so a dropped or renamed `again` rule would pass the suite unnoticed. Low cost (one word is drawn with no CSS, cosmetic only) but cheap to close.",
+      "files": [
+        "trench-warfare-3d/Tools/assetboard/test_assetboard.py"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "test_assetboard.py's ideas-route case asserts '.i-route li.i-s-again' is in css alongside done/next/you, and fails if that rule is removed from ideas.css",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
