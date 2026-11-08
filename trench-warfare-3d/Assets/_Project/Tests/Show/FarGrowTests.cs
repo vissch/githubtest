@@ -114,6 +114,13 @@ namespace TW.Tests
                 for (int j = i + 1; j < men; j++)
                     min = Mathf.Min(min, Vector3.Distance(pts[i], pts[j]));
             Assert.GreaterOrEqual(min, 6f, "farther apart than a card is wide at zoom 120");
+
+            // the same claim at the TACTICAL band, which is where the owner question's default (a) says the marker
+            // reads: FarGrow(30) = 1, so a man's card is a bare 3 m - well under the 6 m the points are apart, so
+            // the 8 streaks are tellable apart there too. That is the geometric condition the T1 measurement in
+            // docs/evidence/paradrop-inbound-marker-r4/streakprobe_t1.py depends on.
+            Assert.AreEqual(1f, FlipbookFx.FarGrow(30f), 1e-6f, "no far growth at the tactical band");
+            Assert.Less(3f * FlipbookFx.FarGrow(30f), min, "a card at zoom 30 is narrower than the ring spacing");
         }
 
         [Test]

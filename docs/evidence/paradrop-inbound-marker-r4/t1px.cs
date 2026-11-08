@@ -1,0 +1,22 @@
+// Measures where each of the drop's 8 ring points actually projects on screen at the TACTICAL band (zoom 30),
+// from CaptureRig's own projection (Rig.Mark -> mark_px_x/y in the sidecar). Same method as ringpx.cs, which did
+// this at zoom 120; the T1 measurement is shot at zoom 30 because that is the band the default (a) of the open
+// owner question in decisions.md claims the marker reads at, and FarGrow(30) = 1 so a man's ShellFall card is a
+// full 3 m (~78 px at 26.0 px/m) instead of 29 px.
+// Run once per point (Rig.Mark changes are only read when a queued Shot renders, so each point must render and
+// drain (Pending() == 0) before the next is set), via `Tools/tw run eval_file`. k matches CombatFx.Barrage's own
+// loop: a = k/8 * 2pi, d = 7m (even k, DropStreakRingNear) or 11.5m (odd k, DropStreakRingFar), at = (45, ground,
+// 82.2). The private +-0.15 rad jitter is not reproduced here; it is covered by streakprobe_t1.py's own tolerance.
+var host = UnityEngine.Object.FindFirstObjectByType<TW.Presentation.SimHost>();
+var map = host.Local.Map;
+float at_x = 45f, at_z = 82.2f;
+int k = /* 0..7, set per call */ 0;
+double a = (double)k / 8.0 * 6.283185307179586;
+float d = (k % 2 == 0) ? 7f : 11.5f;
+float px = at_x + (float)System.Math.Cos(a) * d;
+float pz = at_z + (float)System.Math.Sin(a) * d;
+float py = TW.Presentation.RenderGround.Sample(map, px, pz);
+TW.Editor.CaptureRig.Rig.Mark = new UnityEngine.Vector3(px, py, pz);
+string path = "<abs path>/ring" + k + ".png";
+TW.Editor.CaptureRig.Shot(path, at_x, at_z, 30f, 30f, 25f, 1600, 900);
+return px + " " + pz + " " + py;

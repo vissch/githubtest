@@ -1,0 +1,100 @@
+{
+  "note": "The 8 ring points measured by CaptureRig's own screen projection at the TACTICAL band (t1px.cs run per point via Tools/tw run eval_file): focus (45, 82.2), zoom 30, yaw 30, pitch 25, 1600x900. Every point's cam_x/y/z is identical and equals the t1-* stills' camera, and the centre point projects to (800.0, 433.8), so these px apply to the committed t1-before/after stills. pose_error_m 0 on every shot.",
+  "pose_check": {
+    "cam_x": 106.32135,
+    "cam_y": 33.01822,
+    "cam_z": 46.7961,
+    "center_mark_px_x": 800,
+    "center_mark_px_y": 433.80524,
+    "zoom": 30,
+    "yaw": 30,
+    "pitch": 25,
+    "px_per_m": 26.0
+  },
+  "at": {
+    "x": 45.0,
+    "z": 82.2
+  },
+  "points": [
+    {
+      "k": 0,
+      "ring_m": 7.0,
+      "world_x": 52.0,
+      "world_z": 82.2,
+      "world_y": 1.227501,
+      "px_x": 931.35284,
+      "px_y": 490.79892,
+      "on_screen": 1
+    },
+    {
+      "k": 1,
+      "ring_m": 11.5,
+      "world_x": 53.13173,
+      "world_z": 90.33173,
+      "world_y": 0.6882185,
+      "px_x": 1200.10156,
+      "px_y": 467.13098,
+      "on_screen": 1
+    },
+    {
+      "k": 2,
+      "ring_m": 7.0,
+      "world_x": 45.0,
+      "world_z": 89.2,
+      "world_y": 0.8091478,
+      "px_x": 1002.65881,
+      "px_y": 394.52701,
+      "on_screen": 1
+    },
+    {
+      "k": 3,
+      "ring_m": 11.5,
+      "world_x": 36.86827,
+      "world_z": 90.33173,
+      "world_y": 0.8550048,
+      "px_x": 891.71259,
+      "px_y": 323.60339,
+      "on_screen": 1
+    },
+    {
+      "k": 4,
+      "ring_m": 7.0,
+      "world_x": 38.0,
+      "world_z": 82.2,
+      "world_y": 0.01600006,
+      "px_x": 686.71332,
+      "px_y": 387.45392,
+      "on_screen": 1
+    },
+    {
+      "k": 5,
+      "ring_m": 11.5,
+      "world_x": 36.86827,
+      "world_z": 74.06827,
+      "world_y": 3.064853,
+      "px_x": 421.98755,
+      "px_y": 347.00101,
+      "on_screen": 1
+    },
+    {
+      "k": 6,
+      "ring_m": 7.0,
+      "world_x": 45.0,
+      "world_z": 75.2,
+      "world_y": 3.305665,
+      "px_x": 576.95575,
+      "px_y": 408.14496,
+      "on_screen": 1
+    },
+    {
+      "k": 7,
+      "ring_m": 11.5,
+      "world_x": 53.13173,
+      "world_z": 74.06827,
+      "world_y": 1.41725,
+      "px_x": 680.5918,
+      "px_y": 552.60333,
+      "on_screen": 1
+    }
+  ]
+}

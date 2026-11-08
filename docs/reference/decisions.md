@@ -310,8 +310,16 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   20 px disc on each measured point only 1 of 8 men's amplitude clears the control pair's own noise in that disc
   by 3x (ratios 0.7-3.4x, most 1.4-2.2x) - the geometry was not the problem, the cards plainly do not clear the
   noise floor at this band. Even at the best case, the tactical camera at zoom 120 so
-  `FarGrow` = 1.50 and the card is 4.5 m wide, it does not reach the screen. Options: (a) leave the marker as it is,
-  reading at T1 and not at O120 - **the default taken here**, nothing changed; (b) make it read at O120 - a wider,
+  `FarGrow` = 1.50 and the card is 4.5 m wide, it does not reach the screen. **2026-11-08: it does not read at T1
+  either.** The same measurement at the tactical band (zoom 30, 26.0 px/m, `FarGrow(30)` = 1 so the card is a full
+  3 m = 78 px wide, the 8 points again projected by CaptureRig itself at that exact camera, `t1px.json`) counts
+  **1 streak of 8** against 1 of noise in the control pair (`streak_ratio` 0.125), and **0 of 8** men's amplitude
+  clears the control's noise in the same disc by 3x (0.57-1.45x: every disc sits at the control's level). The cards
+  are plainly there - the live `FlipbookFx` list 3 s after the call holds 24 `ShellFall` at width 3 on the 8 rings
+  plus the `Smoulder` flare - they just do not reach the screen at either band
+  (`probe.json` = T1, `probe-o120.json` = the overview). Options: (a) leave the marker as it is - **the default
+  taken here**, nothing changed, but note (a)'s own claim "reads at T1" is now measured false, so (a) means the
+  marker reads nowhere; (b) make it read at O120 - a wider,
   brighter `ShellFall` card and a bigger `Smoulder` flare when the drop is called from an overview zoom; (c) have
   `FarGrow` re-read the zoom each frame instead of once at the event, so a drop called at zoom 30 still grows when
   the player pulls out. (b) and (c) both change an accepted look.

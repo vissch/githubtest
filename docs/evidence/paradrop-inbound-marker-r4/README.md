@@ -40,8 +40,8 @@ wanders between runs - an earlier set at a nominal 0.5 s spacing landed inside 1
 streak window entirely - so a series is never timed in frames alone.
 
 ## The count
-`python docs/evidence/paradrop-inbound-marker-r4/streakprobe.py` -> **exit 1**, `probe.json`:
-`streaks` 0 of 8 men, `streak_ratio` 0.0, `noise_streaks` 0.
+`python docs/evidence/paradrop-inbound-marker-r4/streakprobe.py` -> **exit 1**, `probe-o120.json` (this probe's
+output; `probe.json` is the T1 measurement at the end of this page): `streaks` 0 of 8 men, `streak_ratio` 0.0, `noise_streaks` 0.
 
 The probe counts a component of the before/after diff as a streak only when its shape and its place both fit a
 card: area >= 40 px, >= 10 px tall, taller than wide, and its **ground anchor** (its bottom edge) on one of the
@@ -79,7 +79,7 @@ Rewriting `streakprobe.py`'s place test to match each diff component against its
 tolerance: half a 29 px card plus the jitter) still counts **0 streaks of 8**, same as the formula version
 (`python docs/evidence/paradrop-inbound-marker-r4/streakprobe.py` -> exit 1). So step 4: in a 20 px disc centred
 on each measured point, the drop's own `|after - before|` max against the control pair's max in the identical
-disc (`probe.json`'s `amplitudes`) -
+disc (`probe-o120.json`'s `amplitudes`) -
 
 | man (k) | drop max | control max | ratio |
 |---|---|---|---|
@@ -102,3 +102,43 @@ The marker reads in the sim and in the test, and does not read on the screen at 
 projection, not by a formula that happened to be close. Making it read means a bigger or brighter card, which is
 a change to an accepted look - the owner's call, filed under "Open: waiting on the owner" in
 `docs/reference/decisions.md`. Nothing in the look is touched here.
+
+## T1 (zoom 30): the tactical band, the one default (a) claims
+
+The open owner question's default (a) says the marker "reads at T1". Nothing had ever measured that; the whole r4
+set above is the **overview** band. This section is that measurement, taken the same way.
+
+**Answer: no, it does not read there either.** `streak_ratio` **0.125** - 1 of 8 men, against 1 streak of noise in
+the control pair, and **0 of 8** men's amplitude clears the control's own noise in the same 20 px disc by 3x
+(ratios 0.57-1.45x: every disc sits at the control's level).
+
+| | |
+|---|---|
+| band | focus (45.00, 82.20), **zoom 30**, yaw 30, pitch 25, 1600x900 -> 1.1547 * 30 = 34.6 m over 900 px = **26.0 px/m** |
+| why this band | `FlipbookFx.FarGrow(30)` = 1, so a man's `ShellFall` card is a full 3 m = **~78 px** wide, against 29 px at zoom 120. `FarGrow` is read from `IZoomSource.CurrentZoom` when the event arrives, so the tactical camera is moved to zoom 30 *before* the call (`TacticalCamera.FrameFrom(target, 30, 30)`). |
+| drop zone | the fixed world point **(45.00, 82.20)**, not `d.Stage + (0, 30)`: `GymDirector` hands out a different `Stage` on a different gym run (this run's was (20, 52.2)), and the measured ring points only apply to one fixed point |
+| the 8 points | `t1px.json`, each one `CaptureRig.Rig.Mark` projected by the rig itself at this exact camera (`t1px.cs`, one `eval_file` run per point, drained in between). Every point's `cam_x/y/z` is (106.32135, 33.01822, 46.7961) and the centre's `mark_px` is (800.0, 433.80524) - identical to every `t1-*` still's, so the points are provably the same camera as the stills. All 8 `on_screen`. |
+| capture | `dropshoot.cs`, three `eval_file` phases (stage + control pair + before / ability + 9-frame series / read the clock). Never `CaptureRig.Hold()`: it sets `Time.timeScale = 0` and would freeze the streak cards. |
+| quieted | exactly as the pose table above: `Quiet()`, `Clear()`, overlays off, both `UIDocument`s hidden, shake 0 + `Reset()`, `Storm.Hold`, `Atmosphere.Lightning = false`, `PinnedClock = 120`. `pose_error_m` **0** and `rain` 0.20069 on all 12 stills. |
+| frame rate | measured over this run itself: frame 27243 at t = 1292.62 s to frame 27553 at t = 1308.12 s = **20.0 fps** |
+| the moment | `t1-after.png` = `t1-after_03`, frame 27292, **t = 2.45 s** after the call - the frame nearest the 2.5 s the fix is judged at, picked by that rate, not by eye |
+
+The stills: `t1-before.png` (frame 25421), `t1-control.png` / `t1-control-b.png` (frames 25369 and 25419, 50 apart,
+the untouched scene - the noise floor), `t1-after.png` plus `t1-after_00/01/02/04/06/08.png` at t = 0.50, 1.15,
+1.80, 3.10, 4.40 and 5.70 s.
+
+### The cards are there; they just do not reach the screen
+This is not a drop that failed to fire. With the same scene, pose and band, the live card list inside
+`FlipbookFx` three seconds after the call holds **25** cards: one `Smoulder` (45.00, 0.42, 82.20) at width 4.2 and
+**24 `ShellFall` at width 3** - three back-to-back waves on each of 8 points
+((51.95, 83.00), (53.79, 89.61), (44.32, 89.17), (37.13, 90.58), (38.02, 82.69), (38.09, 73.00), (44.17, 75.25),
+(52.46, 73.45)), every one of them within 1.62 m of its measured no-jitter point, which is the `0.3` rad jitter
+`CombatFx` adds and is why `RING_TOL_PX` is 45 px (half a 78 px card plus 42 px of jitter).
+
+So: the sim adds one 3 m falling card per man, on the right ring, at the right moment, at the band the default
+claims - and a held-clock before/after pair at that band still cannot find them, by shape, by place, or by
+amplitude. The marker does not read at either band.
+
+`probe.json` is now this T1 measurement (`streakprobe_t1.py`); r4's overview result is kept unchanged as
+`probe-o120.json` (`streakprobe.py`, still 0 of 8). Both probes exit 1. Nothing in the look is touched: brighter or
+bigger cards are options (b)/(c) of the owner question.

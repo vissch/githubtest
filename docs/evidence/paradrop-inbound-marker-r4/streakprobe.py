@@ -1,7 +1,7 @@
 """Counts the drop's falling streaks per man at the zone, from a before/after pair either side of
 OnDropInbound (CaptureRig.Shot, one pose, weather pinned, overlays and HUD off, the tactical camera itself
 at zoom 120 so FlipbookFx.FarGrow sizes the cards for the band they are photographed at). usage:
-python docs/evidence/paradrop-inbound-marker-r4/streakprobe.py
+python docs/evidence/paradrop-inbound-marker-r4/streakprobe.py    (writes probe-o120.json; the T1 band is streakprobe_t1.py -> probe.json)
 
 Method. A per-pixel |after - before| carries the men walking and the muzzle flashes as well as the drop, so
 a component only counts as a streak when its SHAPE and its PLACE both fit a ShellFall card. r2 fix 3's
@@ -115,7 +115,7 @@ def main():
         "amplitudes": amplitudes,
         "amplitudes_clearing_3x": sum(1 for a in amplitudes if a["clears_3x"]),
     }
-    with open(os.path.join(here, "probe.json"), "w", encoding="utf-8", newline="\n") as f:
+    with open(os.path.join(here, "probe-o120.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(out, f, indent=2)
     print(json.dumps(out, indent=2))
     sys.exit(0 if out["streak_ratio"] >= 0.8 and noise <= 1 else 1)
