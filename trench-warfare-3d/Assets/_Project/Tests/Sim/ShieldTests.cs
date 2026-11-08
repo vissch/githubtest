@@ -73,14 +73,15 @@ namespace TW.Tests
 
         // [S2.1] every test above puts the bearer himself in front, so he is already the nearest enemy and the
         // pick is him regardless of Shielded() (code review 2026-10-04, T25). These two read TargetSlot directly,
-        // but on open ground the guard radius still cannot be the deciding rule: TargetAcquisition.cs:381 only
-        // calls Shielded() on a pick that is already the nearest *seen* enemy, and Shielded() (238) refuses any
-        // bearer not nearer the shooter than that pick. A bearer who is nearer, alive and seen is therefore the
-        // pick himself. Measured 2026-10-14: a bearer 14 m out, dead on the bearing, 6 m from a pick 20 m out
-        // (so well outside the 4 m radius) is still the TargetSlot. So these two pin what they can: the nearest
-        // seen enemy is the man shot at, and a bearer farther off than the pick is refused on distance.
+        // and they pin distance rules only: ShieldGuardRadius (TargetAcquisition.cs:235) cannot be the deciding
+        // line for any pick on open ground, because Shielded() is called only on a pick that already beat every
+        // nearer seen enemy (:378-381) and refuses a bearer not nearer the shooter than that pick (:238). The
+        // only case that would reach :235 is a bearer who is engageable but unseen by Sees() -- needing a crest
+        // or a smoke puff between him and the shooter while the man he guards stays seen -- which these tests do
+        // not set up. Measured 2026-10-14: a bearer 14 m out, dead on the bearing, 6 m from a pick 20 m out (so
+        // well outside the 4 m radius) is still the TargetSlot: nearness decides it, not the radius.
         [Test]
-        public void AShooterPicksTheBearerStandingInFrontOfHisGuardedMan()
+        public void TheNearerOfABearerAndHisGuardedManTakesTheShot()
         {
             using var m = NewMatch();
             const float z = 30f;
@@ -89,11 +90,11 @@ namespace TW.Tests
             // 2 m in front of the guarded man on the shooter's bearing, inside the 4 m guard radius
             int bearer = Still(m, 0, InfantryArchetype.Shield, 60f, z + 2f);
             Run(m, 20, w => { w.Yaw[shooter] = 0f; });
-            Assert.AreEqual(bearer, m.World.TargetSlot[shooter], "[S2.1] the bearer is the nearer of the two, so he is the pick (the guard radius decides nothing here)");
+            Assert.AreEqual(bearer, m.World.TargetSlot[shooter], "[S2.1] the bearer is 18 m out and the guarded man 20 m, so the nearer man is the pick");
         }
 
         [Test]
-        public void AShooterIgnoresABearerOffToTheSide()
+        public void ABearerFartherFromTheShooterThanThePickDoesNotTakeHisShot()
         {
             using var m = NewMatch();
             const float z = 30f;
@@ -103,7 +104,7 @@ namespace TW.Tests
             // the lenJ >= lenT line (TargetAcquisition.cs:238), not on the guard radius
             int bearer = Still(m, 0, InfantryArchetype.Shield, 66f, z);
             Run(m, 20, w => { w.Yaw[shooter] = 0f; });
-            Assert.AreEqual(guarded, m.World.TargetSlot[shooter], "[S2.1] a bearer farther from the shooter than the pick does not take the shot meant for him");
+            Assert.AreEqual(guarded, m.World.TargetSlot[shooter], "[S2.1] the bearer is 20.9 m out and the guarded man 20 m, so he is farther from the shooter than the pick and does not take the shot meant for him");
         }
 
         [Test]
