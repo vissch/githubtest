@@ -41,7 +41,28 @@
   "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldKit.cs (the env atlas grid and Imported, by search)",
   "trench-warfare-3d/Tools/envatlas.py (SETS, COLS/ROWS: the atlas seam, and it agrees with the kit)",
   "trench-warfare-3d/Assets/_Project/Tests/Show/ScatterRulesTests.cs",
-  "trench-warfare-3d/Assets/_Project/Tests/Show/AssetScaleTests.cs"
+  "trench-warfare-3d/Assets/_Project/Tests/Show/AssetScaleTests.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.cs (whole, in two passes: Build, the glow meshes, OnDestroy)",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.Pools.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.RealLamps.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.Machines.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/RealLampSet.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Core/MachineLightSlots.cs (the pool's eviction order: priority, then the dimmest)",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/Atmosphere.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/Atmosphere.NightLook.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/Storm.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/Rain.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/QuietFog.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/FogWisps.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/Ocean.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/WaterRings.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/ScorchTilePainter.cs",
+  "trench-warfare-3d/Assets/_Project/Tests/Show/NightLookTests.cs",
+  "trench-warfare-3d/Assets/_Project/Tests/Show/MachineLightPoolTests.cs",
+  "trench-warfare-3d/Assets/_Project/Tests/Show/StormThunderTests.cs",
+  "trench-warfare-3d/Assets/_Project/Tests/Show/ScorchTilePainterTests.cs",
+  "trench-warfare-3d/Assets/_Project/Shaders/TWLightPools.hlsl (TW_MAX_POOLS, against NightLights.MaxPools: they agree)",
+  "trench-warfare-3d/Assets/_Project/Net/ (is there a real transport behind Storm's freeze: UtpTransport exists)"
  ],
  "tasks": [
   {
@@ -146,14 +167,17 @@
    ]
   },
   {
-   "title": "TrenchSectionTests' gone-section knock test passes either way",
-   "why": "A_Gone_Section_Keeps_No_Knock (TrenchSectionTests.cs:91-116) is the test written for found-a-destroyed-lining-section-keeps-its-jolt-tw-20261017-4, but it cannot fail for the code it names. Twitch has its own guard: it keys the jolt through KeyOf and drops it when destroyed holds the key (PropWear.cs:402-404), and a gone section's key is in destroyed. So deleting the UnjoltSlot calls the finding added (PropDestruction.cs:410 in Section, PropWear.cs:281/298/341 in WearCell and WearShelter) leaves the test green: TwitchForTests at line 112 removes the jolt itself before it would move anything, and Knocked is 0 at line 113 whichever path cleared it. The UnjoltSlot that actually matters is the Damaged one (PropDestruction.cs:415), where the panel is hidden but not destroyed, and nothing asserts it at all.",
+   "title": "Keep the night glow cards in step with the lamps",
+   "why": "NightLights.Build fills `centres` and `lanterns` side by side for the site lanterns, prop lamps, trench lamps and burning trees, and the mesh it ends with is keyed on that: NightLights.cs:369-370 builds nightGlows from `centres` with the comment 'card j is lanterns[j]', and LampOut (NightLights.Machines.cs:42-51) clears cols[j*4+k] for lamp j on exactly that promise. But MoreFires (NightLights.Pools.cs:218-234, called at NightLights.cs:320) adds a centre, a shape and a colour for each burning tree WITHOUT adding a Light to `lanterns` - that is the whole point of it, 'no light, the pool is what shows' - and the torches are built after it (NightLights.cs:323-340). So every torch's card sits look.moreFires places further along the mesh than its lamp (DefaultMoreFires is 10). When a torch's stake goes down, PropDestruction's SceneHooks.LampOut puts out the right Light and blanks the WRONG card: a distant burning tree's glow goes dark while an orange glow card keeps burning in mid-air over the flattened torch, for the rest of the match (lampOut is out for good). Nothing lines the two lists up and no test touches the mapping.",
    "files": [
-    "trench-warfare-3d/Assets/_Project/Tests/Show/TrenchSectionTests.cs"
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.Pools.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.Machines.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/NightLookTests.cs"
    ],
    "lane": "show",
-   "role": "review-fix",
-   "done_when": "The test asserts the jolt is gone before Twitch is ever called (Knocked is 0 straight after the finishing strike), and a second case takes a section only to Damaged and asserts the panel's slot is no longer being moved. Both go red when the UnjoltSlot calls are removed in a throwaway edit.",
+   "role": "lane",
+   "done_when": "Each lamp carries the index of its own card (or the cards of the lightless fires go after every lamp's), and an EditMode case builds a field with look.moreFires above 0 and at least one torch, calls LampOut on the torch's position, and asserts the four vertex colours of the torch's own card are clear and no other card changed. It is red before the fix.",
    "risk": [
     false,
     false,
@@ -164,7 +188,7 @@
    "change": [
     false,
     false,
-    false,
+    true,
     false,
     false
    ]
