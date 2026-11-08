@@ -1,0 +1,79 @@
+{
+  "subject": "code:Sim/Match",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Sim/Match/MatchSim.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/AmbientBombardment.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/OffMapAbilities.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/SeaLanding.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/SectorControl.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/UnitDefinitions.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/Replay.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Nav/VehicleKinematics.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Terrain/MapStructs.cs"
+  ],
+  "tasks": [
+    {
+      "title": "Fold VehicleKinematics.Profiles into MatchSim.DataHash",
+      "why": "UnitDefinitions.Apply writes three tables (world.Units, CombatCatalogueSystem, VehicleKinematicsSystem.Profiles) but MatchSim.cs:154 DataHash only folds Catalogue.Fingerprint and World.Units.Fingerprint, leaving Profiles out. VehicleKinematics.cs:759 hashes Profiles per tick, so a replay or peer built with different VehicleProfile numbers passes VerifyReplay's map/data/init checks and then desyncs on the first tick a vehicle moves, instead of being refused as NewReplayRecorder's own doc comment promises.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Match/MatchSim.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Nav/VehicleKinematics.cs"
+      ],
+      "lane": "sim",
+      "role": "lane",
+      "done_when": "a test builds two matches, changes one Profiles entry in the second, and asserts VerifyReplay refuses rather than desyncs",
+      "risk": [true, true, false, false, false],
+      "change": [true, true, false, true, false]
+    },
+    {
+      "title": "Record ambient bombardment rate in the replay header",
+      "why": "AmbientBombardmentSystem.ShellsPerMinute is set once by MatchSim.CreateBattlefield from BattlefieldParams.Bombardment, but it is not in Hash() (only nextTick and Fired are) and not in the replay header. ReplayRecorder.MapParams (Replay.cs:172, written at :204, read at :274) has no writer and no reader anywhere in Assets/_Project, so a battlefield replay is not self-contained: a rebuild with the wrong rate desyncs about tick 160 (the first shell is TickRate * 8).",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Match/AmbientBombardment.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Match/MatchSim.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Core/Replay.cs"
+      ],
+      "lane": "sim",
+      "role": "lane",
+      "done_when": "a test records a battlefield match, reads BattlefieldParams.Deserialize(p.MapParams) back out of the replay and asserts Bombardment matches",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, true, false]
+    },
+    {
+      "title": "Stop off-map payloads from delivering after the match ends",
+      "why": "OffMapAbilitySystem.Step refuses a new SupportFire when w.WinnerTeam >= 0, but Deliver(w) at the end of Step (OffMapAbilities.cs:218) has no such guard, and SimWorld.Step never guards it either. Shells, gas, smoke and beams already scheduled keep landing after MatchEnded, and a ParaDrop in flight still calls w.Spawn, putting fresh men on the field of a finished match, unlike SectorControlSystem.Step and AmbientBombardmentSystem.Step which both return on WinnerTeam >= 0.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Match/OffMapAbilities.cs"
+      ],
+      "lane": "sim",
+      "role": "lane",
+      "done_when": "a test ends a match with a ParaDrop mid-warmup and asserts no DropLanded event after MatchEnded and Scheduled drains without spawning",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Fix SeaLanding's StoresFirst constant, dead since StoresEvery is larger",
+      "why": "SeaLanding.cs:201 gates the stores run on w.Tick >= StoresFirst (800, 'ticks before the first stores run (40 s)') && w.Tick % StoresEvery == 0 (1100). Since StoresEvery > StoresFirst, the first tick satisfying both is 1100, so StoresFirst is dead and the beach is empty for 55 s, not the 40 s the constant names. One player reinforcing by sea (any craft non-Idle at that instant) pushes the first boat out by another 55 s.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Match/SeaLanding.cs"
+      ],
+      "lane": "sim",
+      "role": "lane",
+      "done_when": "a test asserts a CraftInbound event at or before StoresFirst + 1 tick on a landing map with no deploys",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "A neutral objective locks every objective behind it for both teams",
+      "why": "SectorControlSystem.Step skips any objective with s.Owner > 1 (SectorControl.cs:89, 'neutral objectives are a mission feature'), so a neutral objective (OwnerTeam 255) can never be captured; and Unlocked (SectorControl.cs:55-66) returns false for a team that does not already own every blocking objective, so states[k].Owner (255) never equals team and the whole side behind it, including the HQ, is permanently locked for BOTH teams. Latent today: no shipped map or generator makes a neutral objective.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Match/SectorControl.cs"
+      ],
+      "lane": "sim",
+      "role": "lane",
+      "done_when": "a test on the pure SectorControlSystem.Unlocked with a neutral objective asserts the objective behind it is still unlocked for the attacker",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
