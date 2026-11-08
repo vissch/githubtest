@@ -812,6 +812,12 @@ class PlayerBenchExitTest(unittest.TestCase):
                             env=env, capture_output=True, text=True)
         return p.returncode, p.stdout + p.stderr
 
+    def test_no_report_exits_non_zero(self):
+        log = (self.tmp / "runs" / "lbl.log").as_posix()
+        rc, out = self._run("echo crashed > \"%s\"; return 7" % log)
+        self.assertNotEqual(0, rc, "[found-player-bench-sh-fail-when-the-player-wrote-n-20261016-0] no report must not exit 0")
+        self.assertIn("NO REPORT", out)
+
     def test_report_exits_zero(self):
         log = (self.tmp / "runs" / "lbl.log").as_posix()
         js = (self.tmp / "runs" / "lbl.json").as_posix()
