@@ -9,8 +9,11 @@
 // forgets the ground and the new level silently comes up as the wood - so both maps are walked exhaustively from
 // Enum.GetValues rather than spot-checked, and a new value with no case added fails here.
 using System;
+using System.Reflection;
 using NUnit.Framework;
 using Unity.Collections;
+using UnityEditor;
+using UnityEngine.UIElements;
 using TW.Presentation;
 using TW.Presentation.Terrain;
 using TW.Sim.Terrain;
@@ -100,6 +103,48 @@ namespace TW.Tests
             var card = ScriptableObject.CreateInstance<MissionCard>();
             try { Assert.AreEqual(Ground.ShelledForest, card.ToRequest(card.DefaultDifficulty).Ground); }
             finally { ScriptableObject.DestroyImmediate(card); }
+        }
+
+        // [found-mission-select-thumbnail-always-renders-the-20261108-0] the select screen's thumbnail hardcoded
+        // Ground.ShelledForest, so picking the winter card showed the shelled wood.
+        [Test]
+        public void TheWinterCardsThumbnailIsTheWinterGroundAndNotTheWood()
+        {
+            var card = AssetDatabase.LoadAssetAtPath<MissionCard>("Assets/_Project/UI/Missions/WinterLine.asset");
+            Assert.That(card, Is.Not.Null, "WinterLine.asset did not load");
+            Assert.AreEqual(Ground.WinterLine, card.Ground, "the shipped card must ask for the winter ground");
+            Assert.That(card.GeneratedBattlefield, Is.True, "the card must be one that MapThumbnail renders");
+
+            var root = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/_Project/UI/Shell/MissionSelect.uxml").Instantiate();
+            var screen = new MissionSelectScreen();
+            screen.Bind(root, null);
+            Texture2D winter = null, wood = null;
+            try
+            {
+                // Reflection on purpose: Select is private and must stay that way. Widening it to make this test
+                // easier to write would itself be part of the fix, and the test must run red against the old code.
+                var select = typeof(MissionSelectScreen).GetMethod("Select", BindingFlags.Instance | BindingFlags.NonPublic);
+                select.Invoke(screen, new object[] { card });
+
+                var shown = root.Q("info-image").style.backgroundImage.value.texture;
+                Assert.That(shown, Is.Not.Null, "the select screen drew no thumbnail");
+                var shownPixels = shown.GetPixels32();
+                int shownWidth = shown.width, shownHeight = shown.height;
+
+                winter = MapThumbnail.Render(card.BattlefieldSeed, Ground.WinterLine);
+                wood = MapThumbnail.Render(card.BattlefieldSeed, Ground.ShelledForest);
+
+                Assert.AreEqual(winter.width, shownWidth, "[found-mission-select-thumbnail-always-renders-the-20261108-0] the select screen's picture is not the winter ground");
+                Assert.AreEqual(winter.height, shownHeight, "[found-mission-select-thumbnail-always-renders-the-20261108-0] the select screen's picture is not the winter ground");
+                CollectionAssert.AreEqual(winter.GetPixels32(), shownPixels, "[found-mission-select-thumbnail-always-renders-the-20261108-0] the select screen's picture is not the winter ground");
+                CollectionAssert.AreNotEqual(wood.GetPixels32(), shownPixels, "[found-mission-select-thumbnail-always-renders-the-20261108-0] the picture is still the shelled wood");
+            }
+            finally
+            {
+                screen.Unbind();
+                if (winter != null) UnityEngine.Object.DestroyImmediate(winter);
+                if (wood != null) UnityEngine.Object.DestroyImmediate(wood);
+            }
         }
     }
 }
