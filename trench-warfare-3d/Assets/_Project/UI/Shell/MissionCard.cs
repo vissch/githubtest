@@ -1,7 +1,8 @@
 // Phase: B6 (implemented) — one entry on the mission select: a map, its knobs, and the difficulties it offers.
 // A light sibling of the A6 MissionDefinition (factions, waves, triggers), which nothing steps yet: this only holds
 // what SimHost reads today. ToRequest starts from the scene's own defaults so the default card is bit-identical to
-// pressing Play in GreyboxCorridor (MissionCatalogTests holds ShelledWood1917 to seed 1917 and today's knobs).
+// pressing Play in GreyboxCorridor (ShellUxmlTests.ShellAssetsAndCatalogExist pins the first card,
+// ShelledWood1917, to seed 1917 and today's knobs: 40 ticks, 8 men, 300 silver).
 using System;
 using UnityEngine;
 using TW.Presentation;
@@ -24,7 +25,7 @@ namespace TW.UI
         [Tooltip("Which battlefield. The shelled wood is the zero value, so cards made before this are unchanged.")]
         public Ground Ground = TW.Presentation.Ground.ShelledForest;
         public bool AllowSeedEdit = true;
-        public float Bombardment = 8f;   // not applied since 2026-09-28 (MatchLaunch.Apply): no constant bombardment
+        public float Bombardment = 8f;   // not applied since 2026-09-28 (MatchLaunch.Apply, ShellUxmlTests.NoMissionShellsTheFieldAllMatchLong)
         public string FrontLine = "90 x 240 M";
 
         [Header("Match")]
