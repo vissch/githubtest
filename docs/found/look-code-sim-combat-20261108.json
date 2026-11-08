@@ -1,0 +1,107 @@
+{
+ "subject": "code:Sim/Combat",
+ "looked_at": [
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs:1-510 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs:1-222 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/TargetAcquisition.cs:1-399 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/Suppression.cs:1-71 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/SmokeLos.cs:1-42 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/HeightfieldRaycast.cs:1-73 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/Armor.cs:1-54 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/Aura.cs:1-118 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatTables.cs:1-155 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatStructs.cs:1-34 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatCatalogue.cs:1-66 (whole)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/CombatTests.cs:1-380 (whole)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/SpreadAndEngageTests.cs:1-581 (whole)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/LaneAndEngageRulesTests.cs:1-248 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs: every array these systems write checked against Hash() (437-490) and against Spawn/Despawn (238-256)",
+  "trench-warfare-3d/Assets/_Project/Sim/Units/VehicleModules.cs:185-235 (Resolve: how an ArmourPiercing and a CloseAssault hit are really settled)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/TankSpec.cs:100-220 (every hull and turret plate, for the penetration band)",
+  "trench-warfare-3d/Assets/_Project/Sim/Match/UnitDefinitions.cs:68-80,278-285 (the Skimmer's and the AT rifle's weapons: the two HuntsArmour units)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/PropHarm.cs (whole: its wear checksum is write-only, so DirectFire.Wrecks hashing nothing of its own holds)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/PropDef.cs:66 (WreckBlastReach = 2 m, the figure Shelter.Body is half of)",
+  "trench-warfare-3d/Assets/_Project/Sim/Terrain/Heightfield.cs:25-40 (HeightAtCell clamps, so the raycast cannot read out of bounds)",
+  "trench-warfare-3d/Assets/_Project/Sim/Match/MatchSim.cs:51-145 (what combat:false leaves out: Movement and the catalogue are registered either way, so CombatTests.DirectFireWithoutTankGunneryRefusesToStep does reach the gunnery throw)",
+  "docs/found/look-code-sim-combat-20261018.json (the earlier look: three findings built at 5e00ebdb, c55b88f2, 9ed8fa75, one still an open question)",
+  "git log --since=2026-10-18 -- Sim/Combat (beam footprint, the wreck's narrower shadow, AtWreck's one walk, the shelter-list gate, the close-assault fallback deleted)",
+  "docs/reference/decisions.md:320-355 and greps of docs/reference/tasks.md for DirectFire, TargetAcquisition, Suppression, CombatTables, HuntsArmour, wreck"
+ ],
+ "tasks": [
+  {
+   "title": "Acquire armour by the plate the resolver uses, not a flat compare",
+   "why": "The armour-hunting rule is written twice and neither copy is the rule the hit is settled by. TargetAcquisition.cs:261-265 takes a machine as a target when Weapons[i].PenetrationMm > Armor.PlateFor(hull, facing), and DirectFire.cs:352-353 repeats the same line to decide the burst is armour-piercing; VehicleModules.cs:204-206 then settles it as holed = c >= GlanceCos && PenMm * c >= plate, with c the cosine of incidence, and may first roll the TURRET's plate instead (:193, spec.TurretChance). Inside a facing arc c runs 0.707..1 (Armor.cs:33: the arc is picked by the nearest normal), so every pen between 1.0x and 1.41x the plate acquires and then ricochets over the oblique half of that arc: the AT rifle's 20 mm on an 18 mm front plate (UnitDefinitions.cs:283, TankSpec.cs:105) bounces past 26 degrees off the nose, the Skimmer's 12 mm on a 9 mm side (TankSpec.cs:149) past 41 degrees. He never learns: TargetAcquisition.cs:264 returns true before the CloseAssaultRange line at :268, so the man keeps that machine as his target, fires at it for the rest of the match and never falls through to the grenade bundle that would work (CloseAssaultPenMm 20 against a TopMm of 8). The turret roll is the same mismatch the other way: 20 mm is refused a Pavise whose hull front is 34 mm (TankSpec.cs:160) though a third of its hits would take the 16 mm turret. Read in code, not seen in Play.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/TargetAcquisition.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Armor.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Units/VehicleModules.cs"
+   ],
+   "lane": "sim",
+   "role": "vehicle-simulator",
+   "done_when": "One helper in Armor answers 'can this weapon hurt that machine from here', and TargetAcquisition, DirectFire and VehicleModules all call it, so the three cannot drift. A new EditMode test in TankTests stands an AT rifleman 60 degrees off the nose of a machine with an 18 mm front plate, steps 400 ticks, and asserts VehicleModulesSystem.Penetrations stays 0 while Ricochets rises and he still holds that target on this commit (red first); after the fix he close-assaults it or picks another mark. The determinism, replay and hash tests stay green.",
+   "risk": [
+    false,
+    true,
+    false,
+    false,
+    false
+   ],
+   "change": [
+    false,
+    false,
+    true,
+    false,
+    false
+   ]
+  },
+  {
+   "title": "Fire at any wreck in range with enemies in its shadow, not only the nearest",
+   "why": "AtWreck (DirectFire.Wrecks.cs:146-164) picks ONE candidate, the nearest shelter whose Teams mask holds an enemy, and then returns outright when that one fails the line of sight (:156) or has nobody in its shadow (:164). It never tries the next. The two gates do not agree: BuildShelters sets the Teams bit for any living man within reach = ShelterRadius + body, a 4 m disc for a scale-1 wreck (:105-118; PropDef.cs:66 WreckBlastReach = 2, so body = 1 m), while InShadow (:178-199) counts only men past the wreck on the shooter's line and no further off it than body, a strip 2 m wide. Since fe901c1a1 halved that shadow the disc is about four times the strip, so the nearest listed wreck usually has its enemy out on a flank, the gun returns, and the owner's blind fire of 2026-09-28 never happens though a wreck 20 m further on has men squarely behind it. Being right costs nothing: the shelter list is already built and the walk already done. WreckDecayTests cannot see it: its one idle machine gun faces a single wreck. Read in code, not seen in Play.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs"
+   ],
+   "lane": "sim",
+   "role": "bug-catcher",
+   "done_when": "AtWreck walks the shelters nearest first and fires at the first that passes sight AND has an enemy in its shadow. A new EditMode test in WreckDecayTests puts a wreck 10 m from an idle machine gun with one enemy on its flank and a second wreck 25 m off with an enemy squarely behind it, and asserts a Shot naming the second wreck's prop within 60 ticks: red on this commit (no shot at all), green after. WreckDecayTests and the determinism, replay and hash tests stay green.",
+   "risk": [
+    false,
+    true,
+    false,
+    false,
+    false
+   ],
+   "change": [
+    false,
+    false,
+    true,
+    false,
+    false
+   ]
+  },
+  {
+   "title": "Give the burst at a hull the accuracy terms every other shot has",
+   "why": "DirectFire.cs:364-366, the armour-piercing burst at a machine: odds = Accuracy x RangeFalloff x HullTargetBonus, then the moving multiplier, then the roll. Three terms every other shot in this job carries are missing. The shooter's own suppression is not there (the man branch has it at :392, and even AtWreck keeps it at DirectFire.Wrecks.cs:167), so a man one point under Pinned shoots at armour as steadily as a calm one while his fire at men is halved. Smoke is not there, though the same tick's acquisition blinds him past SmokeBlindMetres (TargetAcquisition.cs:315) and his fire at men loses SmokeAccuracyPerMetre a metre (DirectFire.cs:412-416): inside a screen a hull is hit at full odds. And the result is never clamped to the 0.02..0.95 the man branch uses (:418), so the table alone sets the ceiling. Read in code, not seen in Play; it is the one branch written separately from the rest and reads like three lines forgotten rather than a rule.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs"
+   ],
+   "lane": "sim",
+   "role": "review-fix",
+   "done_when": "The hull branch runs the same chance terms as the man branch (own suppression, smoke on the line, the clamp). An EditMode test in TankTests fires a Skimmer's machine gun at a machine over 600 ticks with the shooter's Suppression held at 84 and again at 0, and asserts the suppressed run lands about half the hits; red on this commit (the two counts match). This moves the dice: rerun the determinism, replay and hash tests and bump what a hash change costs.",
+   "risk": [
+    false,
+    true,
+    false,
+    false,
+    false
+   ],
+   "change": [
+    false,
+    false,
+    true,
+    false,
+    false
+   ]
+  }
+ ]
+}
