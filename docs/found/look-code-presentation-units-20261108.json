@@ -1,0 +1,71 @@
+{
+  "subject": "code:Presentation/Units",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Fallen.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Gags.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Extras.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/FallenFlight.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/ProceduralSoldier.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VatCodec.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VatAssetData.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VatTint.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/FigureMetrics.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/ViewEye.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.cs (the Clip enum and Clips.Table only)",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/UnitPose.cs (the AnimRow enum only)",
+    "trench-warfare-3d/Assets/_Project/Shaders/VAT_URP.shader (the row sampling and the tint/pad decode)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/VatAssetTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/VatAtlasMemoryTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/VatEarlyZTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/VatFallenReuseTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/UnitOneSizeTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/FallenFlightTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/DeathVarietyTests.cs (every assertion, by name)",
+    "docs/found/look-code-presentation-units-20261017.json",
+    "docs/reference/tasks.md (the VAT rendering and camera rows)",
+    "docs/reference/decisions.md",
+    "docs/05-performance-budgets.md (the VertexBudget passages)"
+  ],
+  "tasks": [
+    {
+      "title": "Count the fallen and the riders in the vertex budget",
+      "why": "VATRenderer.cs:291-294 decides ShadowsThisFrame and VerticesThisFrame from nearVerts and farVerts alone, and both are summed from the living fill job only. DrawFallen (VATRenderer.Fallen.cs, called at VATRenderer.cs:315) then submits up to MaxFallen = 600 corpses from the same baked mesh (917 vertices; VatAssetTests pins it under 1,200), and DrawExtras (VATRenderer.Extras.cs:146-156) up to MaxExtras = 512 riders -- both after the decision, counted nowhere. A barrage frame can carry about 1.0 M vertices the budget never saw against a 1.5 M LodTiers.VertexBudget, while the one lever the file header promises ('when the men on screen times the mesh's vertices exceed it, shadows go first') still reads inside budget and leaves shadows on. docs/05 line 459 shows the lever is live in real battles: at ~1,800 men the men's shadows are already off. Worse, the extras take their own shadow casting from that same ShadowsThisFrame (Extras.cs:155) without ever having been weighed, so 512 riders cast shadows on the strength of the infantry count.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Fallen.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Extras.cs"
+      ],
+      "lane": "show",
+      "role": "optimizer",
+      "done_when": "The shadow decision becomes a pure function of the near, far, fallen and extra vertex counts against the budget, VATRenderer calls it with all four, and VerticesThisFrame reports the whole frame. A new EditMode case feeds it a 1,500-man living count plus 600 near corpses and 512 extras and asserts shadows go off; it is red on today's code, where the same inputs leave ShadowsThisFrame true because only the living are summed.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Reject a loaded bake that is not a clip atlas, per figure",
+      "why": "VATRenderer.cs:199 sets clipAtlas from asset[0].ClipAtlas (the Soldier) and then trusts every other figure to be a clip atlas: has[k] (cs:191) is VatAssetData.Valid, which checks only that a mesh and some bytes exist, never the row count. A stale 18-row bake in Resources/Units/FigureSniper (the pre-C1 AnimRow layout) is therefore loaded and drawn as if it had a row per Clip. VATRenderer.Fallen.cs NewFallen then reads figures[figure].Asset.RowSeconds[(int)clip] with clip up to 111 against an 18-entry array, so the first sniper death throws IndexOutOfRangeException out of AddFallen and loses the body; the living pass writes the same clip index into the instance's AnimRow, an out-of-range _RowTable read for every sniper on screen that frame. FigureSources already refuses to mix the box soldier with a clip atlas for exactly this reason ('the near tier shares one clip->row map'), but the check is one bool for the whole set.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Show/VatAssetTests.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "A figure counts as present only when its own decoded atlas carries a row per Clip (VatAsset.ClipAtlas), so a short bake falls back to the Soldier like a missing one. A new VatAssetTests case asserts a figure whose bake is not a clip atlas is treated as absent (slot 1 maps to 0, not 1); it is red today, where nothing but asset[0] is consulted.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Release the box soldier's atlas in the test that builds it",
+      "why": "VatAssetTests.ProceduralSoldier_AtlasMatchesMeshAndAnimRows (VatAssetTests.cs:38-45) builds a ProceduralSoldier atlas and never calls Release or destroys anything; its sibling ProceduralSoldier_HoldsItsOneShotRows does (line 60). The textures carry HideFlags.HideAndDontSave, which is the whole point of VatAtlasMemoryTests's header: nothing Unity does on its own -- leaving Play, scene unload, Resources.UnloadUnusedAssets -- ever takes them. So every run of the suite strands one 264-vertex by 288-frame position atlas, its normals and the mesh the asset owns (OwnsMesh) until the editor is quit. Small per run, but it is the exact leak the 144 MB incident was, left standing inside the area that guards against it.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Tests/Show/VatAssetTests.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "The test releases the asset it builds, and a VatAtlasMemoryTests case asserts no live Texture2D named SoldierVatPositions or SoldierVatNormals survives a build-and-release round trip (Resources.FindObjectsOfTypeAll); red today with the missing Release still in place.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
