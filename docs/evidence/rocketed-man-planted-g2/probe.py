@@ -15,16 +15,20 @@ passes every gate: the still FAILS with the reason, not a number borrowed from t
     tan(fov/2) = zoom * tan 30 / dist                          (CaptureRig.Pose, CaptureRig.cs:167);
     px_per_m  = h / (2 * dist * tan(fov/2))                    pixels per metre on the focus plane;
     vpm       = px_per_m * cos(cam_pitch)                      pixels per metre of WORLD HEIGHT.
-The frame centre is NOT assumed to be his feet. Each still must carry a companion `plant_N.man.json` with the
-planted man's rest position as DeathLab.Planted() reported it; the aim point of the shot is read back from the
-sidecar (aimY = cam_y - run * tan(cam_pitch)), and his feet row is cy_man = h/2 + (aimY - man_y) * vpm. Without
-that file the still FAILS: the probe will not borrow the frame centre as a prior it cannot check. (The two stills
-of 2026-10-27 were taken with the default aim, aimY 0.000, while the man rested at y -1.48 -- 35 px lower than the
-centre row.) His legs stand DeathGags.PlantLegsAboveM = 0.905 m above his feet: `legs_px_expected` -- the PRIOR
-used only to size the window and the shape gates, never reported as a finding. The geometry only sizes and places
-the window; it never measures.
+The frame centre is NOT assumed to be his feet. Each still must carry a companion `plant_N.man.json` recording
+`Path.Rest` -- the man's SUNK origin, as DeathLab.Planted() prints it, not his feet and not the mud line. A planted
+man's Pos sits PlantDepth below the drawn ground (VATRenderer.Gags.cs:117), so from that one number:
+    ground row = h/2 + (aimY - (man_y + 1.120)) * vpm      the mud he stands in   (Depth,     PlantedDeathTests.cs:25)
+    his feet are 2.025 m above man_y                        hanging upside down   (1.125x1.8, PlantedDeathTests.cs:23)
+    so 0.905 m of legs stand above the mud                  DeathGags.PlantLegsAboveM.
+The aim point of the shot is read back from the sidecar (aimY = cam_y - run * tan(cam_pitch)). Without the man file
+the still FAILS: the probe will not borrow the frame centre as a prior it cannot check. (The two stills of
+2026-10-27 were taken with the default aim, aimY 0.000, while the man rested at y -1.48 -- his mud line 28 px below
+the centre row.) `legs_px_expected` is the PRIOR used only to size the window and the shape gates, never reported
+as a finding. The geometry only sizes and places the window; it never measures.
 
-Window per still: +-1.2 m either side of the frame centre column, 0.05..1.35 m above the man's feet row.
+Window per still: +-1.2 m either side of the frame centre column, 0.05..1.35 m above the man's GROUND row (his
+legs stand up out of the mud, so the window must not reach below the mud line).
 Mask gates (all must pass, else FAIL "no mask"):
   - area  >= 0.25 * (0.9 m x 0.35 m in px)
   - bbox height >= 0.5 * legs_px_expected
@@ -45,6 +49,8 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LEGS_M = 0.905          # DeathGags.PlantLegsAboveM: the owner's pick A, waist deep
+GROUND_ABOVE_POS_M = 1.120      # PlantedDeathTests.cs:25 Depth: how far a planted man's Pos is sunk under the mud
+FEET_ABOVE_POS_M = 2.025        # PlantedDeathTests.cs:23: 1.125 x 1.8, his feet hanging upside down above his Pos
 LEG_W_M, LEG_H_M = 0.35, 0.9    # a pair of legs' rough footprint, for the area gate
 WIN_HALF_X_M = 1.2
 WIN_TOP_M, WIN_BOTTOM_M = 1.35, 0.05     # above the centre row
@@ -201,11 +207,11 @@ def probe(png, write_mask):
     legs_px_expected = LEGS_M * vpm
     cx = w // 2
     aimY = aim_y(s)
-    cy = int(round(h / 2.0 + (aimY - m["y"]) * vpm))
+    cy = int(round(h / 2.0 + (aimY - (m["y"] + GROUND_ABOVE_POS_M)) * vpm))
     base = {
         "still": os.path.basename(png), "legs_px_expected": round(legs_px_expected, 1),
         "px_per_m": round(px_per_m, 2), "vpm": round(vpm, 2),
-        "aim_y": round(aimY, 3), "man_y": m["y"], "feet_row": cy,
+        "aim_y": round(aimY, 3), "man_y": m["y"], "ground_row": cy,
     }
     off = max(abs(m["x"] - s["focus_x"]), abs(m["z"] - s["focus_z"]))
     if off > 0.5:
@@ -379,6 +385,31 @@ def selftest():
         got = probe(png, False)
         good = (not got["ok"]) and "no man position recorded" in got["reason"]
         print("SELFTEST %-14s %-4s reason=%s" % ("fail-no-man", "PASS" if good else "FAIL", got["reason"]))
+        ok = ok and good
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # (g) the sunk origin: the man file records Path.Rest, GROUND_ABOVE_POS_M under the mud he stands in. Draw the
+    # legs patch on the row probe() must work out from that, and check the OLD reading (the window hung off man_y
+    # itself) finds nothing there -- so the case proves the conversion, not just the gates.
+    tmp = tempfile.mkdtemp(prefix="plantprobe")
+    try:
+        sunk_man_y = aim_y(sc) - GROUND_ABOVE_POS_M     # his mud line then lands on the frame centre row
+        png = os.path.join(tmp, "plant_9.png")
+        make(W, H, 0.18, (px0, py0, patch_w, patch_h), 0.30).save(png)
+        with open(os.path.join(tmp, "plant_9.json"), "w", encoding="utf-8") as fh:
+            json.dump(sc, fh)
+        with open(os.path.join(tmp, "plant_9.man.json"), "w", encoding="utf-8") as fh:
+            json.dump({"x": 0.0, "y": sunk_man_y, "z": 0.0, "source": "selftest"}, fh)
+        lum = [luma(p) for p in Image.open(png).convert("RGB").getdata()]
+        _, _, vpm = geometry(sc, H)
+        old_cy = int(round(H / 2.0 + (aim_y(sc) - sunk_man_y) * vpm))
+        _, _, blind = find_mask(lum, W, H, W // 2, old_cy, PPM, vpm, LEGS_M * vpm)
+        got = probe(png, False)
+        good = (blind is not None and got["ok"] and abs(got["contrast"] - 0.600) < 0.03
+                and got["ground_row"] == H // 2)
+        print("SELFTEST %-14s %-4s contrast %s expected ~0.600 (old row %d found: %s)"
+              % ("pass-sunk", "PASS" if good else "FAIL", got["contrast"], old_cy, blind))
         ok = ok and good
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
