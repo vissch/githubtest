@@ -1,0 +1,6 @@
+{
+  "x": 89.50,
+  "y": 0.26,
+  "z": 108.65,
+  "source": "DeathLab.Planted() in GreyboxCorridor, batch editor, 2026-11-08: printed \"89.50 108.65 (y 0.26) lands in 2.31 s\"; still taken one game second after he landed, aimed at aimY 1.83 (man y + PlantDepth 1.120 + 0.45 mid-legs)"
+}
