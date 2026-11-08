@@ -1,0 +1,79 @@
+{
+  "subject": "code:Presentation/Camera",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/MachineScale.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/MachineSockets.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/MachineLamps.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/WreckStages.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/HullRide.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/HopLegs.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/WeldedLegRig.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Weight.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.DriveStyle.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Probe.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.HopLegs.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs (540-660, 820-900)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Lights.cs (42-58, 107-120, 208-218)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Riders.cs (750-765, 877-920)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Guns.cs (277-295)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Salvo.cs (122-135)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Fizzers.cs (60-75)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/ViewEye.cs",
+    "grep of Camera.main over Presentation (51 reads in 28 files, 16 of them under Presentation/Camera)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/HullRideTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/DriveStyleTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/MachineLampTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/WalkerUnchangedTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/WalkerJointTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/ViewEyeTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/KnobsTests.cs (1-60, and a grep of its knob names)",
+    "docs/found/look-code-presentation-camera-20261016.json (its four tasks; 1-3 have since landed as ViewEye and LocalSeat)",
+    "docs/reference/tasks.md (lines 440-560, 640-680, 788-810, 1128)",
+    "docs/reference/decisions.md (grep settle/lamp/camera; the row 2026-09-29 'Phase 1's looks are on by default')"
+  ],
+  "tasks": [
+    {
+      "title": "tank.traverseSettle cannot be turned up past its default",
+      "why": "TankRenderer.Weight.cs:38 reads it as Mathf.Clamp(Knobs.Get(\"tank.traverseSettle\", DefaultTraverseSettle), 0f, 0.6f), and settleDeg is then the maxDegrees handed to HullRide.SettleDegrees and the cap on v.Settle, so the knob's whole upper range is dead: tank.traverseSettle=2 draws exactly the 0.6 degrees of the default the owner set (decisions.md 2026-09-29). Every sibling knob in the same method has headroom above its default (tank.shotRock Mathf.Max(0f, ...), tank.lampSize Mathf.Max(0.05f, ...), tank.lightReach Mathf.Max(0f, ...)); only this one is capped at its own default. The cost is a sweep: an agent asked to show the owner more swing sets the knob, measures no change in the WeightLab trace, and reports the look as impossible.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Weight.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Show/KnobsTests.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "A KnobsTests case parses tank.traverseSettle=2, reads the renderer's settleDeg by reflection (the way HullRideTests drives TakeTopKick) and asserts it is 2 and not 0.6, with 0 still drawing no settle; red on the tree as it stands, green once the clamp is widened.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Make four MachineLampTests asserts able to fail",
+      "why": "MachineLamps.Place only ever picks vertices with hull[i].y >= c.y, and it ends by mirroring each pair across the hull ('at[other] = new Vector3(2f * c.x - at[keep].x, at[keep].y, at[keep].z)'); the Nudge it adds afterwards is itself mirror-symmetric and leaves y alone. MachineLampTests.cs:45-47 and :52 then assert that construction straight back: the pair's mean x equals the hull bounds' centre x, l.y == r.y, l.z == r.z, and every lamp's y >= the centre's y. The test's centre comes from the same vertices Place averages, so those four cannot fail for any mesh, however wrong the placement. It leaves the test reading as a full guard on lamp placement when only the front-at-the-front, off-the-centre-line and inside-the-hull asserts carry anything. This is the shape the repo files most (see docs/found/look-review-z012-20261108.json).",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Tests/Show/MachineLampTests.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "The four asserts are replaced by ones a wrong Place would fail (a lamp near a hull corner in x and z, not merely above the hull's middle; a pair read off the mesh on both sides rather than off one side's mirror), each shown red against a deliberately broken Place and green against the real one.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Ratchet Camera.main too, not only the zoom source",
+      "why": "ViewEye.cs was written because 'Camera.main is a tagged find and IZoomSource comes off it with a component lookup', and it exposes ViewEye.Main for the first half. Its ratchet, ViewEyeTests.No_Presentation_File_Looks_The_Zoom_Source_Up_Again, greps only for TryGetComponent<IZoomSource>, so a plain Camera.main read is still free: 51 remain under Presentation, 16 under Presentation/Camera alone (TankRenderer.Guns.cs:283 inside the per-shot mortar-round draw, TankRenderer.Lights.cs:214 CookOffLight once per cooking machine, Riders.cs:757/883/915, Fizzers.cs:68, Salvo.cs:128/219). The test cannot fail for the half it is named after and nothing stops the next site. Most sites are already hoisted out of their inner loops, so this is a ratchet and a tidy, not a measured win.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Tests/Show/ViewEyeTests.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Core/ViewEye.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Guns.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Lights.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Riders.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Salvo.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Fizzers.cs"
+      ],
+      "lane": "show",
+      "role": "optimizer",
+      "done_when": "ViewEyeTests greps the presentation sources for 'Camera.main' as well and allows only ViewEye.cs; red on the tree as it stands, green once every site reads ViewEye.Main, with the gate green.",
+      "risk": [false, false, false, false, false],
+      "change": [true, false, false, false, false]
+    }
+  ]
+}
