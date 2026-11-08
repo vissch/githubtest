@@ -2276,8 +2276,9 @@ def ideas_cases():
          got == ['queued for the pipeline', 'on the board as idea-x', 'not on the board yet: the master puts it there at its next turn', 'next: Concept', 'waits on you: You pick · next: Numbers', 'every step is done',
                  'on the board as idea-x'], (got, p.stderr[-300:]))
     page_js = (HERE / 'static' / 'ideas.js').read_text(encoding='utf-8')
-    case('page: each step of the route is drawn with what the board says of it, and every such word has its look: done, next, waits on him',
-         "'i-s-' + at[n]" in page_js and all(f'.i-route li.i-s-{w}' in css for w in ('done', 'next', 'you')) and 'on their way' not in page_js and 'i-done' not in page_js + css, '')      # the list of accepted ideas is gone from the page (the owner, 2026-10-12)
+    # [found-add-a-test-case-for-the-i-s-again-route-stat-20261108-1] the again state ideas.js can emit needs its own CSS rule
+    case('[found-add-a-test-case-for-the-i-s-again-route-stat-20261108-1] page: each step of the route is drawn with what the board says of it, and every such word has its look: done, next, waits on him, checked again',
+         "'i-s-' + at[n]" in page_js and all(f'.i-route li.i-s-{w}' in css for w in ('done', 'next', 'you', 'again')) and 'on their way' not in page_js and 'i-done' not in page_js + css, '')      # the list of accepted ideas is gone from the page (the owner, 2026-10-12)
 
 
 def critiques_cases():
