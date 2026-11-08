@@ -80,5 +80,9 @@
    "h": 160
   }
  ],
+ "flat": "logo_full",
+ "wordmark": "wordmark",
+ "glintTop": ["glint_top_0", "glint_top_1", "glint_top_2", "glint_top_3", "glint_top_4", "glint_top_5", "glint_top_6", "glint_top_7", "glint_top_8", "glint_top_9", "glint_top_10", "glint_top_11"],
+ "glintBottom": ["glint_bottom_0", "glint_bottom_1", "glint_bottom_2", "glint_bottom_3", "glint_bottom_4", "glint_bottom_5", "glint_bottom_6", "glint_bottom_7", "glint_bottom_8", "glint_bottom_9", "glint_bottom_10", "glint_bottom_11"],
  "glintFrames": 12
 }
