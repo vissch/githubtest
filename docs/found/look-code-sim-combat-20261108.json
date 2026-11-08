@@ -25,7 +25,25 @@
   "trench-warfare-3d/Assets/_Project/Sim/Match/MatchSim.cs:51-145 (what combat:false leaves out: Movement and the catalogue are registered either way, so CombatTests.DirectFireWithoutTankGunneryRefusesToStep does reach the gunnery throw)",
   "docs/found/look-code-sim-combat-20261018.json (the earlier look: three findings built at 5e00ebdb, c55b88f2, 9ed8fa75, one still an open question)",
   "git log --since=2026-10-18 -- Sim/Combat (beam footprint, the wreck's narrower shadow, AtWreck's one walk, the shelter-list gate, the close-assault fallback deleted)",
-  "docs/reference/decisions.md:320-355 and greps of docs/reference/tasks.md for DirectFire, TargetAcquisition, Suppression, CombatTables, HuntsArmour, wreck"
+  "docs/reference/decisions.md:320-355 and greps of docs/reference/tasks.md for DirectFire, TargetAcquisition, Suppression, CombatTables, HuntsArmour, wreck",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/TankGunnery.cs:1-519 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/TankSpec.cs:1-247 (whole: every spec and For's silent default)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/MeleeSystem.cs:1-437 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/PounceSystem.cs:1-237 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/Leap.cs:1-158 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/Engage.cs:1-236 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/HeroSystem.cs:1-335 (whole)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/TankTests.cs:1-369 (whole)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/MeleeTests.cs:1-667 (whole)",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/HeroTests.cs:1-199 (whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/SmokeLos.cs + greps of SmokeBlindMetres/SmokeAccuracyPerMetre/GasSmokeSystem across Sim (who asks the smoke anything: TargetAcquisition, DirectFire, GasSmokeField; TankGunnery never)",
+  "trench-warfare-3d/Assets/_Project/Sim/Match/UnitDefinitions.cs:24-130,460-497 (UnitDef.Machine and Apply: the match table overwrites TankSpec.For, so the Salvo's rockets are not dead code)",
+  "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatCatalogue.cs:28-45 (the IsArmoured gate on TankSpec.For)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs:268-292 (Events.Clear at the head of Step: HeroSystem's veteran pass reads one tick's events once)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/ISimSystem.cs:33-69 (Hero 805, Leap 1105, Engage 1108, Melee 1109, Movement 1110, Pounce 1125 against who reads whose output)",
+  "trench-warfare-3d/Assets/_Project/Sim/Nav/VehicleKinematics.cs:386 (CrushUnder spares a man InTrench) and Sim/Match/SeaLanding.cs:95,316 (order Economy+20: a ranked man ashore still reaches HeroSystem's veteran pass)",
+  "trench-warfare-3d/Assets/_Project/Presentation/Camera/RiderSeats.cs:1-360 and TankRenderer.cs:417-422 (the two readers of a machine's guns outside the match table)",
+  "docs/reference/decisions.md:227 (2026-10-12 R2 C3: smoke does not stop fire at a wreck) and greps of tasks.md for RiderSeats, TankSpec.For, smoke"
  ],
  "tasks": [
   {
@@ -91,6 +109,55 @@
    "risk": [
     false,
     true,
+    false,
+    false,
+    false
+   ],
+   "change": [
+    false,
+    false,
+    true,
+    false,
+    false
+   ]
+  },
+  {
+   "title": "Make a smoke screen blunt the machines' main guns",
+   "why": "TankGunnery is the one firing system that never asks the smoke anything. It has no GasSmokeSystem and no SmokeLos call at all (grep: the only readers are TargetAcquisition.cs:315, blind past SmokeBlindMetres 12.5 m, and DirectFire.cs:414-416, SmokeAccuracyPerMetre 0.08 a metre down to SmokeAccuracyFloor; DirectFire.cs:116-117 resolves the system, TankGunnery does not). Sees (TankGunnery.cs:293-294) is the heightfield raycast and nothing else, and the shot's odds (TankGunnery.cs:370-379) are accuracy x range falloff x moving x crew, clamped 0.04..0.9. So inside a 40 m screen the Pavise's 52 mm still picks a man out at 150 m and hits him at its full 0.62 while the riflemen beside it, in the same cell of the same field, cannot see 12.5 m; the Kettle and the Salvo are indirect and should stay blind-firing, but the five flat-trajectory guns should not. The screen is the ability the enemy AI lays in front of an attack (tasks.md:73) and the owner's cover for an advance, and the heaviest guns on the field ignore it. Boundary: decisions.md:227 (2026-10-12 R2 C3) kept blind fire AT A WRECK working through smoke; this is a gun's aim at a man it is looking straight at, not that rule. Read in code, not seen in Play.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/TankGunnery.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatTables.cs"
+   ],
+   "lane": "sim",
+   "role": "vehicle-simulator",
+   "done_when": "The gunnery job takes the smoke grid as DirectFire's does, and a flat-trajectory gun (g.Indirect false) loses SmokeAccuracyPerMetre a metre of thick smoke on the line from its mount to the aim point, floored at SmokeAccuracyFloor. A new EditMode test in TankTests or SmokeScreenTests stands a Pavise 60 m from a man with a full screen between them, counts VehicleFired and the Hits/Explosions over 1,200 ticks with the screen and without, and asserts the screened run lands far fewer: red on this commit (the two counts match). It moves the dice, so bump ReplayRecorder.FormatVersion, log it in docs/02-contracts.md and rerun the determinism, replay and hash tests.",
+   "risk": [
+    false,
+    true,
+    false,
+    false,
+    false
+   ],
+   "change": [
+    false,
+    false,
+    true,
+    true,
+    false
+   ]
+  },
+  {
+   "title": "RiderSeats must read the match's machine table, not TankSpec.For",
+   "why": "RiderSeats.cs:152 reads the gun it is clearing a seat of from TankSpec.For(model.Archetype), inside the per-turret loop, and TankSpec.For (TankSpec.cs:82-96) has a silent default of the MAW: every archetype not in its nine-case switch is answered with two sponson 6-pdrs, rest -45 and +24 degrees, ArcHalf 60. The real spec of those machines lives only in UnitDefinitions (Machine, written into CombatCatalogueSystem.Tank by Apply, UnitDefinitions.cs:486-489) and that is 18 of them: the Skimmer, the Salvo and the sixteen Proving Ground units. TankRenderer.cs:417-422 has the right reader for exactly this reason, with the comment 'a renderer drawing the wrong gun count is how that goes unnoticed'; RiderSeats is the one place that skips it. What it costs: Swept (RiderSeats.cs:327-338) drops a seat whose bearing lies within sw.Arc of sw.Rest, and the default when no spec speaks is the whole circle (line 144, Arc = Pi). For the Skimmer, whose real spec has GunCount 0 (its machine gun is DirectFire's) and whose model carries a Gun part, the Maw's answer narrows that circle to a 60-degree wedge about -45, so riders are seated on the bearings a turret that really traverses all round swings through: a man's head inside the barrel. For the Croaker, whose real gun is 105 degrees (UnitDefinitions.cs:193), the wedge is both too narrow on one side and 45 degrees off centre. Read in code, not seen in Play.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/RiderSeats.cs"
+   ],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "RiderSeats takes the TankSpec it is handed (the match's CombatCatalogueSystem.Tank when there is a match, else the UnitDefinitions entry) instead of calling TankSpec.For, and hoists it out of the inner loop. A new EditMode test asserts, for every archetype in UnitDefinitions.All with a walker chassis, that the arc RiderSeats clears equals the definition's gun arc (and the whole circle where the definition has no gun): red on this commit for the Skimmer and the Croaker, green after. RiderSeatsTests and the show tests that read seats stay green; no sim hash moves.",
+   "risk": [
+    false,
+    false,
     false,
     false,
     false
