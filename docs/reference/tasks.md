@@ -927,6 +927,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   on the field is the 8 mm plate he fires over, drawn over the baked soldier in
   `Presentation/Camera/CombatFx.Plate.cs` (`CombatFx.PlatePieces`/`DrawPlate`/`CombatFx.KeepSpot`, which keeps the
   plate standing after he dies); his muzzle flash is an MG's (`CombatFx.KindOf`), so only the plate tells the two apart.
+  That keep-rule is shown in pixels, not arithmetic, in `docs/evidence/sentry-look-r4/` (2026-11-08): `shoot.py` kills
+  him in GreyboxCorridor's night through `SimWorld.Despawn` with the clock running and `probe.py` measures the stills -
+  `plate_t.png` his plate while he lives, `plate_dead.png` the same camera pose after the death played (same magenta
+  pixel count, `fallen` 1, `drawn_infantry` 0), `plate_look.png` the unmasked night look and `plate_look_crop.png` the
+  plate in it; the numbers are `probe.json`.
   A card's picture is the USS class `.tw-portrait-<name>` in `UI/Skin/dustfront.components.uss`: a portrait
   baked without its class is a blank card (eight were, until 2026-09-28; ProvingGroundScreenTests holds them).
 - **Tests:** ProvingGroundTests (runs offline in otr: the catalogue, placing, waves placed and through slots, the

@@ -1,0 +1,30 @@
+sentry-look-r4 capture  2026-11-08 18:16:45
+scene Assets/_Project/Scenes/GreyboxCorridor.unity  pose zoom=7.5 yaw=21.0 pitch=13.0 1920x1080
+open the battle scene and enter Play
+  scene      -> opened
+  loaded     -> GreyboxCorridor
+stage the Sentry, alone
+  place      -> {
+  "success": false,
+  "command": "unity command eval_file",
+  "data": null,
+  "errors": [
+    {
+      "code": "COMMAND_FAILED",
+      "message": "Compilation Failed\n  Property or indexer 'TacticalCamera.NearZoom' cannot be assigned to -- it is read only (line 27, col 0)\n  Unreachable code detected (line 32, col 12)"
+    }
+  ],
+  "warnings": []
+}
+FAILED: {
+  "success": false,
+  "command": "unity command eval_file",
+  "data": null,
+  "errors": [
+    {
+      "code": "COMMAND_FAILED",
+      "message": "Compilation Failed\n  Property or indexer 'TacticalCamera.NearZoom' cannot be assigned to -- it is read only (line 27, col 0)\n  Unreachable code detected (line 32, col 12)"
+    }
+  ],
+  "warnings": []
+}

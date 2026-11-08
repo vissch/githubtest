@@ -1,0 +1,102 @@
+{
+  "fallen_after_death": 1,
+  "drawn_infantry_after_death": 0,
+  "plate_px_t": 1345,
+  "plate_px_after_death": 1345,
+  "plate_px_drift": 0,
+  "plate_px_allowed": 26.9,
+  "px_per_m": 32.0,
+  "bar_m": 0.5,
+  "tolerance_per_channel": 40,
+  "pose_error_m": {
+    "plate_t": 0,
+    "plate_dead": 0,
+    "plate_look": 0
+  },
+  "thresholds": {
+    "fallen_after_death": ">= 1",
+    "drawn_infantry_after_death": "== 0",
+    "plate_px_band": 0.02,
+    "pose_error_m": 0.5
+  },
+  "shots": {
+    "plate_t": {
+      "file": "plate_t.png",
+      "pose_error_m": 0,
+      "fallen": 4,
+      "drawn_infantry": 0,
+      "men_in_frame": 0,
+      "luma_mean": 0.21883,
+      "size": [
+        1920,
+        1080
+      ],
+      "magenta": {
+        "count": 1345,
+        "top": 824,
+        "bottom": 882,
+        "centre": [
+          853.0,
+          960.0
+        ]
+      },
+      "cyan": {
+        "count": 138,
+        "top": 870,
+        "bottom": 886,
+        "centre": [
+          878.0,
+          941.0
+        ]
+      }
+    },
+    "plate_dead": {
+      "file": "plate_dead.png",
+      "pose_error_m": 0,
+      "fallen": 1,
+      "drawn_infantry": 0,
+      "men_in_frame": 0,
+      "luma_mean": 0.21545,
+      "size": [
+        1920,
+        1080
+      ],
+      "magenta": {
+        "count": 1345,
+        "top": 824,
+        "bottom": 882,
+        "centre": [
+          853.0,
+          960.0
+        ]
+      },
+      "cyan": {
+        "count": 138,
+        "top": 870,
+        "bottom": 886,
+        "centre": [
+          878.0,
+          941.0
+        ]
+      }
+    },
+    "plate_look": {
+      "file": "plate_look.png",
+      "pose_error_m": 0,
+      "fallen": 1,
+      "drawn_infantry": 0,
+      "men_in_frame": 0,
+      "luma_mean": 0.21511
+    }
+  },
+  "look_crop": {
+    "file": "plate_look_crop.png",
+    "box": [
+      672,
+      734,
+      1248,
+      1026
+    ]
+  },
+  "pass": true
+}
