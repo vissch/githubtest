@@ -92,7 +92,7 @@ namespace TW.UI
             if (img == null || card == null) return;
             if (card.Thumbnail != null) { img.style.backgroundImage = new StyleBackground(card.Thumbnail); return; }
             if (thumb != null) { Discard(thumb); thumb = null; }
-            thumb = card.GeneratedBattlefield ? MapThumbnail.Render(seed) : null;
+            thumb = card.GeneratedBattlefield ? MapThumbnail.Render(seed, card.Ground) : null;
             img.style.backgroundImage = thumb != null ? new StyleBackground(thumb) : new StyleBackground(StyleKeyword.None);
         }
 

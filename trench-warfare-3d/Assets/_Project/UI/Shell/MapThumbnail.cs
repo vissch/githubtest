@@ -10,8 +10,6 @@ namespace TW.UI
 {
     public static class MapThumbnail
     {
-        public static Texture2D Render(uint seed) => Render(seed, Ground.ShelledForest);
-
         /// <summary>The picture of a seed on a ground (the campaign's coast and winter missions).</summary>
         public static Texture2D Render(uint seed, Ground ground)
         {
