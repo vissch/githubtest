@@ -1,0 +1,30 @@
+{
+  "subject": "review:U012",
+  "looked_at": [
+    ".claude/agents/tw-reviewer.md (whole)",
+    ".claude/skills/tw-review/SKILL.md (whole)",
+    "docs/reference/review.md (whole, 85 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/AbilityAim.cs (whole, 132 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/BattleHud.cs (whole, 591 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CameraShake.cs (whole, 122 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Abilities.cs (changed hunk + context)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Ambient.cs (whole, 98 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Banks.cs (changed hunks + context)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Barrage.cs (changed hunks + context)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Bodies.cs (whole, 273 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Bursts.cs (changed hunk + context)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Chunks.cs (changed hunk + surrounding DrawChunks, lines 94-230)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Close.cs (whole, 184 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Deaths.cs (whole, 134 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/ViewEye.cs (whole, 39 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/GoreScale.cs (whole, 47 lines)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/GoreScaleTests.cs (whole, 117 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/FigureMetrics.cs (grep, for GrowFromZoom/MaxGrow/UnitScale values)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs (lines 650-730, 820-900, 1090-1180, and the `damp`/OnSimEvent/Update/DrawChunks call sites, grep for muzzleSmokeThisFrame/ChestHeight/DustFeetY/BurstLookFor/GasBankFirst/SmokeBankFirst)",
+    "git diff 7943d2b923141fb34d3fc6a5ae2301ce0e57c932..origin/claude/trench-warfare-2d-3d-plan-idt7lf for the six changed files (55 lines)",
+    "docs/reference/tasks.md (grep + the Camera and gore-scale sections read in full for context on ViewEye/GoreScale/ChestHeight/DustFeetY)",
+    "docs/reference/decisions.md (grep for ViewEye/GoreScale/GasBank/BurstLook/ChestHeight/muzzleSmoke)",
+    "docs/found/look-review-u082-20261108.json (shape only)"
+  ],
+  "tasks": []
+}
