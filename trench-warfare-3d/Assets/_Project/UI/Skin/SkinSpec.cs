@@ -19,7 +19,9 @@ namespace TW.UI
         public readonly int W, H;        // pixel size
         public readonly int L, B, R, T;  // 9-slice border in px, TextureImporter.spriteBorder order (left, bottom, right, top)
         public readonly SkinKind Kind;
-        public readonly bool Tiled;      // -unity-slice-type: tiled along the stretch axis (straps, hatch)
+        public readonly bool Tiled;      // with a border: -unity-slice-type: tiled along the stretch axis (straps, hatch);
+                                          // with border 0 (9-slice centre has nothing to tile): the sheet must use
+                                          // background-repeat: repeat instead
         public readonly string Note;     // one line for the spec sheet
 
         public SkinEntry(string file, int w, int h, int l, int b, int r, int t, SkinKind kind, string note, bool tiled = false)

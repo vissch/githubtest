@@ -68,6 +68,35 @@ namespace TW.Tests
             Token("--tw-minimap-bezel", HudLayout.MinimapBezelPx);
         }
 
+        // [found-fix-tiled-grain-and-cooldown-sprites-that-ca-20261108-0]
+        [Test]
+        public void EveryBorderlessTiledSpriteRepeatsInTheSheet()
+        {
+            const string id = "[found-fix-tiled-grain-and-cooldown-sprites-that-ca-20261108-0]";
+            string uss = File.ReadAllText(Path.GetFullPath(Path.Combine(Application.dataPath, "..", SkinSpec.Root, "dustfront.components.uss")));
+            string[] blocks = uss.Split(new[] { "}" }, System.StringSplitOptions.None);
+
+            foreach (var e in SkinSpec.All)
+            {
+                if (!e.Tiled || e.HasBorder) continue;
+
+                string fileName = Path.GetFileName(e.File);
+                bool found = false;
+                foreach (var block in blocks)
+                {
+                    if (!block.Contains($"url(\"{e.File}\")")) continue;
+                    found = true;
+                    StringAssert.Contains("background-repeat: repeat", block,
+                        $"{id} {fileName} is tiled with no 9-slice border: its rule must say background-repeat: repeat");
+                    StringAssert.DoesNotContain("-unity-slice-type: tiled", block,
+                        $"{id} {fileName} is tiled with no 9-slice border: 9-slice tiled has no border to fill, it must not say -unity-slice-type: tiled");
+                    StringAssert.DoesNotContain("scale-and-crop", block,
+                        $"{id} {fileName} is tiled with no 9-slice border: scale-and-crop magnifies it instead of repeating it");
+                }
+                Assert.That(found, Is.True, $"{id} no rule in dustfront.components.uss references {e.File}");
+            }
+        }
+
         static Texture2D Png(string rel)
         {
             var t = new Texture2D(2, 2);
