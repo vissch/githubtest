@@ -16,7 +16,18 @@
   "trench-warfare-3d/Assets/_Project/Tests/Show/HollowRescanTests.cs",
   "docs/reference/tasks.md (the debris/destruction and props/composition rows)",
   "docs/reference/decisions.md (the shelter rows)",
-  "docs/found/look-code-presentation-terrain-20261017.json (so nothing already built is refiled)"
+  "docs/found/look-code-presentation-terrain-20261017.json (so nothing already built is refiled)",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs (whole, in two passes)",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldSurface.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldGeometry.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldBlueprint.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/Shore.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldComposer.Ground.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldComposer.Trench.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldPigment.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldBackdrop.cs",
+  "trench-warfare-3d/Assets/_Project/Tests/Show/TerrainChunkPassTests.cs",
+  "trench-warfare-3d/Assets/_Project/Tests/Show/DrainageTests.cs"
  ],
  "tasks": [
   {
@@ -67,6 +78,31 @@
     false,
     false,
     false,
+    false,
+    false
+   ]
+  },
+  {
+   "title": "Dirty the chunk before a crater in z, as x already does",
+   "why": "OnSimEvent (GreyboxTerrainView.cs:684-685) marks the chunks a crater touches as `for (int cz = z0 / ChunkMeters; ...)` but `for (int cx = Mathf.Max(0, (x0 - 1) / ChunkMeters); ...)`. The -1 on x is there because a chunk's vertex grid is inclusive of both its edges (c.W = 32 / GridStep + 1, line 166), so the vertex column at x = 32k belongs to BOTH chunk cx-1 (its last column) and chunk cx (its first). z is built the same way and has no -1. So a crater whose dirtied span starts exactly at a multiple of 32 in z (z0 = 32k, one in 32 craters, and the full width of the field along every z = 32 m line) leaves the chunk below holding its pre-crater last row while the chunk above re-reads the same vertices with the new heights. The two meshes then disagree by up to the crater's depth along a 32 m line: a crack in the ground you can see through, and mismatched normals at the seam, until something else dirties the lower chunk. The header's own promise is 'normals taken from the heightfield so chunks meet without seams' (line 7).",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/TerrainChunkPassTests.cs"
+   ],
+   "lane": "show",
+   "role": "lane",
+   "done_when": "The dirtied-chunk range is lifted out of OnSimEvent into a pure static helper beside ChunkPass (cell span -> chunk span, the same -1 on both axes) and an EditMode case in TerrainChunkPassTests asserts that a crater spanning cells z 32..40, x 32..40 marks chunk rows 0 and 1 as well as columns 0 and 1. It is red on today's expression.",
+   "risk": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "change": [
+    false,
+    false,
+    true,
     false,
     false
    ]
