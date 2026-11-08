@@ -8,7 +8,7 @@
 //                        them, DIESELFRONT slams in, then TOADSTEEL, each landing with a small punch of the whole logo
 //                        and a kick of the cog; then the cog turns slowly, the words breathe, and a glint sweeps across
 //                        the letter faces (glint_top_N / glint_bottom_N, baked to the faces only) every GlintPeriod;
-//   .tw-logo             the whole logo, flat (pause, debrief);
+//   .tw-logo             the whole logo, flat (pause, debrief); an element carrying both classes takes the animated one;
 //   .tw-wordmark         DIESELFRONT alone, for strips and headers.
 // The element's width comes from USS; the height follows the art's aspect. Nothing here if the art is missing.
 using System;
@@ -51,7 +51,7 @@ namespace TW.UI
         {
             if (root == null) return;
             root.Query(className: "tw-logo--animated").ForEach(Animated);
-            root.Query(className: "tw-logo").ForEach(e => Flat(e, FlatName(GetLayout())));
+            root.Query(className: "tw-logo").ForEach(e => { if (!e.ClassListContains("tw-logo--animated")) Flat(e, FlatName(GetLayout())); });
             root.Query(className: "tw-wordmark").ForEach(e => Flat(e, WordmarkName(GetLayout())));
         }
 
