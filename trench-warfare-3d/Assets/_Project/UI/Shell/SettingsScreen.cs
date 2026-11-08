@@ -32,7 +32,8 @@ namespace TW.UI
         /// BuildAudio, because Refill() runs BuildAudio again and would otherwise capture the warning itself.</summary>
         string audioNote;
         const string SoundOffNote = "SOUND IS OFF. DRAG MASTER UP TO HEAR THE GAME.";
-        IDisposable listening; Button listeningCap;
+        public const string PressAKey = "PRESS A KEY";
+        IDisposable listening; Button listeningCap; GameAction listeningAction; bool listeningSecondary;
         readonly List<Resolution> resolutions = new List<Resolution>();
         readonly Dictionary<GameAction, (Button primary, Button secondary)> caps = new Dictionary<GameAction, (Button, Button)>();
 
@@ -132,12 +133,17 @@ namespace TW.UI
             b.EnableInClassList("tw-keycap--conflict", false);
         }
 
+        /// <summary>What clicking a key-cap does. The shell clicks it; the tests have no panel to click with.</summary>
+        public void ClickCap(GameAction a, bool secondary = false)
+        { if (caps.TryGetValue(a, out var pair)) Listen(a, secondary, secondary ? pair.secondary : pair.primary); }
+
         void Listen(GameAction a, bool secondary, Button cap)
         {
             listening?.Dispose();
-            if (listeningCap != null) RefreshCap(a, secondary);
+            if (listeningCap != null) RefreshCap(listeningAction, listeningSecondary);
             listeningCap = cap;
-            cap.text = "PRESS A KEY"; cap.EnableInClassList("tw-keycap--listening", true);
+            listeningAction = a; listeningSecondary = secondary;
+            cap.text = PressAKey; cap.EnableInClassList("tw-keycap--listening", true);
             Router?.Clock?.Add(MatchClock.Hold.Modal);
             listening = KeyMap.Listen(key =>
             {
