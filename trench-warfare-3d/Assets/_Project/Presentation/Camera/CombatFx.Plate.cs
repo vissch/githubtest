@@ -65,10 +65,12 @@ namespace TW.Presentation.Tactical
         {
             if (archetype != InfantryArchetype.Sentry || into == null || into.Length < PlatePieceMax) return 0;
             Frame(fwd, out var turn, out Vector3 up);
-            // the plate: 0.90 m across (two shoulders, so the 60 degree arc reads at T2) by 0.62 m tall (chest to thigh
-            // on a man 25 % shorter, UnitScale) by 0.03 m - the 8 mm plate drawn thick enough to see. Centred 1.04 m up,
-            // so its top is 1.35 m: still just over the muzzle of a man whose chest socket is about 1.30 m.
-            var plate = new Vector3(0.90f, 0.62f, 0.03f) * scale;
+            // the plate: 1.30 m across (widened in r3-2: at 0.90 m the T3 xor ceiling was 0.148, under the owner's
+            // 0.15 bar, because 625 of the mask's 807 px fell outside the man's silhouette whatever its brightness)
+            // by 0.62 m tall (chest to thigh on a man 25 % shorter, UnitScale, unchanged so the top stays under the
+            // muzzle) by 0.03 m - the 8 mm plate drawn thick enough to see. Centred 1.04 m up, so its top is 1.35 m:
+            // still just over the muzzle of a man whose chest socket is about 1.30 m.
+            var plate = new Vector3(1.30f, 0.62f, 0.03f) * scale;
             into[0] = Matrix4x4.TRS(foot + up * (1.04f * scale), turn, plate);
             // the post: its height is what is left between the plate's bottom (1.04 - 0.31 = 0.73) and the ground, so its
             // own bottom is the foot point exactly. r1 fixed it at 0.55 m and left the thing floating.
@@ -78,12 +80,12 @@ namespace TW.Presentation.Tactical
 
         /// <summary>
         /// The calibration bar of the mask mode: 0.50 m tall standing on the same ground as the post, and wider than the
-        /// 0.90 m plate at both ends, so a still turns pixels into metres.
+        /// 1.30 m plate at both ends, so a still turns pixels into metres.
         /// </summary>
         public static Matrix4x4 PlateBar(Vector3 foot, Vector3 fwd, float scale)
         {
             Frame(fwd, out var turn, out Vector3 up);
-            return Matrix4x4.TRS(foot + up * (0.25f * scale), turn, new Vector3(1.40f, 0.50f, 0.02f) * scale);
+            return Matrix4x4.TRS(foot + up * (0.25f * scale), turn, new Vector3(1.60f, 0.50f, 0.02f) * scale);
         }
 
         /// <summary>
@@ -152,7 +154,7 @@ namespace TW.Presentation.Tactical
                     spots[slot] = spot;
                 }
                 float grow = cam != null
-                    ? PlateGrow(Vector3.Distance(cam.transform.position, spots[slot].Foot), cam.fieldOfView, Mathf.Max(1, cam.pixelHeight), 0.90f * scale)
+                    ? PlateGrow(Vector3.Distance(cam.transform.position, spots[slot].Foot), cam.fieldOfView, Mathf.Max(1, cam.pixelHeight), 1.30f * scale)
                     : 1f;
                 int n = PlatePieces(InfantryArchetype.Sentry, spots[slot].Foot, spots[slot].Fwd, scale * grow, platePieces);
                 for (int k = 0; k < n; k++) batch.Add(platePieces[k]);

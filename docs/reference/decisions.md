@@ -475,6 +475,19 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   emission) and accept the plate reads at T1/O120 but not at T3. No default taken: the code on
   `lane/show/sentry-look-r3-2` is left at round 2's values (0.078/0.080/0.084), the best of the three measured
   (contrast pass with margin, control pass, only `xor_t3`/`xor_t1` short), pending the owner's pick.
+  **Answered by (a) + (b), part 2 (this leg, 2026-11-08):** widened `PlatePieces`' plate from 0.90 m to 1.30 m
+  (`CombatFx.Plate.cs`, bar/grow literals kept in step) — the plan's measured T3 silhouette ceiling at 0.90 m was
+  0.148, under the 0.15 bar however bright the plate, and 1.30 m raises it to about 0.215 — and widened `probe.py`'s
+  `PLATE_W_M` to match. Re-ran `shoot.py`/`probe.py` three rounds against the wider plate (emission at `CombatFx.cs`
+  `plateMat`): 0 emission (plate 0.1758, ground 0.1358, contrast 0.04 FAIL, xor_t3 0.1143 FAIL); +0.10 flat
+  (plate 0.1869, ground 0.2412, contrast 0.0543 FAIL — the ground itself swung +0.11 between these two runs, the
+  same instability as above, even with the storm held; xor_t3 0.1573 pass); +0.55 flat (plate 0.6687, ground 0.2555,
+  contrast 0.4132 **pass**, xor_t3 0.2366 pass, xor_t1 0.2545 pass, xor_o120 0.5185 pass, xor_control_max 0.0210
+  pass) — all five bars, on a fresh Play session shot immediately after the code change to keep the ground reading
+  close to its last-measured value. `sentry_t3.png` shows the plate as a bright flat card, not a bloom halo. Shipped
+  at `+0.55/+0.55/+0.55` emission and the 1.30 m plate; the ground's own luma instability (noted above) is still
+  real and is why round 2 (a smaller, more "natural" emission bump) passed on one run and not the next — the wide
+  plate plus the stronger emission gives enough margin to clear it either way.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is

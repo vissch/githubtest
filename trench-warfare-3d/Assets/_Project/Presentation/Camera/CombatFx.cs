@@ -275,6 +275,10 @@ namespace TW.Presentation.Tactical
             }
             dirtMat = Painted(new Color(0.27f, 0.235f, 0.20f), 0.7f);
             plateMat = Painted(new Color(0.60f, 0.62f, 0.66f), 0.9f);
+            // round 1 (no emission) measured the plate at luma 0.1758 against a held ground ring at 0.1358 (delta
+            // 0.04). Round 2's +0.10 flat emission only moved the plate to 0.1869 (+0.011): the night grade's
+            // tonemap compresses a flat add far more than linear, so round 3 goes well past the linear estimate.
+            plateMat.SetColor("_Emission", new Color(0.55f, 0.55f, 0.55f));
             woodMat = Painted(new Color(0.43f, 0.35f, 0.25f), 0.6f);
             burstMat = Painted(new Color(0.53f, 0.46f, 0.35f), 1.1f);
             smokeMat = Transparent(unlit, new Color(0.34f, 0.32f, 0.29f, 0.36f));
