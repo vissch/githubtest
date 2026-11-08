@@ -1,0 +1,143 @@
+{
+ "note": "three captures of the current build (commit in each run's sha), FlinchCapture.Set run fresh each time: the spread man_px and pose_error_m are allowed to fall in, for probe.py's bar.",
+ "runs": [
+  {
+   "run": "run1",
+   "before": {
+    "man_px": 834.78,
+    "pose_error_m": 0,
+    "cam_pitch": 25,
+    "zoom": 16
+   },
+   "duck": {
+    "man_px": 834.44,
+    "pose_error_m": 0,
+    "cam_pitch": 25,
+    "zoom": 16
+   },
+   "cut": {
+    "man_px": 834.09,
+    "pose_error_m": 0,
+    "cam_pitch": 25,
+    "zoom": 16
+   },
+   "sha": "f0f81da51",
+   "shots": [
+    {
+     "path": "before.png",
+     "tick": 864,
+     "world_speed": 1,
+     "drawn_speed": 0.8,
+     "clip": "WalkWary"
+    },
+    {
+     "path": "duck.png",
+     "tick": 868,
+     "world_speed": 1,
+     "drawn_speed": 0.8,
+     "clip": "Duck"
+    },
+    {
+     "path": "cut.png",
+     "tick": 871,
+     "world_speed": 1,
+     "drawn_speed": 0.8,
+     "clip": "Duck"
+    }
+   ]
+  },
+  {
+   "run": "run2",
+   "before": {
+    "man_px": 833.61,
+    "pose_error_m": 0,
+    "cam_pitch": 25,
+    "zoom": 16
+   },
+   "duck": {
+    "man_px": 831.92,
+    "pose_error_m": 0,
+    "cam_pitch": 25,
+    "zoom": 16
+   },
+   "cut": {
+    "man_px": 830.44,
+    "pose_error_m": 0,
+    "cam_pitch": 25,
+    "zoom": 16
+   },
+   "sha": "f0f81da51",
+   "shots": [
+    {
+     "path": "before.png",
+     "tick": 225,
+     "world_speed": 1,
+     "drawn_speed": 0.8,
+     "clip": "WalkWary"
+    },
+    {
+     "path": "duck.png",
+     "tick": 229,
+     "world_speed": 1,
+     "drawn_speed": 0.8,
+     "clip": "Duck"
+    },
+    {
+     "path": "cut.png",
+     "tick": 232,
+     "world_speed": 1,
+     "drawn_speed": 0.8,
+     "clip": "Duck"
+    }
+   ]
+  },
+  {
+   "run": "run3",
+   "before": {
+    "man_px": 825.75,
+    "pose_error_m": 0,
+    "cam_pitch": 25,
+    "zoom": 16
+   },
+   "duck": {
+    "man_px": 816.41,
+    "pose_error_m": 0,
+    "cam_pitch": 25,
+    "zoom": 16
+   },
+   "cut": {
+    "man_px": 809.36,
+    "pose_error_m": 0,
+    "cam_pitch": 25,
+    "zoom": 16
+   },
+   "sha": "f0f81da51",
+   "shots": [
+    {
+     "path": "before.png",
+     "tick": 302,
+     "world_speed": 1,
+     "drawn_speed": 0.8,
+     "clip": "WalkWary"
+    },
+    {
+     "path": "duck.png",
+     "tick": 306,
+     "world_speed": 1,
+     "drawn_speed": 0.8,
+     "clip": "Duck"
+    },
+    {
+     "path": "cut.png",
+     "tick": 309,
+     "world_speed": 1,
+     "drawn_speed": 0.8,
+     "clip": "Duck"
+    }
+   ]
+  }
+ ],
+ "man_px_min": 809.36,
+ "man_px_max": 834.78,
+ "pose_error_m_max": 0
+}

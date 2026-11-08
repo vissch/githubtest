@@ -1,0 +1,8 @@
+{
+  "sha": "f0f81da51",
+  "shots": [
+    { "path": "before.png", "tick": 864, "world_speed": 1, "drawn_speed": 0.8, "clip": "WalkWary" },
+    { "path": "duck.png", "tick": 868, "world_speed": 1, "drawn_speed": 0.8, "clip": "Duck" },
+    { "path": "cut.png", "tick": 871, "world_speed": 1, "drawn_speed": 0.8, "clip": "Duck" }
+  ]
+}

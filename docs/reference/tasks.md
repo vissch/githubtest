@@ -130,6 +130,14 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   EnemySupportTickTests (M3: one support order a tick — on tick 150 the SOS, attack-barrage and harassing gates
   are all open at once, and each reads silver and cooldowns from before the others land).
 
+### Shelling flinch capture (shelling-flinch-g1, 2026-11-08)
+- **Files (SHOW):** `Editor/FlinchCapture.cs` (`Set(dir)`: stages a walking rifleman, shells him 5.5 m off, and
+  writes before.png/duck.png/cut.png plus set.json on exact sim ticks via `CaptureRig.Shot`'s `fit`; `Status()`
+  polls it. A huge hp pool and `AmbientBombardmentSystem.ShellsPerMinute = 0` keep the live battle from killing the
+  staged man before the scripted shell does).
+- **Tests:** none new; `docs/evidence/shelling-flinch-g1/probe.py` is the standing check (camera lock, the man
+  filling the frame, and the duck holding through the walk cut).
+
 ### The stress preset (thousands of men for perf work)
 - **Files (SHOW):** `Presentation/Core/SimHost.cs` (`StressUnits`, `StressOverride`), `Presentation/Core/ScriptedEnemy.cs`
   (`StressSide` deploys both armies at their spawn points), `Perf/BenchOptions.cs` (`stress=`),
