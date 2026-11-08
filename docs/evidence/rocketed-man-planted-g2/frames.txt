@@ -1,3 +1,45 @@
+Where the planted man's flat read comes from: his ARMS, not the frozen phase, not the clip, not the rifle
+(2026-11-08, leg rocketed-man-planted-g2/03; measured from the bake Resources/Units/FigureSoldier in EditMode, no
+GPU, by Assets/_Project/Tests/Show/PlantedPoseTests.cs; the stills below are unchanged and still the ones the probe
+reads).
+
+Leg 02 found the whole silhouette above the mud to be 0.916 m tall and 1.202 m wide and called the frozen pose flat.
+Taking the same pose apart by limb says more exactly what is flat (the test prints these):
+
+    legs  (UV1 limbs 4+5)   0.916 m tall   0.826 m wide   271 of 917 vertices above the mud
+    arms  (UV1 limbs 2+3)   0.178 m tall   1.013 m wide    88 vertices
+    body  (UV1 limb 0)      0.273 m tall   0.820 m wide    81 vertices   (his pelvis; the mud line cuts his waist)
+    rifle (the bake's last 24 vertices, VATBaker.Box)
+                            0.434 m tall   0.114 m wide    12 vertices
+    all together            0.916 m tall   1.202 m wide   452 vertices
+
+So his LEGS are a column, 0.916 m tall and 0.826 m wide: the look as specified, and on the right side of the probe's
+shape gate on their own. What lies flat is his arms, flung out 1.013 m across at the mud line, with his pelvis
+0.820 m across beside them. The rifle box was the first suspect and is innocent: 12 vertices, 0.114 m wide.
+
+The mud line falls at his waist by construction. His feet stand DeathGags.PlantLegsAboveM (0.905 m) above the
+ground, he hangs upside down about VatTint.Pivot 0.9 at UnitScale 1.125, so the ground cuts him at object y 0.804 --
+just under his hips. Whatever his arms do at hip height is therefore always at the mud line, in every pose.
+
+No frozen phase and no baked clip fixes it. Swept over all 112 baked rows x 20 phases (the whole atlas, same
+transform, same above-the-mud box):
+    best of all:            Burning   t 0.10   height 1.090   width 0.957   ratio 1.14   (1.09 m breaks the 0.905 spec)
+    best within the spec:   Burning   t 0.50   height 0.955   width 0.879   ratio 1.09
+                            FireWalk  t 0.45   height 0.985   width 0.905   ratio 1.09
+                            Burning   t 0.00   height 0.956   width 0.891   ratio 1.07
+    what is drawn today:    DeathThrown t 0.02 height 0.916   width 1.202   ratio 0.76
+    every other row at the frozen phase measures 0.49 to 1.07; the prone and crawling rows are the worst (0.49).
+A 9% margin in geometry is thinner than the stills' own noise (blood, mud, the fold's first frames), so swapping the
+frozen clip would not carry the probe's shape gate either. Cutting his arms off (VAT_URP's limb cut already takes
+limbs 2 and 3) leaves legs 0.826 and pelvis 0.820 against 0.916 of height: an 8% margin, and a look change.
+
+That is why part 2 of this plan builds nothing: every way to a column is a change to something the owner owns --
+a deeper plant (his option (a): the 0.905 m number), a different frozen pose, or cutting the arms off him. The open
+row in docs/reference/decisions.md carries the three with the default taken. probe.py is untouched (BAR 0.10, the
+shape gate, three captures; selftest 7/7) and still exits 1 on the three stills, with the same three reasons.
+
+--- the stills, how they were taken, and the finding of leg 02 ---
+
 Three rocketed men planted head first in the mud (DeathGag.Planted) and one close still of the same man, captured
 against the current build in GreyboxCorridor, 2026-11-08 (leg rocketed-man-planted-g2/03), from a batch-mode editor.
 These REPLACE the stills of earlier the same day: same scene, same aim rule, but timed and sited properly, and each

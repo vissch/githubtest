@@ -36,15 +36,46 @@ namespace TW.Tests
 
         // THE LOOK AS IT WAS DECIDED (decisions.md, the owner's pick A) is 0.905 m of LEGS: a column, taller above
         // the mud than it is wide, which is also the probe's own shape gate
-        // (docs/evidence/rocketed-man-planted-g2/probe.py). The current build does NOT make that shape. Measured
-        // here on 2026-11-08 from Resources/Units/FigureSoldier: what is left of the frozen frame above the mud is
-        // 0.916 m tall but 1.202 m wide (x 1.202, z 1.126), and 452 of his 917 vertices are above the mud -- half a
-        // body lying flat, not a pair of legs. So the three probe stills are not a capture fault: the pose the
-        // renderer freezes is already flat (frames.txt has the whole finding, with the close still).
-        // The assertion that says so is written out here rather than run, because a red or [Ignore]d test fails the
-        // gate. Whoever fixes the pose adds it back as its own [Test] and it goes green:
-        //     var m = Measure();
-        //     Assert.Greater(m.Height, m.Width, "the planted man reads as a column: " + m);
+        // (docs/evidence/rocketed-man-planted-g2/probe.py). The whole silhouette above the mud is NOT that shape:
+        // 0.916 m tall, 1.202 m wide. LegsAboveTheMud_AreAColumn below takes the body apart and says where the
+        // width comes from (measured 2026-11-08, printed by the test):
+        //     legs  (limbs 4+5) 0.916 m tall, 0.826 m wide, 271 vertices -- a column, as specified
+        //     arms  (limbs 2+3) 0.178 m tall, 1.013 m wide,  88 vertices -- flung out, lying flat ON the mud line
+        //     body  (limb 0)    0.273 m tall, 0.820 m wide,  81 vertices -- his pelvis, flat at the mud line too
+        //     rifle (last 24)   0.434 m tall, 0.114 m wide,  12 vertices -- barely out of the mud, not the cause
+        // So his legs do stand up; what breaks the read is his ARMS and pelvis spread 1.2 m across the mud at his
+        // waist, where the mud line falls by construction when his legs stand DeathGags.PlantLegsAboveM out of it.
+        // No frozen phase and no baked clip fixes that: swept over all 112 baked rows x 20 phases, the best
+        // height/width above the mud is Burning at t 0.10 (1.090 / 0.957 = 1.14, but 1.09 m tall breaks the 0.905 m
+        // spec) and the best within the spec is Burning at t 0.50 (0.955 / 0.879 = 1.09) -- a 9% margin in
+        // geometry, before a pixel of blood or mud is drawn. The sweep is in frames.txt. See the open row in
+        // docs/reference/decisions.md: every way past this is the owner's (a deeper plant, a different frozen
+        // pose, or cutting the arms off him), so none is built here.
+
+        [Test]
+        public void LegsAboveTheMud_AreAColumn_HisArmsAreWhatLiesFlat()
+        {
+            var pose = FrozenPose();
+            var uv = new System.Collections.Generic.List<Vector2>();
+            Resources.Load<VatAssetData>("Units/FigureSoldier").Mesh.GetUVs(1, uv);
+            int rifleFrom = pose.Length - RifleVerts;   // the bake appends the rifle box last (VATBaker.Box, 24 vertices)
+            var legs = Of(pose, i => i < rifleFrom && (Mathf.RoundToInt(uv[i].x) == 4 || Mathf.RoundToInt(uv[i].x) == 5));
+            var arms = Of(pose, i => i < rifleFrom && (Mathf.RoundToInt(uv[i].x) == 2 || Mathf.RoundToInt(uv[i].x) == 3));
+            var rifle = Of(pose, i => i >= rifleFrom);
+            TestContext.WriteLine("legs above the mud:  " + legs);
+            TestContext.WriteLine("arms above the mud:  " + arms);
+            TestContext.WriteLine("rifle above the mud: " + rifle);
+            Assert.Greater(legs.Above, 0, "his legs are above the mud at all");
+            Assert.Greater(legs.Height, legs.Width, "his legs alone read as a column: " + legs);
+            Assert.Greater(arms.Width, legs.Width, "and his arms, not his rifle, are the wide part: " + arms);
+            // The assertion for whoever buries or tucks the arms, written out rather than run (a red test fails
+            // the gate), and the thing the probe's pixels measure:
+            //     var all = Of(pose, i => true);
+            //     Assert.Greater(all.Height, all.Width, "the whole planted man reads as a column: " + all);
+        }
+
+        /// <summary>The rifle box VATBaker appends after the skin and the helmet: its 24 vertices are the bake's last.</summary>
+        const int RifleVerts = 24;
 
         struct Box
         {
@@ -53,33 +84,42 @@ namespace TW.Tests
                 + " m (x " + X.ToString("F3") + ", z " + Z.ToString("F3") + "), " + Above + " of " + Total + " vertices above the mud";
         }
 
-        /// <summary>The frozen planted pose, as drawn, measured above the mud.</summary>
-        Box Measure()
+        /// <summary>The box above the mud of the vertices a test picks out (a limb, the rifle), in drawn metres.</summary>
+        static Box Of(Vector3[] pose, System.Func<int, bool> pick)
+        {
+            float sink = VatTint.UpsideDownHeight(0f, 0, Scale) - DeathGags.PlantLegsAboveM;
+            float hi = float.MinValue, xLo = float.MaxValue, xHi = float.MinValue, zLo = float.MaxValue, zHi = float.MinValue;
+            int above = 0;
+            for (int i = 0; i < pose.Length; i++)
+            {
+                if (!pick(i)) continue;
+                float h = VatTint.UpsideDownHeight(pose[i].y, 0, Scale) - sink;
+                if (h <= 0f) continue;
+                above++;
+                if (h > hi) hi = h;
+                float x = pose[i].x * Scale, z = pose[i].z * Scale;
+                if (x < xLo) xLo = x; if (x > xHi) xHi = x; if (z < zLo) zLo = z; if (z > zHi) zHi = z;
+            }
+            var b = new Box { Height = above > 0 ? hi : 0f, X = above > 0 ? xHi - xLo : 0f, Z = above > 0 ? zHi - zLo : 0f, Above = above, Total = pose.Length };
+            b.Width = Mathf.Max(b.X, b.Z);
+            return b;
+        }
+
+        /// <summary>The frozen planted pose (row Clip.DeathThrown at the phase a Freeze gag holds), in object space.</summary>
+        Vector3[] FrozenPose()
         {
             var data = Resources.Load<VatAssetData>("Units/FigureSoldier");
             if (data == null || !data.Valid) Assert.Ignore("no baked Soldier (TW/VAT/Bake Infantry); nothing to measure");
             // a second, readable copy: the renderer's own atlas is uploaded and GetPixelData throws on it
             asset = VatCodec.Decode(data.Atlas.bytes, data.Mesh, "plantedpose", keepReadable: true);
             Assert.IsTrue(asset.ClipAtlas, "the bake has a row per clip");
-            int row = (int)Clip.DeathThrown;
-            var pose = Sample(asset, row, Frozen);
+            return Sample(asset, (int)Clip.DeathThrown, Frozen);
+        }
 
-            // the drawn transform: his feet (object y 0) stand PlantLegsAboveM above the mud, everything else follows
-            float sink = VatTint.UpsideDownHeight(0f, 0, Scale) - DeathGags.PlantLegsAboveM;
-            float hi = float.MinValue, xLo = float.MaxValue, xHi = float.MinValue, zLo = float.MaxValue, zHi = float.MinValue;
-            int above = 0;
-            for (int i = 0; i < pose.Length; i++)
-            {
-                float h = VatTint.UpsideDownHeight(pose[i].y, 0, Scale) - sink;
-                if (h <= 0f) continue;   // under the mud: the drawn ground hides him
-                above++;
-                if (h > hi) hi = h;
-                float x = pose[i].x * Scale, z = pose[i].z * Scale;
-                if (x < xLo) xLo = x; if (x > xHi) xHi = x;
-                if (z < zLo) zLo = z; if (z > zHi) zHi = z;
-            }
-            var box = new Box { Height = above > 0 ? hi : 0f, X = xHi - xLo, Z = zHi - zLo, Above = above, Total = pose.Length };
-            box.Width = Mathf.Max(box.X, box.Z);
+        /// <summary>The frozen planted pose, as drawn, measured above the mud: his whole silhouette.</summary>
+        Box Measure()
+        {
+            var box = Of(FrozenPose(), i => true);
             TestContext.WriteLine("planted pose above the mud: " + box);
             return box;
         }
