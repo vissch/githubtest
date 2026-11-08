@@ -23,7 +23,20 @@
     "trench-warfare-3d/Assets/_Project/Tests/Sim/CommandValidationTests.cs",
     "trench-warfare-3d/Assets/_Project/Tests/Sim/SimMathTests.cs",
     "trench-warfare-3d/Assets/_Project/Tests/Sim/SimStubTests.cs",
-    "trench-warfare-3d/Assets/_Project/Tests/Sim/PerfMarkersTests.cs"
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/PerfMarkersTests.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimEvents.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/RosterEntry.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/OrderGroup.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SourceId.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/TrenchPost.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/InfantrySpec.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/ChassisKind.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/ReplayGuardTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/DeterminismReplayTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/FactionRosterTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/UnitCatalogueTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/AbilityArgsTests.cs",
+    "docs/02-contracts.md"
   ],
   "tasks": [
     {
@@ -36,8 +49,20 @@
       "lane": "sim",
       "role": "review-fix",
       "done_when": "A new EditMode test beside SimHashTests.TheHashChainIsTheOneItsFormatVersionNames builds MatchSim.CreateGreybox and MatchSim.CreateBattlefield(Landing) and asserts (a) every registered system's Order equals some public const int on SimSystemOrder, and (b) every such const is taken by exactly one system across the two worlds. Red on today's tree for 40, 110, 130, 320, 705, 725, 730 and 1130 and for the seven orphan constants; green once each live order is named and the dead ones are deleted. No order NUMBER changes, so both golden pins in SimHashTests stay green and ReplayRecorder.FormatVersion stays 54.",
-      "risk": [false, false, false, false, false],
-      "change": [false, true, false, true, false]
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        true,
+        false,
+        true,
+        false
+      ]
     },
     {
       "title": "PerfMarkersTests: two of its three asserts cannot fail",
@@ -48,8 +73,20 @@
       "lane": "sim",
       "role": "review-fix",
       "done_when": "The test asserts PerfMarkers.Names contains \"TW.Sim.Sys.\" + s.GetType().Name for every s in match.World.Systems, and the two tautological asserts are gone. Proved by a mutant: make PerfMarkers.ForSystem return new ProfilerMarker(name) without calling M, then `Tools/tw run run_tests -- --mode EditMode --filter TW.Tests.PerfMarkersTests` goes red; today's test stays green under that same mutant.",
-      "risk": [false, false, false, false, false],
-      "change": [false, false, false, false, false]
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
     },
     {
       "title": "Replay Parse checks every length but no config number",
@@ -61,8 +98,46 @@
       "lane": "sim",
       "role": "review-fix",
       "done_when": "Parse throws InvalidDataException naming the field for TickRate outside 1..240, MaxSlots outside 1..4x SimConfig.Default.MaxSlots, InputDelayTicks outside 0..240 and EventCapacity outside 1..4194304. New cases in ReplayGuardTests patch each of those four words in a freshly serialized good replay and assert the throw; `Tools/tw run run_tests -- --mode EditMode --filter TW.Tests.ReplayGuardTests` green after the fix and red on today's tree.",
-      "risk": [false, false, false, false, false],
-      "change": [false, false, false, false, false]
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "title": "Repair Replay.cs's version log: four gaps and an orphan entry",
+      "why": "Replay.cs:3-4 makes the per-version log in its own header the record of what each FormatVersion moved (\"Bump FormatVersion whenever a contract in docs/02 or this layout changes\"), and it is the first thing read when a replay is refused or the next bump is written. It is wrong in two ways. Four versions have no entry at all: the log runs v4..v38, then jumps to v41, then v46 to v48, v48 to v50 - v40, v47 and v49 are missing, and v39 appears only as the two inline markers at Replay.cs:201 and :267 beside Init.TestLevel, with no log line. v39 is the one HEADER LAYOUT change since v16 (docs/02-contracts.md:147: \"the header gained a byte, so replay format v39\"), so a reader of this file concludes the header has been stable since v16 and sizes a hand-written offset or a parser on that belief; ReplayGuardTests.cs:37-41 computes exactly such an offset (LoadoutALengthOffset 45) from the log's picture of the header. v47 also appended a field to a hash chain (FlowFieldManager.RebuildCursor, docs/02-contracts.md:155) and v49 moved hashed state, and neither is in the log. Second, lines 100-102 are an orphan: line 99 ends the v32 entry, and :100 then starts mid-sentence (\"mates the separation push is the soft one...\"), repeating :98's text and carrying on into a change that is in no entry's text anywhere else - EngageSystem walking a man's way to his quarry cell by cell and keeping on while CloseKeep metres are open. That is a behaviour change with no version against it, left by a rebase that merged two drafts of the v32 line. docs/02-contracts.md has all four rows, so nothing is lost; the cost is that the authority the code points at disagrees with it, and a lane bumping FormatVersion copies the shape it sees.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Core/Replay.cs",
+        "docs/02-contracts.md",
+        "trench-warfare-3d/validate.py"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "Entries for v39, v40, v47 and v49 are written into Replay.cs's log from the docs/02-contracts.md rows (147, 148, 155, 157), the orphan at :100-102 is folded into one entry naming the version its EngageSystem/CloseKeep change belongs to, and a new check in validate.py asserts every version from 4 to ReplayRecorder.FormatVersion has exactly one `// vN (` entry in Replay.cs and that each has a matching `replay format vN` row in docs/02-contracts.md. `python validate.py` exits 0 after, and non-zero naming v39, v40, v47 and v49 when run on today's tree.",
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ]
     }
   ]
 }
