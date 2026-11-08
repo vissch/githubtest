@@ -4,10 +4,15 @@
 // that plate to the shape the plan specified, holds his gun to being an MG's, and holds his tooltip to being his own
 // line and not a stand-in's.
 //
+// r4: r2 proved the plate outlives its man with arithmetic only - the capture held the clock at 0 while it despawned
+// him, so no tick ran, nothing read the death and the live man was still drawn. The keep-the-plate rule is now a pure
+// static (CombatFx.KeepSpot) driven here by a real world and the real death event off its ring.
+//
 // r2: the plate is emplaced, not carried. Its post stands ON the ground (r1 left it 0.455 m up), and the barrel is read
 // once, so a 60 degree traverse does not swing the plate round with the gun.
 using NUnit.Framework;
 using UnityEngine;
+using Unity.Mathematics;
 using TW.Sim;
 using TW.Presentation;
 using TW.Presentation.Tactical;
@@ -16,6 +21,55 @@ namespace TW.Tests
 {
     public class SentryLookTests
     {
+        static SimConfig.WorldInit BareInit() => new SimConfig.WorldInit
+        {
+            SpawnA = new float3(60f, 0f, 10f),
+            SpawnB = new float3(60f, 0f, 200f),
+        };
+
+        /// <summary>
+        /// The one thing r2 never showed: a real <see cref="SimWorld.Despawn"/> puts a Death on the world's event ring
+        /// for that slot, and the plate the Sentry emplaced is still kept afterwards - while a slot re-let to a rifleman
+        /// keeps no dead man's plate.
+        /// </summary>
+        [Test]
+        public void SentryPlateOutlivesDeathEvent()
+        {
+            using var w = new SimWorld(SimConfig.Default, BareInit());
+            float3 at = new float3(60f, 0f, 20f);
+            int slot = w.Spawn(0, InfantryArchetype.Sentry, at, 100f, 1.2f, false);
+            Assert.That(slot, Is.GreaterThanOrEqualTo(0), "the world would not take a Sentry");
+
+            var spot = CombatFx.Emplace(default, new Vector3(at.x, 0f, at.z), Vector3.forward, 1f);
+            Assert.That(spot.Set, Is.True, "he never set the plate down");
+            Assert.That(CombatFx.KeepSpot(w.Archetype[slot], w.Flags[slot], spot.Set), Is.True,
+                "a living Sentry who emplaced his plate must keep it");
+
+            w.Events.Clear();
+            w.Despawn(slot, 3, new float3(0f, 1f, 0f), 4f);
+
+            bool death = false;
+            for (int i = 0; i < w.Events.Events.Length; i++)
+            {
+                var e = w.Events.Events[i];
+                if (e.Type == SimEventType.Death && e.A == slot) death = true;
+            }
+            Assert.That(death, Is.True,
+                "his death never reached the event ring, so nothing in presentation can play it (r2 read fallen 0)");
+            Assert.That(w.IsAlive(slot), Is.False, "he is still alive after Despawn");
+            Assert.That(w.StanceOf[slot], Is.EqualTo((byte)Stance.Dead), $"his stance is {(Stance)w.StanceOf[slot]}, not Dead");
+
+            Assert.That(CombatFx.KeepSpot(w.Archetype[slot], w.Flags[slot], true), Is.True,
+                "the plate fell over with its man: it stays standing after he dies");
+            Assert.That(CombatFx.KeepSpot(w.Archetype[slot], w.Flags[slot], false), Is.False,
+                "a Sentry who died before he could emplace one was given a plate anyway");
+
+            int relet = w.Spawn(1, InfantryArchetype.Rifle, new float3(60f, 0f, 200f), 100f, 1.2f, false);
+            Assert.That(relet, Is.EqualTo(slot), "the freed slot was not re-let, so the re-use rule is not under test here");
+            Assert.That(CombatFx.KeepSpot(w.Archetype[relet], w.Flags[relet], true), Is.False,
+                "a slot re-let to a rifleman kept the dead man's plate");
+        }
+
         [Test]
         public void SentryWearsItsOwnLook()
         {
