@@ -1,0 +1,62 @@
+{
+  "subject": "code:UI/Missions",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/UI/Shell/MissionCard.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/MissionCatalog.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/MissionSelectScreen.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/MapThumbnail.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Missions/MissionCatalog.asset",
+    "trench-warfare-3d/Assets/_Project/UI/Missions/ShelledWood1917.asset",
+    "trench-warfare-3d/Assets/_Project/UI/Missions/ShelledWoodInland.asset",
+    "trench-warfare-3d/Assets/_Project/UI/Missions/WinterLine.asset",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/MatchLaunch.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/ShellUxmlTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/WinterLevelTests.cs",
+    "docs/reference/tasks.md",
+    "docs/reference/decisions.md"
+  ],
+  "tasks": [
+    {
+      "title": "Mission select thumbnail always renders the shelled wood, not the card's ground",
+      "why": "MissionSelectScreen.RefreshThumb (MissionSelectScreen.cs:95) calls MapThumbnail.Render(seed), the one-arg overload that hardcodes Ground.ShelledForest (MapThumbnail.cs:13). WinterLine.asset sets Ground: 1 (WinterLine), and Deploy (MissionSelectScreen.cs:102) does send card.Ground into the match, so picking the Winter Line card shows a shelled-wood preview while the real match loads winter ground. This breaks the promise at MapThumbnail.cs:3 that the picture and the minimap 'agree by construction', and no test in ShellUxmlTests.cs or WinterLevelTests.cs exercises the select screen's thumbnail path (WinterLevelTests only checks MissionCard.ToRequest, never MapThumbnail).",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Shell/MissionSelectScreen.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Shell/MapThumbnail.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Missions/WinterLine.asset"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "RefreshThumb calls MapThumbnail.Render(seed, card.Ground); a new EditMode test selects the WinterLine card and asserts the rendered thumbnail's pixels match MapThumbnail.Render(seed, Ground.WinterLine) rather than the ShelledForest render.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Fix MissionCard.cs comment citing a test class that does not exist",
+      "why": "MissionCard.cs:4 says 'MissionCatalogTests holds ShelledWood1917 to seed 1917 and today's knobs', but grep finds that string only in this comment; no MissionCatalogTests class exists anywhere in the repo. The real guard for the default card is in ShellUxmlTests.cs (NoMissionShellsTheFieldAllMatchLong and friends). Anyone following the citation to understand the guarantee finds nothing.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Shell/MissionCard.cs"
+      ],
+      "lane": "show",
+      "role": "bug-catcher",
+      "done_when": "the comment names ShellUxmlTests.cs (or the specific test method) instead of MissionCatalogTests; grep -r MissionCatalogTests trench-warfare-3d returns nothing.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "FrontLine stat is hand-typed text, never checked against the real map size",
+      "why": "MissionCard.FrontLine (MissionCard.cs:41, e.g. \"90 x 240 M\") is shown verbatim by RefreshStats (MissionSelectScreen.cs: info-stats text) but is never derived from the battlefield the card actually generates (BattlefieldGenerator/MapData for the card's Ground+BattlefieldSeed). ShelledWood1917 and ShelledWoodInland both state \"90 x 240 M\" for different seeds, and WinterLine states \"110 x 240 M\" on a different ground entirely, with no test tying any of these strings to the generated map's real dimensions, so a future map-size tweak can silently make the panel lie to the player.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Shell/MissionCard.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Shell/MissionSelectScreen.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Missions/ShelledWood1917.asset",
+        "trench-warfare-3d/Assets/_Project/UI/Missions/ShelledWoodInland.asset",
+        "trench-warfare-3d/Assets/_Project/UI/Missions/WinterLine.asset"
+      ],
+      "lane": "show",
+      "role": "bug-catcher",
+      "done_when": "a test builds each shipped card's battlefield (BattlefieldGenerator.Create with the card's Ground/BattlefieldSeed) and asserts the generated NavWidth/NavLength matches the card's FrontLine string, failing today or on future drift.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
