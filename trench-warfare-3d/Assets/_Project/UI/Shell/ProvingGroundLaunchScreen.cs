@@ -58,8 +58,8 @@ namespace TW.UI
         public byte[] Theirs => c.Theirs;
         public int Side => c.Side;
 
-        /// <param name="fresh">Tests: start from the defaults whatever an earlier screen left.</param>
-        public ProvingGroundLaunchScreen(bool fresh = false) { c = fresh || kept == null ? new Choice() : kept; if (!fresh) kept = c; }
+        /// <param name="fresh">Tests: start from the defaults whatever an earlier screen left, and forget what an earlier screen kept.</param>
+        public ProvingGroundLaunchScreen(bool fresh = false) { if (fresh) kept = null; c = kept ?? new Choice(); if (!fresh) kept = c; }
 
         public override VisualTreeAsset Tree(ShellAssets a) => Resources.Load<VisualTreeAsset>(TreePath);
 

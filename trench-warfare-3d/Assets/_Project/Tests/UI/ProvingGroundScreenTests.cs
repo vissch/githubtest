@@ -102,23 +102,39 @@ namespace TW.Tests
             finally { screen.Unbind(); }
         }
 
+        // [found-make-thenextvisitopensonwhatwaschosen-actual-20261108-2]
         [Test]
         public void TheNextVisitOpensOnWhatWasChosen()
         {
-            var first = new ProvingGroundLaunchScreen(fresh: true);
-            first.Bind(Instantiate("ProvingGround"), null); first.Unbind();
+            SceneStatics.ResetSession();
             var a = new ProvingGroundLaunchScreen();
-            a.Bind(Instantiate("ProvingGround"), null);
-            a.SetSide(0); a.Clear(); a.Pick(VehicleArchetype.Croaker); a.SetGround(1);
-            a.Unbind();
-            var b = new ProvingGroundLaunchScreen();
-            b.Bind(Instantiate("ProvingGround"), null);
             try
             {
-                Assert.That(b.Ours[0], Is.EqualTo(VehicleArchetype.Croaker));
-                Assert.That(b.BuildRequest().Ground, Is.EqualTo(Ground.WinterLine));
+                a.Bind(Instantiate("ProvingGround"), null);
+                Assert.That(a.Ours, Is.EqualTo(ProvingGround.DefaultTen(FactionId.Iron)), "[found-make-thenextvisitopensonwhatwaschosen-actual-20261108-2] a fresh visit opens on the faction's ten");
+                Assert.That(a.BuildRequest().Ground, Is.EqualTo(Ground.ShelledForest), "[found-make-thenextvisitopensonwhatwaschosen-actual-20261108-2] the fresh visit opens on the shelled wood");
+                a.SetSide(0); a.Clear(); a.Pick(VehicleArchetype.Croaker); a.SetGround(1);
+                a.Unbind();
+
+                var b = new ProvingGroundLaunchScreen();
+                b.Bind(Instantiate("ProvingGround"), null);
+                Assert.That(b.Ours[0], Is.EqualTo(VehicleArchetype.Croaker), "[found-make-thenextvisitopensonwhatwaschosen-actual-20261108-2] a non-fresh visit opens on what was kept");
+                Assert.That(b.BuildRequest().Ground, Is.EqualTo(Ground.WinterLine), "[found-make-thenextvisitopensonwhatwaschosen-actual-20261108-2] a non-fresh visit opens on what was kept");
+                b.Unbind();
+
+                var fresh = new ProvingGroundLaunchScreen(fresh: true);
+                fresh.Bind(Instantiate("ProvingGround"), null);
+                fresh.Unbind();
+
+                var afterFresh = new ProvingGroundLaunchScreen();
+                afterFresh.Bind(Instantiate("ProvingGround"), null);
+                try
+                {
+                    Assert.That(afterFresh.Ours, Is.EqualTo(ProvingGround.DefaultTen(FactionId.Iron)), "[found-make-thenextvisitopensonwhatwaschosen-actual-20261108-2] a fresh screen forgets what was kept");
+                }
+                finally { afterFresh.Unbind(); }
             }
-            finally { b.SetSide(0); b.Defaults(); b.SetGround(0); b.Unbind(); }
+            finally { SceneStatics.ResetSession(); }
         }
 
         /// <summary>A card takes its picture from a USS class named after the portrait. The pictures of the six units of
