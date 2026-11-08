@@ -446,6 +446,35 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   acted on; the rebase stays local on this checkout pending the owner's push.
   Answered in general 2026-10-18 (row above): a leg may now force-push its own lane, so (2) needs no build;
   whether this lane was pushed is still open.
+- **The Sentry's plate cannot clear the night ground by the owner's two bars within the 0.12-channel cap, because
+  the ground's own luma is not stable between captures (2026-11-08, `sentry-look-r3-2`):** r3 left `plate_ground_contrast_t3`
+  at 0.036 (plate 0.0854 vs ground 0.1214) and `xor_t3` at 0.0834. Three measured rounds of `plateMat`'s emission
+  (`CombatFx.cs:277`), each a full CaptureRig reshoot of the same frozen frame, scaled by the gap the plan's step 4
+  prescribes:
+  | Emission (r,g,b) | plate luma | ground ring luma | contrast | xor_t3 | xor_t1 | xor_o120 | xor_control_max |
+  |---|---|---|---|---|---|---|---|
+  | 0.046 / 0.048 / 0.052 | 0.0854 (base, no emission) | 0.1214 | 0.036 FAIL | 0.0834 FAIL | 0.1765 pass | 0.2564 pass | 0.0286 pass |
+  | 0.046 / 0.048 / 0.052 | 0.1629 | 0.2303 | 0.0673 FAIL | 0.1238 FAIL | 0.1048 FAIL | 0.1786 pass | 0.0115 pass |
+  | 0.078 / 0.080 / 0.084 | 0.2752 | 0.4930 | 0.2178 **pass** | 0.1376 FAIL | 0.0970 FAIL | 0.5833 pass | 0.0169 pass |
+  | 0.111 / 0.114 / 0.120 (the 0.12 cap) | 0.1883 | 0.1323 | 0.0560 FAIL | 0.0895 FAIL | 0.1046 FAIL | 0.7302 pass | 0.0286 pass |
+  The night ground ring at T3 reads 0.1214, 0.2303, 0.4930 and 0.1323 luma across four runs with no code change
+  between the first two and no scene change at all between the last three but the material — a more than 4x swing
+  that the plan's "scale by the measured gap" step cannot aim at, because the target it is aiming at moves more
+  than the knob does. `xor_t3` never cleared 0.1376 in any of the three rounds (the plan's own ceiling estimate
+  for it, with every plate pixel counted, is about 0.148 — `xor_t1` is worse and has no such estimate, topping out
+  at 0.1048). `xor_control_max` is also drifting toward its 0.03 ceiling as the plate brightens (0.0115 to 0.0286),
+  so pushing emission further to chase `xor_t3`/`xor_t1` risks failing the control instead. Three shoot-and-measure
+  rounds is the plan's cap; this is the exact case its Risks section calls out ("if the probe comes back between
+  0.10 and 0.15, do not re-cut probe.py's metric... write the arithmetic into note.md... end BLOCKED"), except both
+  `xor_t3` and `xor_t1` are affected and the ground noise is the larger problem. Options: (a) widen the plate's own
+  geometry (area outside the man) so its ceiling clears 0.15 regardless of brightness — new work, not a material
+  tweak; (b) pin the weather/lighting clock in `shoot.py` so the ground ring reads the same luma every capture,
+  then retune emission against a stable target — a capture-harness change, not touched by this lane's "do not
+  change probe.py" rule but adjacent to it; (c) loosen `xor_t3`/`xor_t1`'s 0.15 bar or `plate_ground_contrast_t3`'s
+  0.10 bar given the ground's own measured noise; (d) leave the Sentry as r3 left him (revert `plateMat`'s
+  emission) and accept the plate reads at T1/O120 but not at T3. No default taken: the code on
+  `lane/show/sentry-look-r3-2` is left at round 2's values (0.078/0.080/0.084), the best of the three measured
+  (contrast pass with margin, control pass, only `xor_t3`/`xor_t1` short), pending the owner's pick.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
