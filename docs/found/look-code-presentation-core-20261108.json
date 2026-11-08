@@ -50,7 +50,23 @@
     "grep of FxQuality.Apply / FxQuality.Now / ApplyEffects / fx.quality across Assets/_Project, Tools and docs",
     "grep of MatchStats across Assets/_Project (only ShellRouter.Bind attaches it)",
     "docs/reference/tasks.md (lines 303-306: MatchStats and the debrief, 'Nothing tests MatchStats directly')",
-    "docs/reference/decisions.md (grep debrief, men lost, fx.quality, effects detail: nothing on either finding)"
+    "docs/reference/decisions.md (grep debrief, men lost, fx.quality, effects detail: nothing on either finding)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/ProvingGround.cs (whole, 1-521)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/RenderGround.cs (whole, 1-263: RenderGroundGrid, SceneMood, SceneTints, SceneHooks, FrameBudget)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/ViewGround.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/SceneStatics.cs (whole, 1-64)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/MetaViews.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/HudBridge.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/BannerRules.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/BootstrapLoader.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/ProvingGroundModelTests.cs (whole, 1-398, every [Test] and the Folded measure)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/SceneStaticsTests.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/ViewGroundTests.cs (whole, incl. the copy-ratchet regex)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/StaticLifecycleTests.cs (whole, 1-134: Explained, ResetDirectly, Holders)",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs (lines 231-265, 317, 352, 387: Spawn, Despawn, Rally, ClampToMap)",
+    "grep of ClampToMap across Assets/_Project/Sim (every other Spawn caller clamps; ProvingGround.Place does not)",
+    "docs/reference/tasks.md (lines 280-290, 909-928: the sapper case already named, the Proving Ground row)",
+    "docs/reference/decisions.md (lines 236-264: The Proving Ground)"
   ],
   "tasks": [
     {
