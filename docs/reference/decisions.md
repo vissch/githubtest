@@ -294,6 +294,19 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-16 | **A wreck's shadow is narrowed to the firing line: (a), the half-width.** The owner, to "A wreck's shadow: narrow it to match its reach, or keep it wide and fix the words": "Narrow the shadow to match the firing line, and let the guns-holding-position test be re-tuned to the new number". So (a) is built — `Shelter.Body` and the shelter's reach both come from one `body = WreckBlastReach * 0.5f * size` (`6bd7e8d89`, replay v53, `WreckDecayTests.AManOffTheLineButInsideTheOldBodyIsNotKeptDown`) — and `AssaultLadderTests.GunsThatStayToCover_CostTheAttackFewerMen` is re-tuned to the narrower shadow's measured ratio, not the body widened back. Built on this lane as `[narrow-wreck-shadow-firing-line]`. (owner, 2026-10-16, on the Decide page) |
 
 ## Open: waiting on the owner
+- **The planted man does not read as planted at T1 (2026-11-08, rocketed-man-planted-g2):** three fresh captures
+  against the current build (`docs/evidence/rocketed-man-planted-g2/`, `frames.txt`), one man per shell, each shot
+  one game second after he lands and aimed at his legs (aimY = man y + PlantDepth 1.120 + 0.45). He is **visible**:
+  the red tunic separates from the mud at contrast 0.320 and 0.460 against a BAR of 0.10, and CaptureRig's own
+  whole-frame `contrast_median` is 0.233-0.259 with no "unreadable" warning. He does **not** read as head-first in
+  the mud: all three are a crumpled body lying roughly flat, bbox 44 x 20 and 55 x 31 px, two to three times wider
+  than tall, where the spec asks for 0.905 m of legs standing above the mud (`DeathGags.PlantLegsAboveM`, about
+  21 px at this pose). The probe fails on its shape gate, not its contrast bar, and nothing in it was loosened.
+  This replaces the question withdrawn on 2026-10-27 above, whose "it was only a probe window bug" reading the new
+  stills do not support. Options: (a) taller legs above the mud (raise `PlantLegsAboveM`), **the default taken
+  here**; (b) a lighter boot tint so the upright part separates; (c) a mud rim around the plant to read the
+  head-first pose from the ground up; (d) hold the rest fold back (RestQ / `PlantFoldHeight`) so the legs are still
+  up at T+1 s -- a candidate cause not checked in this leg. Nothing is built on this until he answers.
 - **Withdrawn 2026-10-27 — the planted man's two FAILs were a probe bug, not a look finding
   (rocketed-man-planted-g2):** the question asked here on 2026-10-27 (does the planted gag need a read fix at T1?)
   is withdrawn unanswered; nothing was landed on it, so nothing is undone. Why: both g2 stills were taken with the

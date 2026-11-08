@@ -1,6 +1,6 @@
 {
   "x": 89.50,
-  "y": -1.48,
-  "z": 132.52,
-  "source": "DeathLab.Planted() at capture time, recorded in docs/evidence/rocketed-man-planted-g2/frames.txt (plant_2: y -1.48, focus 89.50 132.52)"
+  "y": 1.35,
+  "z": 176.00,
+  "source": "DeathLab.Planted() in GreyboxCorridor, batch editor, 2026-11-08: printed \"89.50 176.00 (y 1.35) lands in 0.77 s\"; still taken one game second after he landed, aimed at aimY 2.92 (man y + PlantDepth 1.120 + 0.45 mid-legs)"
 }

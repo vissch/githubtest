@@ -1,25 +1,36 @@
-Two rocketed men planted head first in the mud (DeathGag.Planted), one man per shell, captured fresh against the
-current build in GreyboxCorridor at the standard zoom (T1: zoom 30, yaw +21, pitch 25, 1600x900), 2026-10-27. Each
-is taken one second after that man lands (DeathLab.Planted() polled to find landsAt, the still taken at landsAt+1s),
-the editor running live (not paused-and-stepped, unlike the first five). Each shot is aimed at ground level under
-the man (aimY = RenderGround.Sample at his resting x z).
+Three rocketed men planted head first in the mud (DeathGag.Planted), one man per shell, captured fresh against the
+current build in GreyboxCorridor at the standard zoom (T1: zoom 30, yaw +21, pitch 25, 1600x900), 2026-11-08, from
+a batch-mode editor driven by one scripted loop (no hand retries). Each still is taken one GAME second after that
+man lands: DeathLab.Planted() is polled right after the shell until it answers "lands in T s" with T positive, and
+the shot is queued once Time.time has passed landsAt + 1. Each shot is aimed at his legs, not at y 0:
+aimY = man y + PlantDepth 1.120 + 0.45 (mid-legs), where man y is Path.Rest, his sunk origin.
 
-Getting even two is the finding: DeathGag.Planted is a coin flip (DeathGags.PlantShare = 0.5) among throws over
-PlantMinHigh = 5 m that are not a heap and not in a trench, and a heap (two or more deaths within a tick's
-PileRadius) forces Fountain instead -- so every retry near x ~89.5, where the sim always parks the dead, piles onto
-the last corpse and locks the gag off for the rest of that play session. Dozens of single-man shells across several
-fresh play sessions produced exactly two Planted deaths that landed on ground above the water line; a third was not
-found inside the time this leg could spend driving the editor by hand. See note.md for the budget this cost and
-what the next leg should do differently (a scripted multi-session driver, not an interactive retry loop).
+These three replace the 2026-10-27 pair. That pair was shot with the default aim (aimY 0.000) while the man lay at
+y -1.48, and a sweep of the probe's window row over every value from cy 390 to 510 found no candidate that cleared
+the gates on either still at any row -- so the pair could not settle the question whatever the row maths said. The
+withdrawal of 2026-10-27 (decisions.md) claimed the two FAILs were only a window-placement bug; that claim is not
+supported, and the question is asked again below with the numbers from these three.
 
-plant_1.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 89.50 151.00, fresh capture, legs upright and kicking.
-  CaptureRig's own sidecar already flags it: "men barely separate from the ground: unreadable" (contrast_median
-  0.03032). The probe's mask gates fail here too (area 1 px, nowhere near the size of a leg).
-plant_2.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 89.50 132.52, fresh capture, legs upright and kicking,
-  y -1.48 (close to the water line, a weaker case than plant_1 but still above water enough to resolve geometry).
-  Sidecar: "men barely separate from the ground: unreadable" (contrast_median 0.04921). The probe finds no shape
-  that clears the gates (whatever splits out is as wide as the window, not a pair of legs).
+plant_1.png: T1 standard, focus 89.50 108.65, man y 0.26 (ground 1.38), aimY 1.83. Probe: FAIL "area 1 < gate 48".
+plant_2.png: T1 standard, focus 89.50 176.00, man y 1.35 (ground 2.47), aimY 2.92. Probe: FAIL "bbox height 31 not
+  > width 62".
+plant_3.png: T1 standard, focus 89.50 184.00, man y 0.48 (ground 1.60), aimY 2.05. Probe: FAIL "area 1 < gate 48".
 
-Both independent signals -- CaptureRig's own contrast_median AND this probe's mask gates -- agree the gag does not
-read at T1 on these two fresh captures. No plant_3.png: a third Planted death was not captured in this leg's time;
-see note.md.
+What the pixels show, measured in a 120 x 80 px box around the aim point (0-1 Rec.709 luma, the same scale as
+CaptureRig's):
+  plant_1  mud 0.230   body 166 px, bbox 44 x 20, luma 0.150, contrast 0.320
+  plant_2  mud 0.209   body 229 px, bbox 55 x 31, luma 0.104, contrast 0.460
+  plant_3  mud 0.226   no red-tunic pixels in the box at all
+"body" is the red-tunic mask (r over b by 12/255), segmented independently of the probe.
+
+The finding is NOT that the man is invisible. On two of the three he separates from the mud well over the BAR of
+0.10 (contrast 0.320 and 0.460), and CaptureRig's own whole-frame contrast_median is 0.233-0.259 with no
+"unreadable" warning -- unlike the 2026-10-27 pair. The finding is that he does not read as PLANTED. The spec is
+0.905 m of legs standing above the mud (DeathGags.PlantLegsAboveM), about 21 px tall at this pose; every one of
+the three reads as a crumpled body lying roughly flat, two to three times WIDER than tall (44 x 20 and 55 x 31).
+That is why the probe's shape gate (bbox height > bbox width) fails and not its contrast bar: there is a man there,
+and no legs. A candidate cause, not checked here: the rest fold (RestQ, PlantFoldHeight, "the kick is the roll")
+may have already folded the legs down by T+1 s.
+
+Nothing in the probe was loosened to make this pass: BAR stays 0.10, the gates stay, and three captures stay
+required. probe.json carries the machine-readable version of the three FAILs.
