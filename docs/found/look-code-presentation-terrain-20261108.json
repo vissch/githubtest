@@ -27,7 +27,21 @@
   "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldPigment.cs",
   "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldBackdrop.cs",
   "trench-warfare-3d/Assets/_Project/Tests/Show/TerrainChunkPassTests.cs",
-  "trench-warfare-3d/Assets/_Project/Tests/Show/DrainageTests.cs"
+  "trench-warfare-3d/Assets/_Project/Tests/Show/DrainageTests.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldComposer.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldComposer.Scatter.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldComposer.Buildings.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldComposer.Landmarks.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/ScatterField.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/ScatterLayers.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/SmallLife.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/AssetScaleTable.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/AssetScaleReport.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldKit.Keys.cs",
+  "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldKit.cs (the env atlas grid and Imported, by search)",
+  "trench-warfare-3d/Tools/envatlas.py (SETS, COLS/ROWS: the atlas seam, and it agrees with the kit)",
+  "trench-warfare-3d/Assets/_Project/Tests/Show/ScatterRulesTests.cs",
+  "trench-warfare-3d/Assets/_Project/Tests/Show/AssetScaleTests.cs"
  ],
  "tasks": [
   {
