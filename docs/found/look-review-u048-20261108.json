@@ -1,0 +1,69 @@
+{
+  "subject": "review:U048",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/SimHashTests.cs (1-430, whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/LoadoutTests.cs (diff 7943d2b9..integration, +85)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/MeleeTests.cs (1-80, 200-235, 276-310, 611-640 and the diff, +46)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/ShieldTests.cs (1-110 and the whole diff, +35)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/SapperTests.cs (diff, +33)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/LaneAndEngageRulesTests.cs (diff, +30)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/MineTests.cs (diff, +14)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/PlaytestMapTests.cs (diff, +6)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/SmokeScreenTests.cs (diff, +3)",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs (Hash(), 437-484)",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/Replay.cs (FormatVersion 54, :166)",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/RosterEntry.cs (100-136, the one archetype id space)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/TankGunnery.cs (440-448, the claw)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/TargetAcquisition.cs (234-242 Shielded, 377-385 the pick)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/PounceSystem.cs (32 LandRadius, 66, 133)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/TankSpec.cs (the ClawReach table)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Mines.cs (288-293)",
+    "docs/reference/workflow.md (the Long tier, 261-265)",
+    "docs/reference/tasks.md and docs/reference/decisions.md (dedupe; the 2026-10-12 ruling on the Landing pin)",
+    "docs/found/look-review-u046-20261107.json",
+    ".claude/agents/tw-reviewer.md, .claude/skills/tw-review/SKILL.md",
+    "NOT read this leg, unchanged since the last review and lowest priority: OfficerTests.cs, ProvingGroundBehaviourTests.cs, ProvingGroundUnitTests.cs"
+  ],
+  "tasks": [
+    {
+      "title": "Bound the survivor assert in APouncingCrab_DoesNotRunDownAManUnderItsFlight",
+      "why": "P2, MeleeTests.cs:284-310 (new). The test proves the leap does not crush a man, and its Death scan is correctly bounded by landTick (:306-308) -- but the last line, Assert.IsTrue(w.IsAlive(under), 'a crab ran down a man under its flight') (:309), is not bounded at all. After PounceLanded the crab keeps walking: Crab() is called with moving: true and a goal straight up its own column (MeleeTests.cs:211-219), the man sits 5.6 m past the landing point on that same +Z line, and the claws come back the moment the Pouncing flag clears (TankGunnery.cs:444 skips the claw only while Pouncing is set; reach = ClawReach 2.2 m + HalfLength, ClawDamage 250 against a 100 hp man). Nothing zeroes its guns either, which the sibling test at :625-626 does precisely because they stay live when the pounce is on trial. So a legal claw kill ten ticks after the landing fails this test with a message saying the leap crushed him -- a red the next agent debugs in PounceSystem, which is not where it happened. It is green today only on the margin between the 60-tick run and the crab's walk.",
+      "files": ["trench-warfare-3d/Assets/_Project/Tests/Sim/MeleeTests.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "the final assert is bounded to the landing (alive or hp sampled at landTick, or the run stopped at PounceLanded, or the crab's claws and guns zeroed as at :625-626), MeleeTests is green in the EditMode run, and the test still goes red when PounceSystem is made to crush a man under the flight",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Name the two new shield picks after the rule they can fail on",
+      "why": "P3, ShieldTests.cs:74-105 (new). AShooterPicksTheBearerStandingInFrontOfHisGuardedMan puts the bearer at z+2 and the guarded man at z with the shooter at z+20: the bearer is 18 m out, the guarded man 20 m, so the bearer is the nearest seen enemy and the pick whatever Shielded() does -- the test's own comment admits it ('the guard radius decides nothing here', :89). The sibling AShooterIgnoresABearerOffToTheSide is refused on the lenJ >= lenT line (TargetAcquisition.cs:238), not on ShieldGuardRadius (:235) either. Both asserts hold, but the names promise a guard-radius rule they cannot see: a change that broke ShieldGuardRadius alone leaves them green while the names read as if the bearer rule were pinned, which misleads more than no test would.",
+      "files": ["trench-warfare-3d/Assets/_Project/Tests/Sim/ShieldTests.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "the two tests are named for the distance rule they really pin, or one gains a case where Shielded()'s radius check is the deciding line and is shown red when ShieldGuardRadius is zeroed in TargetAcquisition.cs:235; ShieldTests stays green",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Time the two golden hash pins and mark them Long if over 3 s",
+      "why": "P3, SimHashTests.cs:233-262 and :267-310. Neither pin carries [Category(\"Long\")], so every -EditOnly gate -- the run before every commit of either lane -- runs 300 ticks of a scripted greybox match AND generates the whole Landing battlefield and runs 300 ticks of that. The rule is flat: a test over 3 s carries [Category(\"Long\")] (workflow.md:261). SimHashTests has ten tests and not one Long marker, while the comparable battlefield tests do (BattlefieldLockstepTests 1 of 7, SpreadAndEngageTests 4 of 13, CombatTests 4 of 11). Reading cannot settle a duration, so this is a measurement first: if they are over 3 s they belong in the Long tier and every commit's gate is paying for them. The pins must still be taken from a real editor run, never occ.py/otr.py (:226-231); moving a test between tiers does not change a pinned value.",
+      "files": ["trench-warfare-3d/Assets/_Project/Tests/Sim/SimHashTests.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "an editor EditMode run of SimHashTests reports each pin's duration; each one over 3 s carries [Category(\"Long\")] and the rest do not, and the full gate stays green with both pinned values unchanged",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Fix the SimWorld.cs:417-439 citation in three hash-pin comments",
+      "why": "P3, SimHashTests.cs:213-214, :239-240, :274-275. All three say 'the 23 per-unit arrays SimWorld.Hash() folds at SimWorld.cs:417-439'. The count is right, the range is not: Hash() opens at SimWorld.cs:437, the per-unit arrays run :455-477 (Position through Alarm, 23 of them), and 417-439 is the tail of the previous method plus the header and the first scalar folds. It is the same fault U046 queued for BattlefieldLockstepTests, here in three freshly added comments that exist precisely to send the next reader to the line: he lands on unrelated code and cannot tell a stale comment from a wrong claim. The file's other citations read true (Replay.cs:166 for FormatVersion 54, the free list at :483-484, TankGunnery.cs:444).",
+      "files": ["trench-warfare-3d/Assets/_Project/Tests/Sim/SimHashTests.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "each of the three comments cites the lines that fold the per-unit arrays (SimWorld.cs:455-477), checked by reading SimWorld.cs there; no test behaviour changes and SimHashTests stays green",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
