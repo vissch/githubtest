@@ -34,7 +34,10 @@ namespace TW.Tests
             float across = ((Vector3)pieces[0].GetColumn(0)).magnitude;
             float thick = ((Vector3)pieces[0].GetColumn(2)).magnitude;
             float tall = ((Vector3)pieces[0].GetColumn(1)).magnitude;
-            Assert.That(across, Is.GreaterThanOrEqualTo(0.80f), $"the plate is too narrow for a 60 degree arc ({across} m)");
+            // 1.20 m is where the sentry-look-r3-2 probe.json ceiling (3587 px man, 182 px of plate hidden at the
+            // old 0.90 m width) crosses the owner's 0.15 xor bar; 1.30 m is the shipped width, with margin.
+            Assert.That(across, Is.GreaterThanOrEqualTo(1.20f),
+                $"below 1.22 m the T3 xor ceiling falls under the owner's 0.15 bar ({across} m)");
             Assert.That(thick, Is.LessThanOrEqualTo(0.08f), $"the plate is a box, not a plate ({thick} m thick)");
             Assert.That(tall, Is.GreaterThanOrEqualTo(0.50f), $"the plate is too short to cover chest to thigh ({tall} m)");
             Assert.That(at.y + tall * 0.5f, Is.LessThanOrEqualTo(chestY + 0.15f),

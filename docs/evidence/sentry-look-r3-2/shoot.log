@@ -1,91 +1,91 @@
-sentry-look-r3-2 capture  2026-11-08 14:05:22
+sentry-look-r3-2 capture  2026-11-08 14:27:32
 scene Assets/_Project/Scenes/GreyboxCorridor.unity  yaw=21.0 1920x1080  bands ['t3', 't1', 'o120']  one man, shot three times a band
 open the battle scene and enter Play
   scene            -> opened
   loaded           -> GreyboxCorridor
   storm held       -> True
 stage one Sentry
-  place            -> sentry=12 at=(45.00, 0.00, 6.00) tick=263
+  place            -> sentry=14 at=(45.00, 0.00, 6.00) tick=353
 pin him, and let him set his plate down where he stands
-  pin              -> pinned sentry=(45.51, 0.00, 6.85) forgot_plate=True plate_faces_him=-0.796 alive=True plate_to_man_m=0.797
-  state            -> tick=512 alive=True hp=500 arch=26 stance=0 target=0 spot_set=True spot_foot=(45.56, 2.45, 7.27) spot_fwd=(0.01, 0.00, 1.00) mask=False
-  pin              -> pinned sentry=(45.51, 0.00, 6.85) forgot_plate=False plate_faces_him=-0.353 alive=True plate_to_man_m=0.424
+  pin              -> pinned sentry=(43.39, 0.00, 7.78) forgot_plate=True plate_faces_him=-0.944 alive=True plate_to_man_m=2.067
+  state            -> tick=609 alive=True hp=500 arch=26 stance=1 target=4 spot_set=True spot_foot=(42.98, 2.35, 7.89) spot_fwd=(-0.99, 0.00, 0.14) mask=False
+  pin              -> pinned sentry=(43.39, 0.00, 7.78) forgot_plate=False plate_faces_him=-0.975 alive=True plate_to_man_m=0.424
 band t3: the same frozen frame as Sentry, as MG man, and again untouched
-  pin_t3           -> pinned sentry=(45.51, 0.00, 6.85) forgot_plate=False plate_faces_him=-0.353 alive=True plate_to_man_m=0.424
+  pin_t3           -> pinned sentry=(43.39, 0.00, 7.78) forgot_plate=False plate_faces_him=-0.975 alive=True plate_to_man_m=0.424
   frame_t3         -> framed zoom=7.5 cam_zoom=14.9103 cam_fov=42
   frame_t3_again   -> framed zoom=7.5 cam_zoom=14.9103 cam_fov=42
-  repin_t3         -> pinned sentry=(45.51, 0.00, 6.85) forgot_plate=False plate_faces_him=-0.353 alive=True plate_to_man_m=0.424
+  repin_t3         -> pinned sentry=(43.39, 0.00, 7.78) forgot_plate=False plate_faces_him=-0.975 alive=True plate_to_man_m=0.424
   hold_forget_t3   -> held: held at weather clock 120 and forgot every plate, storm held=True
   shot_sentry_t3   -> held: held at weather clock 120 | mask=False zoom=7.5 pitch=13 | storm=True | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2\sentry_t3.png
-  sentry_t3        -> sentry_t3.png (2500 KB) pose_error_m=0 men_in_frame=0 drawn_near=1 drawn_far=0
+  sentry_t3        -> sentry_t3.png (2445 KB) pose_error_m=0 men_in_frame=0 drawn_near=1 drawn_far=0
   shot_mask_t3     -> held: held at weather clock 120 | mask=True zoom=7.5 pitch=13 | storm=True | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2\mask_t3.png
-  mask_t3          -> mask_t3.png (2471 KB) pose_error_m=0 men_in_frame=0 drawn_near=1 drawn_far=0
-  look_mg_t3       -> arch=2 spot_was=(45.319, 2.518, 6.543) pos=float3(45.50895f, 0f, 6.848612f)
+  mask_t3          -> mask_t3.png (2426 KB) pose_error_m=0 men_in_frame=0 drawn_near=1 drawn_far=0
+  look_mg_t3       -> arch=2 spot_was=(43.259, 2.310, 8.117) pos=float3(43.39444f, 0f, 7.783905f)
   shot_mg_t3       -> held: held at weather clock 120 | mask=False zoom=7.5 pitch=13 | storm=True | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2\mg_t3.png
-  mg_t3            -> mg_t3.png (2469 KB) pose_error_m=0 men_in_frame=0 drawn_near=1 drawn_far=0
+  mg_t3            -> mg_t3.png (2426 KB) pose_error_m=0 men_in_frame=0 drawn_near=1 drawn_far=0
   shot_mg2_t3      -> held: held at weather clock 120 | mask=False zoom=7.5 pitch=13 | storm=True | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2\mg2_t3.png
-  mg2_t3           -> mg2_t3.png (2454 KB) pose_error_m=0 men_in_frame=0 drawn_near=1 drawn_far=0
-  crops_t3         -> {"pose_check_m":13.3046,"fov":40.741,"zoom":7.5,"pitch":13,"men":{"sentry":{"foot":[960.00,929.77],"head":[960.00,821.46],"slot":12}}}
-  look_back_t3     -> arch=26 spot_was=unset pos=float3(45.50895f, 0f, 6.848612f)
-  state_t3         -> tick=1162 alive=True hp=500 arch=26 stance=1 target=-1 spot_set=True spot_foot=(45.32, 2.52, 6.54) spot_fwd=(-0.53, 0.00, -0.85) mask=False
-  look_check_t3    -> arch=26 spot_was=(45.319, 2.518, 6.543) pos=float3(45.50895f, 0f, 6.848612f)
+  mg2_t3           -> mg2_t3.png (2504 KB) pose_error_m=0 men_in_frame=0 drawn_near=1 drawn_far=0
+  crops_t3         -> {"pose_check_m":13.3039,"fov":40.741,"zoom":7.5,"pitch":13,"men":{"sentry":{"foot":[960.00,936.01],"head":[960.00,827.93],"slot":14}}}
+  look_back_t3     -> arch=26 spot_was=unset pos=float3(43.39444f, 0f, 7.783905f)
+  state_t3         -> tick=1241 alive=True hp=500 arch=26 stance=1 target=-1 spot_set=True spot_foot=(43.26, 2.31, 8.12) spot_fwd=(-0.38, 0.00, 0.93) mask=False
+  look_check_t3    -> arch=26 spot_was=(43.259, 2.310, 8.117) pos=float3(43.39444f, 0f, 7.783905f)
   plate re-emplaced 0.0000 m from where it stood (bar 0.10)
   empty_t3         -> man_drawn=off hidden=True arch=2
   shot_empty_t3    -> held: held at weather clock 120 | mask=False zoom=7.5 pitch=13 | storm=True | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2\empty_t3.png
-  empty_t3         -> empty_t3.png (2469 KB) pose_error_m=0 men_in_frame=0 drawn_near=0 drawn_far=0
+  empty_t3         -> empty_t3.png (2467 KB) pose_error_m=0 men_in_frame=0 drawn_near=0 drawn_far=0
   sleeping 25s to prove the held ground repeats across a strike window
   shot_empty_t3b   -> held: held at weather clock 120 | mask=False zoom=7.5 pitch=13 | storm=True | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2\empty_t3b.png
-  empty_t3b        -> empty_t3b.png (2467 KB) pose_error_m=0 men_in_frame=0 drawn_near=0 drawn_far=0
+  empty_t3b        -> empty_t3b.png (2481 KB) pose_error_m=0 men_in_frame=0 drawn_near=0 drawn_far=0
   unempty_t3       -> man_drawn=on hidden=False arch=26
   release_t3       -> released
 band t1: the same frozen frame as Sentry, as MG man, and again untouched
-  pin_t1           -> pinned sentry=(45.51, 0.00, 6.85) forgot_plate=False plate_faces_him=-0.190 alive=True plate_to_man_m=0.360
+  pin_t1           -> pinned sentry=(43.39, 0.00, 7.78) forgot_plate=False plate_faces_him=-0.684 alive=True plate_to_man_m=0.360
   frame_t1         -> framed zoom=30 cam_zoom=30 cam_fov=42
   frame_t1_again   -> framed zoom=30 cam_zoom=30 cam_fov=25
-  repin_t1         -> pinned sentry=(45.51, 0.00, 6.85) forgot_plate=False plate_faces_him=-0.190 alive=True plate_to_man_m=0.360
+  repin_t1         -> pinned sentry=(43.39, 0.00, 7.78) forgot_plate=False plate_faces_him=-0.684 alive=True plate_to_man_m=0.360
   hold_forget_t1   -> held: held at weather clock 120 and forgot every plate, storm held=True
   shot_sentry_t1   -> held: held at weather clock 120 | mask=False zoom=30 pitch=25 | storm=True | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2\sentry_t1.png
-  sentry_t1        -> sentry_t1.png (3113 KB) pose_error_m=0 men_in_frame=2 drawn_near=2 drawn_far=0
-  look_mg_t1       -> arch=2 spot_was=(45.381, 2.463, 7.185) pos=float3(45.50895f, 0f, 6.848612f)
+  sentry_t1        -> sentry_t1.png (3152 KB) pose_error_m=0 men_in_frame=2 drawn_near=2 drawn_far=0
+  look_mg_t1       -> arch=2 spot_was=(43.276, 2.309, 8.124) pos=float3(43.39444f, 0f, 7.783905f)
   shot_mg_t1       -> held: held at weather clock 120 | mask=False zoom=30 pitch=25 | storm=True | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2\mg_t1.png
-  mg_t1            -> mg_t1.png (3102 KB) pose_error_m=0 men_in_frame=2 drawn_near=2 drawn_far=0
+  mg_t1            -> mg_t1.png (3135 KB) pose_error_m=0 men_in_frame=2 drawn_near=2 drawn_far=0
   shot_mg2_t1      -> held: held at weather clock 120 | mask=False zoom=30 pitch=25 | storm=True | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2\mg2_t1.png
-  mg2_t1           -> mg2_t1.png (3121 KB) pose_error_m=0 men_in_frame=2 drawn_near=2 drawn_far=0
-  crops_t1         -> {"pose_check_m":0.0000,"fov":25.000,"zoom":30,"pitch":25,"men":{"sentry":{"foot":[960.00,468.45],"head":[960.00,412.33],"slot":12}}}
-  look_back_t1     -> arch=26 spot_was=unset pos=float3(45.50895f, 0f, 6.848612f)
-  state_t1         -> tick=1790 alive=True hp=500 arch=26 stance=1 target=-1 spot_set=True spot_foot=(45.38, 2.46, 7.19) spot_fwd=(-0.36, 0.00, 0.93) mask=False
-  look_check_t1    -> arch=26 spot_was=(45.381, 2.463, 7.185) pos=float3(45.50895f, 0f, 6.848612f)
+  mg2_t1           -> mg2_t1.png (3112 KB) pose_error_m=0 men_in_frame=2 drawn_near=2 drawn_far=0
+  crops_t1         -> {"pose_check_m":0.0000,"fov":25.000,"zoom":30,"pitch":25,"men":{"sentry":{"foot":[960.00,472.14],"head":[960.00,416.10],"slot":14}}}
+  look_back_t1     -> arch=26 spot_was=unset pos=float3(43.39444f, 0f, 7.783905f)
+  state_t1         -> tick=1802 alive=True hp=500 arch=26 stance=1 target=-1 spot_set=True spot_foot=(43.28, 2.31, 8.12) spot_fwd=(-0.33, 0.00, 0.94) mask=False
+  look_check_t1    -> arch=26 spot_was=(43.276, 2.309, 8.124) pos=float3(43.39444f, 0f, 7.783905f)
   plate re-emplaced 0.0000 m from where it stood (bar 0.10)
   empty_t1         -> man_drawn=off hidden=True arch=2
   shot_empty_t1    -> held: held at weather clock 120 | mask=False zoom=30 pitch=25 | storm=True | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2\empty_t1.png
-  empty_t1         -> empty_t1.png (3121 KB) pose_error_m=0 men_in_frame=2 drawn_near=1 drawn_far=0
+  empty_t1         -> empty_t1.png (3155 KB) pose_error_m=0 men_in_frame=2 drawn_near=1 drawn_far=0
   unempty_t1       -> man_drawn=on hidden=False arch=26
   release_t1       -> released
 band o120: the same frozen frame as Sentry, as MG man, and again untouched
-  pin_o120         -> pinned sentry=(45.51, 0.00, 6.85) forgot_plate=False plate_faces_him=-0.667 alive=True plate_to_man_m=0.360
+  pin_o120         -> pinned sentry=(43.39, 0.00, 7.78) forgot_plate=False plate_faces_him=-0.646 alive=True plate_to_man_m=0.360
   frame_o120       -> framed zoom=120 cam_zoom=120 cam_fov=25
-  frame_o120_again -> framed zoom=120 cam_zoom=120 cam_fov=42
-  repin_o120       -> pinned sentry=(45.51, 0.00, 6.85) forgot_plate=False plate_faces_him=-0.667 alive=True plate_to_man_m=0.360
+  frame_o120_again -> framed zoom=120 cam_zoom=120 cam_fov=25
+  repin_o120       -> pinned sentry=(43.39, 0.00, 7.78) forgot_plate=False plate_faces_him=-0.646 alive=True plate_to_man_m=0.360
   hold_forget_o120 -> held: held at weather clock 120 and forgot every plate, storm held=True
   shot_sentry_o120 -> held: held at weather clock 120 | mask=False zoom=120 pitch=55 | storm=True | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2\sentry_o120.png
-  sentry_o120      -> sentry_o120.png (2078 KB) pose_error_m=0 men_in_frame=2 drawn_near=0 drawn_far=2
-  look_mg_o120     -> arch=2 spot_was=(45.845, 2.504, 6.720) pos=float3(45.50895f, 0f, 6.848612f)
+  sentry_o120      -> sentry_o120.png (2121 KB) pose_error_m=0 men_in_frame=1 drawn_near=0 drawn_far=2
+  look_mg_o120     -> arch=2 spot_was=(43.731, 2.397, 7.655) pos=float3(43.39444f, 0f, 7.783905f)
   shot_mg_o120     -> held: held at weather clock 120 | mask=False zoom=120 pitch=55 | storm=True | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2\mg_o120.png
-  mg_o120          -> mg_o120.png (2125 KB) pose_error_m=0 men_in_frame=2 drawn_near=0 drawn_far=2
+  mg_o120          -> mg_o120.png (2141 KB) pose_error_m=0 men_in_frame=1 drawn_near=0 drawn_far=2
   shot_mg2_o120    -> held: held at weather clock 120 | mask=False zoom=120 pitch=55 | storm=True | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2\mg2_o120.png
-  mg2_o120         -> mg2_o120.png (2140 KB) pose_error_m=0 men_in_frame=2 drawn_near=0 drawn_far=2
-  crops_o120       -> {"pose_check_m":0.0001,"fov":25.000,"zoom":120,"pitch":55,"men":{"sentry":{"foot":[960.00,528.76],"head":[960.00,520.05],"slot":12}}}
-  look_back_o120   -> arch=26 spot_was=unset pos=float3(45.50895f, 0f, 6.848612f)
-  state_o120       -> tick=2422 alive=True hp=500 arch=26 stance=1 target=-1 spot_set=True spot_foot=(45.85, 2.50, 6.72) spot_fwd=(0.93, 0.00, -0.36) mask=False
-  look_check_o120  -> arch=26 spot_was=(45.845, 2.504, 6.720) pos=float3(45.50895f, 0f, 6.848612f)
+  mg2_o120         -> mg2_o120.png (2161 KB) pose_error_m=0 men_in_frame=1 drawn_near=0 drawn_far=2
+  crops_o120       -> {"pose_check_m":0.0001,"fov":25.000,"zoom":120,"pitch":55,"men":{"sentry":{"foot":[960.00,529.33],"head":[960.00,520.63],"slot":14}}}
+  look_back_o120   -> arch=26 spot_was=unset pos=float3(43.39444f, 0f, 7.783905f)
+  state_o120       -> tick=2360 alive=True hp=500 arch=26 stance=1 target=-1 spot_set=True spot_foot=(43.73, 2.40, 7.65) spot_fwd=(0.93, 0.00, -0.36) mask=False
+  look_check_o120  -> arch=26 spot_was=(43.731, 2.397, 7.655) pos=float3(43.39444f, 0f, 7.783905f)
   plate re-emplaced 0.0000 m from where it stood (bar 0.10)
   empty_o120       -> man_drawn=off hidden=True arch=2
   shot_empty_o120  -> held: held at weather clock 120 | mask=False zoom=120 pitch=55 | storm=True | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2\empty_o120.png
-  empty_o120       -> empty_o120.png (2104 KB) pose_error_m=0 men_in_frame=2 drawn_near=0 drawn_far=1
+  empty_o120       -> empty_o120.png (2115 KB) pose_error_m=0 men_in_frame=1 drawn_near=0 drawn_far=1
   unempty_o120     -> man_drawn=on hidden=False arch=26
   release_o120     -> released
-  crops t3    pose_check_m=13.3046 foot=[960.0, 929.77] head=[960.0, 821.46]
-  crops t1    pose_check_m=0.0 foot=[960.0, 468.45] head=[960.0, 412.33]
-  crops o120  pose_check_m=0.0001 foot=[960.0, 528.76] head=[960.0, 520.05]
+  crops t3    pose_check_m=13.3039 foot=[960.0, 936.01] head=[960.0, 827.93]
+  crops t1    pose_check_m=0.0 foot=[960.0, 472.14] head=[960.0, 416.1]
+  crops o120  pose_check_m=0.0001 foot=[960.0, 529.33] head=[960.0, 520.63]
   release          -> released
 done: thirteen stills, their sidecars and crops.json are in C:\Users\PC\Documents\GitHub\githubtest-relay-work3\docs\evidence\sentry-look-r3-2

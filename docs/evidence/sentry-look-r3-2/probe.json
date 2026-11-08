@@ -1,13 +1,13 @@
 {
-  "xor_t3": 0.1712,
-  "xor_t1": 0.1894,
-  "xor_o120": 0.4524,
-  "xor_control_max": 0.0185,
-  "plate_ground_contrast_t3": 0.0643,
-  "xor_control_t3": 0.0098,
-  "xor_control_t1": 0.0185,
+  "xor_t3": 0.2366,
+  "xor_t1": 0.2545,
+  "xor_o120": 0.5185,
+  "xor_control_max": 0.021,
+  "plate_ground_contrast_t3": 0.4132,
+  "xor_control_t3": 0.0084,
+  "xor_control_t1": 0.021,
   "xor_control_o120": 0.0,
-  "ground_repeat_t3": 0.0003,
+  "ground_repeat_t3": 0.0001,
   "thresholds": {
     "xor": 0.15,
     "xor_control_max": 0.03,
@@ -26,74 +26,74 @@
   },
   "bands": {
     "t3": {
-      "xor": 0.1712,
-      "xor_control": 0.0098,
-      "sentry_px": 3797,
-      "mg_px": 3359,
-      "mg2_px": 3356,
-      "union_px": 3913,
-      "xor_px": 670,
-      "control_union_px": 3374,
-      "control_xor_px": 33,
+      "xor": 0.2366,
+      "xor_control": 0.0084,
+      "sentry_px": 5010,
+      "mg_px": 4040,
+      "mg2_px": 4042,
+      "union_px": 5132,
+      "xor_px": 1214,
+      "control_union_px": 4058,
+      "control_xor_px": 34,
       "box": [
-        178,
-        109
+        167,
+        93
       ],
       "box_at": [
-        820,
-        893
+        818,
+        923
       ],
-      "pose_check_m": 13.3046
+      "pose_check_m": 13.3039
     },
     "t1": {
-      "xor": 0.1894,
-      "xor_control": 0.0185,
-      "sentry_px": 1153,
-      "mg_px": 960,
-      "mg2_px": 964,
-      "union_px": 1167,
-      "xor_px": 221,
-      "control_union_px": 971,
-      "control_xor_px": 18,
+      "xor": 0.2545,
+      "xor_control": 0.021,
+      "sentry_px": 1200,
+      "mg_px": 1043,
+      "mg2_px": 1033,
+      "union_px": 1285,
+      "xor_px": 327,
+      "control_union_px": 1049,
+      "control_xor_px": 22,
       "box": [
-        97,
-        59
+        87,
+        60
       ],
       "box_at": [
-        409,
-        937
+        412,
+        935
       ],
       "pose_check_m": 0.0
     },
     "o120": {
-      "xor": 0.4524,
+      "xor": 0.5185,
       "xor_control": 0.0,
-      "sentry_px": 36,
-      "mg_px": 29,
-      "mg2_px": 29,
-      "union_px": 42,
-      "xor_px": 19,
-      "control_union_px": 29,
+      "sentry_px": 48,
+      "mg_px": 32,
+      "mg2_px": 32,
+      "union_px": 54,
+      "xor_px": 28,
+      "control_union_px": 32,
       "control_xor_px": 0,
       "box": [
-        23,
-        24
+        24,
+        28
       ],
       "box_at": [
         512,
-        948
+        946
       ],
       "pose_check_m": 0.0001
     }
   },
   "plate_t3": {
-    "plate_px": 540,
-    "expected_px": 135,
-    "px_per_m_from_bar": 15.56,
-    "measured_px": 357,
-    "ring_px": 394,
-    "mean_luma_plate": 0.2083,
-    "mean_luma_ground_ring": 0.1439
+    "plate_px": 1303,
+    "expected_px": 1775,
+    "px_per_m_from_bar": 46.92,
+    "measured_px": 881,
+    "ring_px": 731,
+    "mean_luma_plate": 0.6687,
+    "mean_luma_ground_ring": 0.2555
   },
-  "pass": false
+  "pass": true
 }

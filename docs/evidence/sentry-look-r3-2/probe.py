@@ -60,7 +60,7 @@ XOR_MIN = 0.15
 CONTROL_MAX = 0.03
 CONTRAST_MIN = 0.10
 BANDS = ("t3", "t1", "o120")
-PLATE_W_M, PLATE_H_M = 0.90, 0.62     # CombatFx.PlatePieces, before UnitScale: what plate_px is read against
+PLATE_W_M, PLATE_H_M = 1.30, 0.62     # CombatFx.PlatePieces, before UnitScale: what plate_px is read against
 
 
 def rgb_of(path):
