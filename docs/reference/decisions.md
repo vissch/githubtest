@@ -307,6 +307,17 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   here**; (b) a lighter boot tint so the upright part separates; (c) a mud rim around the plant to read the
   head-first pose from the ground up; (d) hold the rest fold back (RestQ / `PlantFoldHeight`) so the legs are still
   up at T+1 s -- a candidate cause not checked in this leg. Nothing is built on this until he answers.
+  **Sharpened (2026-11-08, rocketed-man-planted-g2 leg 02):** the goal for this leg was a probe that exits 0 on
+  these three stills; it was given up instead of weakened, because a second, independent measurement confirms the
+  shape finding above rather than explaining it away. A raw pixel dump of all three stills, re-segmented with a
+  plain darkest-20%-of-box threshold (no red tunic colour, no Otsu, no window placement from the probe) finds one
+  connected dark blob per still: plant_1 50x32 px (contrast 0.326), plant_2 44x19 px (contrast 0.458), plant_3
+  35x31 px (contrast 0.291) -- plant_3 now has a reading, where the red-tunic mask had found nothing. Width is
+  >= height on all three; no narrow, tall (legs-shaped) component exists anywhere in a widened search box (x
+  740-860, y 400-500 at zoom 30 pitch 25, i.e. +-5 m x and -4.25..-0.25 m above the mud row). The probe
+  (`docs/evidence/rocketed-man-planted-g2/probe.py`) was not changed to pass: `BAR` stays 0.10, the shape gate
+  (bbox height > width) stays, three captures stay required, and it still exits 1 on these stills. (this leg,
+  because the dump is in `docs/evidence/rocketed-man-planted-g2/frames.txt`)
 - **Withdrawn 2026-10-27 — the planted man's two FAILs were a probe bug, not a look finding
   (rocketed-man-planted-g2):** the question asked here on 2026-10-27 (does the planted gag need a read fix at T1?)
   is withdrawn unanswered; nothing was landed on it, so nothing is undone. Why: both g2 stills were taken with the

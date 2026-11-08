@@ -34,3 +34,19 @@ may have already folded the legs down by T+1 s.
 
 Nothing in the probe was loosened to make this pass: BAR stays 0.10, the gates stay, and three captures stay
 required. probe.json carries the machine-readable version of the three FAILs.
+
+A second dump (leg rocketed-man-planted-g2/02, 2026-11-08), independent of the probe's own window and of the
+red-tunic colour test above: for each still, luma over a widened box (x 740..860, y 400..500, i.e. +-5 m either
+side of the aim column and -4.25..-0.25 m above the mud row) is thresholded at its own darkest 20th percentile
+(no Otsu, no hand colour test), the largest connected dark component is measured, and its contrast against the
+median of everything else in the box is taken:
+  plant_1  thr 0.216   body bbox 50 x 32 px   area 813   luma 0.153   ring 0.237   contrast 0.326
+  plant_2  thr 0.119   body bbox 44 x 19 px   area 285   luma 0.103   ring 0.208   contrast 0.458
+  plant_3  thr 0.169   body bbox 35 x 31 px   area 242   luma 0.146   ring 0.214   contrast 0.291
+These agree with the red-tunic numbers above to within the method's own noise (plant_1 0.326 vs 0.320, plant_2
+0.458 vs 0.460) and, unlike the red-tunic mask, also find plant_3 (bbox 35 x 31, contrast 0.291 -- the tunic there
+is apparently under the mud or out of view, but the body is still there and still flat). Width is >= height on
+every still and every method tried; no run of the search found a narrow, tall (legs-shaped) component anywhere in
+the widened box. Two measurements that do not share a colour test, a window, or a threshold rule agree: the man
+is visible, and he is lying flat, not standing legs-up in the mud, one game second after he lands. The probe was
+not changed. See decisions.md, the "Sharpened" addendum to the 2026-11-08 open question.
