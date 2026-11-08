@@ -1,0 +1,42 @@
+{
+  "subject": "code:Editor/UI",
+  "looked_at": [
+    "Assets/_Project/Editor/UI/UiSkinGenerator.cs:170-330 (Paint switch, PlateBody, Window, Frame, Rim, Hatch, Strap, BezelRound, OrderRound)",
+    "Assets/_Project/Editor/UI/UiSkinGenerator.cs:330-460 (Knob, Banner, Hazard, Vignette, Grain, Stamp, Icon switch)",
+    "Assets/_Project/Editor/UI/UiSkinGenerator.cs:1-170 (Generate, Decide, Record, StillPlaceholder, WritePng, palette)",
+    "Assets/_Project/Editor/UI/UiSkinGenerator.cs:560-650 (ArcLip, ArcBevel, Rivet, Hash, Grain(x,y,w,h,...))",
+    "Assets/_Project/Editor/UI/UiSkinVerifier.cs (whole file)",
+    "Assets/_Project/UI/Skin/SkinSpec.cs (whole file)",
+    "Assets/_Project/Tests/Project/SkinAssetTests.cs (whole file)",
+    "docs/found/look-code-editor-ui-20261015.json",
+    "docs/found/look-code-ui-skin-20261108.json"
+  ],
+  "tasks": [
+    {
+      "title": "PlateHighlightRunsRoundTheCorner probes a pixel ArcBevel never touches",
+      "why": "SkinAssetTests.cs:100-109 samples plate_normal at (k, H-1-k) and (W-1-k, k), k=5, radius 12. At those exact pixels ArcBevel's weight (UiSkinGenerator.cs:600-623, 'up' at 45 degrees) is 0, so PlateBody's ArcBevel call could be deleted entirely and the two probes would keep exactly the luminance the GradientV fill alone gives them (top Lerp(Plate700,White,0.06) vs bottom Lerp(Plate700,EdgeDark,0.12), already >0.03 apart). The test's only job is to guard the corner bevel (its own doc comment says so) but it cannot fail if that bevel is ever lost.",
+      "files": [
+        "Assets/_Project/Tests/Project/SkinAssetTests.cs",
+        "Assets/_Project/Editor/UI/UiSkinGenerator.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "the probe pixels are moved off the 45-degree diagonal (e.g. compared against a same-row pixel on the flat centre column, where only ArcBevel can make a difference) and the test fails when PlateBody's c.ArcBevel(...) call is commented out, then passes again when restored",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Assert UiSkinVerifier.Report.Checked so an empty audit still reads green",
+      "why": "SkinAssetTests.cs:17-22 asserts only r.Failures.Is.Empty; UiSkinVerifier.Run() (UiSkinVerifier.cs:38-47) has no guard that SkinSpec.All or PortraitNames is non-empty, and CheckSprite/CheckPortrait only increment r.Checked without it ever being read anywhere. A future edit that short-circuits the loop (an early return, a bad filter) leaves Failures empty and the gate green while nothing was actually checked.",
+      "files": [
+        "Assets/_Project/Tests/Project/SkinAssetTests.cs",
+        "Assets/_Project/Editor/UI/UiSkinVerifier.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "EverySkinFileMatchesTheSpec also asserts r.Checked == SkinSpec.All.Length + SkinSpec.PortraitNames.Length, and fails when a spec entry is made to skip its check",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
