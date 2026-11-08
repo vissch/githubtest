@@ -221,11 +221,13 @@ bool maskOn = UnityEditor.EditorPrefs.GetBool("sentry32.mask", false);
 System.IO.Directory.CreateDirectory(dir);
 fx.PlateMask = maskOn;
 string held = TW.Editor.CaptureRig.Hold(120f);
+TW.Presentation.Terrain.Storm.Hold = true;
 tc.ZoomMin = UnityEngine.Mathf.Min(tc.ZoomMin, 6f);
 tc.FrameFrom(new UnityEngine.Vector2(ax, az), zoom, %(yaw)sf);
 string q = TW.Editor.CaptureRig.Shot(System.IO.Path.Combine(dir, stem + ".png"), ax, az,
                                      zoom, %(yaw)sf, pitch, %(w)d, %(h)d);
-return "held: " + held + " | mask=" + maskOn + " zoom=" + zoom + " pitch=" + pitch + " | " + q;
+return "held: " + held + " | mask=" + maskOn + " zoom=" + zoom + " pitch=" + pitch
+     + " | storm=" + TW.Presentation.Terrain.Storm.Hold + " | " + q;
 """ % dict(yaw=YAW, w=W, h=H)
 
 # Swap only his look. 26 -> 2 takes the plate off him (DrawPlate clears the spot of a non-Sentry); 2 -> 26 puts it
@@ -263,9 +265,10 @@ HOLD_FORGET = """
 var fx = UnityEngine.Object.FindFirstObjectByType<TW.Presentation.Tactical.CombatFx>();
 if (fx == null) return "no fx";
 string held = TW.Editor.CaptureRig.Hold(120f);
+TW.Presentation.Terrain.Storm.Hold = true;
 fx.PlateMask = false;
 fx.ForgetPlates();
-return "held: " + held + " and forgot every plate";
+return "held: " + held + " and forgot every plate, storm held=" + TW.Presentation.Terrain.Storm.Hold;
 """
 
 FORGET = """
@@ -441,6 +444,10 @@ def main():
             break
     log("  loaded           -> %s" % one_liner(
         "return UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;"))
+    # SceneStatics resets Storm.Hold to false on entering Play, so it must be set again here, not just in
+    # HOLD_FORGET/SHOT - without this the first band's captures race the reset.
+    log("  storm held       -> %s" % one_liner(
+        "TW.Presentation.Terrain.Storm.Hold = true; return TW.Presentation.Terrain.Storm.Hold;"))
     one_liner('UnityEditor.EditorPrefs.SetString("sentry32.dir", @"%s"); return "ok";' % HERE)
     one_liner("TW.Editor.CaptureRig.Release(); return 1;")
     one_liner('UnityEditor.EditorPrefs.SetBool("sentry32.pinned", false); return "ok";')
@@ -531,6 +538,13 @@ def main():
         time.sleep(3.0)
         if shot("empty_%s" % band, zoom, pitch, pin=False) is None:
             return 1
+        if band == "t3":
+            # the ground repeats, proving the hold actually froze it: Storm.Every is (7, 24) s, so a 25 s gap
+            # crosses a strike whenever the storm is not held.
+            log("  sleeping 25s to prove the held ground repeats across a strike window")
+            time.sleep(25.0)
+            if shot("empty_t3b", zoom, pitch, pin=False) is None:
+                return 1
         if "man_drawn=on" not in ev("unempty_%s" % band, UNEMPTY):
             log("FAILED: the men could not be put back")
             return 1

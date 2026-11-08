@@ -214,6 +214,17 @@ def main():
     expect_px = PLATE_W_M * PLATE_H_M * per_m ** 2
     plate_px = int(np.count_nonzero(plate))
 
+    # Step 2: does the held ground repeat? The same ring pixels (the plate's own ground ring at T3), read off
+    # empty_t3.png and empty_t3b.png - the same pose shot 25 s apart. Storm.Every is (7, 24) s, so a 25 s gap crosses
+    # a strike window whenever the storm is not held; if Storm.Hold is doing its job, the ring's mean luma should not
+    # move more than a third of the probe's own 18/255 silhouette cut.
+    ground_repeat_t3 = None
+    empty_t3b_path = os.path.join(HERE, "empty_t3b.png")
+    if os.path.exists(empty_t3b_path):
+        empty_t3 = luma(crops["bands"]["t3"]["empty"])
+        empty_t3b = luma("empty_t3b.png")
+        ground_repeat_t3 = round(abs(float(empty_t3[ring].mean()) - float(empty_t3b[ring].mean())), 4)
+
     control_max = max(out_bands["xor_control_" + b] for b in BANDS)
     out = {
         "xor_t3": out_bands["xor_t3"],
@@ -224,8 +235,9 @@ def main():
         "xor_control_t3": out_bands["xor_control_t3"],
         "xor_control_t1": out_bands["xor_control_t1"],
         "xor_control_o120": out_bands["xor_control_o120"],
+        "ground_repeat_t3": ground_repeat_t3,
         "thresholds": {"xor": XOR_MIN, "xor_control_max": CONTROL_MAX,
-                       "plate_ground_contrast_t3": CONTRAST_MIN},
+                       "plate_ground_contrast_t3": CONTRAST_MIN, "ground_repeat_t3": 0.02},
         "settings": {"luma_cut": round(CUT, 5), "ring_px": [RING_IN, RING_OUT], "pad_px": PAD_PX,
                      "magenta": "r > g+40 and b > g+40 and min(r,b) > 60",
                      "cyan": "g > r+40 and b > r+40 and min(g,b) > 60"},
@@ -259,6 +271,11 @@ def main():
           % (plate_px, int(round(expect_px)), per_m))
     if plate_px < expect_px * 0.5:
         print("  !! the mask holds under half the plate: fix the mask before judging the material")
+    if ground_repeat_t3 is not None:
+        print("ground_repeat_t3 %.4f  (<= 0.02)   %s"
+              % (ground_repeat_t3, "pass" if ground_repeat_t3 <= 0.02 else "FAIL"))
+    else:
+        print("ground_repeat_t3: empty_t3b.png not shot yet")
     return 0 if out["pass"] else 1
 
 
