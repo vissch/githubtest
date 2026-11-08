@@ -1,7 +1,9 @@
 // Phase: B6 (implemented) — the interface skin on disk matches SkinSpec, or the gate says which file does not.
 // UiSkinVerifier does the looking; this holds its report empty. A second test keeps the spec sheet honest: every file
 // the table names must appear in docs/17-ui-art-spec.md, so the artist's document cannot drift from the code the way
-// a HUD comment once claimed numbers nobody had checked (HudTextTests).
+// a HUD comment once claimed numbers nobody had checked (HudTextTests). A third pair drives the pure scanner
+// (ScanSheetText/ResolveUrl) directly, so a restated -unity-slice-* that disagrees with SkinSpec, or a typo'd url()
+// in BattleHud.uss, is caught without touching a file on disk.
 using System.IO;
 using NUnit.Framework;
 using UnityEngine;
@@ -49,6 +51,46 @@ namespace TW.Tests
             foreach (var e in SkinSpec.All) StringAssert.Contains(Path.GetFileName(e.File), doc, $"docs/17-ui-art-spec.md does not mention {e.File}");
             foreach (var n in SkinSpec.PortraitNames) StringAssert.Contains(n + ".png", doc, $"docs/17-ui-art-spec.md does not mention Portraits/{n}.png");
             foreach (var f in SkinSpec.Fonts) StringAssert.Contains(Path.GetFileName(f), doc, $"docs/17-ui-art-spec.md does not mention {f}");
+        }
+
+        /// <summary>[U1] a restated -unity-slice-* must match SkinSpec's border for the sprite the rule uses, since
+        /// nothing else checks the ~30 dustfront rules that copy row_plate.png's 12/8/12/8 by hand.</summary>
+        [Test]
+        public void SliceNumbersMustMatchTheSpec()
+        {
+            const string sheet = "Assets/_Project/UI/Skin/dustfront.components.uss";
+            bool FileExists(string p) => p == "Assets/_Project/UI/Skin/Sprites/row_plate.png";
+            var known = new System.Collections.Generic.HashSet<string> { "Sprites/row_plate.png" };
+
+            string ok = ".tw-row { background-image: url(\"Sprites/row_plate.png\"); -unity-slice-left: 12px; -unity-slice-bottom: 8px; -unity-slice-right: 12px; -unity-slice-bottom: 8px; }";
+            var okFailures = new System.Collections.Generic.List<string>();
+            UiSkinVerifier.ScanSheetText(sheet, ok, known, okFailures, FileExists);
+            Assert.That(okFailures, Is.Empty, "[U1] correct slices should not fail: " + string.Join("; ", okFailures));
+
+            string bad = ".tw-row { background-image: url(\"Sprites/row_plate.png\"); -unity-slice-left: 10px; -unity-slice-bottom: 8px; -unity-slice-right: 12px; -unity-slice-bottom: 8px; }";
+            var badFailures = new System.Collections.Generic.List<string>();
+            UiSkinVerifier.ScanSheetText(sheet, bad, known, badFailures, FileExists);
+            Assert.That(badFailures.Count, Is.EqualTo(1), "[U1] a slice changed away from the spec should fail exactly once: " + string.Join("; ", badFailures));
+            StringAssert.Contains("row_plate", badFailures[0], "[U1] the failure should name row_plate.png");
+        }
+
+        /// <summary>[U2] UiSkinVerifier.Sheets must cover BattleHud.uss, and its urls (relative to Resources/Hud, not
+        /// Skin/) must resolve, so a typo in one of its four sprite urls fails the gate instead of drawing a hole.</summary>
+        [Test]
+        public void TheHudSheetIsCheckedAndItsUrlsResolve()
+        {
+            const string hudSheet = "Assets/_Project/UI/Resources/Hud/BattleHud.uss";
+            Assert.That(UiSkinVerifier.Sheets, Has.Member(hudSheet), "[U2] UiSkinVerifier.Sheets does not list BattleHud.uss");
+
+            string resolved = UiSkinVerifier.ResolveUrl(hudSheet, "../../Skin/Sprites/plate_normal.png");
+            Assert.That(resolved, Is.EqualTo("Assets/_Project/UI/Skin/Sprites/plate_normal.png"), "[U2] ResolveUrl did not resolve BattleHud's ../../ url correctly");
+
+            string typoText = ".hud-bezel--square { background-image: url(\"../../Skin/Sprites/plate_normall.png\"); }";
+            bool FileExists(string p) => p == "Assets/_Project/UI/Skin/Sprites/plate_normal.png";
+            var failures = new System.Collections.Generic.List<string>();
+            UiSkinVerifier.ScanSheetText(hudSheet, typoText, new System.Collections.Generic.HashSet<string>(), failures, FileExists);
+            Assert.That(failures.Count, Is.EqualTo(1), "[U2] a typo'd url() in BattleHud.uss should fail exactly once: " + string.Join("; ", failures));
+            StringAssert.Contains("does not exist", failures[0], "[U2] the failure should report a missing file");
         }
 
         [Test]

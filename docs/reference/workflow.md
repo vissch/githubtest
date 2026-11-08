@@ -565,6 +565,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.TankCapture.Status()` | Editor/TankCapture.cs | (no summary: read the method) |
 | `TW.Editor.HudCapture.Shoot(path, width, height)` | Editor/UI/HudCapture.cs | Queue a capture; returns the absolute path the PNG will be written to, or null with a reason logged. |
 | `TW.Editor.UiSkinGenerator.FullPath(assetPath)` | Editor/UI/UiSkinGenerator.cs | (no summary: read the method) |
+| `TW.Editor.UiSkinVerifier.ResolveUrl(sheetPath, url)` | Editor/UI/UiSkinVerifier.cs | Resolves a url() found in sheetPath to a project-relative path, or null for one that names no file this check can look up (a theme/package reference ... |
 | `TW.Editor.VfxLab.Shell(x, z, radius, damage)` | Editor/VfxLab.cs | One shell, bursting next tick in every world. |
 | `TW.Editor.VfxLab.Fire(x, z, radius)` | Editor/VfxLab.cs | An incendiary burst: the men inside it catch fire. |
 | `TW.Editor.VfxLab.Call(ability, x, z, args)` | Editor/VfxLab.cs | A support call for player 0 at a point (silver topped up first). |

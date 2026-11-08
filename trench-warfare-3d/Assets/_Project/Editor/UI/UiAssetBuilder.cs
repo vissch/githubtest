@@ -117,7 +117,7 @@ namespace TW.Editor
         [MenuItem("TW/UI/Reimport Skin Sheets")]
         public static void ReimportSheets()
         {
-            foreach (var sheet in UiSkinVerifier.Sheets) AssetDatabase.ImportAsset(SkinSpec.Root + sheet, ImportAssetOptions.ForceUpdate);
+            foreach (var sheet in UiSkinVerifier.Sheets) AssetDatabase.ImportAsset(sheet, ImportAssetOptions.ForceUpdate);
             AssetDatabase.ImportAsset(ThemePath, ImportAssetOptions.ForceUpdate);
             foreach (var guid in AssetDatabase.FindAssets("t:StyleSheet", new[] { "Assets/_Project/UI" }))
                 AssetDatabase.ImportAsset(AssetDatabase.GUIDToAssetPath(guid), ImportAssetOptions.ForceUpdate);

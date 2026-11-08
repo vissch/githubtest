@@ -2,7 +2,8 @@
 // TW/UI/Verify Skin runs the same checks SkinAssetTests asserts on, so a missing or mis-sized artist file fails the
 // gate rather than drawing a hole: per SkinSpec entry the PNG exists at the spec's size with the spec's border and
 // import settings, glyphs are white-bodied and uncoloured, portraits have transparent corners and sane coverage; every
-// url() in the skin sheets points at a file the table knows; the style sheets imported without errors; the fonts
+// url() in the skin sheets AND BattleHud.uss points at a file the table knows, and every -unity-slice-* a rule
+// restates matches SkinSpec's border for that file; the style sheets imported without errors; the fonts
 // exist; and every archetype either side's default roster hands out maps to a portrait. The report also lists what
 // is still a placeholder (UiSkinGenerator's record), which is the artist's to-do list.
 using System.Collections.Generic;
@@ -20,7 +21,11 @@ namespace TW.Editor
 {
     public static class UiSkinVerifier
     {
-        public static readonly string[] Sheets = { "dustfront.uss", "dustfront.tokens.uss", "dustfront.components.uss" };
+        public static readonly string[] Sheets =
+        {
+            SkinSpec.Root + "dustfront.uss", SkinSpec.Root + "dustfront.tokens.uss", SkinSpec.Root + "dustfront.components.uss",
+            "Assets/_Project/UI/Resources/Hud/BattleHud.uss",
+        };
 
         public sealed class Report
         {
@@ -126,25 +131,85 @@ namespace TW.Editor
         }
 
         static readonly Regex Url = new Regex("url\\(\\s*[\"']?([^\"')]+)[\"']?\\s*\\)", RegexOptions.Compiled);
+        static readonly Regex Comment = new Regex("/\\*.*?\\*/", RegexOptions.Compiled | RegexOptions.Singleline);
+        static readonly Regex Selector = new Regex("([^{]+)$", RegexOptions.Compiled);
+        static readonly Regex Slice = new Regex("-unity-slice-(left|bottom|right|top)\\s*:\\s*(\\d+)(?:px)?\\s*;", RegexOptions.Compiled);
+
+        /// <summary>Resolves a url() found in sheetPath to a project-relative path, or null for one that names no
+        /// file this check can look up (a theme/package reference, or another style sheet).</summary>
+        public static string ResolveUrl(string sheetPath, string url)
+        {
+            if (url.StartsWith("unity-theme://") || url.StartsWith("project://") || url.EndsWith(".uss")) return null;
+            if (url.StartsWith("/")) return url.Substring(1);
+            return CombineRelative(Path.GetDirectoryName(sheetPath)?.Replace('\\', '/'), url);
+        }
+
+        static string CombineRelative(string dir, string url)
+        {
+            var stack = new List<string>();
+            foreach (var part in ((dir ?? "") + "/" + url).Split('/'))
+            {
+                if (part.Length == 0 || part == ".") continue;
+                if (part == "..") { if (stack.Count > 0) stack.RemoveAt(stack.Count - 1); }
+                else stack.Add(part);
+            }
+            return string.Join("/", stack);
+        }
+
+        /// <summary>Scans one sheet's text for url()s that must resolve to a known SkinSpec file, and for
+        /// -unity-slice-* values that must match the spec border of the sprite the block's url() names. Pure apart
+        /// from fileExists, so a test can drive it with made-up sheet text.</summary>
+        public static void ScanSheetText(string sheetPath, string text, ICollection<string> known, List<string> failures, System.Func<string, bool> fileExists)
+        {
+            text = Comment.Replace(text, "");
+            string sheet = Path.GetFileName(sheetPath);
+            foreach (var block in text.Split('}'))
+            {
+                var selMatch = Selector.Match(block);
+                string selector = selMatch.Success ? selMatch.Groups[1].Value.Trim() : "";
+                int lastBrace = block.LastIndexOf('{');
+                string body = lastBrace >= 0 ? block.Substring(lastBrace + 1) : block;
+
+                string spriteRel = null;
+                foreach (Match m in Url.Matches(body))
+                {
+                    string u = m.Groups[1].Value;
+                    string rel = ResolveUrl(sheetPath, u);
+                    if (rel == null) continue;
+                    if (!fileExists(rel)) { failures.Add($"{sheet}: url(\"{u}\") does not exist"); continue; }
+                    if (rel.StartsWith(SkinSpec.Root))
+                    {
+                        string remainder = rel.Substring(SkinSpec.Root.Length);
+                        if (remainder.EndsWith(".png"))
+                        {
+                            if (!known.Contains(remainder)) failures.Add($"{sheet}: url(\"{u}\") is not in SkinSpec");
+                            else spriteRel = remainder;
+                        }
+                    }
+                }
+
+                if (spriteRel == null || !SkinSpec.TryGet(spriteRel, out var entry)) continue;
+                foreach (Match sm in Slice.Matches(body))
+                {
+                    string name = sm.Groups[1].Value;
+                    int value = int.Parse(sm.Groups[2].Value);
+                    int spec = name == "left" ? entry.L : name == "bottom" ? entry.B : name == "right" ? entry.R : entry.T;
+                    if (value != spec) failures.Add($"{sheet}: {selector} slices {name} {value}, SkinSpec says {spec}");
+                }
+            }
+        }
 
         static void CheckSheets(Report r, HashSet<string> known)
         {
-            foreach (var sheet in Sheets)
+            foreach (var path in Sheets)
             {
-                string path = SkinSpec.Root + sheet;
+                string sheet = Path.GetFileName(path);
                 string full = UiSkinGenerator.FullPath(path);
                 if (!File.Exists(full)) { r.Failures.Add($"sheet missing: {path}"); continue; }
                 var ss = AssetDatabase.LoadAssetAtPath<StyleSheet>(path);
                 if (ss == null) r.Failures.Add($"{sheet}: did not import as a StyleSheet");
                 else if (ss.importedWithErrors) r.Failures.Add($"{sheet}: imported with errors (see the console)");
-                foreach (Match m in Url.Matches(File.ReadAllText(full)))
-                {
-                    string u = m.Groups[1].Value;
-                    if (u.StartsWith("unity-theme://") || u.StartsWith("project://") || u.EndsWith(".uss")) continue;
-                    string rel = u.StartsWith("/") ? u.Substring(1).Replace("Assets/_Project/UI/Skin/", "") : u;
-                    if (!File.Exists(UiSkinGenerator.FullPath(SkinSpec.Root + rel))) r.Failures.Add($"{sheet}: url(\"{u}\") does not exist");
-                    else if (rel.EndsWith(".png") && !known.Contains(rel)) r.Failures.Add($"{sheet}: url(\"{u}\") is not in SkinSpec");
-                }
+                ScanSheetText(path, File.ReadAllText(full), known, r.Failures, p => File.Exists(UiSkinGenerator.FullPath(p)));
             }
             string theme = UiSkinGenerator.FullPath(UiAssetBuilder.ThemePath);
             if (!File.Exists(theme)) r.Failures.Add($"theme missing: {UiAssetBuilder.ThemePath}");
