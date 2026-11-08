@@ -1,0 +1,75 @@
+{
+  "subject": "code:UI/Resources",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/UI/TrenchOrderCluster.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Resources/Hud/TrenchOrders.uxml",
+    "trench-warfare-3d/Assets/_Project/UI/Resources/Hud/BattleHud.uxml",
+    "trench-warfare-3d/Assets/_Project/UI/Resources/Hud/BattleHud.uss",
+    "trench-warfare-3d/Assets/_Project/UI/Resources/UI/DustFront.tss",
+    "trench-warfare-3d/Assets/_Project/UI/Resources/UI/DustFrontPanel.asset",
+    "trench-warfare-3d/Assets/_Project/Editor/UI/UiAssetBuilder.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/PlayMode/HudLayoutPlayTests.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Skin/dustfront.uss",
+    "trench-warfare-3d/Assets/_Project/UI/HudController.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/SettingsApplier.cs",
+    "trench-warfare-3d/Assets/_Project/UI/UnitArt.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/UnitArtTests.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/ArmouryScreen.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/HudStructureTests.cs"
+  ],
+  "tasks": [
+    {
+      "title": "Make TrenchOrderCluster.Fallback() build the same tree as TrenchOrders.uxml",
+      "why": "TrenchOrderCluster.cs:144-158 hand-builds the cluster when the template fails to load, but it has drifted from the uxml: the uxml wraps fallback/lock and categories/advance in '.hud-orders__pair' plates (4px padding, 1px border) that BattleHud.uss:70 says come out of the 56px '.hud-orders__gap' so the cluster stays 340px; the fallback has no pair wrappers at all, so a cluster built from it would be wider and its gap would not line up over the trench. The fallback also omits 'hud-orders__btn--last' on lock/advance (BattleHud.uss:68, zeroes margin-right). HudStructureTests.cs only ever instantiates the real uxml (Instantiate() helper, never Fallback()), so this path is untested and only fires if the template VisualTreeAsset fails to load at runtime.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/TrenchOrderCluster.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Resources/Hud/TrenchOrders.uxml",
+        "trench-warfare-3d/Assets/_Project/Tests/UI/HudStructureTests.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "a test instantiates both the uxml and Fallback() and asserts the same set of named children and the same class list on each, or Fallback() is deleted and the ctor just no-ops/throws when the template is missing",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Assert DustFrontPanel.asset fields against HudLayout in an EditMode test",
+      "why": "DustFrontPanel.asset (m_ScaleMode: 2, m_ReferenceResolution {1600,900}, m_ScreenMatchMode: 0, m_Match: 1) is written by UiAssetBuilder.CreatePanelSettings() from HudLayout.ReferenceWidthPx/ReferenceHeight and matches today, but nothing checks that it keeps matching. HudLayoutPlayTests.cs:49 only asserts the loaded PanelSettings is not null. An inspector edit to the asset, or a changed HudLayout constant, would misscale the whole runtime HUD and the gate would still go green.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Resources/UI/DustFrontPanel.asset",
+        "trench-warfare-3d/Assets/_Project/Editor/UI/UiAssetBuilder.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/PlayMode/HudLayoutPlayTests.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a new EditMode test loads DustFrontPanel.asset and asserts scaleMode/referenceResolution/screenMatchMode/match equal PanelScaleMode.ScaleWithScreenSize/HudLayout's constants/PanelScreenMatchMode.MatchWidthOrHeight/1f; it fails if any field is hand-edited away from HudLayout",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Cache a miss in UnitArt.Load so absent art is not re-fetched every call",
+      "why": "UnitArt.cs:45-50 caches a hit (t != null) but never caches a miss, so every call for a name with no art under Resources/UnitArt hits Resources.Load again. State()/Full() are called from TrenchOrderCluster.RefreshChips (runs once per frame per shown cluster, UI/TrenchOrderCluster.cs:209), HudDialogue.cs:84 and HoverCard.cs:218/SelectionPanel.cs on every hover/line change — any of those paths for a unit missing art pays a full Resources.Load each time instead of once.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/UnitArt.cs",
+        "trench-warfare-3d/Assets/_Project/UI/TrenchOrderCluster.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "UnitArt.Load caches a sentinel/null for a path that resolved to null so a second call for the same missing path does not call Resources.Load again; a test can spy call count or assert the cache dictionary gained an entry for a known-missing path",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Drop dead CSS: '.hud-orders__btn--holdfire...' and two empty rule blocks",
+      "why": "BattleHud.uss:80 '.hud-orders__btn--holdfire.tw-btn--on > .tw-icon' has no writer anywhere in Assets/_Project: the hold-fire control is the tag beside the men badge now (TrenchOrderCluster.cs HoldTag, class 'hud-orders__holdtag--on'), and nothing adds 'hud-orders__btn--holdfire'. BattleHud.uss:37 '.hud-group--infantry { }' and :56 '.hud-card { }' are empty rule bodies that match nothing useful either way. (Checked '.hud-bezel--round' too: it is live, set by HudController.cs:146 and SettingsApplier.cs:73, so it is not part of this task.)",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Resources/Hud/BattleHud.uss"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "grep for 'hud-orders__btn--holdfire', 'hud-group--infantry', 'hud-card {' in BattleHud.uss returns nothing after the edit, and the gate's validate.py and ShellUxmlTests stay green",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
