@@ -56,6 +56,10 @@
     --tw-scrim: rgba(8, 9, 10, 0.45);
     --tw-cooldown: rgba(8, 9, 10, 0.62);
 
+    /* image tints: the two values -unity-background-image-tint-color needs that are not plate greys */
+    --tw-tint-poor: #6A6A6A;    /* a portrait you cannot afford: lighter than --tw-plate-400, so it reads as temporary and not as locked */
+    --tw-tint-row-alt: #F0F0F0; /* the settings list's only banding: one shade down on every other row, over row_plate.png painted --tw-plate-700 */
+
     /* type */
     --tw-size-display: 48px;
     --tw-size-title: 32px;
