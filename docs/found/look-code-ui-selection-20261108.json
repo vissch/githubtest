@@ -1,0 +1,64 @@
+{
+  "subject": "code:UI/Selection",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/UI/Selection/SelectionController.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/UnitPicker.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/HoverCard.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/SelectionPanel.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/SelectionMarkers.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/DeathMarks.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/SelectionModel.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/ComicWords.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/AimReadout.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/GarrisonStats.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/GroupAlerts.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/TrenchScope.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/UnitStatus.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/SelectCursor.cs",
+    "trench-warfare-3d/Assets/_Project/UI/TrenchOrderCluster.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/SelectionTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/ComicWordsTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/AbilityAimTests.cs",
+    "docs/reference/tasks.md",
+    "docs/reference/decisions.md"
+  ],
+  "tasks": [
+    {
+      "title": "Fix the logo layout test's name check that can never fail",
+      "why": "read in code: SelectionTests.cs:315-319 asserts `json.text.Contains(...) || n == \"logo_full\" || n == \"wordmark\" || n.StartsWith(\"glint\")`. Feed it a layout.json missing `\"logo_full\"`, `\"wordmark\"`, `\"glint_top_0\"` or `\"glint_bottom_11\"` entirely: the test still reads green for those four names, so a dropped name in the shipped layout is invisible. The two `GameLogo` tests (this one and `TheLogoSpinsItsCogInThenTurnsSlowlyAndItsWordsLand`) also sit in `SelectionTests`, which `tasks.md:867` names as guarding TrenchScope/GroupAlerts/selection, not the boot logo — a reader following that row never finds them.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Tests/UI/SelectionTests.cs"
+      ],
+      "lane": "show",
+      "role": "bug-catcher",
+      "done_when": "the four names the OR-clause currently waives are asserted with a plain Contains, and the two GameLogo tests live in a file/class tasks.md's logo row names (or tasks.md is updated to point at SelectionTests); the test goes red when layout.json is missing one of those names.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Share the HP-to-mood face texture rule instead of copying it twice",
+      "why": "read in code: `HoverCard.SetFace` (lines 394-402: `health > 0.6f ? Mood.Neutral : health > 0.3f ? Mood.Wounded : Mood.Critical`, then `UnitArt.HasFace`/`State`/`Full`) and `SelectionPanel.RefreshHp` (lines 147-150: the identical `k > 0.6f ... > 0.3f ...` and the same three `UnitArt` calls) write the same three-tier health-to-portrait rule in two files. A future change to the thresholds or the fallback (e.g. a fourth mood tier) has to be made twice and will drift the first time someone forgets the second site.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Selection/HoverCard.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Selection/SelectionPanel.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "one static helper (e.g. on UnitArt or UnitStatus) takes a health fraction and an archetype and returns the texture; both call sites use it and the mood thresholds exist in one place.",
+      "risk": [false, false, false, false, true],
+      "change": [true, false, false, false, false]
+    },
+    {
+      "title": "Make AimReadout honour CursorOverride like the rest of the input path",
+      "why": "read in code: `SelectionController.HandleMouse` reads the cursor as `CursorOverride ?? mouse.position.ReadValue()` (line 206), so picking and hovering follow the override. `Tick` (lines 143-144) builds the aim readout from `mouse.position.ReadValue()` directly, never checking `CursorOverride`. Nothing in the repo sets `CursorOverride` yet (grepped, no hits besides its declaration and this one read), so it is not firing today, but it is public API clearly meant for a capture or test driver to move the simulated cursor; the first caller that sets it will see the pick/hover follow the fake point while the aim-readout card and its brackets stay glued to the real mouse.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Selection/SelectionController.cs"
+      ],
+      "lane": "show",
+      "role": "bug-catcher",
+      "done_when": "the aim-readout call sites (SelectionController.cs:143-144) use the same `CursorOverride ?? mouse.position.ReadValue()` expression as HandleMouse; a test that sets CursorOverride and arms an ability shows the readout counted at the override point.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
