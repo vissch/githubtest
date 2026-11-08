@@ -6,7 +6,7 @@
   "yaw": 21.0,
   "bands": {
     "t3": {
-      "pose_check_m": 13.3059,
+      "pose_check_m": 13.3046,
       "fov": 40.741,
       "zoom": 7.5,
       "pitch": 13,
@@ -14,20 +14,20 @@
         "sentry": {
           "foot": [
             960.0,
-            960.45
+            929.77
           ],
           "head": [
             960.0,
-            853.28
+            821.46
           ],
-          "slot": 14
+          "slot": 12
         }
       },
       "plate_back_m": 0.0,
       "plate_foot_in_stills": [
-        40.257,
-        1.988,
-        11.702
+        45.319,
+        2.518,
+        6.543
       ],
       "sentry": "sentry_t3.png",
       "mg": "mg_t3.png",
@@ -43,20 +43,20 @@
         "sentry": {
           "foot": [
             960.0,
-            483.7
+            468.45
           ],
           "head": [
             960.0,
-            427.9
+            412.33
           ],
-          "slot": 14
+          "slot": 12
         }
       },
       "plate_back_m": 0.0,
       "plate_foot_in_stills": [
-        40.261,
-        1.987,
-        11.703
+        45.381,
+        2.463,
+        7.185
       ],
       "sentry": "sentry_t1.png",
       "mg": "mg_t1.png",
@@ -72,20 +72,20 @@
         "sentry": {
           "foot": [
             960.0,
-            531.14
+            528.76
           ],
           "head": [
             960.0,
-            522.46
+            520.05
           ],
-          "slot": 14
+          "slot": 12
         }
       },
-      "plate_back_m": 0.6569,
+      "plate_back_m": 0.0,
       "plate_foot_in_stills": [
-        40.257,
-        1.988,
-        11.701
+        45.845,
+        2.504,
+        6.72
       ],
       "sentry": "sentry_o120.png",
       "mg": "mg_o120.png",
