@@ -1,0 +1,62 @@
+{
+  "subject": "code:Presentation/Core",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.cs (integration, whole, 1-967, in two reads)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.Death.cs (whole, 1-266)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.Pin.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.Gags.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/DeathGags.cs (whole, 1-260)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/UnitLook.cs (whole, 1-259)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/FigureMetrics.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AimShape.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/AnimationPinTests.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/InfantryFiringTests.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/PlayMode/AnimClockPlayTests.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/DeathGagTests.cs (every [Test] and Assert line, 45-267)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/DeathVarietyTests.cs (every [Test] and Assert line, 23-264)",
+    "trench-warfare-3d/Assets/_Project/Editor/InfantryClipTable.cs (grep: the bake rows for ReloadStoop and the crouched turns, lines 55, 74-75)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/SimHost.cs (grep animTime: lines 108-214, to confirm the 20261017 finding is fixed)",
+    "grep of PortraitCount across Assets/_Project (BattleHud.UnitIcons, HudText, UiSkinVerifier, HudBindTests, HudTextTests)",
+    "docs/found/look-code-presentation-core-20261017.json (the previous look: its three tasks checked in the code; SimHost animTime now scales by TimeScale and AnimClockPlayTests guards it, so it is fixed and left out; the other two are already found and left out)",
+    "docs/reference/tasks.md (grep AnimationController, DeathGags, UnitLook, FigureMetrics, AimShape, reload, clip)",
+    "docs/reference/decisions.md (grep reload, turn in place, crouched turn, machinegun)"
+  ],
+  "tasks": [
+    {
+      "title": "The MG team never reloads; Clip.ReloadStoop cannot be reached",
+      "why": "AnimationController.cs:697 guards the reload rung with `arche != 2`, so the machinegunner never enters it. Two things follow. First, the clip picked inside is `low ? (inTrench || arche != 2 ? Clip.ReloadKneel : Clip.ReloadStoop) : Clip.ReloadStand` (line 700): `ReloadStoop` needs `arche == 2`, which the guard above has already excluded, so that arm of the ternary is dead and the `inTrench ||` in front of it is noise. ReloadStoop is a real baked row (Editor/InfantryClipTable.cs:55, \"Reload\" over \"Crouch Idle\", 2.4 s in the table) that nothing in the game can play. Second, and the part the player sees: the MG's magazine is 50 (line 660) and `s.Shots` is only ever zeroed inside that block (line 699), so an MG team fires belt after belt for the whole match with no reload beat, the one infantry archetype of the four with no reload animation at all, while `s.Shots` (ushort) climbs until it wraps at 65,535. Read in code, not confirmed in Play.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.cs"
+      ],
+      "lane": "show",
+      "role": "character-simulator",
+      "done_when": "an EditMode test on InfantryFiringTests' rig ticks a standing machinegunner (archetype 2) past 50 Shot events with a long FireCooldown and asserts he plays a reload clip and that State[man].Shots fell back to 0; and either ReloadStoop is reached by the crouched MG or it is dropped from the table and the bake row with it",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "A kneeling man never plays a turn clip: five baked turns are dead",
+      "why": "The turn rung is gated `if (math.abs(turn) > 1.05f && target >= 0 && !low)` (AnimationController.cs:765) and picks only Turn90L/Turn90R/Turn180 (line 767). `low` is `s.Stance == Crouch` (line 512), so no crouched or stooping man ever starts a turn clip, and Clip.KneelTurn90L, KneelTurn90R, StoopTurn90L, StoopTurn90R and StoopTurn180 are never asked for anywhere in the project (grep: only the table at lines 94-98) even though all five are baked from their own Mixamo files (Editor/InfantryClipTable.cs:74-75) and lines 97-98 carry a measured `Turn` for each, which only Start and Advance read for clips that actually play. What the player gets instead: line 771 sets `s.BodyYaw = faceTo` and Advance eases the drawn yaw at 3 rad/s for a non-locomotion rung (line 918), so a kneeling garrison man who picks up a target behind him swivels a full half-turn on the spot in about a second with his feet sliding through the kneeling idle. The trench garrison spends most of a match in exactly that stance (the trench routine's base is KneelIdle), so this is the common case, not the corner. Read in code, not confirmed in Play.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.cs"
+      ],
+      "lane": "show",
+      "role": "character-simulator",
+      "done_when": "an EditMode test places a kneeling man (StanceOf = Crouch) with a target 150 degrees behind him, ticks the controller, and asserts State[man].Rung == Rung.Turn with a KneelTurn/StoopTurn clip; the drawn yaw must not move more than the clip's own Turn while it plays",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "DeathGagTests guards the gag maths with the gag maths' own constants",
+      "why": "Three of the loudest numbers in DeathGags are asserted against themselves. DeathGagTests.cs:250-251 says `Assert.AreEqual(DeathGags.RocketFar, after.x / before.x)` and `AreEqual(math.min(DeathGags.RocketHigh * before.y, HighCap), after.y)`, which is DeathGags.cs:172 (`far *= Towards(1f, RocketFar, a)`, a = 1) written out a second time: retune RocketFar or RocketHigh and the test still passes, and so it would if the factor were applied to the wrong intensity curve. Line 103 is `Assert.AreEqual(1f, DeathGags.DefaultIntensity)`, a restatement of the constant one line of the production file above. Line 173, `Assert.AreEqual(-32, rec.Gag.RestQ, \"an eighth of his height\")`, sits exactly on VatTintCode's clamp floor (DeathGags.cs:258 clamps to -32; a pancake at 0.12 maps to -32.0), so any squash at or below 0.12, including 0 or a negative height, reads the same -32 and passes. Cost: the rocket's reach and the pancake's flatness look guarded and are not, which is how the camera look's clamp-restating asserts got found twice over.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Tests/Show/DeathGagTests.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "the three asserts quote a measured number instead of the production constant (e.g. the rocket's throw in metres against the plain throw, and a RestQ bound strictly inside the clamp, say <= -24 and > -32), and flipping RocketFar, RocketHigh or the pancake's 0.12 in DeathGags.cs makes DeathGagTests go red",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
