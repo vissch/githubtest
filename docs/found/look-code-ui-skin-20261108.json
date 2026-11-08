@@ -1,0 +1,67 @@
+{
+  "subject": "code:UI/Skin",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/UI/Skin/SkinSpec.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Skin/dustfront.uss",
+    "trench-warfare-3d/Assets/_Project/UI/Skin/dustfront.tokens.uss",
+    "trench-warfare-3d/Assets/_Project/UI/Skin/dustfront.components.uss",
+    "trench-warfare-3d/Assets/_Project/Tests/Project/SkinAssetTests.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/UI/UiSkinVerifier.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/UI/UiSkinImport.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Resources/Hud/BattleHud.uss"
+  ],
+  "tasks": [
+    {
+      "title": "Fix tiled grain and cooldown sprites that cannot tile, stretch instead",
+      "why": "dustfront.components.uss:229 (.tw-grain) sets -unity-slice-type: tiled with all four -unity-slice-* at 0, and .tw-card__cooldown (line 139) sets no slice type at all, while SkinSpec.cs marks grain_overlay.png (256x256) and cooldown_mask.png (32x32) tiled: true with border 0. UI Toolkit's tiled mode fills the 9-slice centre, which needs a non-zero border, so neither repeats; scale-and-crop magnifies them instead. The 256px grain is blown to 1920px (7.5x) on five screens (MainMenu, MissionSelect, Armoury, Staging, ProvingGround), turning 'film grain, alpha .06' into smooth blotches, and the cooldown's 6px hatch pitch stretches with the card height.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Skin/dustfront.components.uss",
+        "trench-warfare-3d/Assets/_Project/UI/Skin/SkinSpec.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a new SkinAssetTests case asserts every SkinSpec entry with Tiled and no border uses background-repeat: repeat in the sheet (red before the change), plus a 1080p Play capture of MainMenu showing grain at 1:1",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Guard slice numbers against the spec and cover BattleHud's skin sprites",
+      "why": "Thirty-odd rules in dustfront.components.uss restate SkinSpec's border values by hand (.tw-plate 16, .tw-row 12/8, .tw-title-plate 64/24, ...) with nothing checking the two copies stay equal. UiSkinVerifier.Sheets (line 23) lists only the three dustfront sheets, so the four skin sprites BattleHud.uss uses (plate_normal, bezel_round, row_plate, gauge_window at lines 24, 25, 30, 35, 71) get no url or slice check at all; a typo there draws a hole with the gate green.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Editor/UI/UiSkinVerifier.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Resources/Hud/BattleHud.uss",
+        "trench-warfare-3d/Assets/_Project/Tests/Project/SkinAssetTests.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a bogus url() in BattleHud.uss, and a slice value changed away from the spec in a dustfront rule, each turn SkinAssetTests.EverySkinFileMatchesTheSpec red",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Fix three stale citations in the skin's own file headers",
+      "why": "SkinSpec.cs:4 sends the reader to docs/16-ui-art-spec.md, but that path is docs/16-destruction.md and the real spec sheet is docs/17-ui-art-spec.md (SkinAssetTests.cs:15, tasks.md). validate.py never reads cited paths in C# comments so the gate stays green. dustfront.components.uss:281 calls the painted corner radius '(v3)' while SkinSpec.GeneratorVersion is 9. PortraitNames' doc comment (SkinSpec.cs:135) says 'one per archetype 0..18 ... then the three support emblems' but the array holds 29 stems and never names Skimmer and Salvo (archetypes 19 and 20, decisions.md 2026-09-28).",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Skin/SkinSpec.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Skin/dustfront.components.uss"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "grep -r 16-ui-art-spec finds nothing and the edit gate is green",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Replace two raw hex tints that bypass the palette tokens",
+      "why": "dustfront.components.uss:168 (.tw-row--alt) tints row_plate.png with #F0F0F0, against the sheet's own header rule that plates are painted sprites and never tinted, and line 157 (.tw-card.is-poor > .tw-card__portrait) uses #6A6A6A where every sibling rule uses a --tw-* token. The alt row is the only banding the settings list has, so a repainted row_plate moves it with nothing saying so.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Skin/dustfront.components.uss"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "both rules reference a --tw-* token instead of a literal hex, and the gate stays green",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
