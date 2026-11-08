@@ -25,7 +25,7 @@ namespace TW.UI
         public Ground Ground = TW.Presentation.Ground.ShelledForest;
         public bool AllowSeedEdit = true;
         public float Bombardment = 8f;   // not applied since 2026-09-28 (MatchLaunch.Apply): no constant bombardment
-        public string FrontLine = "90 x 240 M";
+        public string FrontLine = "90 x 276 M";   // the shelled wood's generated map size; MissionFrontLineTests checks it against BattlefieldGenerator
 
         [Header("Match")]
         public uint MatchSeed = 0xC0FFEE;

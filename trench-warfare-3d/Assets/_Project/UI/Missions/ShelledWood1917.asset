@@ -23,7 +23,7 @@ MonoBehaviour:
   BattlefieldSeed: 1917
   AllowSeedEdit: 1
   Bombardment: 8
-  FrontLine: 90 x 240 M
+  FrontLine: 90 x 276 M
   MatchSeed: 12648430
   StartingSilver: 300
   SilverPerSecond: 2
