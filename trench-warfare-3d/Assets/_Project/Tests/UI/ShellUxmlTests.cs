@@ -306,6 +306,21 @@ namespace TW.Tests
             finally { MatchLaunch.Current = null; UnityEngine.Object.DestroyImmediate(go); }
         }
 
+        // [found-guard-gamelogo-fill-against-an-element-carry-20261108-3] a modifier beside its base class: the flat
+        // pass painted logo_full over the layers Animated had just built
+        [Test]
+        public void AnAnimatedLogoKeepsItsLayersWhenItAlsoCarriesTheBaseClass()
+        {
+            var root = new VisualElement();
+            var logo = new VisualElement();
+            logo.AddToClassList("tw-logo--animated");
+            logo.AddToClassList("tw-logo");          // the base class beside its modifier
+            root.Add(logo);
+            GameLogo.Fill(root);
+            Assert.That(logo.childCount, Is.GreaterThan(0), "[found-guard-gamelogo-fill-against-an-element-carry-20261108-3] the animated logo has no layers");
+            Assert.That(logo.style.backgroundImage.value.texture, Is.Null, "[found-guard-gamelogo-fill-against-an-element-carry-20261108-3] the flat pass painted over the animated layers");
+        }
+
         [Test]
         public void NoMissionShellsTheFieldAllMatchLong()
         {
