@@ -200,13 +200,12 @@ namespace TW.UI
                 used++;
                 if (!k.On) { k.On = true; k.Root.style.display = DisplayStyle.Flex; }
                 float hp = garrison.TypeMeanHp(t, a);
-                var mood = hp > 0.6f ? Mood.Neutral : hp > 0.3f ? Mood.Wounded : Mood.Critical;
+                var mood = UnitArt.MoodFor(hp);
                 if (k.Archetype != a || k.Mood != mood)
                 {
                     if (k.Archetype != a && HoveredCatTrench == t && HoveredCatArchetype == k.Archetype) HoveredCatArchetype = a;   // the chip under the cursor now shows another type
                     k.Archetype = a; k.Mood = mood;
-                    string name = UnitArt.NameOf((byte)a);
-                    var tex = UnitArt.HasFace(name) ? UnitArt.State(name, mood) : UnitArt.Full(name);
+                    var tex = UnitArt.FaceFor((byte)a, mood);
                     k.Face.style.backgroundImage = tex != null ? new StyleBackground(tex) : new StyleBackground(StyleKeyword.None);
                 }
                 if (n != k.Shown) { k.Shown = n; k.Count.text = CountText(n); }

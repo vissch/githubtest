@@ -211,11 +211,10 @@ namespace TW.UI
 
         void SetFace(byte archetype, float health)
         {
-            var mood = health > 0.6f ? Mood.Neutral : health > 0.3f ? Mood.Wounded : Mood.Critical;
+            var mood = UnitArt.MoodFor(health);
             if (archetype == shownArch && mood == shownMood) return;
             shownArch = archetype; shownMood = mood;
-            string n = UnitArt.NameOf(archetype);
-            var tex = UnitArt.HasFace(n) ? UnitArt.State(n, mood) : UnitArt.Full(n);
+            var tex = UnitArt.FaceFor(archetype, mood);
             portrait.style.backgroundImage = tex != null ? new StyleBackground(tex) : new StyleBackground(StyleKeyword.None);
         }
 

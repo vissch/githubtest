@@ -144,9 +144,7 @@ namespace TW.UI
                 stats.text = UnitStatus.Word(st) + $"  ·  SPEED {w.Speed[h.Slot]:0.0} M/S";
                 stats.EnableInClassList("hud-hover__state--warn", UnitStatus.Tone(st) == StateTone.Warn);
                 stats.EnableInClassList("hud-hover__state--alarm", UnitStatus.Tone(st) == StateTone.Alarm);
-                string n = UnitArt.NameOf(w.Archetype[h.Slot]);
-                var mood = k > 0.6f ? Mood.Neutral : k > 0.3f ? Mood.Wounded : Mood.Critical;
-                var tex = UnitArt.HasFace(n) ? UnitArt.State(n, mood) : UnitArt.Full(n);
+                var tex = UnitArt.FaceFor(w.Archetype[h.Slot], k);
                 portrait.style.backgroundImage = tex != null ? new StyleBackground(tex) : new StyleBackground(StyleKeyword.None);
                 return;
             }

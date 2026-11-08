@@ -1,6 +1,7 @@
 // Phase: B6 (implemented) — the unit artwork is complete and wired: every unit either side can field has its cutout
 // (the armoury shows it), everyone with a face has all six condition faces (the speaker strip and the battlefield
 // reports use them), the art imports with straight alpha, and the speaker strip flaps, settles, queues and clears.
+using System.IO;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -84,6 +85,42 @@ namespace TW.Tests
             d.Say("Rifleman", "RIFLE", "Fifteen down.", Mood.Critical, 1f);
             d.Tick(0.01f);
             Assert.That(status.text, Is.EqualTo("CRITICAL")); Assert.That(strip.ClassListContains("is-critical"), Is.True);
+        }
+
+        [Test]
+        public void TheMoodRuleHasOneHome()
+        {
+            Assert.That(UnitArt.MoodFor(1f), Is.EqualTo(Mood.Neutral));
+            Assert.That(UnitArt.MoodFor(0.75f), Is.EqualTo(Mood.Neutral));
+            Assert.That(UnitArt.MoodFor(0.601f), Is.EqualTo(Mood.Neutral));
+            Assert.That(UnitArt.MoodFor(0.6f), Is.EqualTo(Mood.Wounded));
+            Assert.That(UnitArt.MoodFor(0.45f), Is.EqualTo(Mood.Wounded));
+            Assert.That(UnitArt.MoodFor(0.301f), Is.EqualTo(Mood.Wounded));
+            Assert.That(UnitArt.MoodFor(0.3f), Is.EqualTo(Mood.Critical));
+            Assert.That(UnitArt.MoodFor(0f), Is.EqualTo(Mood.Critical));
+            Assert.That(UnitArt.MoodFor(-1f), Is.EqualTo(Mood.Critical));
+
+            foreach (byte a in ArmouryScreen.Units())
+            {
+                var name = UnitArt.NameOf(a);
+                if (UnitArt.HasFace(name)) continue;
+                var full = UnitArt.Full(name);
+                for (int m = 0; m < UnitArt.StateNames.Length; m++)
+                    Assert.That(UnitArt.FaceFor(a, (Mood)m), Is.SameAs(full), $"{name} has no face: every mood should fall back to its cutout");
+            }
+
+            string[] files =
+            {
+                "UI/Selection/HoverCard.cs",
+                "UI/Selection/SelectionPanel.cs",
+                "UI/TrenchOrderCluster.cs",
+            };
+            foreach (var rel in files)
+            {
+                var text = File.ReadAllText(Path.Combine(Application.dataPath, "_Project", rel.Replace('/', Path.DirectorySeparatorChar)));
+                Assert.That(text.Contains("UnitArt.MoodFor(") || text.Contains("UnitArt.FaceFor("), $"{rel} should use the shared mood rule");
+                Assert.That(text, Does.Not.Contain("Mood.Wounded : Mood.Critical"), $"{rel} has its own copy of the mood ternary");
+            }
         }
 
         [Test]

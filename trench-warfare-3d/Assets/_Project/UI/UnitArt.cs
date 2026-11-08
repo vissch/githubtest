@@ -32,6 +32,11 @@ namespace TW.UI
         public static bool HasFace(string name) => System.Array.IndexOf(Faces, name) >= 0;
         public static string NameOf(byte archetype) => HudText.PortraitName(archetype);
 
+        public const float NeutralAbove = 0.6f, WoundedAbove = 0.3f;
+        public static Mood MoodFor(float health) => health > NeutralAbove ? Mood.Neutral : health > WoundedAbove ? Mood.Wounded : Mood.Critical;
+        public static Texture2D FaceFor(byte archetype, Mood m) => State(NameOf(archetype), m);
+        public static Texture2D FaceFor(byte archetype, float health) => FaceFor(archetype, MoodFor(health));
+
         public static string FullPath(string name) => Folder + "/" + name;
         public static string StatePath(string name, Mood m) => Folder + "/States/" + name + "_" + StateNames[(int)m];
 
