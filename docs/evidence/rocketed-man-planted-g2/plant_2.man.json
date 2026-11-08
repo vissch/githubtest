@@ -1,6 +1,8 @@
 {
-  "x": 89.50,
-  "y": 1.35,
-  "z": 176.00,
-  "source": "DeathLab.Planted() in GreyboxCorridor, batch editor, 2026-11-08: printed \"89.50 176.00 (y 1.35) lands in 0.77 s\"; still taken one game second after he landed, aimed at aimY 2.92 (man y + PlantDepth 1.120 + 0.45 mid-legs)"
+  "x": 89.5,
+  "y": 0.77,
+  "z": 205.22,
+  "aimY": 2.34,
+  "source": "DeathLab.Planted() / VATRenderer.TryPlantedMan in GreyboxCorridor, batch editor, 2026-11-08. The shot is queued by an EditorApplication.update watcher armed BEFORE the shell and taken one GAME second after he lands: game time in this batch editor runs several times wall-clock, and a wall-clock wait shot him 20+ game seconds late, with his legs already folded (squash -15). Aimed at aimY = man y + PlantDepth 1.120 + 0.45 (mid-legs). A fresh Play session per man, and a site of his own: repeated shelling craters the ground and the hole floods, and a man sunk in water is no evidence. 'drawn' is what the renderer actually drew in the frame the shot was queued on.",
+  "drawn": "tier near figure 0 (planted never goes to the box tier by distance) clipAtlas on row 110 (DeathThrown) animT 0.020 frozen pitch 16/32 roll 3 squash 0 age 3.35 s drawnY 0.773 ground 1.913 feet 0.885 m above the drawn ground"
 }

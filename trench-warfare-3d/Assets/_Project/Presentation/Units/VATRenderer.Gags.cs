@@ -129,6 +129,41 @@ namespace TW.Presentation.Units
             at = fallenMen[best].Path.Rest; landsAt = ArriveOf(fallenMen[best]); return true;
         }
 
+        /// <summary>
+        /// The newest planted man as he is DRAWN right now, for a capture's sidecar: which tier took him, the atlas row
+        /// he plays, the pitch step and squash code his Tint carries, and how high his feet are above the drawn ground.
+        /// The sidecars used to record only where he was, so a probe FAIL could not be told from a harness fault (the
+        /// box tier, the wrong row, pitch 0, an early fold). Same man as TryPlantedMan, same moment.
+        /// </summary>
+        public bool TryPlantedMan(out Vector3 at, out float landsAt, out string drawn)
+        {
+            drawn = "";
+            if (!TryPlantedMan(out at, out landsAt)) return false;
+            int best = -1;
+            for (int k = 0; k < fallenMen.Count; k++)
+                if (fallenMen[k].Gag == (byte)DeathGag.Planted && (best < 0 || fallenMen[k].Born > fallenMen[best].Born)) best = k;
+            var f = fallenMen[best];
+            float now = Time.time, age = now - f.Born;
+            Vector3 pos = FallenAt(f, now);
+            var ground = new DrawnGround { Map = Host != null && Host.Local != null ? Host.Local.Map : null };
+            float gy = ground.At(pos.x, pos.z);
+            int pitch = FallenFlight.PitchStep(f.Path, age, f.Pitch);
+            int q = FallenFlight.Squash(f.Path, age, f.Absurd);
+            float feet = pos.y - gy + VatTint.UpsideDownHeight(0f, q, UnitScale);
+            bool near = clipAtlas && f.Row < (ushort)Clip.Count;
+            drawn = "tier " + (near ? "near figure " + f.Figure : "far box") + " (planted never goes to the box tier by distance)"
+                  + " clipAtlas " + (clipAtlas ? "on" : "off")
+                  + " row " + f.Row + (near ? " (" + (Clip)f.Row + ")" : "")
+                  + " animT " + ((f.GagFlags & GagFlags.Freeze) != 0 ? "0.020 frozen" : "running")
+                  + " pitch " + pitch + "/" + FallenFlight.Steps
+                  + " roll " + FallenFlight.RollStep(f.Path, age)
+                  + " squash " + q
+                  + " age " + age.ToString("0.00") + " s"
+                  + " drawnY " + pos.y.ToString("0.000") + " ground " + gy.ToString("0.000")
+                  + " feet " + feet.ToString("0.000") + " m above the drawn ground";
+            return true;
+        }
+
         /// <summary>A gagged body's Tint: his turns, his squash and whether it all happens about his feet (VatTint).</summary>
         static float GagTint(in FallenMan f, int pitch, float age)
         {

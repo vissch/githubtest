@@ -318,6 +318,23 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   (`docs/evidence/rocketed-man-planted-g2/probe.py`) was not changed to pass: `BAR` stays 0.10, the shape gate
   (bbox height > width) stays, three captures stay required, and it still exits 1 on these stills. (this leg,
   because the dump is in `docs/evidence/rocketed-man-planted-g2/frames.txt`)
+  **Answered, and NOT by the owner (2026-11-08, rocketed-man-planted-g2 leg 03): it is a bug in the drawn pose, not
+  a look choice, so nothing here waits on him and none of (a)-(d) is built.** Two new measurements say so.
+  (1) `PlantedPoseTests` (new, EditMode, no GPU) reads the baked atlas `Resources/Units/FigureSoldier`, samples row
+  `Clip.DeathThrown` at phase 0.02 — the exact phase a `GagFlags.Freeze` gag holds — the way the shader samples it,
+  applies the drawn transform (upside down about `VatTint.Pivot`, squash 0, `UnitScale` 1.125, Pos `PlantDepth`
+  under the mud) and measures what is left above the mud: **0.916 m tall but 1.202 m wide** (x 1.202, z 1.126), with
+  452 of his 917 vertices above the mud. That is half a body lying flat, not a pair of legs. The height is right
+  (0.905 m +- 0.08, the spec); the shape is not. (2) The captures now record what was DRAWN, not only where the man
+  was (`VATRenderer.TryPlantedMan`'s third output, in each man sidecar, e.g.
+  `docs/evidence/rocketed-man-planted-g2/plant_1.man.json`): on all three stills the renderer
+  drew him on the **near figure tier**, row 110 `DeathThrown`, animT 0.020 frozen, **pitch 16/32 (upside down)**,
+  squash 0 (not yet folded), feet **0.885 m above the drawn ground** — exactly what the look asks for. So the
+  harness is right, the wiring is right, the fold is not early, and option (d) is not the cause. The frozen frame
+  itself is flat. The close still (`close_1.png`, zoom 7.5) shows the same thing by eye: a splayed stub in the mud,
+  about as wide as it is tall. The fix is part 2 of this plan (the pose the planted gag freezes); the probe stays
+  as it is and still exits 1 until then. (this leg; the numbers are in
+  `docs/evidence/rocketed-man-planted-g2/frames.txt` and `Assets/_Project/Tests/Show/PlantedPoseTests.cs`)
 - **Withdrawn 2026-10-27 — the planted man's two FAILs were a probe bug, not a look finding
   (rocketed-man-planted-g2):** the question asked here on 2026-10-27 (does the planted gag need a read fix at T1?)
   is withdrawn unanswered; nothing was landed on it, so nothing is undone. Why: both g2 stills were taken with the

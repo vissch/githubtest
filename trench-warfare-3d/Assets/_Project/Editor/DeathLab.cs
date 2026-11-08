@@ -44,11 +44,13 @@ namespace TW.Editor
         {
             var vat = Object.FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
             if (vat == null) return "no VATRenderer";
-            if (!vat.TryPlantedMan(out var at, out float landsAt)) return "no planted man among " + vat.FallenCount + " fallen";
+            if (!vat.TryPlantedMan(out var at, out float landsAt, out string drawn)) return "no planted man among " + vat.FallenCount + " fallen";
             // "lands in" is what a capture steps by: the still wanted is one second after his legs stop coming down,
-            // and guessing the flight from the throw height was out by a third of a second either way
+            // and guessing the flight from the throw height was out by a third of a second either way. The prefix up to
+            // the "s" is parsed by the capture loop: keep it exactly, and append the drawn facts after it.
             return at.x.ToString("0.00") + " " + at.z.ToString("0.00") + " (y " + at.y.ToString("0.00") + ")"
-                 + " lands in " + (landsAt - Time.time).ToString("0.00") + " s";
+                 + " lands in " + (landsAt - Time.time).ToString("0.00") + " s"
+                 + " | drawn: " + drawn;
         }
 
         /// <summary>n men in a line along x from (x, z), facing +z, each with hp hit points; returns their slots.</summary>
