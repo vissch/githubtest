@@ -1,0 +1,74 @@
+{
+  "subject": "code:UI/Shell",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/UI/Shell/MissionSelectScreen.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/MapThumbnail.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/MissionCard.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Missions/WinterLine.asset",
+    "trench-warfare-3d/Assets/_Project/UI/Campaign/StagingScreen.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/SettingsScreen.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/ProvingGroundLaunchScreen.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/GameLogo.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/MainMenu.uxml",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/KeyMap.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/ShellUxmlTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/ProvingGroundScreenTests.cs",
+    "docs/found/look-code-ui-selection-20261108.json",
+    "trench-warfare-3d/docs/found/look-code-ui-resources-20261108.json"
+  ],
+  "tasks": [
+    {
+      "title": "Render the mission select's map on the card's own ground",
+      "why": "MissionSelectScreen.cs:95 calls MapThumbnail.Render(seed), the one-arg overload, which is Render(seed, Ground.ShelledForest) (MapThumbnail.cs:13). WinterLine.asset has Ground: 1 and the same BattlefieldSeed (1917) as ShelledWood1917.asset, so SECTOR SELECT draws the winter line as the shelled wood, pixel for pixel the same as the first card, while DEPLOY starts the winter map. MapThumbnail.cs:1-3 promises the picture and the minimap agree by construction; StagingScreen.cs:56 already passes mission.Ground for the campaign. No test catches it: ShellUxmlTests.Check binds with a null router, so RefreshThumb never runs.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Shell/MissionSelectScreen.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Shell/MapThumbnail.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/UI/ShellUxmlTests.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "a new EditMode test binds the screen over the real catalog, selects winter-line, and the thumbnail matches WinterLine.asset's Ground: 1 (expected pixel source taken from the asset, not from the code under test), not Ground.ShelledForest",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Fix Listen refreshing the new key-cap instead of the one it replaces",
+      "why": "SettingsScreen.cs:135-140 Listen disposes the running capture, then calls RefreshCap(a, secondary) with the new cap's action, not the one that was listening. Click one key-cap, then another: the first cap keeps reading PRESS A KEY over its real key for the rest of the screen's life, so the player cannot see what that action is bound to. listeningCap already holds the right Button but is only null-checked, never used to restore it.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Shell/SettingsScreen.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/UI/ShellUxmlTests.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "an EditMode test clicks key-cap A then key-cap B and asserts A's text is KeyMap.Display of its binding, not PRESS A KEY; KeyMap.Listen only subscribes to InputSystem.onAnyButtonPress so the test needs no real key press",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Make TheNextVisitOpensOnWhatWasChosen actually exercise fresh vs kept",
+      "why": "ProvingGroundLaunchScreen.cs:62 only resets the static kept when fresh is true; the test's setup lines (ProvingGroundScreenTests.cs:107-108, 'first') build a fresh screen but that does nothing to kept because kept was already null at process start, so the guard passes by run order, not because fresh clears kept. It also leaves kept dirty for every later non-fresh screen built in the same test run.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Tests/UI/ProvingGroundScreenTests.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Shell/ProvingGroundLaunchScreen.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "the test explicitly clears kept before asserting a fresh visit opens on ProvingGround.DefaultTen(FactionId.Iron), then asserts a non-fresh visit opens on what was kept",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Guard GameLogo.Fill against an element carrying both logo classes",
+      "why": "GameLogo.Fill (GameLogo.cs:49-51) runs Animated over .tw-logo--animated, then Flat over .tw-logo, with no exclusion between the two queries. MainMenu.uxml:14 only carries the modifier today, so nothing fails now, but a modifier class normally sits beside its base class; an element given both would be built as layers by Animated and then painted flat over them by the second query, silently losing the animation with nothing red.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Shell/GameLogo.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/UI/ShellUxmlTests.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "Fill skips an already-animated element in the flat pass, and an EditMode test gives one element both tw-logo--animated and tw-logo and asserts it still has the animated layers as children",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
