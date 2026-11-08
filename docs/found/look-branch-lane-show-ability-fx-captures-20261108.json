@@ -1,0 +1,37 @@
+{
+  "subject": "branch:lane/show/ability-fx-captures",
+  "looked_at": [
+    "git diff origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/ability-fx-captures -- trench-warfare-3d/Assets docs/reference/tasks.md docs/evidence/ability-fx-captures/frames.txt",
+    "trench-warfare-3d/Assets/_Project/Tests/Stills/AbilityFxStills.cs (branch-only, git show)",
+    "docs/evidence/ability-fx-captures/probe.py (branch-only, git show)",
+    "docs/evidence/ability-fx-captures/gas-t1.json (branch-only, git show)",
+    "docs/evidence/ability-fx-captures/probe.json (branch-only, git show)",
+    "docs/evidence/ability-fx-captures/frames.txt (branch-only, git show)",
+    "docs/evidence/ability-fx-captures/gas-t1.jpg (opened as an image)",
+    "docs/evidence/ability-fx-captures/gas-o240.jpg (opened as an image)",
+    "trench-warfare-3d/Assets/_Project/Editor/VfxLab.cs diff",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Banks.cs diff",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/BurstRecipeTests.cs diff",
+    "trench-warfare-3d/Assets/_Project/Tests/Stills/VfxStills.cs diff",
+    "docs/reference/tasks.md diff and current text (Stills row, VfxStills row)",
+    "docs/reference/decisions.md (grep for gas bank, ability-fx, abilityfx)",
+    "git log origin/lane/show/ability-fx-captures -2 --oneline"
+  ],
+  "tasks": [
+    {
+      "title": "Verdict: finished and worth landing; drop four undocumented debug jpgs first",
+      "why": "The branch does what it set out to do: AbilityFxStills.cs shoots the five missing ability/environment looks at T1 and O240, the gas-bank squash (CombatFx.Banks.cs) visibly pools the bank on the ground in gas-t1.jpg/gas-o240.jpg (checked by eye, not just green_low_share, which the isometric camera angle makes a poor measure of 'low'), probe.py's pack/measure matches the 10 committed jpg+json pairs and frames.txt exactly, VfxLab's two new scenes and docs/reference/tasks.md's Stills row and test-run line already agree, and the work is already queued under the owner's 2026-10-19 critic-fixes board (decisions.md row R2 C2) so there is nothing left to decide. The one loose end: docs/evidence/ability-fx-captures/fix1-x.jpg, fix1-y.jpg, fix1-crop-x.jpg, fix1-crop-y.jpg (~0.86 MB) are not produced by probe.py's pack() (which only ever writes '<subject>-<band>.jpg' for the five Subjects x two bands = 10 stills, matching frames.txt's 10 lines exactly) and are named nowhere in the commit message, frames.txt or probe.json -- leftover debug frames from tuning the squash, committed by accident alongside the real evidence.",
+      "files": [
+        "docs/evidence/ability-fx-captures/fix1-x.jpg",
+        "docs/evidence/ability-fx-captures/fix1-y.jpg",
+        "docs/evidence/ability-fx-captures/fix1-crop-x.jpg",
+        "docs/evidence/ability-fx-captures/fix1-crop-y.jpg"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "git show origin/lane/show/ability-fx-captures --stat -- docs/evidence/ability-fx-captures/ lists only the ten subject-band jpg/json pairs plus frames.txt and probe.json/probe.py (no fix1-* files), after a rebase that drops them",
+      "risk": [true, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
