@@ -28,7 +28,7 @@ namespace TW.Presentation.VFX.Cel
             // b01: lifted (the post darkens and saturates: #d0622a rendered #c94507, #f8e671 rendered #e8cf14)
             // b03: an orange-red rim, the clip's orange body (#e0772d, lifted), a deep yellow, its yellow, the white core
             // (b02's two pale yellows read as one flat lemon fan; b03a's red rim lost the white: hot 0.005)
-            CelPalette.Add(Flame, CelPalette.Hex(0xE06A2C), CelPalette.Hex(0xF0943C), CelPalette.Hex(0xF8E070), CelPalette.Hex(0xFBF0A8),
+            CelPalette.Add(Flame, CelPalette.Hex(0xE06A2C), CelPalette.Hex(0xF0943C), CelPalette.Hex(0xF9E896), CelPalette.Hex(0xFBF2B8),   /* d35: paler yellows (d33 A/B: lemon yellow 3.6-4x REF) */
                 CelPalette.Hex(0xFFF8E2), 0.73f, 4, CelPalette.Hex(0x35211E));   // b04: core from 0.82 (b03 hot 0.010 vs the clip's 0.101: the spine never reached 0.95)
             // the fire round the target: the same colours, a smaller white heart
             // r05: saturated orange to pale yellow (r04's pale golds shaded to khaki/olive), a dark-red ink, no white dots
