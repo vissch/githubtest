@@ -28,7 +28,7 @@ namespace TW.Presentation.VFX.Cel
         // each volley's first dart lands at Hits[i] (reference frames 25, 37, 51, 61, 73, 86, 98, 106); a dart flies Travel s
         public const float Travel = 0.28f, TravelLate = 0.4f, Gap = 0.18f, Length = 5.0f;
         static readonly float[] Hits = { 0.26f, 0.74f, 1.33f, 1.74f, 2.24f, 2.78f, 3.28f, 3.62f };
-        static readonly float[] HitScale = { 0.8f, 0.9f, 0.9f, 1.0f, 1.35f, 0.9f, 0.95f, 0.85f };   // d16: the biggest moment at f73-f77 like the ref (was 1.1 at f86)
+        static readonly float[] HitScale = { 0.8f, 0.9f, 0.9f, 1.0f, 1.35f, 0.9f, 1.15f, 0.85f };   // d16: the biggest moment at f73-f77 like the ref (was 1.1 at f86)
         // the ground bursts right of the target (reference frames 34-85, biggest at 70-77)
         static readonly float[] Ground = { 0.66f, 1.70f, 2.40f, 2.74f, 3.07f };
         static readonly float[] GroundScale = { 0.7f, 0.85f, 1.35f, 0.9f, 1.0f };
