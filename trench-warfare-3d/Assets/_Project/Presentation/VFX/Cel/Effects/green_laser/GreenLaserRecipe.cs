@@ -51,11 +51,13 @@ namespace TW.Presentation.VFX.Cel
             CelPalette.Add("gl_pulse", CelPalette.Hex(0x14300F), CelPalette.Hex(0x163A10), CelPalette.Hex(0x2C5E1E), CelPalette.Hex(0x8CC468), CelPalette.Hex(0x9AD86A), 1.1f, 4, CelPalette.Hex(0x000000));
             CelPalette.Add("gl_halo", CelPalette.Hex(0x14300F), CelPalette.Hex(0x2C5E20), CelPalette.Hex(0x4E8E3A), CelPalette.Hex(0x77B556), CelPalette.Hex(0xB5E07A), 1.1f, 6, CelPalette.Hex(0x000000));
             CelPalette.Add("gl_flame", CelPalette.Hex(0x2F6A22), CelPalette.Hex(0x5FA845), CelPalette.Hex(0x8CCB5E), CelPalette.Hex(0xB4E07E), CelPalette.Hex(0xD7F39C), 0.85f, 3, CelPalette.Hex(0x0A1A06));
-            CelPalette.Add("gl_smoke", CelPalette.Hex(0x7FB25E), CelPalette.Hex(0x9CCB76), CelPalette.Hex(0xBEE08E), CelPalette.Hex(0xD7F39C), CelPalette.Hex(0xE8F8C4), 1.1f, 3, CelPalette.Hex(0x0E160A));
+            // d01: smoke colours measured on the reference's smoke cluster (f101 green-lit: dark #2c5430, mid #559c47,
+            // light #b1e986; f118 cooled: #373b35 / #5a5d48 / #71825e), no hot core
+            CelPalette.Add("gl_smoke", CelPalette.Hex(0x4F8A42), CelPalette.Hex(0x6FAE55), CelPalette.Hex(0x95CF72), CelPalette.Hex(0xB4E48A), CelPalette.Hex(0xB4E48A), 1.1f, 3, CelPalette.Hex(0x0E160A));
             CelPalette.Add("gl_smoke_tan", CelPalette.Hex(0x6E6550), CelPalette.Hex(0x8A7F62), CelPalette.Hex(0xA3977A), CelPalette.Hex(0xBDB094), CelPalette.Hex(0xC8BC9E), 1.1f, 3, CelPalette.Hex(0x16130E));
             CelPalette.Add("gl_wisp", CelPalette.Hex(0xBEDD96), CelPalette.Hex(0xCDE8A6), CelPalette.Hex(0xD7F39C), CelPalette.Hex(0xE4F6BA), CelPalette.Hex(0xF0FFD0), 0.98f, 4, CelPalette.Hex(0x0A1A06));
             CelPalette.Add("gl_burst", CelPalette.Hex(0x3F8A2A), CelPalette.Hex(0x6CC24A), CelPalette.Hex(0x9FE07A), CelPalette.Hex(0xB8EE98), CelPalette.Hex(0xE2FFD0), 0.93f, 3, CelPalette.Hex(0x0A1A06));
-            CelPalette.Add("gl_smoke_grey", CelPalette.Hex(0x7E8A66), CelPalette.Hex(0x9AA57A), CelPalette.Hex(0xB0BA90), CelPalette.Hex(0xC4CCA4), CelPalette.Hex(0xD2D8B4), 1.1f, 3, CelPalette.Hex(0x0E140A));
+            CelPalette.Add("gl_smoke_grey", CelPalette.Hex(0x5A5E4C), CelPalette.Hex(0x70755C), CelPalette.Hex(0x888D70), CelPalette.Hex(0xA0A682), CelPalette.Hex(0xA0A682), 1.1f, 3, CelPalette.Hex(0x0E140A));
             CelPalette.Add("gl_dirt", CelPalette.Hex(0x0E0E0A), CelPalette.Hex(0x16150F), CelPalette.Hex(0x201E16), CelPalette.Hex(0x2C291E), CelPalette.Hex(0x2C291E), 1.1f, 3, CelPalette.Hex(0x040403));
                     }
 
@@ -153,14 +155,15 @@ namespace TW.Presentation.VFX.Cel
         // lifted `up` and moved `right` metres to the eye's right (the Ground recipe's dir is the eye's right)
         static CelLayer Shifted(CelLayer l, float up, float right) { l.Offset = new Vector3(0f, up, right); return l; }
 
-        static CelLayer Smoke(string name, CelAnchor anchor, Vector3 offset, float start, float duration, float life, int close, int mid, float r0, float r1, bool tan) => new CelLayer
+        static CelLayer Smoke(string name, CelAnchor anchor, Vector3 offset, float start, float duration, float life, int close, int mid, float r0, float r1, bool tan, float spread = 0.7f) => new CelLayer
         {
-            // translucent lumpy cel puffs (GlBolt mode 4) in flat bands with a dark ink line and an inner curl stroke,
-            // rising and drifting right; the late ones are tan-grey
-            Name = name, Kind = BoltKind, Anchor = anchor, Offset = offset, Start = start, Duration = duration, Life = life, LifeJitter = 0.15f,
-            Close = close, Mid = mid, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.35f, 0f, 0f), Aim = CelAim.Dir, Speed = tan ? 1.4f : 1.2f, Spread = 30f, Drag = 0.6f, Buoyancy = tan ? 1.6f : 0.6f, Spin = 1.2f,
-            Size = new CelCurve(r0, r1, 0.5f), SizeJitter = 0.3f,
-            Palette = tan ? "gl_smoke_grey" : "gl_smoke", Core = tan ? 0.6f : 1f, Opacity = tan ? 0.65f : 0.7f, Extra = new Vector4(4f, 0.12f, 0.5f, 0.1f),
+            // d01: a CLUSTER of many small translucent lumpy cel puffs (GlBolt mode 4; the reference's cloud is a heap of
+            // cauliflower lumps each ~1/6 of the cloud, not one or two big blobs), in flat unlit bands with a dark ink
+            // line, rising and drifting right; the late ones olive-grey, dissolving into holes
+            Name = name, Kind = BoltKind, Anchor = anchor, Offset = offset, Start = start, Duration = duration, Life = life, LifeJitter = 0.25f,
+            Close = close, Mid = mid, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(spread, 0f, 0f), Aim = CelAim.Dir, Speed = tan ? 0.9f : 0.8f, SpeedJitter = 0.5f, Spread = 50f, Drag = 0.8f, Buoyancy = tan ? 0.9f : 0.5f, Spin = 1.2f,
+            Size = new CelCurve(r0, r1, 0.5f), SizeJitter = 0.35f,
+            Palette = tan ? "gl_smoke_grey" : "gl_smoke", Core = 1f, Opacity = tan ? 0.8f : 0.85f, Extra = new Vector4(4f, 0.12f, 0.45f, 0.13f),
         };
 
         static CelLayer[] GroundLayers()
@@ -221,10 +224,12 @@ namespace TW.Presentation.VFX.Cel
             }
             // smoke: translucent pale green puffs while the volley lasts (gone by ~f106), then translucent tan-grey puffs
             // from ~f90 that drift right, gone by ~f130
-            l.Add(Smoke("smoke dummy", CelAnchor.Origin, new Vector3(0f, 1.9f, 0.4f), 1.4f, 1.4f, 0.7f, 3, 1, 0.6f, 1.0f, false));
-            l.Add(Smoke("smoke dummy late", CelAnchor.Origin, new Vector3(0f, 1.2f, 0.8f), 3.1f, 0.5f, 1.0f, 2, 1, 0.7f, 1.1f, true));
-            l.Add(Smoke("smoke burst", CelAnchor.Target, new Vector3(0f, 0.65f, 0.3f), 1.8f, 1.0f, 0.7f, 3, 1, 0.6f, 1.0f, false));
-            l.Add(Smoke("smoke burst late", CelAnchor.Target, new Vector3(0f, 0.5f, 0.2f), 3.16f, 0.5f, 1.0f, 5, 2, 0.8f, 1.2f, true));
+            l.Add(Smoke("smoke dummy", CelAnchor.Origin, new Vector3(0f, 1.9f, 0.4f), 1.4f, 1.4f, 0.7f, 8, 1, 0.3f, 0.5f, false, 0.5f));
+            l.Add(Smoke("smoke dummy late", CelAnchor.Origin, new Vector3(0f, 1.3f, 0.8f), 3.1f, 0.5f, 1.0f, 10, 1, 0.36f, 0.6f, true, 0.7f));
+            l.Add(Smoke("smoke burst", CelAnchor.Target, new Vector3(0f, 0.8f, 0.3f), 1.8f, 1.0f, 0.8f, 12, 1, 0.34f, 0.55f, false, 0.8f));
+            // the big late cloud right of the dummy: green-lit lumps first, then olive-grey ones (ref f95-f126), about 2x the dummy tall
+            l.Add(Smoke("smoke burst lit", CelAnchor.Target, new Vector3(0f, 1.0f, 0.2f), 2.95f, 0.45f, 0.8f, 14, 1, 0.42f, 0.66f, false, 1.1f));
+            l.Add(Smoke("smoke burst late", CelAnchor.Target, new Vector3(0f, 1.0f, 0.3f), 3.25f, 0.5f, 1.05f, 18, 2, 0.42f, 0.7f, true, 1.2f));
             l.Add(new CelLayer
             {
                 // small green embers glinting at the feet after the volley (reference frames 112-125)
