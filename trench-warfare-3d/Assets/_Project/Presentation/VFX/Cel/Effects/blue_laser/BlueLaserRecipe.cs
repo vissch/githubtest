@@ -131,7 +131,7 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // a dash that carries on past the dummy, up-right along the beam (clip f89-f101)
-                Name = "through", Kind = LightningBeamKind.KindName, Start = 2.9f, Duration = 0.18f,   // d12: only at the last volley (A/B x4: no beam past the dummy before ~f98) TimeJitter = 0.1f, Life = 0.16f, LifeJitter = 0.2f,
+                Name = "through", Kind = LightningBeamKind.KindName, Start = 2.5f, Duration = 0.12f,   /* d14: frame ~ 24 t + 38, so the clip f98-f103 = 2.5-2.7 s (probe: this layer is the late bolt) */   // d12: only at the last volley (A/B x4: no beam past the dummy before ~f98) TimeJitter = 0.1f, Life = 0.16f, LifeJitter = 0.2f,
                 Close = 14, Mid = 4, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.03f, 0f, 0f), Aim = CelAim.Target, Speed = 0f, Spread = 0f,
                 // b02: longer and further (the clip's through-bolts run on to ~(1250, 250) px)
                 Size = new CelCurve(0.055f, 0.045f), SizeJitter = 0.2f, Stretch = 0.3f, Erode = new CelCurve(0.06f, 0.3f), Feather = 0.12f,
