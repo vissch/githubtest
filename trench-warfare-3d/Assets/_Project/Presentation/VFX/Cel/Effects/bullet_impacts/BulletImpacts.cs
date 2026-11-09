@@ -185,7 +185,15 @@ namespace TW.Presentation.VFX.Cel.Effects
 
         // d41: a ground strike plays the orange flash and the spikes but not the white core (critics on every round: a stray
         // white sphere on the ground at f76; the clip's ground strikes throw dirt, no white ball)
-        public static readonly CelFxRecipe HitGround = new CelFxRecipe("bi_hit_ground", 0.8f, Hit.Layers[0], Hit.Layers[2]);
+        // d42: d41 without any ground core lost most of the hot area (0.0024 -> 0.0004; the clip's f29/f68 ground strikes are
+        // white-hot too), so the ground strike keeps a smaller, two-frame white pop instead of the board's sphere
+        public static readonly CelFxRecipe HitGround = new CelFxRecipe("bi_hit_ground", 0.8f, Hit.Layers[0], Hit.Layers[2],
+            new CelLayer
+            {
+                Name = "core", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.03f, -0.3f), Start = 0f, Life = 0.09f, LifeJitter = 0f,
+                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.16f * K, 0.06f * K), SizeJitter = 0.1f, Erode = new CelCurve(0f, 0.7f),
+                Palette = "white", Core = 10f, Extra = new Vector4(2f, 0.5f, 0f, 0f),
+            });
 
         // the crown: dark dirt spurts thrown up in a ring from the ground point, a few frames
         public static readonly CelFxRecipe Ground = new CelFxRecipe("bi_ground", 0.9f,
