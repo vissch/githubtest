@@ -79,6 +79,7 @@ namespace TW.Presentation.VFX.Cel.Effects
             CelPalette.Add("bi_tracer", CelPalette.Hex(0xB0400C), CelPalette.Hex(0xF07A20), CelPalette.Hex(0xFF9C40), CelPalette.Hex(0xFFC070),
                 CelPalette.Hex(0xFFE2B0), 0.45f, 3, CelPalette.Hex(0x401004));
             // the hit's spark spikes: red-orange with a white tip
+            // d40: spikes longer (16 m/s, 0.12 m, life 0.21 s): the clip's f68 star throws rays about the board's width
             // d37: core 0.21K (with the tracers fixed in d36 hot_peak fell to 0.0016; the clip 0.0045)
             // d32: core 0.67x (critics: a white orb), 8 spikes at HDR 10 so the hot area moves into the rays
             // d24: white core back to d20 size (hot_peak is its saturated area), the orange flash glow stays small
@@ -173,13 +174,13 @@ namespace TW.Presentation.VFX.Cel.Effects
             {
                 // b02: longer spikes (about the dummy's head long), 5 a hit, 2-3 frames
                 // b05: wider, hotter and a frame longer, so they show at 19 m
-                Name = "spikes", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.03f, -0.3f), Start = 0f, Duration = 0.005f, Life = 0.17f, LifeJitter = 0.05f,
+                Name = "spikes", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.03f, -0.3f), Start = 0f, Duration = 0.005f, Life = 0.21f, LifeJitter = 0.05f,
                 Close = 8, Mid = 2, Far = 0, Shape = CelShape.Shell, ShapeSize = new Vector3(0.03f, 0f, 0f), Aim = CelAim.Radial, UpBias = 0.25f,
                 // b07: rays that stop about half the dummy's width out and hold for 4 frames (b06's 12 m/s spikes flew
                 // off in a frame or two, so f29 showed a star with no spikes): 6 m/s with drag 8 tops out at 0.75 m
                 // and the trail (stretch 0.17 s) reaches back to the core, so each reads as a ray from the hit
-                Speed = 11f, SpeedJitter = 0.3f, Drag = 9f,
-                Size = new CelCurve(0.10f, 0.05f), Stretch = 0.2f, Erode = new CelCurve(0f, 0.25f), Palette = "bi_spark", Core = 10f, Extra = new Vector4(0f, 0.3f, 0f, 0f),
+                Speed = 16f, SpeedJitter = 0.35f, Drag = 9f,
+                Size = new CelCurve(0.12f, 0.05f), Stretch = 0.22f, Erode = new CelCurve(0f, 0.25f), Palette = "bi_spark", Core = 10f, Extra = new Vector4(0f, 0.3f, 0f, 0f),
             });
 
         // the crown: dark dirt spurts thrown up in a ring from the ground point, a few frames
