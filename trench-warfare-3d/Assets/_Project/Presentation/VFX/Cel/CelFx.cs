@@ -51,8 +51,12 @@ namespace TW.Presentation.VFX.Cel
                 live = UnityEngine.Object.FindFirstObjectByType<CelFxRenderer>();
                 if (live == null)
                 {
+                    // c07 (explosion lane): made inactive so the renderer's Awake finds `live` set; it re-entered
+                    // this getter and recursed to a StackOverflowException on the Range
                     var go = new GameObject("CelFx") { hideFlags = HideFlags.DontSave };
+                    go.SetActive(false);
                     live = go.AddComponent<CelFxRenderer>();
+                    go.SetActive(true);
                 }
                 live.Init();
                 return live;
