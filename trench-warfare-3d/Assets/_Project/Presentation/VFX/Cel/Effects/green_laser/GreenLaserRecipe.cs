@@ -7,7 +7,7 @@
 // anime_laser_green_cel.mp4. Kinds: the kit's Streak and Glow, plus this effect's GlBolt (darts, the ground wash and
 // shade, the inked stars, flame wisps and translucent smoke puffs: one kind). Recipes: Bolts (lane 1 darts and everything on the target), Lane2 (the second lane's
 // darts) and Ground (dummy foot -> burst point on the ground to the eye's right); GreenLaser.Play fires all three.
-// Times: seconds after the fire; the Range films 0.05 s a frame and fires at frame 16, so reference frame f = 0.05 f - 0.8.
+// Times: seconds after the fire; the beach Range films 24 fps and fires at 0.8 s, so reference frame f = f / 24 - 0.8.
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -26,11 +26,11 @@ namespace TW.Presentation.VFX.Cel
     public static class GreenLaser
     {
         // each volley's first dart lands at Hits[i] (reference frames 25, 37, 51, 61, 73, 86, 98); a dart flies Travel s
-        public const float Travel = 0.45f, TravelLate = 0.6f, Gap = 0.12f, Length = 6.0f;
-        static readonly float[] Hits = { 0.45f, 1.05f, 1.75f, 2.25f, 2.85f, 3.5f, 4.1f };
+        public const float Travel = 0.28f, TravelLate = 0.5f, Gap = 0.1f, Length = 5.0f;
+        static readonly float[] Hits = { 0.26f, 0.74f, 1.33f, 1.74f, 2.24f, 2.78f, 3.28f };
         static readonly float[] HitScale = { 0.8f, 0.9f, 0.9f, 1.0f, 1.35f, 1.1f, 0.95f };
         // the ground bursts right of the target (reference frames 34-85, biggest at 70-77)
-        static readonly float[] Ground = { 0.9f, 1.6f, 2.25f, 2.7f, 3.05f, 3.45f };
+        static readonly float[] Ground = { 0.62f, 1.2f, 1.74f, 2.12f, 2.41f, 2.74f };
         static readonly float[] GroundScale = { 0.6f, 0.85f, 0.7f, 1.2f, 1.3f, 1.1f };
         public const string BoltKind = "GlBolt";
         // where along muzzle (near, low) -> muzzle high (far, level) each lane starts: the reference's ~22 degree climb
@@ -43,7 +43,8 @@ namespace TW.Presentation.VFX.Cel
             // colours picked off the reference (spec/green_laser.json palette: #49763c #77b556 #d7f39c)
             CelPalette.Add("gl_bolt", CelPalette.Hex(0x2E8A1A), CelPalette.Hex(0x4FB82A), CelPalette.Hex(0x77CF42), CelPalette.Hex(0xD7F39C), CelPalette.Hex(0xF2FFD8), 0.95f, 3, CelPalette.Hex(0x0C2A06));
             CelPalette.Add("gl_star", CelPalette.Hex(0x49763C), CelPalette.Hex(0x77B556), CelPalette.Hex(0xA8DC78), CelPalette.Hex(0xD7F39C), CelPalette.Hex(0xF0FFD0), 0.93f, 3, CelPalette.Hex(0x0A1A06));
-            CelPalette.Add("gl_wash", CelPalette.Hex(0x14300F), CelPalette.Hex(0x163A10), CelPalette.Hex(0x2C5E1E), CelPalette.Hex(0x77B556), CelPalette.Hex(0x9AD86A), 1.1f, 4, CelPalette.Hex(0x000000));
+            CelPalette.Add("gl_wash", CelPalette.Hex(0x14260F), CelPalette.Hex(0x1A3414), CelPalette.Hex(0x34562A), CelPalette.Hex(0x6E9A58), CelPalette.Hex(0x9CC880), 1.1f, 4, CelPalette.Hex(0x000000));
+            CelPalette.Add("gl_haze", CelPalette.Hex(0x1C2C18), CelPalette.Hex(0x2E4626), CelPalette.Hex(0x4E7040), CelPalette.Hex(0x77B556), CelPalette.Hex(0xA8CC90), 1.1f, 4, CelPalette.Hex(0x000000));
             CelPalette.Add("gl_pulse", CelPalette.Hex(0x14300F), CelPalette.Hex(0x163A10), CelPalette.Hex(0x2C5E1E), CelPalette.Hex(0x8CC468), CelPalette.Hex(0x9AD86A), 1.1f, 4, CelPalette.Hex(0x000000));
             CelPalette.Add("gl_halo", CelPalette.Hex(0x14300F), CelPalette.Hex(0x23521A), CelPalette.Hex(0x3A7A2A), CelPalette.Hex(0x5C9E40), CelPalette.Hex(0x9AD86A), 1.1f, 2, CelPalette.Hex(0x000000));
             CelPalette.Add("gl_flame", CelPalette.Hex(0x2F6A22), CelPalette.Hex(0x5FA845), CelPalette.Hex(0x8CCB5E), CelPalette.Hex(0xB4E07E), CelPalette.Hex(0xD7F39C), 0.85f, 3, CelPalette.Hex(0x0A1A06));
@@ -62,14 +63,14 @@ namespace TW.Presentation.VFX.Cel
             Name = name, Kind = BoltKind, Start = start, Duration = Mathf.Max(0f, Gap * (count - 1)), Life = travel * (1f - Enter), LifeJitter = 0f,
             Close = count, Mid = mid, Far = far, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Target, Speed = 0f, Spread = 0f,
             Size = new CelCurve(width, width * 0.92f), SizeJitter = 0.08f, Palette = "gl_bolt", Core = 1.0f, Opacity = 1.15f,
-            Extra = new Vector4(0f, 2.2f, 0.07f, 3.0f),
+            Extra = new Vector4(0f, 4.5f, 0.12f, 3.0f),
         };
 
         static CelLayer[] Lane1Layers()
         {
             var l = new List<CelLayer>();
             for (int i = 0; i < Hits.Length; i++)
-                l.Add(Darts("darts " + i, Hits[i] - TravelOf(i) * (1f - Enter), TravelOf(i), 3, 1, (i & 1) == 0 ? 1 : 0, 0.07f));
+                l.Add(Darts("darts " + i, Hits[i] - TravelOf(i) * (1f - Enter), TravelOf(i), 3, 1, (i & 1) == 0 ? 1 : 0, 0.13f));
             return l.ToArray();
         }
 
@@ -77,7 +78,7 @@ namespace TW.Presentation.VFX.Cel
         {
             var l = new List<CelLayer>();
             for (int i = 0; i < Hits.Length; i++)
-                l.Add(Darts("darts lane 2 " + i, Hits[i] - TravelOf(i) * (1f - Enter) + Gap * 0.5f, TravelOf(i), i == 2 || i == 6 ? 2 : 3, (i & 1) == 1 ? 1 : 0, 0, 0.065f));
+                l.Add(Darts("darts lane 2 " + i, Hits[i] - TravelOf(i) * (1f - Enter) + Gap * 0.5f, TravelOf(i), i == 2 || i == 6 ? 2 : 3, (i & 1) == 1 ? 1 : 0, 0, 0.12f));
             return l.ToArray();
         }
 
@@ -89,28 +90,28 @@ namespace TW.Presentation.VFX.Cel
             {
                 // an inked spiky starburst facing the eye (GlBolt mode 5): a small white core about 1/4 of the burst,
                 // pale hub, green spikes of uneven length, dark ink round every spike; about the dummy's height
-                Name = "hit star " + i, Kind = BoltKind, Anchor = CelAnchor.Target, Start = h, Duration = Gap * 2f, Life = 0.32f, LifeJitter = 0.15f,
-                Close = 2, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.12f, 0f, 0f), Size = new CelCurve(0.75f * s, 1.0f * s, 0.5f), SizeJitter = 0.2f,
-                Palette = "gl_star", Core = 1.0f, Opacity = 1f, Extra = new Vector4(5f, 0.15f, 0.4f, 9f),
+                Name = "hit star " + i, Kind = BoltKind, Anchor = CelAnchor.Target, Start = h, Duration = Gap * 2f, Life = 0.28f, LifeJitter = 0.15f,
+                Close = 2, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.16f, 0f, 0f), Size = new CelCurve(1.15f * s, 1.55f * s, 0.5f), SizeJitter = 0.2f,
+                Palette = "gl_star", Core = 0.7f, Opacity = 1f, Extra = new Vector4(5f, 0.15f, 0.4f, 9f),
             });
             l.Add(new CelLayer
             {
-                Name = "hit halo " + i, Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Start = h, Life = 0.45f, LifeJitter = 0.1f,
-                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(0.9f * s, 1.2f * s, 0.5f), SizeJitter = 0.1f,
+                Name = "hit halo " + i, Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Start = h, Life = 0.38f, LifeJitter = 0.1f,
+                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(1.2f * s, 1.6f * s, 0.5f), SizeJitter = 0.1f,
                 Erode = new CelCurve(0.02f, 0.6f, 1.5f), Palette = "gl_halo", Core = 1f, Opacity = 0.35f, Extra = new Vector4(2f, 1.8f, 0f, 0f),
             });
             l.Add(new CelLayer
             {
-                Name = "hit spikes " + i, Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = h, Duration = Gap * 2f, Life = 0.22f, LifeJitter = 0.3f,
-                Close = 10, Mid = 4, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.15f, 0f, 0f), Aim = CelAim.Radial, Speed = 9f * s, SpeedJitter = 0.5f, UpBias = 0.3f, Drag = 4f,
-                Size = new CelCurve(0.06f, 0.02f), SizeJitter = 0.3f, Stretch = 0.06f, Erode = new CelCurve(0.05f, 0.5f), Palette = "gl_star", Core = 1.0f, Extra = new Vector4(0f, 0.25f, 0f, 0f),
+                Name = "hit spikes " + i, Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = h, Duration = Gap * 2f, Life = 0.2f, LifeJitter = 0.3f,
+                Close = 10, Mid = 4, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.2f, 0f, 0f), Aim = CelAim.Radial, Speed = 12f * s, SpeedJitter = 0.5f, UpBias = 0.3f, Drag = 4f,
+                Size = new CelCurve(0.08f, 0.025f), SizeJitter = 0.3f, Stretch = 0.06f, Erode = new CelCurve(0.05f, 0.5f), Palette = "gl_star", Core = 1.0f, Extra = new Vector4(0f, 0.25f, 0f, 0f),
             });
             l.Add(new CelLayer
             {
                 // two or three pale S-curling flame wisps rising off the hit, inked (GlBolt mode 3), about the dummy's height
-                Name = "hit wisps " + i, Kind = BoltKind, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.1f, 0f), Start = h + 0.03f, Duration = 0.1f, Life = 0.55f, LifeJitter = 0.2f,
-                Close = (i & 1) == 0 ? 3 : 2, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.22f, 0f, 0f), Aim = CelAim.Up, Speed = 0.6f, SpeedJitter = 0.4f, Spread = 35f, Drag = 1f, Buoyancy = 0.3f,
-                Size = new CelCurve(0.8f * s, 1.25f * s, 0.5f), SizeJitter = 0.25f, Palette = "gl_wisp", Core = 1f, Opacity = 0.8f, Extra = new Vector4(3f, 0.12f, 0.55f, 0.3f),
+                Name = "hit wisps " + i, Kind = BoltKind, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.15f, 0f), Start = h + 0.03f, Duration = 0.1f, Life = 0.5f, LifeJitter = 0.2f,
+                Close = (i & 1) == 0 ? 3 : 2, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Up, Speed = 0.75f, SpeedJitter = 0.4f, Spread = 35f, Drag = 1f, Buoyancy = 0.3f,
+                Size = new CelCurve(1.05f * s, 1.6f * s, 0.5f), SizeJitter = 0.25f, Palette = "gl_wisp", Core = 1f, Opacity = 0.8f, Extra = new Vector4(3f, 0.12f, 0.55f, 0.3f),
             });
         }
 
@@ -118,9 +119,9 @@ namespace TW.Presentation.VFX.Cel
         {
             var l = new List<CelLayer>(Lane1Layers());
             for (int i = 0; i < Hits.Length; i++) HitLayers(l, i);
-            l.Add(new CelLayer { Name = "light a", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = Hits[0], Life = 1.6f, Close = 1, Mid = 1, Far = 1, Palette = "gl_bolt", Core = 3f, Extra = new Vector4(7f, 0f, 0f, 0f) });
-            l.Add(new CelLayer { Name = "light b", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = Hits[3], Life = 1.6f, Close = 1, Mid = 1, Far = 0, Palette = "gl_bolt", Core = 3f, Extra = new Vector4(7f, 0f, 0f, 0f) });
-            l.Add(new CelLayer { Name = "light c", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = Hits[5], Life = 1.0f, Close = 1, Mid = 1, Far = 0, Palette = "gl_bolt", Core = 3f, Extra = new Vector4(7f, 0f, 0f, 0f) });
+            l.Add(new CelLayer { Name = "light a", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = Hits[0], Life = 1.35f, Close = 1, Mid = 1, Far = 1, Palette = "gl_bolt", Core = 1.6f, Extra = new Vector4(9f, 0f, 0f, 0f) });
+            l.Add(new CelLayer { Name = "light b", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = Hits[3], Life = 1.35f, Close = 1, Mid = 1, Far = 0, Palette = "gl_bolt", Core = 1.6f, Extra = new Vector4(9f, 0f, 0f, 0f) });
+            l.Add(new CelLayer { Name = "light c", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = Hits[5], Life = 0.85f, Close = 1, Mid = 1, Far = 0, Palette = "gl_bolt", Core = 1.6f, Extra = new Vector4(9f, 0f, 0f, 0f) });
             return l.ToArray();
         }
 
@@ -131,12 +132,14 @@ namespace TW.Presentation.VFX.Cel
             Close = close, Mid = mid, Far = far, Size = new CelCurve(r0, r1, 0.5f), SizeJitter = 0.05f, Palette = "gl_wash", Opacity = opacity, Extra = extra,
         };
 
+        static CelLayer Lifted(CelLayer l, float up) { l.Offset = new Vector3(0f, up, 0f); return l; }
+
         static CelLayer Smoke(string name, CelAnchor anchor, Vector3 offset, float start, float duration, float life, int close, int mid, float r0, float r1, bool tan) => new CelLayer
         {
             // translucent lumpy cel puffs (GlBolt mode 4) in flat bands with a dark ink line and an inner curl stroke,
             // rising and drifting right; the late ones are tan-grey
             Name = name, Kind = BoltKind, Anchor = anchor, Offset = offset, Start = start, Duration = duration, Life = life, LifeJitter = 0.15f,
-            Close = close, Mid = mid, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.35f, 0f, 0f), Aim = CelAim.Dir, Speed = 1.1f, Spread = 30f, Drag = 0.6f, Buoyancy = 0.45f, Spin = 1.2f,
+            Close = close, Mid = mid, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.35f, 0f, 0f), Aim = CelAim.Dir, Speed = 1.4f, Spread = 30f, Drag = 0.6f, Buoyancy = 0.45f, Spin = 1.2f,
             Size = new CelCurve(r0, r1, 0.5f), SizeJitter = 0.3f,
             Palette = tan ? "gl_smoke_tan" : "gl_smoke", Core = 1f, Opacity = tan ? 0.4f : 0.45f, Extra = new Vector4(4f, 0.12f, 0.5f, 0.1f),
         };
@@ -147,19 +150,26 @@ namespace TW.Presentation.VFX.Cel
             {
                 // one soft pale wash under the feet, about 2.5x the dummy's height wide, held through ~f115: a pale
                 // core plus a wide dim deep-green spill on the darkened dirt, no rim
-                Wash("wash", CelAnchor.Origin, Hits[0], 0f, 1, 1, 1, 5.0f, 3.4f, 3.5f, 1.0f, new Vector4(1f, 0.05f, 0.9f, 3.2f)),
+                Lifted(Wash("wash", CelAnchor.Origin, Hits[0], 0f, 1, 1, 1, 4.5f, 4.4f, 4.5f, 0.8f, new Vector4(1f, 0.05f, 0.88f, 2.6f)), 0.45f),
+                // the same light seen as a soft pale haze standing over the feet (the reference's wash rises well above the
+                // dirt): a flat flash facing the eye, about 2.5x the dummy's height wide
+                new CelLayer
+                {
+                    Name = "wash haze", Kind = CelKinds.GlowName, Anchor = CelAnchor.Origin, Offset = new Vector3(0f, 0.6f, 0f), Start = Hits[0], Life = 4.5f, LifeJitter = 0f,
+                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(3.2f, 3.4f, 0.5f), SizeJitter = 0f, Palette = "gl_haze", Core = 1f, Opacity = 0.45f, Extra = new Vector4(2f, 1.3f, 0f, 0f),
+                },
                 // the dirt round the glow goes dark (the reference's night ground round the light), a smooth disc, no ring
                 new CelLayer
                 {
-                    Name = "wash shade", Kind = BoltKind, Anchor = CelAnchor.Origin, Start = Hits[0], Life = 5.0f, LifeJitter = 0f,
-                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(7.0f, 7.1f, 0.5f), SizeJitter = 0f, Palette = "gl_wash", Opacity = 1.0f, Extra = new Vector4(2f, 0.08f, 0.88f, 0.01f),
+                    Name = "wash shade", Kind = BoltKind, Anchor = CelAnchor.Origin, Offset = new Vector3(0f, 0.45f, 0f), Start = Hits[0], Life = 4.5f, LifeJitter = 0f,
+                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(5.0f, 5.1f, 0.5f), SizeJitter = 0f, Palette = "gl_wash", Opacity = 1.0f, Extra = new Vector4(2f, 0.08f, 0.88f, 0.01f),
                 },
             };
             for (int i = 0; i < Hits.Length; i++)
             {
                 float h = Hits[i], s = HitScale[i];
                 // the wash flares with every hit: a short wide pulse (one area spike per hit)
-                var pulse = Wash("wash pulse " + i, CelAnchor.Origin, h, 0f, 1, 1, 0, 0.4f, 3.6f * s, 4.0f * s, 1.3f, new Vector4(1f, 0.08f, 0.3f, 2.8f));
+                var pulse = Lifted(Wash("wash pulse " + i, CelAnchor.Origin, h, 0f, 1, 1, 0, 0.33f, 4.0f * s, 4.4f * s, 1.1f, new Vector4(1f, 0.08f, 0.3f, 2.6f)), 0.45f);
                 pulse.Palette = "gl_pulse";
                 l.Add(pulse);
             }
@@ -169,31 +179,31 @@ namespace TW.Presentation.VFX.Cel
                 l.Add(new CelLayer
                 {
                     // a large inked spiky green burst on the ground right of the dummy (GlBolt mode 5)
-                    Name = "burst star " + i, Kind = BoltKind, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.35f * s, 0f), Start = g, Duration = 0.08f, Life = 0.3f, LifeJitter = 0.15f,
-                    Close = 2, Mid = 1, Far = 0, Size = new CelCurve(0.7f * s, 0.95f * s, 0.5f), SizeJitter = 0.2f,
-                    Palette = "gl_star", Core = 1.0f, Opacity = 1f, Extra = new Vector4(5f, 0.15f, 0.4f, 11f),
+                    Name = "burst star " + i, Kind = BoltKind, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.45f * s, 0f), Start = g, Duration = 0.08f, Life = 0.26f, LifeJitter = 0.15f,
+                    Close = 2, Mid = 1, Far = 0, Size = new CelCurve(1.0f * s, 1.35f * s, 0.5f), SizeJitter = 0.2f,
+                    Palette = "gl_star", Core = 0.7f, Opacity = 1f, Extra = new Vector4(5f, 0.15f, 0.4f, 11f),
                 });
                 l.Add(new CelLayer
                 {
-                    Name = "burst spikes " + i, Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = g, Duration = 0.1f, Life = 0.32f, LifeJitter = 0.3f,
-                    Close = s > 0.8f ? 18 : 8, Mid = s > 0.8f ? 6 : 0, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.25f, 0f, 0f), Aim = CelAim.Up, Speed = 8f * s, SpeedJitter = 0.5f, Spread = 40f, Drag = 3f, Gravity = 4f,
+                    Name = "burst spikes " + i, Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = g, Duration = 0.1f, Life = 0.27f, LifeJitter = 0.3f,
+                    Close = s > 0.8f ? 18 : 8, Mid = s > 0.8f ? 6 : 0, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.25f, 0f, 0f), Aim = CelAim.Up, Speed = 10f * s, SpeedJitter = 0.5f, Spread = 40f, Drag = 3f, Gravity = 4f,
                     Size = new CelCurve(0.06f, 0.02f), SizeJitter = 0.3f, Stretch = 0.07f, Erode = new CelCurve(0.05f, 0.5f), Palette = "gl_star", Core = 1.0f, Extra = new Vector4(0f, 0.25f, 0f, 0f),
                 });
-                l.Add(Wash("burst wash " + i, CelAnchor.Target, g, 0f, 1, 1, 0, 0.5f, 1.2f * s, 1.3f * s, 0.6f, new Vector4(1f, 0.1f, 0.45f, 3.0f)));
+                l.Add(Wash("burst wash " + i, CelAnchor.Target, g, 0f, 1, 1, 0, 0.42f, 1.6f * s, 1.7f * s, 0.6f, new Vector4(1f, 0.1f, 0.45f, 3.0f)));
                 // a dark scorch splat left on the dirt where a big burst lands (the reference's black craters), gone by ~f130
-                if (s > 0.8f) l.Add(Wash("burst scorch " + i, CelAnchor.Target, g, 0f, 1, 0, 0, 5.7f - g, 0.75f * s, 0.85f * s, 0.7f, new Vector4(2f, 0.05f, 0.7f, 0.01f)));
+                if (s > 0.8f) l.Add(Wash("burst scorch " + i, CelAnchor.Target, g, 0f, 1, 0, 0, 4.6f - g, 1.0f * s, 1.1f * s, 0.7f, new Vector4(2f, 0.05f, 0.7f, 0.01f)));
             }
             // smoke: translucent pale green puffs while the volley lasts (gone by ~f106), then translucent tan-grey puffs
             // from ~f90 that drift right, gone by ~f130
-            l.Add(Smoke("smoke dummy", CelAnchor.Origin, new Vector3(0f, 1.3f, 0.2f), 1.5f, 2.0f, 0.95f, 6, 2, 0.5f, 0.85f, false));
-            l.Add(Smoke("smoke dummy late", CelAnchor.Origin, new Vector3(0f, 1.2f, 0.2f), 3.6f, 1.1f, 1.0f, 7, 3, 0.45f, 0.75f, true));
-            l.Add(Smoke("smoke burst", CelAnchor.Target, new Vector3(0f, 0.5f, 0.3f), 1.9f, 1.6f, 1.0f, 6, 2, 0.5f, 0.85f, false));
-            l.Add(Smoke("smoke burst late", CelAnchor.Target, new Vector3(0f, 0.55f, 0.3f), 3.6f, 1.1f, 1.05f, 6, 2, 0.45f, 0.75f, true));
+            l.Add(Smoke("smoke dummy", CelAnchor.Origin, new Vector3(0f, 1.7f, 0.2f), 1.12f, 1.67f, 0.8f, 6, 2, 0.7f, 1.2f, false));
+            l.Add(Smoke("smoke dummy late", CelAnchor.Origin, new Vector3(0f, 1.6f, 0.2f), 2.87f, 1.0f, 1.0f, 7, 3, 0.65f, 1.05f, true));
+            l.Add(Smoke("smoke burst", CelAnchor.Target, new Vector3(0f, 0.65f, 0.3f), 1.45f, 1.33f, 0.85f, 6, 2, 0.7f, 1.2f, false));
+            l.Add(Smoke("smoke burst late", CelAnchor.Target, new Vector3(0f, 0.7f, 0.3f), 2.87f, 1.0f, 1.0f, 6, 2, 0.65f, 1.05f, true));
             l.Add(new CelLayer
             {
                 // small green embers glinting at the feet after the volley (reference frames 112-125)
-                Name = "embers", Kind = CelKinds.StreakName, Offset = new Vector3(0f, 0.05f, 0f), Start = 4.55f, Duration = 0.55f, Life = 0.6f, LifeJitter = 0.3f,
-                Close = 26, Mid = 8, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.6f, 0.1f, 0f), Aim = CelAim.Up, Speed = 0.4f, Spread = 50f, Drag = 1f, Gravity = 0.6f,
+                Name = "embers", Kind = CelKinds.StreakName, Offset = new Vector3(0f, 0.05f, 0f), Start = 3.66f, Duration = 0.46f, Life = 0.5f, LifeJitter = 0.3f,
+                Close = 26, Mid = 8, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.8f, 0.1f, 0f), Aim = CelAim.Up, Speed = 0.5f, Spread = 50f, Drag = 1f, Gravity = 0.6f,
                 Size = new CelCurve(0.05f, 0.03f), SizeJitter = 0.4f, Stretch = 0.02f, Erode = new CelCurve(0.05f, 0.6f, 2f), Palette = "gl_bolt", Core = 1.2f, Extra = new Vector4(1f, 0.05f, 0.6f, 0f),
             });
             return l.ToArray();
@@ -218,7 +228,7 @@ namespace TW.Presentation.VFX.Cel
             look.y = 0f;
             look = look.sqrMagnitude > 1e-6f ? look.normalized : Vector3.forward;
             Vector3 right = Vector3.Cross(Vector3.up, look).normalized;
-            Vector3 burst = foot + right * 2.3f + look * 1.0f;
+            Vector3 burst = foot + right * 3.0f + look * 0.8f;
             CelFx.Play(GroundRecipe, foot, right, burst, seed + 101u);
         }
 

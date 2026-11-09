@@ -98,7 +98,10 @@ Shader "TW/Cel/GlBolt"
                 // keep every dart about 1/10 of the frame wide on screen however near the eye it flies: the tail is
                 // capped by the frame's width at the dart's distance (width = 2 d / P00)
                 float dcam = distance(p, _WorldSpaceCameraPos);
-                float lenCap = min(r.extra.y, 0.24 * dcam / max(UNITY_MATRIX_P[0][0], 1e-3));
+                // the cap is on the length seen on screen: a dart flying partly away from the eye may be longer in the world
+                float3 eyeDir = (_WorldSpaceCameraPos - p) / max(dcam, 1e-3);
+                float seen = max(length(cross(dir, eyeDir)), 0.35);
+                float lenCap = min(r.extra.y, 0.26 * dcam / max(UNITY_MATRIX_P[0][0], 1e-3) / seen);
                 float hw = min(size, lenCap * 0.06);
                 float hl = hw * (r.extra.w > 0.0 ? r.extra.w : 4.0);
                 float bloom = min(max(r.extra.z, 0.0), hw * 1.5) * alive;
