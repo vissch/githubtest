@@ -159,7 +159,7 @@ namespace TW.Presentation.VFX.Cel.Effects
                 // b07: 4 frames (0.17 s)
                 Name = "flash", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.02f, -0.3f), Start = 0f, Life = 0.17f, LifeJitter = 0.05f,
                 Close = 1, Mid = 1, Far = 1, Size = new CelCurve(0.17f * K, 0.11f * K, 0.5f), SizeJitter = 0.15f, Erode = new CelCurve(0.05f, 0.8f, 1.6f),
-                Palette = "fire_hot", Core = 2.4f, Opacity = 0.95f, Spin = 2f, Extra = new Vector4(2f, 2.2f, 6f, 10f),
+                Palette = "fire_hot", Core = 2.4f, Opacity = 0.95f, Spin = 2f, Extra = new Vector4(2f, 2.2f, 8f, 18f),   // d52: 8 sharper points (was 6/10)
             },
             new CelLayer
             {
@@ -167,8 +167,8 @@ namespace TW.Presentation.VFX.Cel.Effects
                 // d02: 1.6x bigger, Core 8 (b07 hot_peak 0.0018 vs the clip's 0.0045)
                 // b05: a little bigger and hotter, 3 frames (hot_peak 0.001 vs the clip's 0.0045)
                 Name = "core", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.03f, -0.3f), Start = 0f, Life = 0.16f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.21f * K, 0.115f * K), SizeJitter = 0.1f, Erode = new CelCurve(0f, 0.7f),
-                Palette = "white", Core = 10f, Extra = new Vector4(2f, 0.5f, 0f, 0f),
+                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.34f * K, 0.18f * K), SizeJitter = 0.1f, Erode = new CelCurve(0f, 0.7f),
+                Palette = "white", Core = 10f, Extra = new Vector4(2f, 0.5f, 5f, 14f),   // d52: a 5-point star, not a round orb
             },
             new CelLayer
             {
@@ -191,8 +191,8 @@ namespace TW.Presentation.VFX.Cel.Effects
             new CelLayer
             {
                 Name = "core", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.03f, -0.3f), Start = 0f, Life = 0.09f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.16f * K, 0.06f * K), SizeJitter = 0.1f, Erode = new CelCurve(0f, 0.7f),
-                Palette = "white", Core = 10f, Extra = new Vector4(2f, 0.5f, 0f, 0f),
+                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.26f * K, 0.1f * K), SizeJitter = 0.1f, Erode = new CelCurve(0f, 0.7f),
+                Palette = "white", Core = 10f, Extra = new Vector4(2f, 0.5f, 5f, 14f),   // d52: a 5-point star, not a round orb
             });
 
         // the crown: dark dirt spurts thrown up in a ring from the ground point, a few frames
