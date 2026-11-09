@@ -148,7 +148,7 @@ namespace TW.Presentation.VFX.Cel
                     Opacity = 0.75f, Ink = 2f,   // d18: ribbon 75% (d16 opaque bands lost)
                     // b02: a round white-yellow head 0.2 m, a flame body that flares and tapers over 2.2 m, thin red
                     // streaks fading out to 5 m, a ribbon waving 0.08 m over 5.5 m
-                    Extra = new Vector4(0.28f, 3.8f, 0.05f, 3.0f),   // d09: head 0.24 -> 0.28 m   // c05: head 0.3 -> 0.24 m (the teardrop flame is about half the old width), licks 3.6 m, trail wave 0.05 m over 3 m   // c03: ribbon wave 0.11 m over 2.2 m (wavy, not a straight line)   // c01: head 0.3 m, ribbon wave 0.04 m (it follows the flame's path)   // b04: head 0.26 m, the flame a long tapering streak (shader)   // b03: head 0.2 -> 0.27 m (the body is twice as wide in the shader)
+                    Extra = new Vector4(0.4f, 3.8f, 0.05f, 3.0f),   // d34: head 0.28 -> 0.4 m (every paper: a dot head on a tube)   // d09: head 0.24 -> 0.28 m   // c05: head 0.3 -> 0.24 m (the teardrop flame is about half the old width), licks 3.6 m, trail wave 0.05 m over 3 m   // c03: ribbon wave 0.11 m over 2.2 m (wavy, not a straight line)   // c01: head 0.3 m, ribbon wave 0.04 m (it follows the flame's path)   // b04: head 0.26 m, the flame a long tapering streak (shader)   // b03: head 0.2 -> 0.27 m (the body is twice as wide in the shader)
                 });
         }
 
@@ -185,6 +185,15 @@ namespace TW.Presentation.VFX.Cel
                 Name = "hit flash", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Start = hit, Life = 0.12f, LifeJitter = 0.04f,   // c05: a flame flash on every hit
                 Close = ground ? 0 : 1, Mid = ground ? 0 : 1, Far = 0, Size = new CelCurve(0.45f, 0.85f, 0.5f), SizeJitter = 0.2f, Erode = new CelCurve(0.03f, 0.9f, 1.5f),
                 Palette = "fb_spark", Core = 1.6f, Spin = 2f, Extra = new Vector4(2f, 1.1f, 10f, 5f),
+            });
+            // d27 (stall fracture: dummy hit -> its lingering burn; new primitive, Comet mode extra.x = -3): an orange
+            // cel-blob flame behind the hit star (d28: the star rays stay on top), then a small ember that burns to ~1.4 s
+            if (!ground) for (int b = 0; b < 2; b++) r.Layers.Add(new CelLayer
+            {
+                Name = "flame wrap", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0.05f * b - 0.03f, 0.02f + 0.1f * b, 0.08f), Start = hit + 0.06f + 0.06f * b, Life = 0.6f + 0.8f * b, LifeJitter = 0.15f,
+                Close = 1, Mid = 1, Far = 0, Aim = CelAim.Up, Spread = 20f, Speed = 0.25f, SpeedJitter = 0.3f, Drag = 0.5f, Gravity = 0f, Buoyancy = 0.4f, Spin = 0f,
+                Size = new CelCurve(0.08f, 0.18f - 0.09f * b, 0.5f), SizeJitter = 0.2f, Stretch = 0f, Erode = new CelCurve(0f, 0.7f, 1.6f),
+                Palette = "fire", Core = 1.0f, Opacity = 0.85f, Ink = 2f, Extra = new Vector4(-3f, 1.3f, 2.2f, 0.85f),
             });
             if (ground)
             {

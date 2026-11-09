@@ -70,6 +70,25 @@ Shader "TW/Cel/Comet"
                 float t = CelAge(r), k = CelLife01(r), alive = CelAlive(r);
                 float3 p = CelPosition(r, t);
                 Varyings o;
+                if (r.extra.x < -2.5)
+                {
+                    // d25 cel blob (mode extra.x = -3): a camera-facing quad holding a metaball SDF of five balls
+                    // that drift apart, curl and grow over the life; the outline is eaten by travelling noise, bands
+                    // come from the field's own gradient (lit upper-left), the ink is a real px line on the iso edge.
+                    // size.xyz = radius curve (m); erode.xyz = iso rise over the life (tears into pieces);
+                    // extra.y = ball spread at death (radii), extra.z = curl (rad/s), extra.w = outline noise amount.
+                    float R = CelCurve(r.size.xyz, k) * alive;
+                    float2 c = v.uv * 2.0 - 1.0;
+                    float3 w = CelBillboard(p, c * R * 1.9);
+                    o.positionWS = w;
+                    o.positionCS = TransformWorldToHClip(w);
+                    o.local = c * 1.9;
+                    o.dims = float4(k, max(r.extra.y, 0.3), r.extra.z, max(r.extra.w, 0.0));
+                    o.tone = r.tone;
+                    o.more = float4(R, CelCurve(r.erode.xyz, k), r.seed, 0.0);
+                    o.misc = float4(ComputeFogFactor(o.positionCS.z), 0.0, t, 3.0);
+                    return o;
+                }
                 if (r.extra.x < -1.5)
                 {
                     // d01 path ribbon (smoke wisp): a strip whose every vertex sits on a curling path rising from the
@@ -159,6 +178,42 @@ Shader "TW/Cel/Comet"
                 uint rowA = CelRowA(i.tone.x), rowB = CelRowB(i.tone.x);
                 if (rowB == 0u) rowB = rowA;
 
+                if (i.misc.w > 2.5)
+                {
+                    // ---- d25 cel blob: sum of five gaussian balls (units of the radius), outline displaced by two
+                    //      octaves of travelling value noise, iso raised by erosion so it tears late in the life
+                    float2 q = i.local;
+                    float k = i.dims.x, t = i.misc.z, seed = i.more.z;
+                    float spread = lerp(0.45, i.dims.y, smoothstep(0.0, 1.0, k));
+                    float F = 0.0; float2 G = 0.0;
+                    [unroll] for (int j = 0; j < 5; j++)
+                    {
+                        float h1 = CelHash21(float2(j, seed * 71.0)), h2 = CelHash21(float2(j + 9.0, seed * 37.0)), h3 = CelHash21(float2(j + 23.0, seed * 13.0));
+                        float2 o0 = float2((h1 - 0.5) * 1.7, (h2 - 0.5) * 0.7 + 0.1 * j - 0.2) * spread;   // wider than tall: a billow
+                        float ang = (h3 - 0.5) * 2.0 * i.dims.z * t;
+                        float2 cj = float2(o0.x * cos(ang) - o0.y * sin(ang), o0.x * sin(ang) + o0.y * cos(ang));
+                        cj.y += 0.18 * k * (h2 - 0.3);
+                        float rj = (0.32 + 0.22 * h3) * lerp(0.85, 1.1, k);
+                        float2 dv = q - cj;
+                        float e = exp(-dot(dv, dv) / (rj * rj));
+                        F += e; G += e * (-2.0 * dv / (rj * rj));
+                    }
+                    float nz = CelValue2(q * 2.3 + float2(seed * 17.0, -t * 0.9)) + 0.5 * CelValue2(q * 5.1 + float2(-t * 1.4, seed * 29.0));
+                    float iso = 0.42 + i.more.y * 0.7;
+                    float sdf = F - iso + (nz - 0.75) * i.dims.w;
+                    float mask = CelAAStep(0.0, sdf);
+                    float2 nOut = normalize(-G + 1e-5);
+                    float rim = saturate(1.0 - sdf * 2.2);
+                    float lit = saturate(0.55 + 0.5 * dot(nOut, float2(-0.45, 0.89)) * rim + 0.12 * (q.y / 1.9));
+                    lit = max(lit, saturate(sdf * 1.6) * step(1.05, i.tone.y));   // d27: a fire blob (Core > 1) is hottest deep inside
+                    half3 col = CelRamp(lit, rowA, max(i.tone.y, 1.0));
+                    float ink = CelInk(sdf, 0.0, CelLodInk(i.tone.w)) * mask;
+                    col = lerp(col, CelPalInk(rowA).rgb, ink * 0.85);
+                    float op = saturate(i.tone.z) * smoothstep(0.0, 0.12, k) * (1.0 - smoothstep(0.72, 1.0, k));
+                    float a = mask * op;
+                    float m = CelAdditiveFog(half3(1.0, 1.0, 1.0), i.positionWS, i.misc.x).r;
+                    return half4(col * a * m, a * m);
+                }
                 if (i.misc.w > 1.5)
                 {
                     // ---- d01 path ribbon: a soft grey smoke wisp along its curling path. Its edges are eaten by
@@ -296,7 +351,7 @@ Shader "TW/Cel/Comet"
                     float nz = CelValue2(float2(s / max(hr * 1.3, 1e-3) + i.misc.z * 9.0, seed * 41.0 + step(0.0, y - lick) * 7.0));
                     float nz2 = CelValue2(float2(s / max(hr * 0.6, 1e-3) + i.misc.z * 15.0, seed * 23.0 + 3.0));
                     float rag = lerp(1.0, 0.7 + 0.45 * nz + 0.2 * (nz2 - 0.5), smoothstep(0.25, 0.8, sb));
-                    float wBody = hr * 0.62 * (1.0 + 0.25 * smoothstep(0.0, 0.2, sb)) * pow(saturate(1.0 - sb), 0.7) * rag;   // ~1.4x narrower than the head just behind it
+                    float wBody = hr * 0.44 *   /* d34: head ~2x the tail */ (1.0 + 0.25 * smoothstep(0.0, 0.2, sb)) * pow(saturate(1.0 - sb), 0.7) * rag;   // ~1.4x narrower than the head just behind it
                     float tailF = (s >= 0.0 && s <= bodyL) ? 1.0 - abs(y - lick) / max(wBody, 1e-4) : 0.0;
                     float streakF = 0.0, streakU = 1.0;
                     [unroll] for (int k5 = 0; k5 < 3; k5++)
