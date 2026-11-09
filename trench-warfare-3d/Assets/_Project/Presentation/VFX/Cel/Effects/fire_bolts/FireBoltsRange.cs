@@ -1,6 +1,6 @@
 // Phase: CelFx job (2026-11-09, lane/show/cel-fire-bolts) - fire bolts on the Range (effect id "fire_bolts", lab
 // only). Fires FireBolts.Volley: each bolt launched from a spot near the stage's MuzzleHigh (off-screen left, at the
-// dummy's depth) and aimed at the dummy's board or at the ground beside and behind it, plus two warm light pools on
+// dummy's depth) and aimed at the dummy's board or at the ground beside and behind it, plus a soft warm light pool on
 // the ground under the volley, left of and in front of the dummy. Places are laid out in the eye's frame (screen right / away from the eye on level
 // ground), so the battle stills, seen from another heading, keep the same picture. Spawns everything at the fire.
 using UnityEngine;
@@ -12,13 +12,15 @@ namespace TW.Presentation.VFX
     static class FireBoltsRange
     {
         // ground hits: (screen right m, away from the eye m) from the dummy's foot; dummy hits: (right, up) from its chest
-        static readonly Vector2[] GroundAt = { new Vector2(3.8f, 8.7f), new Vector2(3.5f, 2.4f), new Vector2(1.2f, 4.5f), new Vector2(3.2f, 2.9f),
-            new Vector2(3.9f, 8.2f), new Vector2(2.8f, 1.6f), new Vector2(1.6f, 5.5f), new Vector2(3.6f, 2.2f) };
+        // (two or three fire spots a metre or two right of the dummy, the reference's bursts, so every bolt ends at its hit)
+        static readonly Vector2[] GroundAt = { new Vector2(1.6f, 2.6f), new Vector2(2.4f, 0.6f), new Vector2(1.3f, -0.6f), new Vector2(1.8f, 2.2f),
+            new Vector2(2.6f, 0.9f), new Vector2(1.2f, -0.3f), new Vector2(1.5f, 2.9f), new Vector2(2.2f, 0.4f) };
         static readonly Vector2[] DummyAt = { new Vector2(0f, 0f), new Vector2(0.05f, 0.3f), new Vector2(-0.1f, -0.1f), new Vector2(0.1f, 0.15f),
             new Vector2(0f, 0.05f), new Vector2(-0.05f, 0.25f), new Vector2(0.08f, -0.05f), new Vector2(0f, 0.1f) };
         // launch spots: (screen right m, up m) from MuzzleHigh
-        static readonly Vector2[] FromAt = { new Vector2(0f, 0f), new Vector2(0.6f, -0.9f), new Vector2(-0.4f, -0.4f), new Vector2(0.3f, -1.3f),
-            new Vector2(-0.2f, 0.2f), new Vector2(0.5f, -0.6f), new Vector2(0f, -1.1f), new Vector2(-0.5f, -0.2f) };
+        // (all at or above it: the bolts come down 10-15 degrees on the screen onto the dummy and the ground)
+        static readonly Vector2[] FromAt = { new Vector2(0f, -0.1f), new Vector2(0.6f, 0.4f), new Vector2(-0.4f, -0.5f), new Vector2(0.3f, 0.1f),
+            new Vector2(-0.2f, 0.5f), new Vector2(0.5f, -0.3f), new Vector2(0f, 0.3f), new Vector2(-0.5f, -0.2f) };
         // the opening bolts start further along their line (already on screen at the fire, as in the reference's f19)
         static readonly float[] AlongAt = { 0.4f, 0.3f, 0.2f, 0.1f };
 
@@ -51,21 +53,19 @@ namespace TW.Presentation.VFX
             // The Range promises frame k at k/24 s, but the shot clock arrives stepping 1/20 s (Gym's CaptureFps wins
             // over RangeStage's 24; reported to the stage). On the close film, put the clock back to 24 fps and start
             // the volley late by the frames the fast clock skipped, so it lands on the reference's frames.
-            var volley = FireBolts.Volley; var pool = FireBolts.Pool; var poolLate = FireBolts.PoolLate;
+            var volley = FireBolts.Volley; var pool = FireBolts.Pool;
             if (s.Lod == RangeLod.Close && Time.captureFramerate > 0 && Time.captureFramerate != 24)
             {
                 float lateBy = Mathf.Max(0f, s.T0 - s.T0 * Time.captureFramerate / 24f);
                 Debug.Log("fire_bolts: the shot clock stepped 1/" + Time.captureFramerate + " s; set to 1/24 and the volley starts " + lateBy.ToString("0.000") + " s late");
                 Time.captureFramerate = 24;
-                if (lateBy > 1e-3f) FireBolts.Shifted(lateBy, out volley, out pool, out poolLate);
+                if (lateBy > 1e-3f) FireBolts.Shifted(lateBy, out volley, out pool);
             }
 
-            // warm light on the ground under the volley: a wide pool left of and a little in front of the dummy (the
-            // reference's lit oval over the lower-left third), and the late burst's brighter one nearer the dummy
-            Vector3 p0 = OnGround(s.Ground + right * -3.6f + away * -2.2f, 4.8f, s.Ground.y);
-            Vector3 p1 = p0;
+            // warm light on the ground under the volley: one soft pool left of and a little in front of the dummy (the
+            // reference's lit oval over the lower-left third)
+            Vector3 p0 = OnGround(s.Ground + right * -2.4f + away * -1.6f, 3.0f, s.Ground.y);
             CelFx.Play(pool, p0, away, p0, seed);
-            CelFx.Play(poolLate, p1, away, p1, seed + 1u);
 
             int gi = 0, di = 0;
             for (int i = 0; i < volley.Length; i++)
