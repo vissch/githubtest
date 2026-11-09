@@ -271,7 +271,9 @@ namespace TW.Presentation.VFX.Cel.Effects
         // b05: gain 8 and more fill, 0.17 s (4 frames): the board reads gold on each board hit (the clip's f29/f45/f53/
         // f63/f68); b04's gain 5 left it a dull orange
         // d02: gain 2.0 and a warmer orange (#FFB878), half the fill: b07's gain 3.6 turned the board a flat white lantern (rings lost)
-        public static readonly CelFxRecipe WashDummy = new CelFxRecipe("bi_wash_dummy", 0.3f, Wash("dummy", "bi_flare", 1.25f * K, 1.25f * K, 2.0f, 0.26f, 1, -2.0f, 0.06f));
+        // d29: the board stays lit while the gun fires (life 0.5 s overlaps the shot gap, fill 0.11): zooms show the clip's
+        // whole board glowing yellow-orange f29-f63 while ours went dark between hits
+        public static readonly CelFxRecipe WashDummy = new CelFxRecipe("bi_wash_dummy", 0.3f, Wash("dummy", "bi_flare", 1.25f * K, 1.25f * K, 2.0f, 0.5f, 1, -2.0f, 0.11f));
         // b05: the warm pool round the dummy's foot on a board hit, about three dummy widths, with enough fill that the
         // dark ground shows it (b04's gain-2.2 pool with fill 0.1 did not show on the dark beach)
         public static readonly CelFxRecipe WashPoolHit = new CelFxRecipe("bi_wash_pool_hit", 0.3f, Wash("pool", "bi_pool", 3.8f * K, 4.2f * K, 1.3f, 0.21f, 1, 6.0f, 0.42f, 1.5f));
