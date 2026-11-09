@@ -362,7 +362,7 @@ Shader "TW/Cel/FlameJet"
                     float rf = RibField(r, i.jet.x, i.jet.y, i.jet.z, streak);
                     clip(rf);
                     // a thin red rim, orange, yellow, the white core down the tongue's middle (hotter near the nozzle)
-                    float rv = saturate(0.03 + rf * 0.8 + streak * 0.2 + 0.1 * (1.0 - saturate(i.jet.z * 1.6)));
+                    float rv = saturate(0.1 + rf * 0.95 + streak * 0.2 + 0.1 * (1.0 - saturate(i.jet.z * 1.6)));   // d09: 0.03 + 0.8 rf -> 0.1 + 0.95 rf: a wider white middle on every tongue, a thinner red rim (hot 0.074 vs REF 0.101)
                     half3 rc = CelRamp(rv, CelRowA(r.tone.x), r.tone.y);
                     float rink = CelInk(rf, 0.0, CelLodInk(r.tone.w));
                     rc = lerp(rc, CelPalInk(CelRowA(r.tone.x)).rgb, rink);
