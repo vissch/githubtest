@@ -22,6 +22,7 @@
 //              mode 3: x 3, y fade-in, z fade-out start, w curl amplitude (0..0.6 of the half-width; 0: 0.4)
 //              mode 4: x 4, y fade-in, z fade-out start, w lump amplitude (0: 0.1)
 //              mode 5: x 5, y fade-in, z fade-out start, w spike count (0: 9)
+//              mode 7: x 7, y fade-in, z fade-out start: a hot boiling splat (additive, no ink) (d09/d11)
 //              mode 6: x 6, y fade-in, z fade-out start, w height / width (0: 0.5): a soft unbanded upright mist (additive)
 // Colours: modes 0/3/4/5 band the body with CelRamp of its palette (core above the row's threshold); the bloom and the
 // wash use the palette's c1..c3 times the opacity.
@@ -82,8 +83,8 @@ Shader "TW/Cel/GlBolt"
                     // puff / star: a centred quad facing the eye
                     float y = v.uv.y * 2.0 - 1.0;
                     // mode 6 mist: squashed to extra.w of its width (0: 0.5), upright in the world
-                    float sq = mode > 5.5 ? (r.extra.w > 0.0 ? r.extra.w : 0.5) : 1.0;
-                    float3 upv = mode > 5.5 ? float3(0.0, 1.0, 0.0) : UNITY_MATRIX_V[1].xyz;
+                    float sq = (mode > 5.5 && mode < 6.5) ? (r.extra.w > 0.0 ? r.extra.w : 0.5) : 1.0;
+                    float3 upv = (mode > 5.5 && mode < 6.5) ? float3(0.0, 1.0, 0.0) : UNITY_MATRIX_V[1].xyz;
                     w = p + right * (x * size) + upv * (y * size * sq);
                     o.st = float2(x, y);
                     float def = mode < 4.5 ? 0.1 : 9.0;
@@ -134,7 +135,7 @@ Shader "TW/Cel/GlBolt"
             o.more = float4(ComputeFogFactor(o.positionCS.z), r.seed, 0, 0);
             // d06: the mist never fails the depth test (the ground cut it with a hard horizontal line); it is additive,
             // so drawn at the near plane it just lights whatever is in front, like the ref's glow on the dirt
-            if (mode > 5.5 && alive > 0.0 && size > 0.0) o.positionCS.z = UNITY_NEAR_CLIP_VALUE * o.positionCS.w * 0.999;
+            if (mode > 5.5 && mode < 6.5 && alive > 0.0 && size > 0.0) o.positionCS.z = UNITY_NEAR_CLIP_VALUE * o.positionCS.w * 0.999;
             return o;
         }
 
@@ -276,6 +277,25 @@ Shader "TW/Cel/GlBolt"
                 uint row = CelRowA(i.tone.x);
                 half3 col;
                 float mode = i.tone.w;
+                if (mode > 6.5)
+                {
+                    // mode 7 splat (d09, ref zoom hit_ref_seq.jpg): the hit is a hot pale lumpy blob that re-shapes every
+                    // frame (no star geometry, no ink): radius broken by angular noise boiling fast, white-hot middle,
+                    // pale yellow-green rim
+                    float2 st = i.st;
+                    float rr = length(st);
+                    float ang = atan2(st.y, st.x);
+                    float tq = floor(_CelNow * 24.0);
+                    float n1 = CelValue2(float2(ang * 3.2 + i.more.y * 17.0, tq * 0.37 + i.more.y * 5.0));
+                    float n2 = CelValue2(float2(ang * 9.5 - i.more.y * 9.0, tq * 0.71));
+                    float g = lerp(0.45, 1.0, i.dims.y);
+                    float edge = (0.3 + 0.4 * n1 + 0.3 * n2 * n2) * g * lerp(0.6, 1.0, i.dims.x);
+                    float d = rr - edge;
+                    float inside = CelAAStep(0.0, -d);
+                    float v = lerp(0.98, 0.6, saturate(rr / max(edge, 1e-3)));
+                    col = CelRamp(saturate(v), row, i.tone.y) * (inside * saturate(i.tone.z) * step(0.02, i.dims.x));
+                    return half4(CelAdditiveFog(col, i.positionWS, i.more.x), 1.0);
+                }
                 if (mode > 5.5)
                 {
                     // mode 6 mist (d03): a smooth unbanded pale haze standing round the target, its edge broken by slow

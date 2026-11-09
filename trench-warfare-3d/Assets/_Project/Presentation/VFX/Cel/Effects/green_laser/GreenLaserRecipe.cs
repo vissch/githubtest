@@ -208,7 +208,7 @@ namespace TW.Presentation.VFX.Cel
                 {
                     // d02: a SMALL ragged inked green star at the burst foot (was 1.6-2.2 m: 2-3x the ref f79), three overlapping
                     Name = "burst star " + i, Kind = BoltKind, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.3f * s, 0f), Start = g, Duration = 0.1f, Life = 0.16f, LifeJitter = 0.3f,
-                    Close = 3, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.2f, 0f, 0f), Size = new CelCurve(0.5f * s, 0.75f * s, 0.4f), SizeJitter = 0.4f,
+                    Close = 3, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.2f, 0f, 0f), Size = new CelCurve(0.7f * s, 1.0f * s, 0.4f), SizeJitter = 0.4f,
                     Palette = "gl_burst", Core = 0.5f, Opacity = 1f, Extra = new Vector4(5f, 0.15f, 0.4f, 12f),
                 });
                 l.Add(new CelLayer
@@ -217,12 +217,19 @@ namespace TW.Presentation.VFX.Cel
                     Close = s > 0.8f ? 30 : 14, Mid = s > 0.8f ? 6 : 0, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.2f, 0f, 0f), Aim = CelAim.Up, Speed = 11f * s, SpeedJitter = 0.6f, Spread = 28f, Drag = 3f, Gravity = 6f,
                     Size = new CelCurve(0.05f, 0.015f), SizeJitter = 0.4f, Stretch = 0.1f, Erode = new CelCurve(0.05f, 0.5f), Palette = "gl_burst", Core = 1.0f, Extra = new Vector4(0f, 0.25f, 0f, 0f),
                 });
+                // d11: the ref ground burst is a bright round green-white glowing ball (f62/f95): a boiling splat (mode 7)
+                l.Add(new CelLayer
+                {
+                    Name = "burst splat " + i, Kind = BoltKind, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.35f * s, 0f), Start = g, Duration = 0.08f, Life = 0.22f, LifeJitter = 0.2f,
+                    Close = 2, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.15f, 0f, 0f), Size = new CelCurve(0.55f * s, 0.85f * s, 0.4f), SizeJitter = 0.25f,
+                    Palette = "gl_burst", Core = 1.1f, Opacity = 1f, Extra = new Vector4(7f, 0.1f, 0.45f, 0f),
+                });
                 // a white-hot flash at the burst's heart (the reference's bright ground starburst core)
                 l.Add(new CelLayer
                 {
                     Name = "burst flash " + i, Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.25f * s, 0f), Start = g, Life = 0.16f, LifeJitter = 0.1f,
-                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.45f * s, 0.6f * s, 0.4f), SizeJitter = 0.1f,
-                    Palette = "gl_burst", Core = 1.0f, Opacity = 0.6f, Extra = new Vector4(2f, 3.0f, 0f, 0f),
+                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.8f * s, 1.0f * s, 0.4f), SizeJitter = 0.1f,
+                    Palette = "gl_burst", Core = 1.6f, Opacity = 0.85f, Extra = new Vector4(2f, 3.0f, 0f, 0f),
                 });
                 l.Add(Wash("burst wash " + i, CelAnchor.Target, g, 0f, 1, 1, 0, 0.3f, 1.5f * s, 1.7f * s, 1.0f, new Vector4(1f, 0.05f, 0.4f, 2.4f)));
                 // a dark scorch splat left on the dirt where a big burst lands (the reference's black craters), gone by ~f130
@@ -232,7 +239,7 @@ namespace TW.Presentation.VFX.Cel
             // from ~f90 that drift right, gone by ~f130
             l.Add(Smoke("smoke dummy", CelAnchor.Origin, new Vector3(0f, 1.9f, 0.4f), 1.4f, 1.4f, 0.7f, 8, 1, 0.3f, 0.5f, false, 0.5f));
             l.Add(Smoke("smoke dummy late", CelAnchor.Origin, new Vector3(0f, 1.3f, 0.8f), 3.1f, 0.5f, 1.0f, 10, 1, 0.36f, 0.6f, true, 0.7f));
-            l.Add(Smoke("smoke burst", CelAnchor.Target, new Vector3(0f, 0.8f, 0.3f), 1.8f, 1.0f, 0.8f, 12, 1, 0.34f, 0.55f, false, 0.8f));
+            l.Add(Smoke("smoke burst", CelAnchor.Target, new Vector3(0f, 0.9f, 0.3f), 2.05f, 0.8f, 0.7f, 6, 1, 0.3f, 0.5f, false, 0.8f));
             // the big late cloud right of the dummy: green-lit lumps first, then olive-grey ones (ref f95-f126), about 2x the dummy tall
             l.Add(Smoke("smoke burst lit", CelAnchor.Target, new Vector3(0f, 1.0f, 0.2f), 2.95f, 0.45f, 0.8f, 14, 1, 0.42f, 0.66f, false, 1.1f));
             l.Add(Smoke("smoke burst late", CelAnchor.Target, new Vector3(0f, 1.0f, 0.3f), 3.25f, 0.5f, 1.05f, 18, 2, 0.42f, 0.7f, true, 1.2f));
