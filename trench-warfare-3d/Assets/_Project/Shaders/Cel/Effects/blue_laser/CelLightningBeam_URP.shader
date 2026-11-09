@@ -23,6 +23,7 @@
 //                   z star points (0: star round; 3: lump amplitude), w star sharpness (1: white core radius share)
 //   erode.w    beam (r04): the window's head is jittered by +- this share of the beam per record (seeded), so the
 //              dashes re-draw at new places; the steady thread ignores it.  dot: unused
+// b01: dot mode 4 = ray star (white-hot core + uneven thin spike rays, additive); y ray root half-width, z rays, w core share.
 // r04: dots move (CelPosition), so puffs and flecks drift; soft bloom, pool and puffs added (no new draw: one kind).
 Shader "TW/Cel/LightningBeam"
 {
@@ -169,6 +170,28 @@ Shader "TW/Cel/LightningBeam"
                         cs *= i.tone.z;
                         return half4(AddFog(cs, i.positionWS, i.more.x, i.more.y), 0.0);
                     }
+                    if (i.shape.x > 3.5)
+                    {
+                        // b01: a ray star (4): a small white-hot core and z thin spike rays of uneven length, each record at
+                        // its own turn (additive); y the rays' half-width at the root (quad units), w the core's radius share
+                        float nR = max(i.shape.z, 3.0);
+                        float sdR = i.beam.z;
+                        float turn = frac(atan2(q.y, q.x) * 0.159155 + 0.5 + sdR * 3.7);
+                        float sec = turn * nR;
+                        float idR = floor(sec);
+                        float off = (CelHash21(float2(idR, sdR * 91.0)) - 0.5) * 0.5;
+                        float lenR = 0.35 + 0.65 * CelHash21(float2(idR, sdR * 53.0 + 7.0));
+                        float lat = abs(sec - idR - 0.5 - off) * 6.28318 / nR * rr;
+                        float wR = max(i.shape.y, 0.005) * saturate(1.0 - rr / lenR);
+                        float ray = CelAAStep(0.35, saturate(1.0 - lat / max(wR, 1e-4))) * step(rr, lenR);
+                        float coreR = max(i.shape.w, 0.02);
+                        float core = 1.0 - smoothstep(coreR * 0.75, coreR, rr);
+                        float haze = exp(-rr * rr * 40.0) * 0.35;
+                        half3 white = CelPalCore(row).rgb * i.tone.y;
+                        half3 cr = lerp(CelPal(row, 3), white, saturate(1.2 - rr / lenR)) * ray + CelPal(row, 2) * haze;
+                        cr = lerp(cr, white, core) * i.tone.z * (1.0 - thrS);
+                        return half4(AddFog(cr, i.positionWS, i.more.x, i.more.y), 0.0);
+                    }
                     // r04: a puff (3): a lumpy disc with a soft edge that covers (dust, c2..c3), or a hard-edged fleck
                     float sd = i.beam.z * 37.0;
                     float ang = atan2(q.y, q.x);
@@ -210,8 +233,11 @@ Shader "TW/Cel/LightningBeam"
                 field = field * lerp(0.75, 1.0, saturate(a * 1.5));
                 // r04: a fine wisp (1-2 px) weaving about the spindle on its own zig-zag, out to ~2 half-widths
                 float wz = (Zig(u, 0.2 * cs, salt + 17.0) + 0.6 * Zig(u, 0.065 * cs, salt + 23.0)) * 1.4;
-                float wisp = saturate(1.0 - abs(y - wz * prof) / 0.32) * step(0.25, prof) * 0.62 * step(0.15, i.shape.x);
-                field = max(field, wisp);
+                // b01: brighter, and a second, wider wisp on its own zig-zag: lightning arcs wrapping the dash
+                float wisp = saturate(1.0 - abs(y - wz * prof) / 0.32) * step(0.25, prof) * 0.8 * step(0.15, i.shape.x);
+                float wz2 = (Zig(u, 0.16 * cs, salt + 41.0) + 0.7 * Zig(u, 0.05 * cs, salt + 47.0)) * 2.3;
+                float wisp2 = saturate(1.0 - abs(y - wz2 * prof) / 0.28) * step(0.3, prof) * 0.75 * step(0.15, i.shape.x);
+                field = max(field, max(wisp, wisp2));
                 // branch arcs: in some cells along the beam a thin crooked arc leaves the core and runs out to one side
                 float br = 0.0;
                 if (i.shape.y > 0.0)
@@ -249,7 +275,7 @@ Shader "TW/Cel/LightningBeam"
                 // r03: tighter and softer (the clip's beam is pale cyan, not ringed in saturated blue)
                 float halo = saturate(1.0 - (dy - w) / max(4.0 * prof, 1e-3)) * step(0.05, prof) * (1.0 - mask);
                 halo = CelAAStep(0.55, halo) * 0.4 + CelAAStep(0.02, halo) * 0.6;
-                half3 add = CelPal(row, 0) * halo * 0.65 * i.tone.z * (1.0 - i.more.z);
+                half3 add = CelPal(row, 0) * halo * 0.45 * i.tone.z * (1.0 - i.more.z);
                 // the far thread is all light: no cover, it adds
                 if (i.more.z > 0.5) { add += body * mask * i.tone.z; cover = 0.0; straight = 0; }
                 add = AddFog(add, i.positionWS, i.more.x, i.more.y);
