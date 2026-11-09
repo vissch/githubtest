@@ -1,4 +1,5 @@
-// Phase: CelFx job (2026-11-09, lane/show/cel-fire-bolts; b02 beach round: round heads with flaring tails, opening
+// Phase: CelFx job (2026-11-09, lane/show/cel-fire-bolts; b03 beach round: 28 bolts in four low lanes from the left edge,
+// fatter flame bodies, no lit disc on the dummy, wide ground bursts that flicker out, smoke as inked Lobe columns; b02: round heads with flaring tails, opening
 // bolts already in flight at the fire, spark starbursts instead of a disc on the dummy, tall pointed ground flames,
 // smoke as chains of round lobes) - fire bolts (lab only): a volley of comet fire bolts from
 // the upper left on slightly arcing paths, staggered in height, depth and flight time, onto the dummy and the ground
@@ -23,19 +24,38 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>Mean seconds from launch to hit.</summary>
         public const float Flight = 0.8f;
         /// <summary>The comet's gravity (m/s2): the Range aims it ArcLift(flight) above its hit so it lands on it.</summary>
-        public const float ArcGravity = 4.0f;   // b02: 2.4 -> 4 (the reference's paths bend down onto the dummy and the ground)
+        public const float ArcGravity = 2.5f;   // b03: 4 -> 2.5 (lower lanes: the reference's paths are nearly level, bending slightly down)
         public static float ArcLift(float flight) { return 0.5f * ArcGravity * flight * flight; }
 
         /// <summary>Launch times (s after the fire) and whether the bolt lands on the ground (else on the dummy): an
         /// opening flurry, a thinner middle, and a dense late burst landing about 2.9 s after the fire (the
         /// reference's peak, frame 90).</summary>
-        public static readonly float[] Launch = { 0f, 0.07f, 0.18f, 0.3f, 0.42f, 0.55f, 0.7f, 0.9f, 1.08f, 1.25f, 1.42f, 1.6f,
-            1.85f, 1.98f, 2.08f, 2.18f, 2.28f, 2.38f, 2.46f, 2.54f, 2.62f, 2.72f };
-        public static readonly bool[] OnGround = { false, true, false, false, true, false, true, false, true, false, true, false,
-            true, false, true, false, true, false, true, false, false, false };
+        public static readonly float[] Launch = MakeLaunch();
+        public static readonly bool[] OnGround = MakeGround();
         /// <summary>Each bolt's flight time (s): staggered so the volley never flies as a rigid row.</summary>
-        public static readonly float[] FlightOf = { 0.8f, 0.7f, 0.92f, 0.76f, 0.86f, 0.68f, 0.9f, 0.74f, 0.82f, 0.95f, 0.7f, 0.84f,
-            0.78f, 0.9f, 0.72f, 0.86f, 0.8f, 0.68f, 0.92f, 0.76f, 0.84f, 0.8f };
+        public static readonly float[] FlightOf = MakeFlight();
+
+        // b03: 28 bolts every ~0.1 s from the fire to 2.7 s (b02: 22 with a thin middle): 4-6 in flight over the
+        // reference's whole plateau (f19-f85); two in five land on the ground
+        const int Count = 28;
+        static float[] MakeLaunch()
+        {
+            var a = new float[Count];
+            for (int i = 0; i < Count; i++) a[i] = i * 0.098f + ((i * 7) % 5 - 2) * 0.012f + (i == 0 ? 0.024f : 0f);
+            return a;
+        }
+        static bool[] MakeGround()
+        {
+            var a = new bool[Count];
+            for (int i = 0; i < Count; i++) a[i] = (i % 5) == 1 || (i % 5) == 3;
+            return a;
+        }
+        static float[] MakeFlight()
+        {
+            var a = new float[Count];
+            for (int i = 0; i < Count; i++) a[i] = 0.8f + ((i * 3) % 7 - 3) * 0.04f;
+            return a;
+        }
         /// <summary>The opening bolts are already part way along their line at the fire (the reference shows three in
         /// flight with full tails by its f19): bolt i starts AlongAt[i] of the way, flies the rest of its line in
         /// (1 - AlongAt[i]) of its flight time, and draws its tail behind its birth (negative Stretch).</summary>
@@ -57,16 +77,18 @@ namespace TW.Presentation.VFX.Cel
             CelPalette.Add("fb_spark", CelPalette.Hex(0x9A3A10), CelPalette.Hex(0xE0681C), CelPalette.Hex(0xFFA02E), CelPalette.Hex(0xFFD04A),
                 CelPalette.Hex(0xFFE27A), 0.9f, 3, CelPalette.Hex(0x2A0C06));
             // grey wispy smoke (#726369 body)
-            CelPalette.Add("fb_smoke", CelPalette.Hex(0x6A6064), CelPalette.Hex(0x84797C), CelPalette.Hex(0xA49A9A), CelPalette.Hex(0xC0B8B6),
-                CelPalette.Hex(0xCCC4C2), 1.1f, 2, CelPalette.Hex(0x4A4246));   // b02: two bands, a soft dark-grey ink
+            CelPalette.Add("fb_smoke", CelPalette.Hex(0x7A7478), CelPalette.Hex(0x968F92), CelPalette.Hex(0xB4AEAE), CelPalette.Hex(0xD0CACA),
+                CelPalette.Hex(0xDAD4D2), 1.1f, 2, CelPalette.Hex(0x1C171A));   // b03: two bands, a near-black ink (the reference's smoke is inked)
             Comets = new CelFxRecipe[Launch.Length];
             Hits = new CelFxRecipe[Launch.Length];
+            Smokes = new CelFxRecipe[Launch.Length];
             for (int i = 0; i < Launch.Length; i++)
             {
                 bool pre = i < AlongAt.Length;
                 Flights[i] = pre ? FlightOf[i] * (1f - AlongAt[i]) : FlightOf[i];
                 Comets[i] = MakeComet(Launch[i], Flights[i], pre);
                 Hits[i] = MakeHit(Launch[i] + Flights[i], OnGround[i]);
+                Smokes[i] = MakeSmoke(Launch[i] + Flights[i]);   // played on ground hits only
             }
         }
 
@@ -78,6 +100,10 @@ namespace TW.Presentation.VFX.Cel
         public static readonly CelFxRecipe Pool = MakePool(0f);
         /// <summary>The volley: bolt i's comet and its hit, shifted by Launch[i].</summary>
         public static readonly CelFxRecipe[] Comets, Hits;
+        /// <summary>b03: bolt i's smoke column (the Range plays it on ground hits only), with dir = up and a little
+        /// screen-right, so the column leans along the shot.</summary>
+        public static readonly CelFxRecipe[] Smokes;
+        public static readonly CelFxRecipe Smoke = MakeSmoke(Flight);
 
         const float PoolLife = 5.1f, PoolRadius = 6.0f;
 
@@ -103,11 +129,12 @@ namespace TW.Presentation.VFX.Cel
                     Close = 1, Mid = 1, Far = 1, Aim = CelAim.Target, Speed = 0f, Spread = 0f, Spin = 3f, Gravity = ArcGravity,
                     // b01 (beach, 19 m camera): ribbon 0.2 m wide, 0.75 s of its speed long (a third to half the frame)
                     // b02: a negative Stretch draws the tail behind the birth (the opening bolts were in flight before the fire)
-                    Size = new CelCurve(0.16f, 0.16f), SizeJitter = 0.2f, Stretch = preflown ? -0.75f : 0.75f, Erode = new CelCurve(0f, 0f),
-                    Palette = "fb_comet", CoolTo = "fb_ribbon", Core = 2.6f, Opacity = 1f, Ink = 2f,
+                    Size = new CelCurve(0.2f, 0.2f), SizeJitter = 0.2f, Stretch = preflown ? -0.75f : 0.75f, Erode = new CelCurve(0f, 0f),
+                    Palette = "fb_comet", CoolTo = "fb_ribbon", Core = 2.2f,   // b03: 2.6 -> 2.2 (the bodies read white-hot)
+                    Opacity = 1f, Ink = 2f,
                     // b02: a round white-yellow head 0.2 m, a flame body that flares and tapers over 2.2 m, thin red
                     // streaks fading out to 5 m, a ribbon waving 0.08 m over 5.5 m
-                    Extra = new Vector4(0.2f, 5.0f, 0.08f, 5.5f),
+                    Extra = new Vector4(0.27f, 5.0f, 0.08f, 5.5f),   // b03: head 0.2 -> 0.27 m (the body is twice as wide in the shader)
                 });
         }
 
@@ -119,9 +146,9 @@ namespace TW.Presentation.VFX.Cel
                 new CelLayer
                 {
                     Name = "spark starburst", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit, Duration = 0.05f, Life = 0.34f, LifeJitter = 0.25f,
-                    Close = ground ? 16 : 24, Mid = 6, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.05f, 0f, 0f), Aim = CelAim.Radial,
-                    Speed = 8f, SpeedJitter = 0.4f, UpBias = 0.15f, Gravity = 3f, Drag = 2f,
-                    Size = new CelCurve(0.05f, 0.02f), Stretch = 0.09f, Erode = new CelCurve(0.02f, 0.6f), Palette = "fb_spark", Core = 3f, Extra = new Vector4(0f, 0.18f, 0f, 0f),
+                    Close = ground ? 18 : 28, Mid = 6, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.05f, 0f, 0f), Aim = CelAim.Radial,
+                    Speed = 9f, SpeedJitter = 0.4f, UpBias = 0.15f, Gravity = 3f, Drag = 2f,
+                    Size = new CelCurve(0.06f, 0.025f), Stretch = 0.13f,   // b03: longer, a little wider (a visible star) Erode = new CelCurve(0.02f, 0.6f), Palette = "fb_spark", Core = 3f, Extra = new Vector4(0f, 0.18f, 0f, 0f),
                 },
                 new CelLayer
                 {
@@ -132,7 +159,7 @@ namespace TW.Presentation.VFX.Cel
                 new CelLayer
                 {
                     Name = "light", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = hit, Life = 0.4f,
-                    Close = 1, Mid = 1, Far = 0, Palette = "fire", Core = ground ? 0.5f : 0.06f, Extra = new Vector4(3f, 0f, 0f, 0f),   // b02: half the light on the dummy (0.12 lit a white disc on the board)
+                    Close = 1, Mid = 1, Far = 0, Palette = "fire", Core = ground ? 0.5f : 0f, Extra = new Vector4(3f, 0f, 0f, 0f),   // b03: no light on the dummy (even 0.06 lit a disc on the board)
                 });
             if (ground)
             {
@@ -142,29 +169,25 @@ namespace TW.Presentation.VFX.Cel
                     Close = 1, Mid = 1, Far = 1, Size = new CelCurve(0.2f, 0.4f, 0.5f), SizeJitter = 0.15f, Erode = new CelCurve(0.03f, 0.9f, 1.5f),
                     Palette = "fire", Core = 2f, Spin = 2f, Extra = new Vector4(2f, 1.1f, 8f, 5f),
                 });
-                // b02: soft curling cel smoke, not strands: each plume a chain of round lobes (Comet puff mode: no head, no
-                // flame) lit from above in two grey bands, widening from 0.25 to 0.8 m as it rises, drifting up and right
-                // along the shot, lobes dropping out until it is gone ~1.6 s after the burst
+                // b03: a ragged burst of wide flame tongues about the dummy's torso tall, fanned out (b02's were thin
+                // upright slivers), then a smaller fire that flickers on and dies about 1 s after the hit
                 r.Layers.Add(new CelLayer
                 {
-                    Name = "smoke plumes", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.35f, 0f), Start = hit + 0.12f, Duration = 0.45f, Life = 1.5f, LifeJitter = 0.15f,
-                    Close = 4, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.2f, 0f, 0f), Aim = CelAim.Radial, UpBias = 3f, Speed = 1.3f, SpeedJitter = 0.3f, Drag = 0.3f, Buoyancy = 0.8f, Spin = 1.6f,
-                    Size = new CelCurve(0.35f, 1.1f, 0.7f), SizeJitter = 0.25f, Stretch = 2.6f, Erode = new CelCurve(0f, 0.95f, 2.5f),
-                    Palette = "fb_smoke", CoolTo = "fb_smoke", Core = 1f, Opacity = 1f, Ink = 1f, Extra = new Vector4(0f, 0f, 0.2f, 1.0f),
+                    Name = "ground burst", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit, Duration = 0.12f, Life = 0.32f, LifeJitter = 0.3f,
+                    Close = 16, Mid = 5, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Up, Spread = 50f, Speed = 3.0f, SpeedJitter = 0.35f, Buoyancy = 1.6f,
+                    Size = new CelCurve(0.9f, 0.15f, 0.6f), SizeJitter = 0.3f, Stretch = 0.36f, Erode = new CelCurve(0.05f, 0.55f), Palette = "fire", Core = 2.4f, Ink = 2f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
                 });
-                // b02: tall pointed flame tongues (about half the dummy's height) with a white-hot core, flickering on
-                // for ~0.8 s, then gone
                 r.Layers.Add(new CelLayer
                 {
-                    Name = "ground flames", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit + 0.02f, Duration = 0.8f, Life = 0.38f, LifeJitter = 0.25f,
-                    Close = 22, Mid = 6, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.25f, 0f, 0f), Aim = CelAim.Up, Spread = 25f, Speed = 3.2f, SpeedJitter = 0.3f, Buoyancy = 1.4f,
-                    Size = new CelCurve(0.45f, 0.06f, 0.7f), SizeJitter = 0.25f, Stretch = 0.4f, Erode = new CelCurve(0.05f, 0.5f), Palette = "fire", Core = 2.2f, Ink = 2f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
+                    Name = "ground fire", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit + 0.15f, Duration = 0.75f, Life = 0.3f, LifeJitter = 0.3f,
+                    Close = 12, Mid = 3, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.22f, 0f, 0f), Aim = CelAim.Up, Spread = 30f, Speed = 1.6f, SpeedJitter = 0.35f, Buoyancy = 1.2f,
+                    Size = new CelCurve(0.4f, 0.08f, 0.7f), SizeJitter = 0.3f, Stretch = 0.3f, Erode = new CelCurve(0.1f, 0.6f), Palette = "fire", Core = 1.8f, Ink = 2f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
                 });
                 r.Layers.Add(new CelLayer
                 {
                     Name = "fire core", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.15f, 0f), Start = hit, Life = 0.35f, LifeJitter = 0.15f,
-                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.4f, 0.15f, 0.6f), SizeJitter = 0.15f, Erode = new CelCurve(0.05f, 0.7f, 1.5f),
-                    Palette = "fire", Core = 2.4f, Extra = new Vector4(2f, 1.4f, 0f, 0f),
+                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.65f, 0.25f, 0.6f), SizeJitter = 0.15f, Erode = new CelCurve(0.05f, 0.7f, 1.5f),
+                    Palette = "fire", Core = 2.8f,   // b03: a bigger white-hot core Extra = new Vector4(2f, 1.4f, 0f, 0f),
                 });
                 r.Layers.Add(new CelLayer
                 {
@@ -174,6 +197,21 @@ namespace TW.Presentation.VFX.Cel
                 });
             }
             return r;
+        }
+
+        // b03: a smoke column per ground hit, from the kit's Lobe kind (b02's puff chains read as single beans): a
+        // stream of inked lobes, lit from above in the palette's two grey bands, rising about 1.5 dummy heights, leaning
+        // along dir (up and screen-right), growing and eroding away until gone ~1.3 s after the hit
+        static CelFxRecipe MakeSmoke(float hit)
+        {
+            return new CelFxRecipe("fire_bolt_smoke", hit + 2f,
+                new CelLayer
+                {
+                    Name = "smoke column", Kind = CelKinds.LobeName, Anchor = CelAnchor.Origin, Offset = new Vector3(0f, 0f, 0.2f), Start = hit + 0.1f, Duration = 0.7f, Life = 1.0f, LifeJitter = 0.15f,
+                    Close = 20, Mid = 5, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.06f, 0f, 0f), Aim = CelAim.Dir, Spread = 9f, Speed = 2.3f, SpeedJitter = 0.2f, Drag = 0.35f, Buoyancy = 0.5f, Spin = 1.2f,
+                    Size = new CelCurve(0.1f, 0.3f, 0.6f), SizeJitter = 0.25f, Stretch = 0f, Erode = new CelCurve(0f, 1f, 2.2f), Feather = 0.1f,
+                    Palette = "fb_smoke", Core = 1f, Ink = 2f, Extra = new Vector4(1.6f, 0.22f, 0.9f, 0f),
+                });
         }
     }
 }
