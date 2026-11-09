@@ -146,20 +146,20 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // b02: the early fireball, small (the blast builds; ref f31-f68)
-                Name = "fireball", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.3f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.55f, 0.0f, 0.0f),
+                Name = "fireball", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.3f, 0.0f), Shape = CelShape.Box, ShapeSize = new Vector3(0.85f, 0.3f, 0.5f),
                 Start = 0f, Duration = 1.75f, Life = 0.5f, LifeJitter = 0.3f, Close = 34, Mid = 12, Far = 0,
-                Aim = CelAim.Radial, Speed = 2.0f, Drag = 2.5f, Buoyancy = 0.45f, Spin = 2.0f,
+                Aim = CelAim.Radial, Speed = 2.0f, Drag = 2.5f, Buoyancy = 0.22f, Spin = 2.0f,
                 Size = new CelCurve(0.45f, 0.85f, 0.5f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 3.5f), Feather = 0.08f,
-                Palette = "exp_ball_ink", CoolTo = "exp_wrap", CoolFrom = 0.8f, Core = 1f, Ink = 6.0f, Extra = new Vector4(1.2f, 0.12f, 0.3f, 0.7f),
+                Palette = "exp_ball_ink", CoolTo = "exp_wrap", CoolFrom = 0.8f, Core = 1f, Ink = 6.0f, Extra = new Vector4(1.6f, 0.24f, 0.3f, 0.7f),
             },
             new CelLayer
             {
                 // b02: the big fireball growing to the peak (ref f77-f90: 1.5-2x the dummy's height across)
-                Name = "fireball big", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.4f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.95f, 0.0f, 0.0f),
+                Name = "fireball big", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.4f, 0.0f), Shape = CelShape.Box, ShapeSize = new Vector3(1.7f, 0.55f, 0.8f),
                 Start = 1.1f, Duration = 1.65f, Life = 0.6f, LifeJitter = 0.3f, Close = 56, Mid = 18, Far = 0,
-                Aim = CelAim.Radial, Speed = 2.2f, Drag = 2.5f, Buoyancy = 0.4f, Spin = 2.0f,
+                Aim = CelAim.Radial, Speed = 2.2f, Drag = 2.5f, Buoyancy = 0.2f, Spin = 2.0f,
                 Size = new CelCurve(0.65f, 1.15f, 0.5f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 3.5f), Feather = 0.08f,
-                Palette = "exp_ball_ink", CoolTo = "exp_wrap", CoolFrom = 0.6f, Core = 1f, Ink = 6.0f, Extra = new Vector4(1.2f, 0.12f, 0.3f, 0.7f),
+                Palette = "exp_ball_ink", CoolTo = "exp_wrap", CoolFrom = 0.6f, Core = 1f, Ink = 6.0f, Extra = new Vector4(1.6f, 0.24f, 0.3f, 0.7f),
             },
             new CelLayer
             {
