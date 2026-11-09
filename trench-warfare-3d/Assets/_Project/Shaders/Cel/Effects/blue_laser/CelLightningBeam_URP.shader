@@ -5,10 +5,10 @@
 // a cyan body with a thin white core and a dark ink edge (premultiplied: the body and the ink cover what is behind),
 // and a dim blue halo around it that adds light. One record per pulse; the beam is the record's own velocity x life
 // (CelAim.Target, Speed 0, Arrive 1, no drag or gravity: vel x life = target - start).
-// r02: a record with size.w < 0 is an impact DOT instead: a camera-facing star at the record's place, additive.
+// r03: a tighter, dimmer halo. r02: a record with size.w < 0 is an impact DOT instead: a camera-facing star at the record's place, additive.
 // Going out (_CelLod.x toward 2) the steady thread and the dot keep a minimum size in screen pixels and see through
 // most of the fog, so the Far tier (thread + dot, one draw) still reads at O120 and O240.
-//   size.xyz   beam: width (m) of the spindle's widest part at birth, at death, ease.  dot: radius (m)
+//   size.xyz   beam: width (m, at the target's distance) of the spindle's widest part at birth, at death, ease.  dot: radius (m)
 //   size.w     beam: the pulse window's length (share of the beam, 0..1; 1 and extra.z = extra.w = 1: the whole beam,
 //              the steady thread, which shows only going out to Mid/Far).  dot: minus the radius in px at Far
 //   erode.xyz  the threshold the cross-section (dot: the radial field) is cut at over the life (it thins in steps)
@@ -98,6 +98,10 @@ Shader "TW/Cel/LightningBeam"
                 side = sl > 1e-6 ? side * rsqrt(sl) : UNITY_MATRIX_V[0].xyz;
                 float across = v.uv.y * 2.0 - 1.0;
                 float halfW = width * 0.5;
+                // r03: size.x is the width AT THE TARGET; nearer the eye the spindle is thinner in metres (painted
+                // dashes keep a readable screen width down the beam: about 2.5x the target's at 10x nearer)
+                float scaleW = thread ? 1.0 : clamp(pow(PixelMetres(p) / max(PixelMetres(r.pos + span), 1e-6), 0.6), 0.15, 2.0);
+                halfW *= scaleW;
                 // going out the line keeps at least ~1.3 px of half-width (2.5 px wide at Far)
                 halfW = max(halfW, 1.3 * saturate(_CelLod.x * 0.5) * PixelMetres(p) * alive * open);
                 float3 w = p + side * across * halfW * BEAM_PAD;
@@ -111,7 +115,7 @@ Shader "TW/Cel/LightningBeam"
                 o.beam = float4(a, across * BEAM_PAD, s * lenB, max(halfW, 1e-4));
                 o.tone = float4(r.tone.x, r.tone.y, op, CelCurve(r.erode.xyz, k));
                 o.shape = float4(r.extra.x, r.extra.y * saturate(1.0 - _CelLod.x), r.seed, full * lenB);
-                o.more = float4(ComputeFogFactor(o.positionCS.z), far, thread ? 1.0 : 0.0, 0);
+                o.more = float4(ComputeFogFactor(o.positionCS.z), far, thread ? 1.0 : 0.0, scaleW);
                 return o;
             }
 
@@ -153,8 +157,10 @@ Shader "TW/Cel/LightningBeam"
                 // the spindle: pointed at both ends, fullest a little behind the head
                 float prof = pow(saturate(sin(3.14159 * pow(saturate(a), 1.6))), 0.55);
                 // the centre line zig-zags (two scales, in half-widths) and the outline is ragged
-                float zig = (Zig(u, 0.42, salt) + 0.45 * Zig(u, 0.13, salt + 5.1)) * i.shape.x * 1.6;
-                float rag = 1.0 + 0.35 * Zig(u, 0.07, salt + 9.3);
+                // r03: the cells scale with the width (more.w), or the foreshortened far half aliases away
+                float cs = max(i.more.w, 0.15);
+                float zig = (Zig(u, 0.42 * cs, salt) + 0.45 * Zig(u, 0.13 * cs, salt + 5.1)) * i.shape.x * 1.6;
+                float rag = 1.0 + 0.35 * Zig(u, 0.07 * cs, salt + 9.3);
                 float w = prof * rag;
                 float dy = abs(y - zig * prof);
                 float field = saturate(1.0 - dy / max(w, 1e-3));
@@ -163,7 +169,7 @@ Shader "TW/Cel/LightningBeam"
                 float br = 0.0;
                 if (i.shape.y > 0.0)
                 {
-                    const float cell = 0.55;
+                    float cell = 0.55 * cs;
                     float ci = floor(u / cell);
                     [unroll] for (int c = 0; c < 2; c++)
                     {
@@ -193,9 +199,10 @@ Shader "TW/Cel/LightningBeam"
                 straight = MixFog(straight, i.more.x);
                 float cover = mask * saturate(i.tone.z * 1.4);
                 // the halo: dim blue light a few half-widths around the spindle (not around the arcs)
-                float halo = saturate(1.0 - (dy - w) / max(4.8 * prof, 1e-3)) * step(0.05, prof) * (1.0 - mask);
-                halo = CelAAStep(0.55, halo) * 0.35 + CelAAStep(0.02, halo) * 0.65;
-                half3 add = CelPal(row, 0) * halo * 0.8 * i.tone.z * (1.0 - i.more.z);
+                // r03: tighter and softer (the clip's beam is pale cyan, not ringed in saturated blue)
+                float halo = saturate(1.0 - (dy - w) / max(4.0 * prof, 1e-3)) * step(0.05, prof) * (1.0 - mask);
+                halo = CelAAStep(0.55, halo) * 0.4 + CelAAStep(0.02, halo) * 0.6;
+                half3 add = CelPal(row, 0) * halo * 0.65 * i.tone.z * (1.0 - i.more.z);
                 // the far thread is all light: no cover, it adds
                 if (i.more.z > 0.5) { add += body * mask * i.tone.z; cover = 0.0; straight = 0; }
                 add = AddFog(add, i.positionWS, i.more.x, i.more.y);
