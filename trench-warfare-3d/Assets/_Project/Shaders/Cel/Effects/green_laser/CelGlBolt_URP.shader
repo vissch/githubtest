@@ -128,6 +128,9 @@ Shader "TW/Cel/GlBolt"
             if (alive <= 0.0 || size <= 0.0) o.positionCS = float4(2.0, 2.0, 2.0, 1.0);
             o.tone = float4(r.tone.x, r.tone.y, r.tone.z, mode);
             o.more = float4(ComputeFogFactor(o.positionCS.z), r.seed, 0, 0);
+            // d06: the mist never fails the depth test (the ground cut it with a hard horizontal line); it is additive,
+            // so drawn at the near plane it just lights whatever is in front, like the ref's glow on the dirt
+            if (mode > 5.5 && alive > 0.0 && size > 0.0) o.positionCS.z = UNITY_NEAR_CLIP_VALUE * o.positionCS.w * 0.999;
             return o;
         }
 
@@ -279,9 +282,10 @@ Shader "TW/Cel/GlBolt"
                     float n2 = CelValue2(st * 4.1 + float2(i.more.y * 5.0 - _CelNow * 0.4, _CelNow * 0.3));
                     float field = exp(-rr * rr * (i.dims.w > 0.0 ? 2.6 : 2.6)) * (0.55 + 0.3 * n + 0.15 * n2);
                     field *= 1.0 - smoothstep(0.55, 1.0, rr);
+                    field *= lerp(0.35, 1.0, smoothstep(0.05, 0.4, rr));   // d06: dimmer over the target so it stays readable
                     field *= smoothstep(-0.95, -0.35, st.y);
                     float core = exp(-rr * rr * 7.0);
-                    col = (CelPal(row, 3) * (field * 0.8 + core * 0.1) + CelPal(row, 1) * field * 0.5) * (i.dims.x * i.tone.z);
+                    col = (CelPal(row, 3) * (field * 0.8) + CelPal(row, 1) * field * 0.5) * (i.dims.x * i.tone.z);
                     return half4(CelAdditiveFog(col, i.positionWS, i.more.x), 1.0);
                 }
                 if (mode > 2.5)
