@@ -57,7 +57,7 @@ namespace TW.Presentation.VFX.Cel
             CelPalette.Add("gl_smoke_tan", CelPalette.Hex(0x6E6550), CelPalette.Hex(0x8A7F62), CelPalette.Hex(0xA3977A), CelPalette.Hex(0xBDB094), CelPalette.Hex(0xC8BC9E), 1.1f, 3, CelPalette.Hex(0x16130E));
             CelPalette.Add("gl_wisp", CelPalette.Hex(0xBEDD96), CelPalette.Hex(0xCDE8A6), CelPalette.Hex(0xD7F39C), CelPalette.Hex(0xE4F6BA), CelPalette.Hex(0xF0FFD0), 0.98f, 4, CelPalette.Hex(0x0A1A06));
             CelPalette.Add("gl_burst", CelPalette.Hex(0x3A8A26), CelPalette.Hex(0x5CBE3C), CelPalette.Hex(0x86DA5E), CelPalette.Hex(0xA8EA82), CelPalette.Hex(0xC8F6A8), 0.96f, 3, CelPalette.Hex(0x0A1A06));
-            CelPalette.Add("gl_smoke_grey", CelPalette.Hex(0x6A6E58), CelPalette.Hex(0x80866A), CelPalette.Hex(0x989E7E), CelPalette.Hex(0xB0B692), CelPalette.Hex(0xB0B692), 1.1f, 3, CelPalette.Hex(0x0E140A));
+            CelPalette.Add("gl_smoke_grey", CelPalette.Hex(0x767A6C), CelPalette.Hex(0x8E9282), CelPalette.Hex(0xA6AA96), CelPalette.Hex(0xBCC0AA), CelPalette.Hex(0xBCC0AA), 1.1f, 3, CelPalette.Hex(0x0E140A));
             CelPalette.Add("gl_dirt", CelPalette.Hex(0x0E0E0A), CelPalette.Hex(0x16150F), CelPalette.Hex(0x201E16), CelPalette.Hex(0x2C291E), CelPalette.Hex(0x2C291E), 1.1f, 3, CelPalette.Hex(0x040403));
                     }
 
@@ -177,7 +177,7 @@ namespace TW.Presentation.VFX.Cel
             Name = name, Kind = BoltKind, Anchor = anchor, Offset = offset, Start = start, Duration = duration, Life = life, LifeJitter = 0.25f,
             Close = close, Mid = mid, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(spread, 0f, 0f), Aim = CelAim.Dir, Speed = tan ? 1.7f : 1.4f, SpeedJitter = 0.5f, Spread = 40f, Drag = 0.6f, Buoyancy = tan ? 1.6f : 1.0f, Spin = 1.2f,
             Size = new CelCurve(r0, r1, 0.5f), SizeJitter = 0.35f,
-            Palette = tan ? "gl_smoke_grey" : "gl_smoke", Core = 1f, Opacity = tan ? 0.5f : 0.75f, Extra = new Vector4(4f, 0.12f, 0.45f, 0.13f),
+            Palette = tan ? "gl_smoke_grey" : "gl_smoke", Core = 1f, Opacity = tan ? 0.62f : 0.75f, Extra = new Vector4(4f, 0.12f, 0.45f, 0.13f),
         };
 
         static CelLayer[] GroundLayers()
