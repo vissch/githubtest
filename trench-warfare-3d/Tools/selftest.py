@@ -885,7 +885,7 @@ a = sys.argv[1:]
 print('stand-in unity ' + ' '.join(a))
 mode = a[a.index('--mode') + 1]
 asked = a[a.index('-assemblyNames') + 1].split(';') if '-assemblyNames' in a else []
-every = ['TW.Tests.Sim', 'TW.Tests.Match', 'TW.Tests.Show', 'TW.Tests.UI', 'TW.Tests.Project', 'TW.Tests.Playground']
+every = ['TW.Tests.Sim', 'TW.Tests.Match', 'TW.Tests.Show', 'TW.Tests.UI', 'TW.Tests.Project', 'TW.Tests.Playground', 'TW.Tests.Cel']
 how = os.environ.get('TW_FAKE', 'honour')
 if how == 'dirty':
     # [H8] simulates a tracked project file changing mid-run; the caller restores it with `git checkout -- .`
