@@ -63,6 +63,11 @@ Shader "TW/Cel/GlBolt"
             else alive *= (isPuff < 0.5 && (isFace > 0.5 || isDark == darkPass)) ? 1.0 : 0.0;
             float3 p = CelPosition(r, t);
             float size = CelCurve(r.size.xyz, k) * alive;
+            // d14: the soft lights (wash, mist, splat) grow going out so the hit still reads as a green flash at Mid/Far
+            // (x1 up to tier 1.2, rising to x2.8 at Far; the beach close-up sits near tier 1); counts and detail do not change
+            float isLight = (abs(mode - 1.0) < 0.5 || mode > 5.5) ? 1.0 : 0.0;
+            float farT = saturate((_CelLod.x - 1.2) / 0.8) * isLight;
+            size *= 1.0 + 1.2 * farT;   // d15: capped so the O120 footprint stays <= T1   // far only: the close film runs near tier 1
             Varyings o;
             float3 w;
             float fin = r.extra.y > 0.0 ? smoothstep(0.0, r.extra.y, k) : 1.0;
@@ -131,7 +136,7 @@ Shader "TW/Cel/GlBolt"
             o.positionCS = TransformWorldToHClip(w);
             // a record that does not draw in this pass is put outside the clip volume (no stray pixels)
             if (alive <= 0.0 || size <= 0.0) o.positionCS = float4(2.0, 2.0, 2.0, 1.0);
-            o.tone = float4(r.tone.x, r.tone.y, r.tone.z, mode);
+            o.tone = float4(r.tone.x, r.tone.y, r.tone.z * (1.0 + 0.6 * farT), mode);   // d14: brighter at Far too
             o.more = float4(ComputeFogFactor(o.positionCS.z), r.seed, 0, 0);
             // d06: the mist never fails the depth test (the ground cut it with a hard horizontal line); it is additive,
             // so drawn at the near plane it just lights whatever is in front, like the ref's glow on the dirt

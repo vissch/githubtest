@@ -163,7 +163,7 @@ namespace TW.Presentation.VFX.Cel
             Name = name, Kind = BoltKind, Anchor = anchor, Offset = offset, Start = start, Duration = duration, Life = life, LifeJitter = 0.25f,
             Close = close, Mid = mid, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(spread, 0f, 0f), Aim = CelAim.Dir, Speed = tan ? 1.7f : 1.4f, SpeedJitter = 0.5f, Spread = 40f, Drag = 0.6f, Buoyancy = tan ? 1.6f : 1.0f, Spin = 1.2f,
             Size = new CelCurve(r0, r1, 0.5f), SizeJitter = 0.35f,
-            Palette = tan ? "gl_smoke_grey" : "gl_smoke", Core = 1f, Opacity = tan ? 0.62f : 0.8f, Extra = new Vector4(4f, 0.12f, 0.45f, 0.13f),
+            Palette = tan ? "gl_smoke_grey" : "gl_smoke", Core = 1f, Opacity = tan ? 0.5f : 0.75f, Extra = new Vector4(4f, 0.12f, 0.45f, 0.13f),
         };
 
         static CelLayer[] GroundLayers()
@@ -178,7 +178,7 @@ namespace TW.Presentation.VFX.Cel
                 new CelLayer
                 {
                     Name = "wash haze", Kind = BoltKind, Anchor = CelAnchor.Origin, Offset = new Vector3(0f, 1.1f, 0.1f), Start = Hits[0], Life = 3.9f, LifeJitter = 0f,
-                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(4.2f, 4.4f, 0.5f), SizeJitter = 0f, Palette = "gl_haze", Core = 1f, Opacity = 0.95f, Extra = new Vector4(6f, 0.05f, 0.85f, 0.6f),
+                    Close = 1, Mid = 1, Far = 1, Size = new CelCurve(4.2f, 4.4f, 0.5f), SizeJitter = 0f, Palette = "gl_haze", Core = 1f, Opacity = 0.95f, Extra = new Vector4(6f, 0.05f, 0.85f, 0.6f),
                 },
                 // the dirt round the glow goes dark (the reference's night ground round the light), a smooth disc, no ring
                 new CelLayer
@@ -241,8 +241,8 @@ namespace TW.Presentation.VFX.Cel
             l.Add(Smoke("smoke dummy late", CelAnchor.Origin, new Vector3(0f, 1.3f, 0.8f), 3.1f, 0.5f, 1.0f, 10, 1, 0.36f, 0.6f, true, 0.7f));
             l.Add(Smoke("smoke burst", CelAnchor.Target, new Vector3(0f, 0.9f, 0.3f), 2.05f, 0.8f, 0.7f, 6, 1, 0.3f, 0.5f, false, 0.8f));
             // the big late cloud right of the dummy: green-lit lumps first, then olive-grey ones (ref f95-f126), about 2x the dummy tall
-            l.Add(Smoke("smoke burst lit", CelAnchor.Target, new Vector3(0f, 1.0f, 0.2f), 2.95f, 0.45f, 0.8f, 14, 1, 0.42f, 0.66f, false, 1.1f));
-            l.Add(Smoke("smoke burst late", CelAnchor.Target, new Vector3(0f, 1.0f, 0.3f), 3.25f, 0.5f, 1.05f, 18, 2, 0.42f, 0.7f, true, 1.2f));
+            l.Add(Smoke("smoke burst lit", CelAnchor.Target, new Vector3(0f, 1.0f, 0.2f), 2.95f, 0.45f, 0.7f, 9, 1, 0.4f, 0.62f, false, 1.0f));
+            l.Add(Smoke("smoke burst late", CelAnchor.Target, new Vector3(0f, 1.0f, 0.3f), 3.25f, 0.45f, 1.0f, 11, 2, 0.4f, 0.66f, true, 1.1f));
             l.Add(new CelLayer
             {
                 // small green embers glinting at the feet after the volley (reference frames 112-125)
