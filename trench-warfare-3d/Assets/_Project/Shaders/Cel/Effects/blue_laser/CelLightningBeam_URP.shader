@@ -225,7 +225,10 @@ Shader "TW/Cel/LightningBeam"
                 // the centre line zig-zags (two scales, in half-widths) and the outline is ragged
                 // r03: the cells scale with the width (more.w), or the foreshortened far half aliases away
                 float cs = max(i.more.w, 0.15);
-                float zig = (Zig(u, 0.42 * cs, salt) + 0.45 * Zig(u, 0.13 * cs, salt + 5.1)) * i.shape.x * 1.6;
+                // b04: the kinks' size changes along the dash (an amplitude on its own long zig-zag, 0.25..1.75), and a
+                // sharp third scale, so the edge reads as irregular lightning kinks and not an even wave
+                float ampK = 1.0 + 0.75 * Zig(u, 1.3 * cs, salt + 71.0);
+                float zig = (Zig(u, 0.42 * cs, salt) * ampK + 0.45 * Zig(u, 0.13 * cs, salt + 5.1) + 0.3 * Zig(u, 0.045 * cs, salt + 77.0)) * i.shape.x * 1.6;
                 float rag = 1.0 + 0.35 * Zig(u, 0.07 * cs, salt + 9.3);
                 float w = prof * rag;
                 float dy = abs(y - zig * prof);
@@ -239,8 +242,9 @@ Shader "TW/Cel/LightningBeam"
                 float wisp2 = saturate(1.0 - abs(y - wz2 * prof) / 0.28) * step(0.3, prof) * 0.75 * step(0.15, i.shape.x);
                 // b02: the wisps only show in some cells (b01's ran the dash's whole length: an even sine wrapping a rod)
                 float wc = 0.9 * cs;
-                wisp *= step(0.45, CelHash21(float2(floor(u / wc), salt + 61.0)));
-                wisp2 *= step(0.6, CelHash21(float2(floor(u / wc + 0.5), salt + 67.0)));
+                // b04: fewer still (the critic read b03's wisps as an even sine edge)
+                wisp *= step(0.72, CelHash21(float2(floor(u / wc), salt + 61.0)));
+                wisp2 *= step(0.82, CelHash21(float2(floor(u / wc + 0.5), salt + 67.0)));
                 field = max(field, max(wisp, wisp2));
                 // branch arcs: in some cells along the beam a thin crooked arc leaves the core and runs out to one side
                 float br = 0.0;
@@ -252,17 +256,29 @@ Shader "TW/Cel/LightningBeam"
                     {
                         float id = ci - c;
                         float h = CelHash21(float2(id, salt + 31.0));
-                        if (h > i.shape.y * cell) continue;
+                        // b04: a share of the cells (y x 0.05: b03's y x cell saturated, every cell had an arc, but each was a
+                        // ~1.5 px inked hair that read as nothing)
+                        if (h > saturate(i.shape.y * 0.05)) continue;
                         float x0 = id * cell + CelHash21(float2(id, salt + 2.0)) * cell * 0.5;
                         float lenA = cell * (0.35 + 0.5 * CelHash21(float2(id, salt + 3.0)));
                         float t = (u - x0) / lenA;
                         if (t < 0.0 || t > 1.0) continue;
                         float sgn = CelHash21(float2(id, salt + 4.0)) > 0.5 ? 1.0 : -1.0;
                         // b02: reach further (10-30 px off the beam) and brighter
-                        float reach = BEAM_PAD * (0.5 + 0.42 * CelHash21(float2(id, salt + 6.0)));
-                        float yb = sgn * (pow(t, 0.8) * reach + 0.6 * Zig(u, 0.06, salt + id)) + zig * prof;
-                        float bw = 0.5 * (1.0 - t * 0.6);
-                        br = max(br, saturate(1.0 - abs(y - yb) / bw) * 0.75 * step(0.15, prof));
+                        float reach = BEAM_PAD * (0.4 + 0.38 * CelHash21(float2(id, salt + 6.0)));   // b04: room for the kinks inside the pad
+                        float kink = 0.9 * Zig(u, 0.06, salt + id) + 0.5 * Zig(u, 0.025, salt + id + 3.3);
+                        float yb = sgn * (pow(t, 0.8) * reach + kink) + zig * prof;
+                        // b04: wider and white at the root (b03's 0.5-half-width arcs were all ink), and forked: a second,
+                        // flatter arm leaves the arc at 0.35-0.6 of its length
+                        float bw = 1.0 * (1.0 - t * 0.55);
+                        float bf = saturate(1.0 - abs(y - yb) / bw) * lerp(1.0, 0.7, t);
+                        float tf = 0.35 + 0.25 * CelHash21(float2(id, salt + 8.0));
+                        if (t > tf)
+                        {
+                            float ybf = sgn * (pow(tf, 0.8) * reach + (t - tf) * reach * 0.3 + 0.7 * Zig(u, 0.04, salt + id + 9.1)) + zig * prof;
+                            bf = max(bf, saturate(1.0 - abs(y - ybf) / (bw * 0.8)) * 0.8);
+                        }
+                        br = max(br, bf * step(0.15, prof));
                     }
                 }
                 field = max(field, br);
