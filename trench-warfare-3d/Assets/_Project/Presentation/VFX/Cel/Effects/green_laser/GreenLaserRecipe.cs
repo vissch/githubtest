@@ -139,6 +139,20 @@ namespace TW.Presentation.VFX.Cel
         {
             var l = new List<CelLayer>(Lane1Layers());
             for (int i = 0; i < Hits.Length; i++) HitLayers(l, i);
+            // d20: the ref keeps throwing pale sparks off the dummy for ~0.5 s after the last hit (to ~f120)
+            l.Add(new CelLayer
+            {
+                Name = "late sparks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.2f, -0.3f), Start = Hits[Hits.Length - 1] + 0.05f, Duration = 0.5f, Life = 0.2f, LifeJitter = 0.4f,
+                Close = 22, Mid = 3, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.4f, 0f, 0f), Aim = CelAim.Radial, Speed = 6f, SpeedJitter = 0.6f, UpBias = 0.4f, Drag = 5f,
+                Size = new CelCurve(0.06f, 0.02f), SizeJitter = 0.5f, Stretch = 0.035f, Erode = new CelCurve(0.05f, 0.5f), Palette = "gl_wisp", Core = 1.4f, Extra = new Vector4(0f, 0.25f, 0f, 0f),
+            });
+            // d20: and a pale hot flash still flickers on the chest to ~f120 (boiling splat, mode 7)
+            l.Add(new CelLayer
+            {
+                Name = "late flash", Kind = BoltKind, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.4f, -0.5f), Start = Hits[Hits.Length - 1] + 0.12f, Duration = 0.3f, Life = 0.14f, LifeJitter = 0.3f,
+                Close = 3, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.25f, 0f, 0f), Size = new CelCurve(0.35f, 0.5f, 0.4f), SizeJitter = 0.3f,
+                Palette = "gl_burst", Core = 1.0f, Opacity = 0.9f, Extra = new Vector4(7f, 0.1f, 0.5f, 0f),
+            });
             l.Add(new CelLayer { Name = "light a", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = Hits[0], Life = 1.35f, Close = 1, Mid = 1, Far = 1, Palette = "gl_bolt", Core = 1.6f, Extra = new Vector4(9f, 0f, 0f, 0f) });
             l.Add(new CelLayer { Name = "light b", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = Hits[3], Life = 1.35f, Close = 1, Mid = 1, Far = 0, Palette = "gl_bolt", Core = 1.6f, Extra = new Vector4(9f, 0f, 0f, 0f) });
             l.Add(new CelLayer { Name = "light c", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = Hits[5], Life = 0.85f, Close = 1, Mid = 1, Far = 0, Palette = "gl_bolt", Core = 1.6f, Extra = new Vector4(9f, 0f, 0f, 0f) });
@@ -246,9 +260,9 @@ namespace TW.Presentation.VFX.Cel
             l.Add(new CelLayer
             {
                 // small green embers glinting at the feet after the volley (reference frames 112-125)
-                Name = "embers", Kind = CelKinds.StreakName, Offset = new Vector3(0f, 0.05f, 0f), Start = 3.95f, Duration = 0.45f, Life = 0.55f, LifeJitter = 0.3f,
-                Close = 30, Mid = 8, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.9f, 0.1f, 0f), Aim = CelAim.Up, Speed = 0.5f, Spread = 50f, Drag = 1f, Gravity = 0.6f,
-                Size = new CelCurve(0.09f, 0.05f), SizeJitter = 0.4f, Stretch = 0.02f, Erode = new CelCurve(0.05f, 0.6f, 2f), Palette = "gl_bolt", Core = 1.8f, Extra = new Vector4(1f, 0.05f, 0.6f, 0f),
+                Name = "embers", Kind = CelKinds.StreakName, Offset = new Vector3(0f, 0.05f, 0f), Start = 3.7f, Duration = 0.65f, Life = 0.6f, LifeJitter = 0.3f,
+                Close = 42, Mid = 8, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.9f, 0.1f, 0f), Aim = CelAim.Up, Speed = 0.5f, Spread = 50f, Drag = 1f, Gravity = 0.6f,
+                Size = new CelCurve(0.12f, 0.06f), SizeJitter = 0.4f, Stretch = 0.02f, Erode = new CelCurve(0.05f, 0.6f, 2f), Palette = "gl_bolt", Core = 1.8f, Extra = new Vector4(1f, 0.05f, 0.6f, 0f),
             });
             return l.ToArray();
         }
