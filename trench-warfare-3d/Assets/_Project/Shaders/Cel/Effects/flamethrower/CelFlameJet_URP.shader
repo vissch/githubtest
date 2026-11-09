@@ -308,6 +308,43 @@ Shader "TW/Cel/FlameJet"
             streak = CelSimplex3(float3(u * 3.0 - t * 2.0, across * 1.5, sd + 2.0)) * r.extra.z;
             return field;
         }
+        // d32 (NEW BAND MODEL): one heat field shared by every tongue ribbon, round the jet's axis (_FlameAxisA nozzle ->
+        // _FlameAxisB target, set by FlamethrowerRecipe.Play). Bands are cut from this field, not from each ribbon's own
+        // cross distance, so overlapping tongues union into one body (no concentric rings per lobe). x: heat 0 (outer
+        // edge of the jet's envelope) .. 1 (the axis); y: a torn-streak noise stretched along the axis and flowing to the
+        // target; z: the axis line's own value (1 on a thin white streak down the middle).
+        float4 _FlameAxisA, _FlameAxisB;
+        float3 FlameHeat(float3 p)
+        {
+            float3 ab = _FlameAxisB.xyz - _FlameAxisA.xyz;
+            float len = max(length(ab), 1e-3);
+            float3 dir = ab / len;
+            float3 rel = p - _FlameAxisA.xyz;
+            float m = dot(rel, dir);
+            float s = saturate(m / len);
+            float3 perp = rel - dir * m;
+            // screen-plane distance: drop the part along the view ray, so the field is the jet's look on screen, whatever
+            // depth a tongue sits at (the white axis shows on the front tongues too)
+            float3 vw = normalize(_WorldSpaceCameraPos - p);
+            float3 dv = dir - vw * dot(dir, vw);
+            dv *= rsqrt(max(dot(dv, dv), 1e-6));
+            float3 perpS = (rel - vw * dot(rel, vw)); perpS -= dv * dot(perpS, dv);
+            float3 side = normalize(cross(dir, float3(0.0, 1.0, 0.0)));
+            float dSide = dot(perp, side), dUp = dot(perp, cross(side, dir));
+            float d = length(perpS);
+            // the envelope: thin at the nozzle, widening to the dummy (tongues reach ~2.2 m wide there), flaring past it
+            float R = lerp(0.6, 3.2, pow(s, 0.75)) + 0.4 * saturate(m / len - 1.0);
+            float t = _Time.y;
+            // torn streaks: long along the axis (0.35 /m), fine across (2.4 /m), flowing downstream at 7 m/s
+            float n1 = CelSimplex3(float3(m * 0.12 - t * 1.2, d * 1.8, dUp * 0.6));
+            float n2 = CelSimplex3(float3(m * 0.3 - t * 3.0, d * 3.5 + 7.1, dUp * 1.2));
+            float streak = n1 * 0.8 + n2 * 0.2;
+            float h = saturate(1.0 - d / R);
+            // the white axis: a thin streak (8-14 % of the envelope), wavering with the streak noise, hot from nozzle to dummy
+            float axisW = 0.11 + 0.06 * n1;
+            float axisL = saturate(1.0 - (d + 0.12 * n2 * R) / max(axisW * R, 0.03)) * smoothstep(0.0, 0.06, s) * (1.0 - smoothstep(0.85, 1.1, s));
+            return float3(h, streak, axisL);
+        }
         ENDHLSL
 
         Pass
@@ -360,11 +397,21 @@ Shader "TW/Cel/FlameJet"
                 if (r.extra.w < 0.0)
                 {
                     float rf = RibField(r, i.jet.x, i.jet.y, i.jet.z, streak);
+                    // d32: the shared heat field decides the bands (and tears the outer body); the ribbon only decides coverage
+                    float3 fh = FlameHeat(i.positionWS);
+                    // torn edges with gaps: in the outer third of the envelope the streak noise cuts the tongue away
+                    float tear = fh.x + 0.5 * fh.y + 0.08;
+                    rf = min(rf, tear * 1.6);
                     clip(rf);
-                    // a thin red rim, orange, yellow, the white core down the tongue's middle (hotter near the nozzle)
-                    float rv = saturate(0.1 + rf * 0.95 + streak * 0.2 + 0.1 * (1.0 - saturate(i.jet.z * 1.6)));   // d09: 0.03 + 0.8 rf -> 0.1 + 0.95 rf: a wider white middle on every tongue, a thinner red rim (hot 0.074 vs REF 0.101)
+                    // one body: red only on the outer rim, orange body broken by pale streak patches, yellow inside, and a
+                    // thin white streak down the axis (CelRamp's top band)
+                    float rv = saturate(0.30 + 0.30 * fh.x + 0.35 * fh.y + 0.7 * fh.z);
+                    // d33: half the d24 per-tongue bands (core / orange / red rim in order on every tongue), half the shared field (white axis, torn streaks)
+                    float rvT = saturate(0.1 + rf * 0.95 + streak * 0.2 + 0.1 * (1.0 - saturate(i.jet.z * 1.6)));
+                    rv = min(lerp(rvT, rv, 0.5), 0.06 + rf * 3.0);
                     half3 rc = CelRamp(rv, CelRowA(r.tone.x), r.tone.y);
-                    float rink = CelInk(rf, 0.0, CelLodInk(r.tone.w));
+                    // ink only on the jet's outer silhouette and torn edges, not on the inner tongues' outlines (no sausage seams)
+                    float rink = CelInk(rf, 0.0, CelLodInk(r.tone.w)) * (1.0 - 0.5 * smoothstep(0.08, 0.25, fh.x));
                     rc = lerp(rc, CelPalInk(CelRowA(r.tone.x)).rgb, rink);
                     return half4(MixFog(rc, i.fog), 1.0);
                 }

@@ -239,6 +239,10 @@ namespace TW.Presentation.VFX.Cel
         public static void Play(CelFxRecipe recipe, Vector3 nozzle, Vector3 target, uint seed)
         {
             Vector3 aim = target + Vector3.up * AimLift;
+            // d32: the jet's axis for the shared heat field (CelFlameJet_URP FlameHeat): every tongue ribbon bands from
+            // one field round this line, not from its own cross distance (one jet at a time; kit_requests: a per-emitter slot)
+            Shader.SetGlobalVector("_FlameAxisA", nozzle);
+            Shader.SetGlobalVector("_FlameAxisB", aim);
             CelFx.Play(recipe, nozzle, aim - nozzle, aim, seed);
         }
 
