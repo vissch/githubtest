@@ -59,7 +59,7 @@ namespace TW.Presentation.VFX.Cel
         const float Volley = 3.05f;        // the last volley: longer dashes at once, the clip's peak (f96-f102)
         // NB: on a LightningBeam layer Ink is the beam's clip (tone.w: 1 stops the window at the target, 1.7 runs on
         // through it), not an ink width; the spindle's ink is fixed in its shader.
-        const float DustAt = 2.55f;        // the dust trail (clip f88-f135; b02: earlier, b01's showed from f98)
+        const float DustAt = 2.85f;        // d05: later (every paper: ours at f89, the clip's ~f95)        // the dust trail (clip f88-f135; b02: earlier, b01's showed from f98)
 
         // r04: the beam is one axis broken into dashes: five lanes along it (heads at these shares of the beam,
         // window lengths picked so each dash is ~100-180 px on screen with a gap about as long), each lane re-drawn
@@ -253,24 +253,24 @@ namespace TW.Presentation.VFX.Cel
             // living longer so the tail f101-f136 holds its area
             // b07: one big puff (two at the dummy) per clump on clumps 1.2 m apart, born big so the early tail is full, and
             // shorter lived (b06b ran 9 frames late and its 3-4 puffs per clump merged into one streak)
-            Wide(DustStretch("dust pool", 0.2f, 1.3f, DustAt + 0.02f, 8, 2, new CelCurve(0.8f, 1.65f, 0.4f), 2.5f)),
-            DustStretch("dust 1", 1.0f, 0.3f, DustAt + 0.06f, 2, 1, new CelCurve(0.9f, 1.75f, 0.4f), 2.5f),
-            DustStretch("dust 2", 2.2f, 0.3f, DustAt + 0.12f, 2, 1, new CelCurve(0.85f, 1.7f, 0.4f), 2.45f),
-            DustStretch("dust 3", 3.4f, 0.3f, DustAt + 0.18f, 2, 1, new CelCurve(0.8f, 1.6f, 0.4f), 2.4f),
-            DustStretch("dust 4", 4.6f, 0.3f, DustAt + 0.24f, 1, 1, new CelCurve(0.75f, 1.5f, 0.4f), 2.3f),
-            DustStretch("dust 5", 5.7f, 0.3f, DustAt + 0.3f, 1, 0, new CelCurve(0.7f, 1.4f, 0.4f), 2.2f),
+            Wide(DustStretch("dust pool", 0.45f, 1.2f, DustAt + 0.02f, 6, 2, new CelCurve(0.8f, 1.65f, 0.4f), 2.2f)),   // d05: behind-right of the dummy (d02b)
+            DustStretch("dust 1", 1.3f, 0.3f, DustAt + 0.06f, 2, 1, new CelCurve(0.9f, 1.75f, 0.4f), 2.20f),
+            DustStretch("dust 2", 2.2f, 0.3f, DustAt + 0.12f, 2, 1, new CelCurve(0.85f, 1.7f, 0.4f), 2.15f),
+            DustStretch("dust 3", 3.4f, 0.3f, DustAt + 0.18f, 2, 1, new CelCurve(0.8f, 1.6f, 0.4f), 2.10f),
+            DustStretch("dust 4", 4.6f, 0.3f, DustAt + 0.24f, 1, 1, new CelCurve(0.75f, 1.5f, 0.4f), 2.00f),
+            DustStretch("dust 5", 5.7f, 0.3f, DustAt + 0.3f, 1, 0, new CelCurve(0.7f, 1.4f, 0.4f), 1.90f),
             new CelLayer
             {
                 // loose separate black flecks: small hard-edged puff dots spread wider than the dust, drifting with it
                 Name = "flecks", Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.3f, 2.3f), Start = DustAt + 0.05f, Duration = 0.7f, Life = 1.5f, LifeJitter = 0.35f,
                 // b02: dense specks (clip ink_peak 0.053 vs b01 0.015): twice as many, larger
-                Close = 26, Mid = 6, Far = 0, Shape = CelShape.Box, ShapeSize = new Vector3(1.4f, 0.8f, 4.8f), Aim = CelAim.Dir, Speed = 1.0f, SpeedJitter = 0.5f, Spread = 35f, Drag = 0.8f, Gravity = 0.4f,
-                Size = new CelCurve(0.042f, 0.03f), SizeJitter = 0.5f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.6f, 3f), Feather = 0f,
+                Close = 64, Mid = 6, Far = 0, Shape = CelShape.Box, ShapeSize = new Vector3(1.6f, 1.0f, 4.8f),   // d05: x2.5 dark specks (ink 0.009 vs clip 0.053) Aim = CelAim.Dir, Speed = 1.0f, SpeedJitter = 0.5f, Spread = 35f, Drag = 0.8f, Gravity = 0.4f,
+                Size = new CelCurve(0.06f, 0.04f), SizeJitter = 0.5f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.6f, 3f), Feather = 0f,
                 Palette = "blue_laser_fleck", Core = 1f, Opacity = 1f, Extra = new Vector4(3f, 0.04f, 0.3f, 0f),
             });
 
         /// <summary>b03: a dust stretch spread wide and low round the dummy.</summary>
-        static CelLayer Wide(CelLayer l) { l.ShapeSize = new Vector3(2.3f, 0.5f, l.ShapeSize.z); l.Offset = new Vector3(0f, -0.55f, l.Offset.z); return l; }
+        static CelLayer Wide(CelLayer l) { l.ShapeSize = new Vector3(2.3f, 0.9f, l.ShapeSize.z); l.Offset = new Vector3(0f, -0.4f, l.Offset.z); return l; }   // d05: taller (d02b)
 
         /// <summary>b04: short kinked lightning arcs on the board: dashes born on a 0.42 m sphere round the chest, aimed at it.</summary>
         static CelLayer CrackleArc(string name, float start, float duration, int close, float width, float opacity)
@@ -291,7 +291,7 @@ namespace TW.Presentation.VFX.Cel
                 Name = name, Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.3f, along), Start = start, Duration = 0.22f, TimeJitter = 0.05f, Life = life, LifeJitter = 0.1f,
                 Close = close, Mid = mid, Far = 0, Shape = CelShape.Box, ShapeSize = new Vector3(0.6f, 0.4f, length), Aim = CelAim.Dir, Speed = 0.5f, SpeedJitter = 0.4f, Spread = 20f, Drag = 1f, Buoyancy = 0.05f,
                 Size = size, SizeJitter = 0.3f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.95f, 2.2f), Feather = 0f,
-                Palette = "blue_laser_dust", Core = 1f, Opacity = 0.6f, Extra = new Vector4(3f, 0.6f, 0.55f, 0f),   // b06: alpha 0.6, lumpier
+                Palette = "blue_laser_dust", Core = 1f, Opacity = 0.5f, Extra = new Vector4(3f, 0.6f, 0.55f, 0f),   // b06: alpha 0.6, lumpier
             };
         }
 
