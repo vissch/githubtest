@@ -40,7 +40,7 @@ namespace TW.Presentation.VFX.Cel
         // b04: 36 bolts: the first 8 within 0.2 s of the fire (already in flight, AlongAt), then one every ~0.087 s to
         // 2.6 s, so 3+ are on screen in the first frame and 5+ by the reference's f25; no ground hits launched after
         // 2.25 s (their fires and smoke must be gone by f120)
-        const int Count = 40, Opening = 12;   // b05: 40 bolts, 12 already in flight at the fire
+        const int Count = 42, Opening = 12;   // d10: 42 (two late dummy hits ~f108-f120, the ref still bursts on the dummy there)   // b05: 40 bolts, 12 already in flight at the fire
         static float LaunchAt(int i) { return i < Opening ? i * 0.02f : 0.26f + (i - Opening) * 0.104f + ((i * 7) % 5 - 2) * 0.01f; }   // c01: to 3.1 s (bolts arrive to the ref's f100; the stage fires at 0.5 s)
         static float[] MakeLaunch()
         {
