@@ -21,10 +21,10 @@ namespace TW.Presentation.VFX.Cel
             // onto the beach ground from the same screen point)
             new Vector3(-15.0f, 5.6f, 0.95f),
             new Vector3(-7.7f, -4.1f, 1.6f),
-            new Vector3(-11.0f, 20.5f, 2.3f),
-            new Vector3(9.4f, 19.25f, 2.32f),
-            new Vector3(-6.9f, 8.3f, 2.55f),
-            new Vector3(7.6f, 8.5f, 2.1f),
+            new Vector3(-11.0f, 20.5f, 2.65f),
+            new Vector3(9.4f, 19.25f, 2.6f),
+            new Vector3(-6.9f, 8.3f, 2.35f),
+            new Vector3(7.6f, 8.5f, 2.3f),
         };
         // smoke clouds: right, depth, seconds after the fire (the dummy's own cloud stands behind it)
         // r04: sites 2 and 3 are far across the field (SiteFar)
