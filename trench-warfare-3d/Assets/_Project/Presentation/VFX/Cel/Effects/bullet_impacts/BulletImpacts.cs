@@ -79,6 +79,7 @@ namespace TW.Presentation.VFX.Cel.Effects
             CelPalette.Add("bi_tracer", CelPalette.Hex(0xB0400C), CelPalette.Hex(0xF07A20), CelPalette.Hex(0xFF9C40), CelPalette.Hex(0xFFC070),
                 CelPalette.Hex(0xFFE2B0), 0.45f, 3, CelPalette.Hex(0x401004));
             // the hit's spark spikes: red-orange with a white tip
+            // d37: core 0.21K (with the tracers fixed in d36 hot_peak fell to 0.0016; the clip 0.0045)
             // d32: core 0.67x (critics: a white orb), 8 spikes at HDR 10 so the hot area moves into the rays
             // d24: white core back to d20 size (hot_peak is its saturated area), the orange flash glow stays small
             // d22: flash and core about half (read as a disc), spikes longer and a little wider (invisible at 0.07 m)
@@ -165,7 +166,7 @@ namespace TW.Presentation.VFX.Cel.Effects
                 // d02: 1.6x bigger, Core 8 (b07 hot_peak 0.0018 vs the clip's 0.0045)
                 // b05: a little bigger and hotter, 3 frames (hot_peak 0.001 vs the clip's 0.0045)
                 Name = "core", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.03f, -0.3f), Start = 0f, Life = 0.16f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.16f * K, 0.09f * K), SizeJitter = 0.1f, Erode = new CelCurve(0f, 0.7f),
+                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.21f * K, 0.115f * K), SizeJitter = 0.1f, Erode = new CelCurve(0f, 0.7f),
                 Palette = "white", Core = 10f, Extra = new Vector4(2f, 0.5f, 0f, 0f),
             },
             new CelLayer
