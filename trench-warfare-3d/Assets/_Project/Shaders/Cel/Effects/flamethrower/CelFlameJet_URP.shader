@@ -53,7 +53,7 @@ Shader "TW/Cel/FlameJet"
                 // through the target so the flame spills past and over it, and wider going out (Mid/Far: the cone must
                 // still read as a cone at T1, not a line; detail does not rise, only the size)
                 w *= lerp(0.08, 1.0, smoothstep(0.0, 0.14, a));
-                w *= 1.0 + 0.3 * smoothstep(0.65, 1.2, a);
+                w *= 1.0 + 0.1 * smoothstep(0.65, 1.2, a);   // b01: 0.3 -> 0.1 (the beach shot: past the dummy the flare rose to the frame top)
                 w *= 1.0 + 2.2 * saturate(_CelLod.x);
             }
             return w;
@@ -110,13 +110,18 @@ Shader "TW/Cel/FlameJet"
         // away from the axis as they go (the upper ones up). Two lanes (low, high) overlap so the body stays
         // connected and both edges are lobed; a thin spine keeps the white core. Past the target the lanes lift and
         // spread, so the flame spills up and on past the dummy. 1 on a tongue's middle line, 0 on its edge.
+        static float g_jetSeam;     // b01: 0..1, a dark seam between two overlapping tongues (set by JetTongues)
         float JetTongues(CelRecord r, float s, float y, float a01, float freq, float sd)
         {
             float P = 1.0 / max(freq, 0.05);
             float cell = floor(s / P);
             float past = smoothstep(0.8, 1.25, a01);
-            y -= 0.15 * past;                                   // the whole field lifts past the target
-            float best = (0.42 - abs(y)) / 0.42;                // the spine (the white core)
+            y += 0.1 * past;                                    // b01: past the target the field drops (it rose off the frame top)
+            // b01: a slimmer spine (the white core was a third too big: hot 0.154 vs the clip's 0.101)
+            float best = (0.3 - abs(y)) / 0.3;                  // the spine (the white core)
+            // b01: the two best tongues are kept apart: where two tongues overlap and neither is clearly in front, a dark
+            // ink-brown seam is cut (the clip's jet reads as separate tongues with dark gaps between them)
+            float t1 = -1.0, t2 = -1.0;
             // r06b: two lanes (low, high), one tongue per cell each, overlapping ~1.6 deep, heights 0.6-1.3x: a union
             // that stays scalloped (r06's three lanes ~3 deep merged into one smooth slab)
             [unroll] for (int k = -4; k <= 0; k++)
@@ -130,24 +135,27 @@ Shader "TW/Cel/FlameJet"
                     float L = P * (2.4 + 1.6 * h2);            // r06: long (the jet runs into depth, so on screen it is foreshortened)
                     float u = (s - s0) / L;
                     if (u <= 0.0 || u >= 1.0) continue;
-                    float c = (lane == 0 ? -0.28 : 0.32) + (h3 - 0.5) * 0.25;
-                    float H = (lane == 0 ? 0.5 : 0.62) * (0.5 + 0.8 * h4) * (1.0 + 0.3 * past);
+                    // b01: the lanes scatter wider (the low edge was one straight line: each low tongue now sits at its own height)
+                    float c = (lane == 0 ? -0.34 : 0.34) + (h3 - 0.5) * 0.5;
+                    float H = (lane == 0 ? 0.55 : 0.5) * (0.5 + 0.8 * h4);   // b01: the high lane no taller than the low one, no growth past the dummy
                     // curl: the low tongues bend down a little, the high ones lick up (more past the target)
-                    float lean = (lane == 0 ? -0.15 : 0.25) * (1.0 + 0.3 * past);
+                    float lean = (lane == 0 ? -0.2 : 0.12);
                     float cy = c + lean * u * u;
                     float prof = H * 2.6 * sqrt(u) * (1.0 - u);                // a round base, a pointed tip leaning on
                     float f = (1.0 - abs(y - cy) / max(prof, 1e-3)) * 0.9;
-                    best = max(best, f);
+                    if (f > t1) { t2 = t1; t1 = f; } else t2 = max(t2, f);
                 }
             }
-            return best;
+            // the seam: both tongues cover the point and neither leads by much; not on the spine's white core
+            g_jetSeam = (t2 > 0.04 && best < 0.25) ? saturate(1.0 - (t1 - t2) / 0.14) : 0.0;
+            return max(best, t1);
         }
 
         // r06: where the cone meets the ground at the target it was cut in one straight line (ZTest); the body now
         // ends above the ground in a row of lobes, so no straight edge shows. The ground is 1.4 m under the aim point.
         float JetGround(CelRecord r, float3 p, float metres)
         {
-            float gy = r.pos.y + r.vel.y * r.life - 1.4;
+            float gy = r.pos.y + r.vel.y * r.life - 1.58;      // b01: the beach dummy (x1.31): the foot is 1.58 m under the aim
             float g = CelSimplex3(float3((metres - CelAge(r) * r.extra.x) * 0.7, CelAge(r) * 0.6, r.seed * 9.0));
             return (p.y - gy - 0.25 - 0.45 * abs(g)) / 0.35;
         }
@@ -248,10 +256,12 @@ Shader "TW/Cel/FlameJet"
             {
                 CelRecord r = _CelRecords[i.id];
                 float streak;
+                g_jetSeam = 0.0;
                 float3 jc = JetCoords(r, i.positionWS);
                 float f = JetField(r, jc.x, jc.y, jc.z, streak);
                 if (r.extra.w > 0.0) f = min(f, JetGround(r, i.positionWS, jc.z) + 8.0 * (1.0 - smoothstep(0.45, 0.7, jc.x)));
                 clip(f);
+                float seam = g_jetSeam * smoothstep(0.08, 0.2, jc.x);   // b01: no seams in the nozzle's first metres
                 // the value the bands are cut from: the field, lifted along the white streaks, a little hotter at the nozzle
                 // a thin red rim, then orange and yellow, and the white core down the middle; cooler toward the target
                 // (red only on a thin rim: v passes the first band at f ~0.04)
@@ -259,7 +269,7 @@ Shader "TW/Cel/FlameJet"
                 float v = saturate(0.1 + f * 0.8 + streak * 0.3 + 0.06 * (1.0 - saturate(jc.x * 1.5)) - 0.08 * saturate((jc.x - 0.6) * 1.5));
                 half3 col = CelRamp(v, CelRowA(r.tone.x), r.tone.y);
                 float ink = CelInk(f, 0.0, CelLodInk(r.tone.w));
-                col = lerp(col, CelPalInk(CelRowA(r.tone.x)).rgb, ink);
+                col = lerp(col, CelPalInk(CelRowA(r.tone.x)).rgb, max(ink, seam * 0.9));
                 return half4(MixFog(col, i.fog), 1.0);
             }
             ENDHLSL
@@ -288,6 +298,7 @@ Shader "TW/Cel/FlameJet"
             {
                 CelRecord r = _CelRecords[i.id];
                 float streak;
+                g_jetSeam = 0.0;
                 float3 jc = JetCoords(r, i.positionWS);
                 float f = JetField(r, jc.x, jc.y, jc.z, streak);
                 if (r.extra.w > 0.0) f = min(f, JetGround(r, i.positionWS, jc.z) + 8.0 * (1.0 - smoothstep(0.45, 0.7, jc.x)));
