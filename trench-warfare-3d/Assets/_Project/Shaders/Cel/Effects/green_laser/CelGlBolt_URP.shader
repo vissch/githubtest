@@ -1,18 +1,22 @@
 // Phase: CelFx job (2026-11-09, lane/show/cel-green-laser) - GlBolt: the green laser's own primitive, one quad.
-// Three modes, picked per record by extra.x (one kind = one draw for all three; two passes):
-//   mode 0  dart (additive): a pointed white-hot head, a chevron of swept-back barbs behind it, and a short ragged,
-//           segmented saturated-green tail of a fixed length in metres trailing back along its velocity (never
-//           behind its birth); a faint bloom, no ring.
-//   mode 1  wash (additive): a ground quad with a smooth radial falloff (no bands, no rings), faded in and out.
-//   mode 2  shade (multiply, second pass): a ground quad that darkens the dirt in a soft ring round the glow (the
-//           reference's dark surround that makes the glow read); faded in and out like the wash.
-//   size.xyz   mode 0: head half-width (m) at birth, at death, ease;  mode 1/2: radius (m)       size.w unused
+// Four modes, picked per record by extra.x (one kind = one draw for all four; two passes):
+//   mode 0  dart (additive): a thin dart - a small pointed pale head, then a long saturated-green tail of a fixed
+//           length in metres trailing back along its velocity (never behind its birth), tapering to a point and
+//           broken into two or three ragged pieces at the back; a smooth bloom round it, no barbs, no ring.
+//   mode 1  wash (additive): a ground quad with a smooth radial falloff that reaches nothing well inside the quad's
+//           edge (no bands, no rings, no rim), faded in and out.
+//   mode 2  shade (multiply, second pass): a ground quad that darkens the dirt in a soft ring (kept, unused in r04).
+//   mode 3  wisp (both passes): an upright S-curling flame wisp facing the eye, tapering to a pointed tip, with a dark
+//           ink outline: the multiply pass blacks out the shape and its ink band, the additive pass then lays the
+//           flat cel bands on the shape (so it reads opaque). It thins away with its envelope (no alpha fade).
+//   size.xyz   mode 0: head half-width (m) at birth, at death, ease;  mode 1/2: radius (m);  mode 3: height (m)
 //   tone       x palette, y HDR core, z opacity (mode 2: darkness 0..1), w unused
 //   extra      mode 0: x 0, y tail length (m), z bloom (m), w head length / half-width (0: 4)
 //              mode 1: x 1, y fade-in (life 0..1), z fade-out start (life 0..1), w falloff (0: 3; higher = tighter)
 //              mode 2: x 2, y fade-in, z fade-out start, w ring centre (0..1 of the radius; 0: 0.7)
-// Colours: mode 0 bands the body with CelRamp of its palette (core above the row's threshold); the bloom and the wash
-// use the palette's c3 (the lightest body colour) times the opacity.
+//              mode 3: x 3, y fade-in, z fade-out start, w curl amplitude (0..0.6 of the half-width; 0: 0.4)
+// Colours: mode 0/3 band the body with CelRamp of its palette (core above the row's threshold); the bloom and the
+// wash use the palette's c2/c3 times the opacity.
 Shader "TW/Cel/GlBolt"
 {
     Properties { }
@@ -28,31 +32,41 @@ Shader "TW/Cel/GlBolt"
         struct Varyings
         {
             float4 positionCS : SV_POSITION;
-            float2 st : TEXCOORD0;                          // mode 0: metres along (0 = head centre, - = tail), across; mode 1/2: -1..1
+            float2 st : TEXCOORD0;                          // mode 0: metres along (0 = head centre, - = tail), across; mode 1/2: -1..1; mode 3: x -1..1, y 0..1
             nointerpolation float4 tone : TEXCOORD1;        // x palette, y hdr, z opacity, w mode
-            nointerpolation float4 dims : TEXCOORD2;        // mode 0: x head half-width, y tail length, z head length, w bloom; mode 1/2: x envelope, w falloff / ring
+            nointerpolation float4 dims : TEXCOORD2;        // mode 0: x head half-width, y tail length, z head length, w bloom; mode 1/2/3: x envelope, w falloff / ring / curl
             float4 more : TEXCOORD3;                        // x fog, y seed
             float3 positionWS : TEXCOORD4;
         };
 
-        // darkPass: 1 for the multiply pass (only mode 2 draws), 0 for the additive pass (mode 2 collapses)
+        // darkPass: 1 for the multiply pass (modes 2 and 3 draw), 0 for the additive pass (modes 0, 1 and 3 draw)
         Varyings GlVert(Attributes v, uint instanceID, float darkPass)
         {
             CelRecord r = CelFetch(instanceID);
             float t = CelAge(r), k = CelLife01(r), alive = CelAlive(r);
             float mode = r.extra.x;
-            float isDark = mode > 1.5 ? 1.0 : 0.0;
-            alive *= (isDark == darkPass) ? 1.0 : 0.0;
+            float isWisp = mode > 2.5 ? 1.0 : 0.0;
+            float isDark = (mode > 1.5 && mode < 2.5) ? 1.0 : 0.0;
+            alive *= (isWisp > 0.5 || isDark == darkPass) ? 1.0 : 0.0;
             float3 p = CelPosition(r, t);
             float size = CelCurve(r.size.xyz, k) * alive;
             Varyings o;
             float3 w;
-            if (mode > 0.5)
+            float fin = r.extra.y > 0.0 ? smoothstep(0.0, r.extra.y, k) : 1.0;
+            float fout = 1.0 - smoothstep(saturate(r.extra.z), 1.0, k);
+            if (isWisp > 0.5)
+            {
+                // upright quad facing the eye: x across (camera right), y up from the base
+                float3 right = UNITY_MATRIX_V[0].xyz;
+                float x = v.uv.x * 2.0 - 1.0;
+                w = p + right * (x * size * 0.5) + float3(0.0, v.uv.y * size, 0.0);
+                o.st = float2(x, v.uv.y);
+                o.dims = float4(fin * fout * alive, 0.0, 0.0, r.extra.w > 0.0 ? r.extra.w : 0.4);
+            }
+            else if (mode > 0.5)
             {
                 float2 corner = v.uv * 2.0 - 1.0;
                 w = p + float3(corner.x, 0.0, corner.y) * size + float3(0.0, 0.3, 0.0);   // lifted clear of the bumps: its edge fades to nothing
-                float fin = r.extra.y > 0.0 ? smoothstep(0.0, r.extra.y, k) : 1.0;
-                float fout = 1.0 - smoothstep(saturate(r.extra.z), 1.0, k);
                 o.st = corner;
                 float shapeW = mode > 1.5 ? (r.extra.w > 0.0 ? r.extra.w : 0.7) : (r.extra.w > 0.0 ? r.extra.w : 3.0);
                 o.dims = float4(fin * fout * alive, 0.0, 0.0, shapeW);
@@ -71,7 +85,7 @@ Shader "TW/Cel/GlBolt"
                 float sl = dot(side, side);
                 side = sl > 1e-6 ? side * rsqrt(sl) : UNITY_MATRIX_V[0].xyz;
                 float along = lerp(-len - bloom, hl * 0.6 + bloom, v.uv.x);
-                float across = (v.uv.y * 2.0 - 1.0) * (hw * 2.6 + bloom);
+                float across = (v.uv.y * 2.0 - 1.0) * (hw * 1.3 + bloom);
                 w = p + dir * along + side * across;
                 o.st = float2(along, across);
                 o.dims = float4(hw, len, hl, bloom);
@@ -83,12 +97,20 @@ Shader "TW/Cel/GlBolt"
             return o;
         }
 
-        // distance from p to the segment a-b, minus a radius tapering from ra at a to rb at b
-        float GlBarb(float2 p, float2 a, float2 b, float ra, float rb)
+        // the wisp's signed distance in quad-x units (negative inside) and its value across (1 centre, 0 rim)
+        float GlWisp(float2 st, float env, float curl, float seed, out float across, out float thickOut)
         {
-            float2 pa = p - a, ba = b - a;
-            float h = saturate(dot(pa, ba) / max(dot(ba, ba), 1e-8));
-            return length(pa - ba * h) - lerp(ra, rb, h);
+            float y = st.y;
+            float side = CelHash11(seed * 17.0) > 0.5 ? 1.0 : -1.0;
+            float phase = CelHash11(seed * 29.0) * 6.2832;
+            // S-shaped centre line: still at the base, curling more towards the tip, slowly writhing
+            float xc = side * curl * smoothstep(0.0, 0.5, y) * sin(y * 7.5 + phase + _CelNow * 4.0);
+            // a rounded base, swelling low, tapering to a sharp tip; thins away with the envelope
+            float thick = 0.42 * pow(saturate(1.0 - y), 0.7) * smoothstep(0.0, 0.18, y) * (0.75 + 0.25 * sin(y * 9.0 + phase)) * env;
+            float dx = abs(st.x - xc);
+            across = saturate(1.0 - dx / max(thick, 1e-4));
+            thickOut = thick;
+            return dx - thick;
         }
         ENDHLSL
 
@@ -104,14 +126,25 @@ Shader "TW/Cel/GlBolt"
             Varyings vertDark(Attributes v, uint instanceID : SV_InstanceID) { return GlVert(v, instanceID, 1.0); }
             half4 fragDark(Varyings i) : SV_Target
             {
+                if (i.tone.w > 2.5)
+                {
+                    // the wisp: black out the shape and an ink band round it (the additive pass colours the inside)
+                    float across, thick;
+                    float d = GlWisp(i.st, i.dims.x, i.dims.w, i.more.y, across, thick);
+                    float px = max(fwidth(d), 1e-5);
+                    // the ink band thins with the shape, so a wisp thinning away leaves no bare black line
+                    float ink = CelLodInk(2.5) * saturate(thick / max(px * 4.0, 1e-5));
+                    float a = (1.0 - smoothstep(ink - 0.5, ink + 0.5, d / px)) * (i.dims.x > 0.02 ? 1.0 : 0.0);
+                    return half4(a, a, a, 1.0);
+                }
                 // a soft ring of shade round the glow: 0 = leave the dirt, 1 = black
                 float rr = length(i.st);
                 float c = i.dims.w;
                 float x = (rr - c) / max(1.0 - c, 0.05);
                 float field = exp(-x * x * 2.5) * (1.0 - smoothstep(0.85, 1.0, rr));
                 float inner = smoothstep(c * 0.45, c, rr);
-                float d = saturate(field * lerp(0.35, 1.0, inner) * i.dims.x * i.tone.z);
-                return half4(d, d, d, 1.0);
+                float d2 = saturate(field * lerp(0.35, 1.0, inner) * i.dims.x * i.tone.z);
+                return half4(d2, d2, d2, 1.0);
             }
             ENDHLSL
         }
@@ -132,11 +165,20 @@ Shader "TW/Cel/GlBolt"
             {
                 uint row = CelRowA(i.tone.x);
                 half3 col;
-                if (i.tone.w > 0.5)
+                if (i.tone.w > 2.5)
                 {
-                    // the wash: a smooth radial falloff, no band, no ring
+                    // the wisp's flat bands: pale core down the middle, green toward the rim (ink is the black left by the shade pass)
+                    float across, thick;
+                    float d = GlWisp(i.st, i.dims.x, i.dims.w, i.more.y, across, thick);
+                    float inside = CelAAStep(0.0, -d) * (i.dims.x > 0.02 ? 1.0 : 0.0);
+                    float v = 0.5 + 0.5 * across * lerp(1.0, 0.8, i.st.y);
+                    col = CelRamp(saturate(v), row, i.tone.y) * (inside * i.tone.z);
+                }
+                else if (i.tone.w > 0.5)
+                {
+                    // the wash: a smooth gaussian that is already nothing at the radius: no band, no ring, no rim
                     float rr = length(i.st);
-                    float field = exp(-rr * rr * i.dims.w) * (1.0 - smoothstep(0.8, 1.0, rr));
+                    float field = exp(-rr * rr * i.dims.w) * (1.0 - smoothstep(0.55, 1.0, rr));
                     col = CelPal(row, 3) * (field * i.dims.x * i.tone.z);
                 }
                 else
@@ -144,33 +186,30 @@ Shader "TW/Cel/GlBolt"
                     float s = i.st.x, y = abs(i.st.y);
                     float hw = max(i.dims.x, 1e-4), len = max(i.dims.y, 1e-3), hl = max(i.dims.z, 1e-4), bloom = i.dims.w;
                     float seed = i.more.y;
-                    // the head: a pointed dart, sharp in front, a blunt back
-                    float wHead = s >= 0.0 ? hw * pow(saturate(1.0 - s / (hl * 0.6)), 0.85) : hw * sqrt(saturate(1.0 - (s / (hl * 0.45)) * (s / (hl * 0.45))));
-                    float dHead = (s > hl * 0.6 || s < -hl * 0.45) ? 1e3 : y - wHead;
-                    // the chevron: swept-back barbs flaring out behind the head, two a side, each its own length
-                    float2 q = float2(s, y);
-                    float j1 = CelHash11(seed * 37.0 + (i.st.y > 0.0 ? 1.0 : 2.0));
-                    float j2 = CelHash11(seed * 53.0 + (i.st.y > 0.0 ? 3.0 : 4.0));
-                    float dB1 = GlBarb(q, float2(-hl * 0.05, hw * 0.3), float2(-hl * (0.8 + 0.3 * j1), hw * (1.6 + 0.4 * j1)), hw * 0.45, hw * 0.04);
-                    float dB2 = GlBarb(q, float2(-hl * 0.25, hw * 0.25), float2(-hl * (1.15 + 0.3 * j2), hw * (1.0 + 0.3 * j2)), hw * 0.35, hw * 0.03);
-                    // the tail: short, ragged and broken into segments, tapering to nothing
-                    float u = saturate((-s - hl * 0.2) / max(len - hl * 0.2, 1e-3));
-                    float rag = CelValue2(float2(s * 9.0 - _CelNow * 11.0, seed * 91.0 + sign(i.st.y) * 3.1));
-                    float rT = hw * 0.75 * pow(1.0 - u, 0.9) * lerp(0.55, 1.35, rag);
-                    float seg = frac(-s / max(hl * 0.55, 1e-3) + seed * 7.0);
-                    float gap = (u > 0.25 && seg < lerp(0.1, 0.35, u)) ? 1.0 : 0.0;
-                    float dTail = (s <= -hl * 0.2 && s >= -len && gap < 0.5) ? y - rT : 1e3;
-                    float d = min(min(dHead, dTail), min(dB1, dB2));
-                    // inside: banded - white-hot core in the head, pale green barbs, saturated green tail
-                    float vHead = saturate(-dHead / hw);
-                    float vRest = 0.3 + saturate(-min(min(dB1, dB2), dTail) / hw) * 0.4;
-                    float v = max(vHead * 1.0 + (dHead < 0.0 ? 0.25 : 0.0), vRest);
+                    // the head: small and pointed in front, a rounded back that runs into the tail
+                    float hh = hw * 0.7;
+                    float wHead = s >= 0.0 ? hh * pow(saturate(1.0 - s / (hl * 0.6)), 0.8) : hh * sqrt(saturate(1.0 - (s / (hl * 0.5)) * (s / (hl * 0.5))));
+                    float dHead = (s > hl * 0.6 || s < -hl * 0.5) ? 1e3 : y - wHead;
+                    // the tail: long, tapering to a point, ragged along its edge, broken into pieces toward the back
+                    float u = saturate((-s - hl * 0.15) / max(len - hl * 0.15, 1e-3));
+                    float rag = CelValue2(float2(s * 7.0 - _CelNow * 9.0, seed * 91.0 + sign(i.st.y) * 3.1));
+                    float rT = hw * 0.9 * pow(1.0 - u, 1.0) * lerp(0.65, 1.25, rag);
+                    float j1 = CelHash11(seed * 37.0), j2 = CelHash11(seed * 53.0);
+                    float gap1 = (u > 0.5 + 0.08 * j1 && u < 0.58 + 0.08 * j1) ? 1.0 : 0.0;
+                    float gap2 = (j2 > 0.35 && u > 0.76 + 0.06 * j2 && u < 0.83 + 0.06 * j2) ? 1.0 : 0.0;
+                    float dTail = (s <= 0.0 && s >= -len && gap1 + gap2 < 0.5) ? y - rT : 1e3;
+                    float d = min(dHead, dTail);
+                    // inside: pale white-green core in the head, saturated green tail, paler down its middle
+                    float vHead = dHead < 0.0 ? 0.85 + 0.3 * saturate(-dHead / hh) : 0.0;
+                    float vTail = dTail < 0.0 ? 0.42 + 0.4 * saturate(-dTail / max(rT, 1e-4)) * (1.0 - 0.5 * u) : 0.0;
+                    float v = max(vHead, vTail);
                     half3 body = CelRamp(saturate(v), row, i.tone.y);
                     float inside = CelAAStep(0.0, -d);
-                    // outside: a faint smooth bloom round the dart (no ring, no rim at the quad's edge)
+                    // outside: a smooth bloom round the dart, strongest round the head (no ring, no rim at the quad's edge)
                     float x = max(d, 0.0) / max(bloom, 1e-4);
-                    float glow = exp(-5.0 * x) * (1.0 - smoothstep(0.5, 1.0, x));
-                    col = lerp(CelPal(row, 2) * (glow * 0.35), body, inside) * i.tone.z;
+                    float headNear = saturate(1.0 - (-s) / max(len * 0.6, 1e-3));
+                    float glow = exp(-3.5 * x) * (1.0 - smoothstep(0.6, 1.0, x)) * lerp(0.6, 1.0, headNear);
+                    col = lerp(CelPal(row, 2) * (glow * 0.85), body, inside) * i.tone.z;
                 }
                 return half4(CelAdditiveFog(col, i.positionWS, i.more.x), 1.0);
             }
