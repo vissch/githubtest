@@ -233,6 +233,81 @@ Shader "TW/Cel/FlameJet"
             streak = CelSimplex3(q2) * r.extra.z * 0.7 + inner * 0.45;
             return field;
         }
+
+        // d01: PATH RIBBON tongues (records with extra.w < 0). One tongue = a camera-facing strip whose spine follows a
+        // curved path from the nozzle toward pos + vel x life: the head runs out along the path (erode.x seconds to its
+        // end), the tail follows size.y metres behind and, after the head arrives, runs into the end too. The spine is
+        // bent by flowing noise (amplitude size.z metres at the end, frequency extra.y /m, flow extra.x m/s), lifted
+        // motion.w metres up at the end (a^2) and its tip curls size.w metres up. Width: size.x at the end, 12 % of it at
+        // the nozzle, a round base and a pointed tip leading downstream. Bands from the strip's own cross distance, so
+        // the ink line is a real contour on every tongue (overlapping tongues keep their own outlines).
+        #define RIB_ENV 1.3
+        float2 RibWindow(CelRecord r, float t)
+        {
+            float len = max(length(r.vel * r.life), 1e-3);
+            float hT = clamp(r.erode.x, 0.05, r.life * 0.95);
+            float headA = pow(saturate(t / hT), 0.85);
+            float tailA = saturate(headA - r.size.y / len);
+            float rest = saturate((t - hT) / max(r.life - hT, 1e-3));
+            tailA = lerp(tailA, 1.0, rest * rest);
+            return float2(tailA, headA);
+        }
+        // a flame lens: a tapering tail toward the nozzle, widest at ~40 %, a long pointed tip downstream (d01 try4's
+        // sqrt base was cut square)
+        float RibProfile(float u) { u = saturate(u); return saturate(smoothstep(0.0, 0.4, u) * pow(1.0 - u, 0.8) * 1.5); }
+        float3 RibPoint(CelRecord r, float a, float u, float t)
+        {
+            float3 span = r.vel * r.life;
+            float len = max(length(span), 1e-3);
+            float3 dir = span / len;
+            float3 up = float3(0.0, 1.0, 0.0);
+            float3 side = cross(dir, up); side *= rsqrt(max(dot(side, side), 1e-6));
+            float3 up2 = cross(side, dir);
+            float m = a * len, sd = r.seed * 31.0;
+            float fs = (m - t * r.extra.x) * r.extra.y;
+            float n1 = CelSimplex3(float3(fs, sd, t * 0.9));
+            float n2 = CelSimplex3(float3(fs * 0.8 + 5.1, sd + 3.3, t * 0.7));
+            float amp = r.size.z * a;
+            float3 p = r.pos + dir * m + side * (n1 * amp) + up2 * (n2 * amp * 0.7);
+            p += up * (r.motion.w * a * a);
+            float tip = smoothstep(0.55, 1.0, u);
+            p += up2 * (r.size.w * tip * tip);
+            return p;
+        }
+        struct RibOut { float3 positionWS; float u; float across; float a; };
+        RibOut Rib(float2 uv, uint instanceID)
+        {
+            CelRecord r = CelFetch(instanceID);
+            float t = CelAge(r), alive = CelAlive(r);
+            float2 w = RibWindow(r, t);
+            float a = lerp(w.x, w.y, uv.x);
+            float da = max((w.y - w.x) * 0.02, 1e-3);
+            float3 c = RibPoint(r, a, uv.x, t);
+            float3 c2 = RibPoint(r, a + da, min(uv.x + 0.02, 1.0), t);
+            float3 tang = c2 - c; tang *= rsqrt(max(dot(tang, tang), 1e-8));
+            float3 side = cross(tang, normalize(_WorldSpaceCameraPos - c));
+            float sl = dot(side, side);
+            side = sl > 1e-6 ? side * rsqrt(sl) : UNITY_MATRIX_V[0].xyz;
+            // no per-vertex up-flip: on a curved spine it flipped the strip between vertices (plank facets)
+            float hw = 0.5 * r.size.x * lerp(0.1, 1.0, sqrt(saturate(a))) * (1.0 + 1.2 * saturate(_CelLod.x));
+            // a tongue shrinking into the target thins with its visible length (no wide stub at the end)
+            hw *= saturate((w.y - w.x) * length(r.vel * r.life) / max(r.size.y, 0.1));
+            float prof = max(RibProfile(uv.x), 0.04);
+            RibOut o;
+            o.positionWS = c + side * (uv.y * 2.0 - 1.0) * hw * prof * RIB_ENV * alive;
+            o.u = uv.x; o.across = (uv.y * 2.0 - 1.0) * RIB_ENV; o.a = a;
+            return o;
+        }
+        // 1 on the tongue's mid line, 0 on its edge; ragged by flowing noise, the upper edge licking more
+        float RibField(CelRecord r, float u, float across, float a, out float streak)
+        {
+            float t = CelAge(r), sd = r.seed * 17.0;
+            float rag = CelSimplex3(float3(u * 5.0 - t * 3.0, across > 0.0 ? 1.3 : 4.7, sd));
+            float edge = 1.0 + 0.22 * rag * (across > 0.0 ? 1.0 : 0.6);
+            float field = (edge - abs(across)) / edge;
+            streak = CelSimplex3(float3(u * 3.0 - t * 2.0, across * 1.5, sd + 2.0)) * r.extra.z;
+            return field;
+        }
         ENDHLSL
 
         Pass
@@ -257,8 +332,18 @@ Shader "TW/Cel/FlameJet"
 
             Varyings vert(Attributes v, uint instanceID : SV_InstanceID)
             {
-                JetOut j = Jet(v.uv, instanceID);
                 Varyings o;
+                if (CelFetch(instanceID).extra.w < 0.0)
+                {
+                    RibOut rb = Rib(v.uv, instanceID);
+                    o.positionWS = rb.positionWS;
+                    o.positionCS = TransformWorldToHClip(rb.positionWS);
+                    o.jet = float3(rb.u, rb.across, rb.a);
+                    o.fog = ComputeFogFactor(o.positionCS.z);
+                    o.id = GetIndirectInstanceID_Base(instanceID);
+                    return o;
+                }
+                JetOut j = Jet(v.uv, instanceID);
                 o.positionWS = j.positionWS;
                 o.positionCS = TransformWorldToHClip(j.positionWS);
                 o.jet = float3(j.along, j.across, j.metres);
@@ -272,6 +357,17 @@ Shader "TW/Cel/FlameJet"
                 CelRecord r = _CelRecords[i.id];
                 float streak;
                 g_jetSeam = 0.0;
+                if (r.extra.w < 0.0)
+                {
+                    float rf = RibField(r, i.jet.x, i.jet.y, i.jet.z, streak);
+                    clip(rf);
+                    // a thin red rim, orange, yellow, the white core down the tongue's middle (hotter near the nozzle)
+                    float rv = saturate(0.03 + rf * 0.8 + streak * 0.2 + 0.1 * (1.0 - saturate(i.jet.z * 1.6)));
+                    half3 rc = CelRamp(rv, CelRowA(r.tone.x), r.tone.y);
+                    float rink = CelInk(rf, 0.0, CelLodInk(r.tone.w));
+                    rc = lerp(rc, CelPalInk(CelRowA(r.tone.x)).rgb, rink);
+                    return half4(MixFog(rc, i.fog), 1.0);
+                }
                 float3 jc = JetCoords(r, i.positionWS);
                 float f = JetField(r, jc.x, jc.y, jc.z, streak);
                 if (r.extra.w > 0.0) f = min(f, JetGround(r, i.positionWS, jc.z) + 8.0 * (1.0 - smoothstep(0.45, 0.7, jc.x)));
