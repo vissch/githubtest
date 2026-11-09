@@ -14,7 +14,8 @@
 //   erode      unused
 //   tone       x palette (its c3 is the light colour), y intensity (HDR), z opacity, w additive fill (0..1 of the
 //              intensity; the recipe's Ink field; 0: none)
-//   extra      x mode, y falloff power (0: 1.6), z vertical squash for mode 0 (0: 1; 2 = half as tall), w attack 0..1 of
+//   extra      x mode, y falloff power (0: 1.6), z vertical squash for mode 0 (0: 1; 2 = half as tall; -2 = half as
+//              wide, a column), w attack 0..1 of
 //              the life (0: 0.12)
 Shader "TW/Cel/BiWash"
 {
@@ -72,7 +73,7 @@ Shader "TW/Cel/BiWash"
             o.positionCS = TransformWorldToHClip(w);
             o.uv = corner;
             o.tone = float4(r.tone.x, r.tone.y * env * alive, r.tone.z, radius);
-            o.shape = float4(mode, r.extra.y > 0.0 ? r.extra.y : 1.6, r.extra.z > 0.0 ? r.extra.z : 1.0, -TransformWorldToView(c).z);
+            o.shape = float4(mode, r.extra.y > 0.0 ? r.extra.y : 1.6, abs(r.extra.z) > 1e-4 ? r.extra.z : 1.0, -TransformWorldToView(c).z);
             o.centre = float4(c, r.tone.w);
             return o;
         }
@@ -88,7 +89,9 @@ Shader "TW/Cel/BiWash"
             {
                 ws = ComputeWorldSpacePosition(suv, raw, UNITY_MATRIX_I_VP);
                 float3 d = ws - i.centre.xyz;
-                d.y *= i.shape.z;
+                // b04: a negative squash narrows the light sideways instead: a column round the dummy that lights
+                // the board and not the dust beside it
+                if (i.shape.z > 0.0) d.y *= i.shape.z; else d.xz *= -i.shape.z;
                 field = saturate(1.0 - length(d) / i.tone.w);
             }
             else
