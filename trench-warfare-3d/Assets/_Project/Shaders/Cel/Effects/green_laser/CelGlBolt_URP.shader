@@ -76,10 +76,14 @@ Shader "TW/Cel/GlBolt"
                 float3 vel = CelVelocity(r, t);
                 float speed = length(vel);
                 float3 dir = speed > 1e-3 ? vel / speed : float3(1, 0, 0);
-                float hw = size;
+                // keep every dart about 1/8 of the frame wide on screen and at most ~1/7 as tall as long, however near
+                // the eye it flies: the tail is capped by the frame's width at the dart's distance (width = 2 d / P00)
+                float dcam = distance(p, _WorldSpaceCameraPos);
+                float lenCap = min(r.extra.y, 0.25 * dcam / max(UNITY_MATRIX_P[0][0], 1e-3));
+                float hw = min(size, lenCap * 0.075);
                 float hl = hw * (r.extra.w > 0.0 ? r.extra.w : 4.0);
-                float bloom = max(r.extra.z, 0.0) * alive;
-                float len = min(max(r.extra.y, hl), distance(p, r.pos) + hl * 0.6);
+                float bloom = min(max(r.extra.z, 0.0), hw * 2.5) * alive;
+                float len = min(max(lenCap, hl), distance(p, r.pos) + hl * 0.6);
                 float3 toEye = normalize(_WorldSpaceCameraPos - p);
                 float3 side = cross(dir, toEye);
                 float sl = dot(side, side);
@@ -133,7 +137,7 @@ Shader "TW/Cel/GlBolt"
                     float d = GlWisp(i.st, i.dims.x, i.dims.w, i.more.y, across, thick);
                     float px = max(fwidth(d), 1e-5);
                     // the ink band thins with the shape, so a wisp thinning away leaves no bare black line
-                    float ink = CelLodInk(2.5) * saturate(thick / max(px * 4.0, 1e-5));
+                    float ink = CelLodInk(3.5) * saturate(thick / max(px * 4.0, 1e-5));
                     float a = (1.0 - smoothstep(ink - 0.5, ink + 0.5, d / px)) * (i.dims.x > 0.02 ? 1.0 : 0.0);
                     return half4(a, a, a, 1.0);
                 }
@@ -186,27 +190,30 @@ Shader "TW/Cel/GlBolt"
                     float s = i.st.x, y = abs(i.st.y);
                     float hw = max(i.dims.x, 1e-4), len = max(i.dims.y, 1e-3), hl = max(i.dims.z, 1e-4), bloom = i.dims.w;
                     float seed = i.more.y;
-                    // the head: small and pointed in front, a rounded back that runs into the tail
+                    // the head: small and pointed in front (a long sharp tip), a short rounded back that runs into the tail
                     float hh = hw * 0.7;
-                    float wHead = s >= 0.0 ? hh * pow(saturate(1.0 - s / (hl * 0.6)), 0.8) : hh * sqrt(saturate(1.0 - (s / (hl * 0.5)) * (s / (hl * 0.5))));
-                    float dHead = (s > hl * 0.6 || s < -hl * 0.5) ? 1e3 : y - wHead;
-                    // the tail: long, tapering to a point, ragged along its edge, broken into pieces toward the back
-                    float u = saturate((-s - hl * 0.15) / max(len - hl * 0.15, 1e-3));
-                    float rag = CelValue2(float2(s * 7.0 - _CelNow * 9.0, seed * 91.0 + sign(i.st.y) * 3.1));
-                    float rT = hw * 0.9 * pow(1.0 - u, 1.0) * lerp(0.65, 1.25, rag);
+                    float wHead = s >= 0.0 ? hh * pow(saturate(1.0 - s / (hl * 0.9)), 1.3) : hh * sqrt(saturate(1.0 - (s / (hl * 0.35)) * (s / (hl * 0.35))));
+                    float dHead = (s > hl * 0.9 || s < -hl * 0.35) ? 1e3 : y - wHead;
+                    // the tail: long, tapering to a point, ragged along its edge, broken into pieces only in its back half
+                    float u = saturate((-s - hl * 0.1) / max(len - hl * 0.1, 1e-3));
+                    float rag = CelValue2(float2(s * 7.0 / max(len, 0.2) * 1.5 - _CelNow * 9.0, seed * 91.0 + sign(i.st.y) * 3.1));
+                    float rT = hw * 0.85 * pow(1.0 - u, 1.4) * lerp(0.6, 1.2, rag);
                     float j1 = CelHash11(seed * 37.0), j2 = CelHash11(seed * 53.0);
-                    float gap1 = (u > 0.5 + 0.08 * j1 && u < 0.58 + 0.08 * j1) ? 1.0 : 0.0;
-                    float gap2 = (j2 > 0.35 && u > 0.76 + 0.06 * j2 && u < 0.83 + 0.06 * j2) ? 1.0 : 0.0;
-                    float dTail = (s <= 0.0 && s >= -len && gap1 + gap2 < 0.5) ? y - rT : 1e3;
+                    float gap1 = (u > 0.55 + 0.08 * j1 && u < 0.63 + 0.08 * j1) ? 1.0 : 0.0;
+                    float gap2 = (j2 > 0.3 && u > 0.78 + 0.05 * j2 && u < 0.85 + 0.05 * j2) ? 1.0 : 0.0;
+                    float dTailC = (s <= 0.0 && s >= -len) ? y - rT : 1e3;
+                    float dTail = gap1 + gap2 < 0.5 ? dTailC : 1e3;
                     float d = min(dHead, dTail);
                     // inside: pale white-green core in the head, saturated green tail, paler down its middle
-                    float vHead = dHead < 0.0 ? 0.85 + 0.3 * saturate(-dHead / hh) : 0.0;
+                    // only the head's middle reaches the white core (the palette's core band); its rim is pale green
+                    float vHead = dHead < 0.0 ? 0.68 + 0.35 * saturate(-dHead / hh) : 0.0;
                     float vTail = dTail < 0.0 ? 0.42 + 0.4 * saturate(-dTail / max(rT, 1e-4)) * (1.0 - 0.5 * u) : 0.0;
                     float v = max(vHead, vTail);
                     half3 body = CelRamp(saturate(v), row, i.tone.y);
                     float inside = CelAAStep(0.0, -d);
                     // outside: a smooth bloom round the dart, strongest round the head (no ring, no rim at the quad's edge)
-                    float x = max(d, 0.0) / max(bloom, 1e-4);
+                    // the bloom follows the unbroken tail, so the gaps never cut dark rungs across it
+                    float x = max(min(dHead, dTailC), 0.0) / max(bloom, 1e-4);
                     float headNear = saturate(1.0 - (-s) / max(len * 0.6, 1e-3));
                     float glow = exp(-3.5 * x) * (1.0 - smoothstep(0.6, 1.0, x)) * lerp(0.6, 1.0, headNear);
                     col = lerp(CelPal(row, 2) * (glow * 0.85), body, inside) * i.tone.z;
