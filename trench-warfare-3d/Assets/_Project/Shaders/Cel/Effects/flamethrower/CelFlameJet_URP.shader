@@ -35,7 +35,11 @@ Shader "TW/Cel/FlameJet"
         {
             float grow = max(r.erode.x, 1e-3), cut = max(r.erode.y, 1e-3);
             float reach = 1.0 + r.size.w;
-            float front = lerp(saturate(r.erode.w), reach, saturate(t / grow));
+            float g01 = saturate(t / grow);
+            // b05: the main jet's front eases in (pow 1.6): its near half is foreshortened less on screen, so a linear front
+            // reached the dummy on screen by the clip's f17 (half length there)
+            if (r.extra.w > 0.8) g01 = pow(g01, 1.6);
+            float front = lerp(saturate(r.erode.w), reach, g01);
             float tail = saturate((t - (r.life - cut)) / cut);
             tail = tail * tail * reach;
             return float2(tail, front);
@@ -46,7 +50,7 @@ Shader "TW/Cel/FlameJet"
             // the main jet (upper-edge licking on) starts slimmer and broadens over its first 1.3 s, like the clip's
             bool isMain = r.extra.w > 0.0;
             // b04: broadens over 0.75 of its life (to 2.6 s), so the main jet keeps growing to the clip's peak (f84) and short tongues open fast
-            float grow = isMain ? lerp(0.55, 1.0, smoothstep(0.0, clamp(0.75 * r.life, 0.3, 2.6), CelAge(r))) : 1.0;
+            float grow = isMain ? lerp(0.5, 1.08, smoothstep(0.0, clamp(0.85 * r.life, 0.3, 3.4), CelAge(r))) : 1.0;
             float w = 0.5 * grow * lerp(r.size.x, r.size.y, pow(saturate(a), r.size.z > 0.0 ? r.size.z : 1.0));
             if (isMain)
             {
@@ -120,7 +124,7 @@ Shader "TW/Cel/FlameJet"
             float past = smoothstep(0.8, 1.25, a01);
             y += 0.1 * past;                                    // b01: past the target the field drops (it rose off the frame top)
             // b01: a slimmer spine (the white core was a third too big: hot 0.154 vs the clip's 0.101)
-            float best = (0.22 - abs(y)) / 0.22;                // the spine (the white core); b02: 0.3 -> 0.22 (hot 0.20 vs 0.10)
+            float best = (0.3 - abs(y)) / 0.3;   // b05: 0.22 -> 0.3 (a wider white core: hot 0.022 vs the clip's 0.101)                // the spine (the white core); b02: 0.3 -> 0.22 (hot 0.20 vs 0.10)
             // b01: the two best tongues are kept apart: where two tongues overlap and neither is clearly in front, a dark
             // ink-brown seam is cut (the clip's jet reads as separate tongues with dark gaps between them)
             float t1 = -1.0, t2 = -1.0;
@@ -283,8 +287,8 @@ Shader "TW/Cel/FlameJet"
                 float v = saturate(0.02 + f * 0.74 + streak * 0.25 + 0.06 * (1.0 - saturate(jc.x * 1.5)) - 0.08 * saturate((jc.x - 0.6) * 1.5));
                 // b04: a blown white core along the whole axis, nozzle to target (b03's spine peaked at v ~0.78 and never
                 // reached the core band: hot 0.010 vs the clip's 0.101); streaky, so it is wider where the white streaks run
-                float spine = saturate(1.0 - abs(jc.y) / (0.2 + 0.12 * streak)) * smoothstep(0.0, 0.05, jc.x) * (1.0 - smoothstep(0.8, 1.05, jc.x));
-                v = saturate(v + 0.24 * spine);
+                float spine = saturate(1.0 - abs(jc.y) / (0.42 + 0.14 * streak)) * smoothstep(0.0, 0.05, jc.x) * (1.0 - smoothstep(0.8, 1.05, jc.x));
+                v = saturate(v + 0.38 * spine);   // b05: wider (0.2 -> 0.36 half-widths) and hotter (0.24 -> 0.38): a blown core a third of the jet
                 half3 col = CelRamp(v, CelRowA(r.tone.x), r.tone.y);
                 float ink = CelInk(f, 0.0, CelLodInk(r.tone.w));
                 col = lerp(col, CelPalInk(CelRowA(r.tone.x)).rgb, max(ink, seam * 0.35));
