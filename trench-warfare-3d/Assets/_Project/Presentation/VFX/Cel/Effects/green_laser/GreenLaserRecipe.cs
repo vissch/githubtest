@@ -28,10 +28,10 @@ namespace TW.Presentation.VFX.Cel
         // each volley's first dart lands at Hits[i] (reference frames 25, 37, 51, 61, 73, 86, 98, 106); a dart flies Travel s
         public const float Travel = 0.28f, TravelLate = 0.4f, Gap = 0.18f, Length = 5.0f;
         static readonly float[] Hits = { 0.26f, 0.74f, 1.33f, 1.74f, 2.24f, 2.78f, 3.28f, 3.62f };
-        static readonly float[] HitScale = { 0.8f, 0.9f, 0.9f, 1.0f, 1.35f, 1.1f, 0.95f, 0.85f };
+        static readonly float[] HitScale = { 0.8f, 0.9f, 0.9f, 1.0f, 1.35f, 0.9f, 0.95f, 0.85f };   // d16: the biggest moment at f73-f77 like the ref (was 1.1 at f86)
         // the ground bursts right of the target (reference frames 34-85, biggest at 70-77)
         static readonly float[] Ground = { 0.66f, 1.70f, 2.40f, 2.74f, 3.07f };
-        static readonly float[] GroundScale = { 0.7f, 0.85f, 1.25f, 1.1f, 1.0f };
+        static readonly float[] GroundScale = { 0.7f, 0.85f, 1.35f, 0.9f, 1.0f };
         public const string BoltKind = "GlBolt";
         // where along muzzle (near, low) -> muzzle high (far, level) each lane starts: the reference's ~22 degree climb
         // (measured on the reference: both lanes enter the frame's left edge ~5/6 down and climb ~15 degrees on screen)
@@ -242,7 +242,7 @@ namespace TW.Presentation.VFX.Cel
             l.Add(Smoke("smoke burst", CelAnchor.Target, new Vector3(0f, 0.9f, 0.3f), 2.05f, 0.8f, 0.7f, 6, 1, 0.3f, 0.5f, false, 0.8f));
             // the big late cloud right of the dummy: green-lit lumps first, then olive-grey ones (ref f95-f126), about 2x the dummy tall
             l.Add(Smoke("smoke burst lit", CelAnchor.Target, new Vector3(0f, 1.0f, 0.2f), 2.95f, 0.45f, 0.7f, 9, 1, 0.4f, 0.62f, false, 1.0f));
-            l.Add(Smoke("smoke burst late", CelAnchor.Target, new Vector3(0f, 1.0f, 0.3f), 3.25f, 0.45f, 1.0f, 11, 2, 0.4f, 0.66f, true, 1.1f));
+            l.Add(Smoke("smoke burst late", CelAnchor.Target, new Vector3(0f, 1.0f, 0.3f), 3.25f, 0.45f, 1.15f, 11, 2, 0.4f, 0.66f, true, 1.1f));
             l.Add(new CelLayer
             {
                 // small green embers glinting at the feet after the volley (reference frames 112-125)
