@@ -164,6 +164,7 @@ namespace TW.Presentation.VFX.Cel
             // b06: a larger white-blue ball about the torso wide (b05's white-yellow ray star was smaller than the clip's glow)
             Dim(Dot("glow", "blue_laser_bloom", 1, 0.15f, 0f, Hold + 0.1f, 1, 1, new CelCurve(1.2f, 1.3f), 2.4f, 0f, 0.06f), 0.9f),   // d03: white core halved (hot 0.042 vs clip 0.025)   // b07: 1x torso (b06b: 2x the dummy)
             Dim(Dot("bloom", "blue_laser_bloom", 1, 0.15f, Hold, 0.13f, 30, 12, new CelCurve(0.6f, 0.66f, 0.6f), 2.6f, 0f, 0.1f), 0.75f),
+            Dim(Dot("glow late", "blue_laser_bloom", 1, 1.85f, 0f, Hold - 1.7f, 1, 0, new CelCurve(0.95f, 1.15f), 2.4f, 0f, 0.22f), 0.95f),   // d27: the clip keeps its white ball bright f81-f101 (15-17% px over lum 180; ours fell to 5-6% after f64)
             // b01: 6-10 thin white spike rays of uneven length out to 1-1.5 torso widths, re-drawn every 2-3 frames at a new turn
             // b03: a torso-wide white-core, blue-rim star on the chest: 10 rays, larger, plus a burst at the peak and a
             // faint crackle on the board after the beam
