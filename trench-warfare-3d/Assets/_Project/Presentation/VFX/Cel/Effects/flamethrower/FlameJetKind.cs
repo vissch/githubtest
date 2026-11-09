@@ -10,7 +10,7 @@ namespace TW.Presentation.VFX.Cel
         public override string Name => "FlameJet";
         public override Shader FindShader() => Shader.Find("TW/Cel/FlameJet");
         public override Mesh BuildMesh() => CelMeshes.Strip(48, "Cel FlameJet");
-        public override int Capacity => 32;
+        public override int Capacity => 64;
         public override int Order => 5;
     }
 }
