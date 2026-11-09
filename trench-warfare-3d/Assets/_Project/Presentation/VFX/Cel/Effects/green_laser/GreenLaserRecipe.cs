@@ -200,25 +200,25 @@ namespace TW.Presentation.VFX.Cel
                 float g = Ground[i], s = GroundScale[i];
                 l.Add(new CelLayer
                 {
-                    // a large inked spiky green burst on the ground right of the dummy (GlBolt mode 5)
-                    Name = "burst star " + i, Kind = BoltKind, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.7f * s, 0f), Start = g, Duration = 0.06f, Life = 0.2f, LifeJitter = 0.15f,
-                    Close = 2, Mid = 1, Far = 0, Size = new CelCurve(1.6f * s, 2.2f * s, 0.4f), SizeJitter = 0.2f,
-                    Palette = "gl_burst", Core = 0.8f, Opacity = 1f, Extra = new Vector4(5f, 0.15f, 0.4f, 12f),
+                    // d02: a SMALL ragged inked green star at the burst foot (was 1.6-2.2 m: 2-3x the ref f79), three overlapping
+                    Name = "burst star " + i, Kind = BoltKind, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.3f * s, 0f), Start = g, Duration = 0.1f, Life = 0.16f, LifeJitter = 0.3f,
+                    Close = 3, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.2f, 0f, 0f), Size = new CelCurve(0.5f * s, 0.75f * s, 0.4f), SizeJitter = 0.4f,
+                    Palette = "gl_burst", Core = 0.5f, Opacity = 1f, Extra = new Vector4(5f, 0.15f, 0.4f, 12f),
                 });
                 l.Add(new CelLayer
                 {
                     Name = "burst spikes " + i, Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = g, Duration = 0.1f, Life = 0.27f, LifeJitter = 0.3f,
-                    Close = s > 0.8f ? 18 : 8, Mid = s > 0.8f ? 6 : 0, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.25f, 0f, 0f), Aim = CelAim.Up, Speed = 14f * s, SpeedJitter = 0.5f, Spread = 45f, Drag = 3f, Gravity = 6f,
-                    Size = new CelCurve(0.1f, 0.03f), SizeJitter = 0.3f, Stretch = 0.07f, Erode = new CelCurve(0.05f, 0.5f), Palette = "gl_burst", Core = 1.0f, Extra = new Vector4(0f, 0.25f, 0f, 0f),
+                    Close = s > 0.8f ? 30 : 14, Mid = s > 0.8f ? 6 : 0, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.2f, 0f, 0f), Aim = CelAim.Up, Speed = 11f * s, SpeedJitter = 0.6f, Spread = 28f, Drag = 3f, Gravity = 6f,
+                    Size = new CelCurve(0.05f, 0.015f), SizeJitter = 0.4f, Stretch = 0.1f, Erode = new CelCurve(0.05f, 0.5f), Palette = "gl_burst", Core = 1.0f, Extra = new Vector4(0f, 0.25f, 0f, 0f),
                 });
                 // a white-hot flash at the burst's heart (the reference's bright ground starburst core)
                 l.Add(new CelLayer
                 {
-                    Name = "burst flash " + i, Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.5f * s, 0f), Start = g, Life = 0.16f, LifeJitter = 0.1f,
-                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(1.1f * s, 1.4f * s, 0.4f), SizeJitter = 0.1f,
-                    Palette = "gl_burst", Core = 1.6f, Opacity = 0.9f, Extra = new Vector4(2f, 3.0f, 0f, 0f),
+                    Name = "burst flash " + i, Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.25f * s, 0f), Start = g, Life = 0.16f, LifeJitter = 0.1f,
+                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.45f * s, 0.6f * s, 0.4f), SizeJitter = 0.1f,
+                    Palette = "gl_burst", Core = 1.0f, Opacity = 0.6f, Extra = new Vector4(2f, 3.0f, 0f, 0f),
                 });
-                l.Add(Wash("burst wash " + i, CelAnchor.Target, g, 0f, 1, 1, 0, 0.3f, 2.6f * s, 2.8f * s, 1.1f, new Vector4(1f, 0.05f, 0.4f, 2.4f)));
+                l.Add(Wash("burst wash " + i, CelAnchor.Target, g, 0f, 1, 1, 0, 0.3f, 1.5f * s, 1.7f * s, 1.0f, new Vector4(1f, 0.05f, 0.4f, 2.4f)));
                 // a dark scorch splat left on the dirt where a big burst lands (the reference's black craters), gone by ~f130
                 if (s > 0.8f) l.Add(Wash("burst scorch " + i, CelAnchor.Target, g, 0f, 1, 0, 0, 4.1f - g, 1.0f * s, 1.1f * s, 0.7f, new Vector4(2f, 0.05f, 0.7f, 0.01f)));
             }
