@@ -133,7 +133,7 @@ namespace TW.Presentation.VFX.Cel
                     Close = 1, Mid = 1, Far = 1, Aim = CelAim.Target, Speed = 0f, Spread = 0f, Spin = 3f, Gravity = ArcGravity,
                     // b01 (beach, 19 m camera): ribbon 0.2 m wide, 0.75 s of its speed long (a third to half the frame)
                     // b02: a negative Stretch draws the tail behind the birth (the opening bolts were in flight before the fire)
-                    Size = new CelCurve(0.24f, 0.24f), SizeJitter = 0.2f, Stretch = preflown ? -0.75f : 0.75f, Erode = new CelCurve(0f, 0f),
+                    Size = new CelCurve(0.2f, 0.2f), SizeJitter = 0.2f, Stretch = preflown ? -0.75f : 0.75f, Erode = new CelCurve(0f, 0f),
                     Palette = "fb_comet", CoolTo = "fb_ribbon", Core = 2.0f,   // b03: 2.6 -> 2.2 (the bodies read white-hot)
                     Opacity = 1f, Ink = 2f,
                     // b02: a round white-yellow head 0.2 m, a flame body that flares and tapers over 2.2 m, thin red
@@ -222,9 +222,9 @@ namespace TW.Presentation.VFX.Cel
                 {
                     Name = "smoke ribbon", Kind = CometKind.KindName, Anchor = CelAnchor.Origin, Offset = new Vector3(0f, 0.1f, 0.2f), Start = hit + 0.1f, Life = 1.6f, LifeJitter = 0.1f,
                     Close = 1, Mid = 1, Far = 0, Aim = CelAim.Dir, Spread = 6f, Speed = 1.7f, SpeedJitter = 0.15f, Drag = 0f, Gravity = 0f, Buoyancy = 0.7f, Spin = 2.2f,
-                    Size = new CelCurve(0.4f, 0.85f, 0.8f), SizeJitter = 0.2f, Stretch = 7f, Erode = new CelCurve(0f, 0.8f, 3.5f),   // b06: wider, taller, breaks up only late (shader: from the top)
-                    Palette = "fb_smoke", CoolTo = "fb_smoke", Core = 1f, Opacity = 0.65f, Ink = 4f,   // b06: a thick ink edge
-                    Extra = new Vector4(0f, -1f, 0.14f, 3.2f),   // b06: a gentle S (0.22 m over 1.5 m read as zigzag hooks)
+                    Size = new CelCurve(0.22f, 0.62f, 0.8f), SizeJitter = 0.2f, Stretch = 4f, Erode = new CelCurve(0f, 0.9f, 2.2f),
+                    Palette = "fb_smoke", CoolTo = "fb_smoke", Core = 1f, Opacity = 0.7f, Ink = 2f,
+                    Extra = new Vector4(0f, -1f, 0.22f, 1.5f),
                 });
         }
     }

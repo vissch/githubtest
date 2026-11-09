@@ -162,11 +162,6 @@ Shader "TW/Cel/Comet"
                 else rField = (s > ribbonStart) ? saturate(1.0 - abs(y - yc) / max(rwid, 1e-4)) : 0.0;
                 float brk = CelValue2(float2(s / (wl * 0.5), seed * 91.0));   // pieces along the ribbon
                 float rCut = puffs > 0.5 ? 1.0 : step(i.more.y, brk * 0.9 + 0.1 * taper);
-                // b06: a strand stays one unbroken column; it erodes from its top (s = 0) down, late in its life
-                rCut = lerp(rCut, step(i.more.y, brk * 0.3 + 0.7 * (1.0 - taper)), strand);
-                // b06: a strand thins toward its top and narrows a little at the fire
-                rwid *= lerp(1.0, lerp(0.35, 1.0, saturate(s / max(len * 0.4, 1e-3))) * lerp(1.0, 0.75, saturate((s / max(len, 1e-3) - 0.8) * 5.0)), strand);
-                if (puffs < 0.5) rField = (s > ribbonStart) ? saturate(1.0 - abs(y - yc) / max(rwid, 1e-4)) : 0.0;
                 float rMask = CelAAStep(0.04, rField) * rCut;
                 // a puff is lit from above: light on its upper side, darker below
                 // b05: the strand is a smoke ribbon: a light band on its upper/left side, a mid-grey shade band, an ink edge
@@ -178,7 +173,7 @@ Shader "TW/Cel/Comet"
                 // the strand fades along its length and thins out at far zoom (the comet carries the read there)
                 float lodY = _CelLod.y > 0.0 ? _CelLod.y : 1.0;
                 float rFade = lerp(saturate(taper * 2.2) * saturate(lodY * 2.0 - 0.8), 1.0, puffs);
-                rFade = lerp(rFade, saturate(taper * 6.0) * saturate((1.0 - taper) * 3.5 + 0.2) * saturate(lodY * 2.0 - 0.6), strand);   // b05: fades near its base; b06: and at its top
+                rFade = lerp(rFade, saturate(taper * 6.0) * saturate(lodY * 2.0 - 0.6), strand);   // b05: fades only near its base
                 float rOp = saturate(i.tone.z) * rFade;
                 col *= lerp(rFade, 1.0, rInk);
                 float a = rMask * lerp(rOp, 1.0, rInk);
