@@ -686,6 +686,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   found and kept; draws through FrameBudget; statics put back).
 - **See it:** `Unity.exe -batchmode -projectPath trench-warfare-3d -executeMethod TW.Editor.CelFxStill.Batch -celOut <dir>`
   (with graphics) writes a sheet of eight moments, the peak frame and a json of the draws into that folder.
+- **Flamethrower (cel):** `Presentation/VFX/Cel/Effects/flamethrower/FlamethrowerRecipe.cs` (the layers and palettes
+  after flamethrower_nolora: jet, tongues, splash, fireball, smoke column, ground pools, sparks, embers, light),
+  `Presentation/VFX/Cel/Effects/flamethrower/FlameJetKind.cs` + `Shaders/Cel/Effects/flamethrower/CelFlameJet_URP.shader`
+  (the jet as one banded, flowing ribbon nozzle to target; keeper `KeepCelFlameJet.mat`),
+  `Presentation/VFX/Cel/Effects/flamethrower/FlamethrowerRange.cs` (Range effect id `flamethrower`).
 
 ### Debris and destruction of props and houses
 - **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers,
