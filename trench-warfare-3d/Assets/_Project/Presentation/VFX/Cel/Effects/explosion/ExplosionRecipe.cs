@@ -290,8 +290,8 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // a soft dome of white-yellow light, no wider than about twice the dummy's height, gone in 8 frames
-                Name = "dome", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.312f, -2.5f), Life = 0.34f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(2.25f, 2.5f, 0.4f), SizeJitter = 0.08f, Erode = new CelCurve(0f, 1f, 1.3f),
+                Name = "dome", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.312f, -2.5f), Life = 0.24f, LifeJitter = 0f,
+                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(2.25f, 2.5f, 0.4f), SizeJitter = 0.08f, Erode = new CelCurve(0f, 1f, 0.8f),
                 Palette = "exp_dome", Core = 1.4f, Opacity = 1.0f, Extra = new Vector4(ExpFxKind.Flash, 0.6f, 0.312f, 0f),
             },
             new CelLayer
@@ -318,25 +318,25 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 Name = "debris", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.5f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0.0f, 0.0f),
-                Start = 0.04f, Duration = 0.3f, Life = 1.3f, LifeJitter = 0.2f, Close = 14, Mid = 6, Far = 0, Aim = CelAim.Radial, Speed = 5.0f, SpeedJitter = 0.6f, UpBias = 0.45f,
+                Start = 0.04f, Duration = 0.3f, Life = 1.3f, LifeJitter = 0.2f, Close = 20, Mid = 6, Far = 0, Aim = CelAim.Radial, Speed = 5.0f, SpeedJitter = 0.6f, UpBias = 0.45f,
                 Gravity = 14f, Drag = 0.5f, Spin = 4f, Size = new CelCurve(0.18f, 0.12f), SizeJitter = 0.4f, Stretch = 0.7f, Erode = new CelCurve(0f, 0.4f, 4f),
-                Palette = "exp_chunk", Core = 1f, Ink = 1.5f, Extra = new Vector4(3.5f, 0.6f, 0f, 0f),
+                Palette = "exp_chunk", Core = 1f, Ink = 2.5f, Extra = new Vector4(4.5f, 0.75f, 0f, 0f),
             },
             new CelLayer
             {
                 // r05: big chunks thrown high, a cluster against the fog (ref f59-f87)
                 Name = "big chunks", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.75f, -0.9f), Shape = CelShape.Sphere, ShapeSize = new Vector3(1.0f, 0.0f, 0.0f),
-                Start = 0.06f, Duration = 0.5f, Life = 1.4f, LifeJitter = 0.25f, Close = 12, Mid = 4, Far = 0, Aim = CelAim.Radial, Speed = 3.0f, SpeedJitter = 0.5f, UpBias = 0.2f,
+                Start = 0.06f, Duration = 0.5f, Life = 1.4f, LifeJitter = 0.25f, Close = 15, Mid = 4, Far = 0, Aim = CelAim.Radial, Speed = 3.0f, SpeedJitter = 0.5f, UpBias = 0.2f,
                 Gravity = 14f, Drag = 0.6f, Spin = 3f, Size = new CelCurve(0.14f, 0.1f), SizeJitter = 0.4f, Stretch = 0.6f, Erode = new CelCurve(0f, 0.4f, 4f),
-                Palette = "exp_chunk", Core = 1f, Ink = 1.2f, Extra = new Vector4(3.5f, 0.6f, 0f, 0f),
+                Palette = "exp_chunk", Core = 1f, Ink = 2.2f, Extra = new Vector4(4.5f, 0.75f, 0f, 0f),
             },
             new CelLayer
             {
                 // r05: grey puffs standing round the site after its dome
                 Name = "puffs", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.875f, 0.0f), Shape = CelShape.Box, ShapeSize = new Vector3(2.5f, 1.0f, 1.0f),
-                Start = 0.06f, Duration = 0.3f, Life = 1.4f, LifeJitter = 0.2f, Close = 10, Mid = 3, Far = 0, Aim = CelAim.Radial, Speed = 1.0f, Drag = 1.2f, Buoyancy = 0.188f, Spin = 0.4f,
-                Size = new CelCurve(0.5f, 0.85f, 0.4f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 8f), Feather = 0.1f,
-                Palette = "exp_wrap", Core = 1f, Ink = 4.0f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0.0f),
+                Start = 0.03f, Duration = 0.18f, Life = 1.4f, LifeJitter = 0.2f, Close = 13, Mid = 3, Far = 0, Aim = CelAim.Radial, Speed = 1.0f, Drag = 1.2f, Buoyancy = 0.188f, Spin = 0.4f,
+                Size = new CelCurve(0.35f, 1.2f, 0.35f), SizeJitter = 0.3f, Erode = new CelCurve(0.04f, 1f, 5f), Feather = 0.1f,
+                Palette = "exp_wrap", Core = 1f, Ink = 5.0f, Extra = new Vector4(1.6f, 0.24f, 0.6f, 0.0f),
             });
 
         // r04: a side blast far across the field (ref f77): the same pieces with a bigger, brighter dome
@@ -344,8 +344,8 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // a soft dome of white-yellow light, no wider than about twice the dummy's height, gone in 8 frames
-                Name = "dome", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.225f, -1.5f), Life = 0.34f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(2.25f, 2.55f, 0.4f), SizeJitter = 0.08f, Erode = new CelCurve(0f, 1f, 1.3f),
+                Name = "dome", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.225f, -1.5f), Life = 0.24f, LifeJitter = 0f,
+                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(2.25f, 2.55f, 0.4f), SizeJitter = 0.08f, Erode = new CelCurve(0f, 1f, 0.8f),
                 Palette = "exp_dome", Core = 1.4f, Opacity = 1.3f, Extra = new Vector4(ExpFxKind.Flash, 0.55f, 0.225f, 0.3f),
             },
             new CelLayer
@@ -372,25 +372,25 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 Name = "debris", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.3f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0.0f, 0.0f),
-                Start = 0.04f, Duration = 0.3f, Life = 1.3f, LifeJitter = 0.2f, Close = 10, Mid = 6, Far = 0, Aim = CelAim.Radial, Speed = 5.25f, SpeedJitter = 0.6f, UpBias = 0.8f,
+                Start = 0.04f, Duration = 0.3f, Life = 1.3f, LifeJitter = 0.2f, Close = 16, Mid = 6, Far = 0, Aim = CelAim.Radial, Speed = 5.25f, SpeedJitter = 0.6f, UpBias = 0.8f,
                 Gravity = 9.8f, Drag = 0.5f, Spin = 4f, Size = new CelCurve(0.1f, 0.07f), SizeJitter = 0.4f, Stretch = 0.7f, Erode = new CelCurve(0f, 0.4f, 4f),
-                Palette = "exp_chunk", Core = 1f, Ink = 1.5f, Extra = new Vector4(3.5f, 0.6f, 0f, 0f),
+                Palette = "exp_chunk", Core = 1f, Ink = 2.5f, Extra = new Vector4(4.5f, 0.75f, 0f, 0f),
             },
             new CelLayer
             {
                 // r05: big chunks thrown high, so the cluster reads at ~40 m against the fog (ref f87 left and right)
                 Name = "big chunks", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.45f, -0.8f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.9f, 0.0f, 0.0f),
-                Start = 0.06f, Duration = 0.5f, Life = 1.4f, LifeJitter = 0.25f, Close = 10, Mid = 5, Far = 0, Aim = CelAim.Radial, Speed = 2.2f, SpeedJitter = 0.5f, UpBias = 0.2f,
+                Start = 0.06f, Duration = 0.5f, Life = 1.4f, LifeJitter = 0.25f, Close = 13, Mid = 5, Far = 0, Aim = CelAim.Radial, Speed = 2.2f, SpeedJitter = 0.5f, UpBias = 0.2f,
                 Gravity = 11f, Drag = 0.6f, Spin = 3f, Size = new CelCurve(0.12f, 0.085f), SizeJitter = 0.4f, Stretch = 0.6f, Erode = new CelCurve(0f, 0.4f, 4f),
-                Palette = "exp_chunk", Core = 1f, Ink = 1.2f, Extra = new Vector4(3.5f, 0.6f, 0f, 0f),
+                Palette = "exp_chunk", Core = 1f, Ink = 2.2f, Extra = new Vector4(4.5f, 0.75f, 0f, 0f),
             },
             new CelLayer
             {
                 // r05: grey puffs standing round the site after its dome
                 Name = "puffs", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.75f, 0.0f), Shape = CelShape.Box, ShapeSize = new Vector3(3.375f, 1.05f, 0.75f),
-                Start = 0.06f, Duration = 0.3f, Life = 1.4f, LifeJitter = 0.2f, Close = 10, Mid = 3, Far = 0, Aim = CelAim.Radial, Speed = 0.6f, Drag = 1.2f, Buoyancy = 0.112f, Spin = 0.4f,
-                Size = new CelCurve(0.65f, 1.1f, 0.4f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 8f), Feather = 0.1f,
-                Palette = "exp_wrap", Core = 1f, Ink = 4.0f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0.0f),
+                Start = 0.03f, Duration = 0.18f, Life = 1.4f, LifeJitter = 0.2f, Close = 13, Mid = 3, Far = 0, Aim = CelAim.Radial, Speed = 0.6f, Drag = 1.2f, Buoyancy = 0.112f, Spin = 0.4f,
+                Size = new CelCurve(0.45f, 1.45f, 0.35f), SizeJitter = 0.3f, Erode = new CelCurve(0.04f, 1f, 5f), Feather = 0.1f,
+                Palette = "exp_wrap", Core = 1f, Ink = 5.0f, Extra = new Vector4(1.6f, 0.24f, 0.6f, 0.0f),
             });
 
         public static readonly CelFxRecipe Cloud = new CelFxRecipe("explosion_cloud", 4.6f,
