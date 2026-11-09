@@ -14,7 +14,9 @@ namespace TW.Presentation.VFX
         // ground hits: (screen right m, away from the eye m) from the dummy's foot; dummy hits: (right, up) from its chest
         // (three fire spots about a metre right of and in front of the dummy, the reference's bursts, so every bolt ends at its hit)
         // (r05: 1-1.5 dummy widths right of and in front of the dummy)
-        static readonly Vector2[] GroundAt = { new Vector2(1.0f, -0.7f), new Vector2(1.45f, -1.2f), new Vector2(1.25f, -0.2f) };
+        // (b01, beach, measured on the reference's f79-f96: one fire ~1.2 dummy widths right and well behind the dummy, one
+        // ~2.5 widths right and a little behind, one between)
+        static readonly Vector2[] GroundAt = { new Vector2(1.7f, 4.0f), new Vector2(3.6f, 0.9f), new Vector2(2.7f, 2.3f) };
         static readonly Vector2[] DummyAt = { new Vector2(0f, 0f), new Vector2(0.05f, 0.3f), new Vector2(-0.1f, -0.1f), new Vector2(0.1f, 0.15f),
             new Vector2(0f, 0.05f), new Vector2(-0.05f, 0.25f), new Vector2(0.08f, -0.05f), new Vector2(0f, 0.1f) };
         // launch spots: (screen right m, up m, away m) from MuzzleHigh, staggered in height and depth so the volley's
@@ -66,7 +68,7 @@ namespace TW.Presentation.VFX
 
             // warm light on the ground under the volley: one soft pool left of and a little in front of the dummy (the
             // reference's lit oval over the lower-left third)
-            Vector3 p0 = OnGround(s.Ground + right * -0.7f + away * -0.9f, 1.4f, s.Ground.y);
+            Vector3 p0 = OnGround(s.Ground + right * -2.4f + away * -1.5f, 1.4f, s.Ground.y);
             CelFx.Play(pool, p0, away, p0, seed);
 
             int gi = 0, di = 0;
@@ -75,9 +77,10 @@ namespace TW.Presentation.VFX
                 if (s.Lod == RangeLod.Far && (i & 1) == 1) continue;
                 Vector3 target;
                 if (FireBolts.OnGround[i]) { var g = GroundAt[gi++ % GroundAt.Length]; target = OnGround(s.Ground + right * g.x + away * g.y, 0f, s.Ground.y); }
-                else { var d = DummyAt[di++ % DummyAt.Length]; target = s.Target + right * d.x + Vector3.up * d.y; }
+                else { var d = DummyAt[di++ % DummyAt.Length]; target = s.Target + right * d.x + Vector3.up * d.y - away * 0.3f; }   // b01: on the board's front, so its sparks are not hidden behind it
                 var f = FromAt[i % FromAt.Length];
-                Vector3 from = s.MuzzleHigh + right * f.x + Vector3.up * f.y + away * f.z;
+                // b01: 1.1 m lower than r05 (the reference's bolts enter the left edge nearer chest height)
+                Vector3 from = s.MuzzleHigh + right * f.x + Vector3.up * (f.y - 1.1f) + away * f.z;
                 if (i < AlongAt.Length) from = Vector3.Lerp(from, target, AlongAt[i]);
                 // the comet is aimed above its hit by what its gravity drops over the flight: it arcs down onto it
                 Vector3 aim = target + Vector3.up * FireBolts.ArcLift(FireBolts.FlightOf[i]);

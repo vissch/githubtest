@@ -38,8 +38,8 @@ namespace TW.Presentation.VFX.Cel
         static FireBolts()
         {
             // additive light on the dark field: c3 is what the pool adds at its middle (dim brown-warm, #c16a42-ish on the ground)
-            CelPalette.Add("fb_pool", CelPalette.Hex(0x2A1C14), CelPalette.Hex(0x4A3424), CelPalette.Hex(0x62442E), CelPalette.Hex(0x9E7A4E),
-                CelPalette.Hex(0x9E7A4E), 1.1f, 4, CelPalette.Hex(0x000000));
+            CelPalette.Add("fb_pool", CelPalette.Hex(0x2A1C14), CelPalette.Hex(0x4A3424), CelPalette.Hex(0x5A4232), CelPalette.Hex(0x86664C),
+                CelPalette.Hex(0x86664C), 1.1f, 4, CelPalette.Hex(0x000000));
             // the comet: deep red at the streaks' tips, red-orange, orange, yellow behind the head, a white-hot core
             CelPalette.Add("fb_comet", CelPalette.Hex(0x8E1A0C), CelPalette.Hex(0xD03A16), CelPalette.Hex(0xF5912A), CelPalette.Hex(0xFFD458),
                 CelPalette.Hex(0xFFFFF0), 0.84f, 4, CelPalette.Hex(0x1E0806));
@@ -65,7 +65,7 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>The volley: bolt i's comet and its hit, shifted by Launch[i].</summary>
         public static readonly CelFxRecipe[] Comets, Hits;
 
-        const float PoolLife = 5.1f, PoolRadius = 4.2f;
+        const float PoolLife = 5.1f, PoolRadius = 6.0f;
 
         static CelFxRecipe MakePool(float start)
         {
@@ -74,7 +74,7 @@ namespace TW.Presentation.VFX.Cel
                 {
                     Name = "warm ground light", Kind = CometKind.KindName, Start = start, Life = PoolLife, LifeJitter = 0f,
                     Close = 1, Mid = 1, Far = 1, Size = new CelCurve(0.85f * PoolRadius, PoolRadius, 0.5f), SizeJitter = 0f,
-                    Palette = "fb_pool", Core = 1f, Opacity = 1.2f,
+                    Palette = "fb_pool", Core = 1f, Opacity = 1.3f,
                     // pool mode, falloff power 1.2, peak at 2.95 s into its life (f90), fade from 3.15 s (f95) to f137
                     Extra = new Vector4(-1f, 1.2f, 2.95f / PoolLife, 3.15f / PoolLife),
                 });
@@ -87,11 +87,11 @@ namespace TW.Presentation.VFX.Cel
                 {
                     Name = "comet", Kind = CometKind.KindName, Start = t0, Life = flight, LifeJitter = 0f,
                     Close = 1, Mid = 1, Far = 1, Aim = CelAim.Target, Speed = 0f, Spread = 0f, Spin = 3f, Gravity = ArcGravity,
-                    // ribbon 0.12 m wide, 0.6 s of its speed long (about 5-6 m: a third to half the frame)
-                    Size = new CelCurve(0.12f, 0.12f), SizeJitter = 0.15f, Stretch = 0.6f, Erode = new CelCurve(0f, 0f),
+                    // b01 (beach, 19 m camera): ribbon 0.2 m wide, 0.75 s of its speed long (a third to half the frame)
+                    Size = new CelCurve(0.16f, 0.16f), SizeJitter = 0.2f, Stretch = 0.75f, Erode = new CelCurve(0f, 0f),
                     Palette = "fb_comet", CoolTo = "fb_ribbon", Core = 2.6f, Opacity = 1f, Ink = 2f,
-                    // head 0.19 m, a flame tail 2.6 m (a flame body breaking into thin streaks), a ribbon waving gently 0.045 m over 3.5 m
-                    Extra = new Vector4(0.2f, 2.8f, 0.05f, 3.5f),
+                    // head 0.19 m (small: the ref's heads are ~1/70 frame), a long thin flame tail 6.5 m breaking into streaks, a ribbon waving 0.08 m over 5.5 m
+                    Extra = new Vector4(0.19f, 6.5f, 0.08f, 5.5f),
                 });
         }
 
@@ -101,15 +101,15 @@ namespace TW.Presentation.VFX.Cel
                 new CelLayer
                 {
                     Name = "hit star", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Start = hit, Life = 0.12f, LifeJitter = 0.05f,
-                    Close = 1, Mid = 1, Far = 1, Size = new CelCurve(0.12f, 0.28f, 0.5f), SizeJitter = 0.15f, Erode = new CelCurve(0.03f, 0.9f, 1.5f),
+                    Close = 1, Mid = 1, Far = 1, Size = new CelCurve(0.2f, 0.45f, 0.5f), SizeJitter = 0.15f, Erode = new CelCurve(0.03f, 0.9f, 1.5f),
                     Palette = "fire", Core = 1.8f, Spin = 2f, Extra = new Vector4(2f, 1.1f, 8f, 5f),
                 },
                 new CelLayer
                 {
                     Name = "spark starburst", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit, Duration = 0.04f, Life = 0.26f, LifeJitter = 0.2f,
-                    Close = 12, Mid = 5, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.05f, 0f, 0f), Aim = CelAim.Radial,
-                    Speed = 7.5f, SpeedJitter = 0.35f, UpBias = 0.25f, Gravity = 4f, Drag = 3.5f,
-                    Size = new CelCurve(0.03f, 0.015f), Stretch = 0.11f, Erode = new CelCurve(0.02f, 0.5f), Palette = "fb_spark", Core = 1.3f, Extra = new Vector4(0f, 0.15f, 0f, 0f),
+                    Close = 16, Mid = 5, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.05f, 0f, 0f), Aim = CelAim.Radial,
+                    Speed = 10f, SpeedJitter = 0.35f, UpBias = 0.25f, Gravity = 4f, Drag = 3.5f,
+                    Size = new CelCurve(0.045f, 0.02f), Stretch = 0.12f, Erode = new CelCurve(0.02f, 0.5f), Palette = "fb_spark", Core = 1.3f, Extra = new Vector4(0f, 0.15f, 0f, 0f),
                 },
                 new CelLayer
                 {
@@ -128,21 +128,21 @@ namespace TW.Presentation.VFX.Cel
                 // right along the shot, grow wider and break up into pieces; none over the dummy
                 r.Layers.Add(new CelLayer
                 {
-                    Name = "smoke strands", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.3f, 0.12f), Start = hit + 0.1f, Duration = 0.4f, Life = 1.4f, LifeJitter = 0.15f,
-                    Close = 4, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.12f, 0f, 0f), Aim = CelAim.Radial, UpBias = 1.6f, Speed = 1.5f, SpeedJitter = 0.3f, Drag = 0.2f, Buoyancy = 2.0f, Spin = 2.0f,
-                    Size = new CelCurve(0.06f, 0.14f, 0.8f), SizeJitter = 0.25f, Stretch = 2.0f, Erode = new CelCurve(0f, 0.92f, 3.0f),
-                    Palette = "fb_smoke", CoolTo = "fb_smoke", Core = 1f, Opacity = 0.9f, Ink = 0f, Extra = new Vector4(0f, -1f, 0.12f, 1.1f),
+                    Name = "smoke strands", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.3f, 0.12f), Start = hit + 0.1f, Duration = 0.4f, Life = 1.6f, LifeJitter = 0.15f,
+                    Close = 7, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.25f, 0f, 0f), Aim = CelAim.Radial, UpBias = 1.6f, Speed = 2.2f, SpeedJitter = 0.3f, Drag = 0.2f, Buoyancy = 2.6f, Spin = 2.0f,
+                    Size = new CelCurve(0.22f, 0.5f, 0.8f), SizeJitter = 0.25f, Stretch = 2.0f, Erode = new CelCurve(0f, 0.92f, 3.0f),
+                    Palette = "fb_smoke", CoolTo = "fb_smoke", Core = 1f, Opacity = 1f, Ink = 0f, Extra = new Vector4(0f, -1f, 0.13f, 1.1f),
                 });
                 r.Layers.Add(new CelLayer
                 {
                     Name = "ground flames", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit + 0.03f, Duration = 0.9f, Life = 0.34f, LifeJitter = 0.25f,
                     Close = 16, Mid = 6, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.18f, 0f, 0f), Aim = CelAim.Up, Spread = 30f, Speed = 2.6f, SpeedJitter = 0.3f, Buoyancy = 1f,
-                    Size = new CelCurve(0.3f, 0.07f, 0.7f), SizeJitter = 0.25f, Stretch = 0.15f, Erode = new CelCurve(0.05f, 0.5f), Palette = "fire", Core = 1.8f, Ink = 2f, Extra = new Vector4(0f, 0.12f, 0.4f, 0f),
+                    Size = new CelCurve(0.42f, 0.09f, 0.7f), SizeJitter = 0.25f, Stretch = 0.18f, Erode = new CelCurve(0.05f, 0.5f), Palette = "fire", Core = 1.8f, Ink = 2f, Extra = new Vector4(0f, 0.12f, 0.4f, 0f),
                 });
                 r.Layers.Add(new CelLayer
                 {
                     Name = "fire core", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.25f, 0f), Start = hit, Life = 0.6f, LifeJitter = 0.15f,
-                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.45f, 0.2f, 0.6f), SizeJitter = 0.15f, Erode = new CelCurve(0.05f, 0.7f, 1.5f),
+                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.65f, 0.28f, 0.6f), SizeJitter = 0.15f, Erode = new CelCurve(0.05f, 0.7f, 1.5f),
                     Palette = "fire", Core = 1.4f, Extra = new Vector4(2f, 1.4f, 0f, 0f),
                 });
                 r.Layers.Add(new CelLayer
