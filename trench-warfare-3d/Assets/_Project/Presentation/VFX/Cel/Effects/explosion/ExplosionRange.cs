@@ -18,19 +18,20 @@ namespace TW.Presentation.VFX.Cel
         static readonly Vector3[] Sites =
         {
             new Vector3(-12.8f, 5.7f, 0.95f),
-            new Vector3(-5.4f, -2.5f, 1.74f),
-            new Vector3(-4.45f, 21f, 2.24f),
-            new Vector3(6.2f, 9.3f, 2.5f),
+            new Vector3(-5.4f, -2.5f, 1.6f),
+            new Vector3(-16f, 33f, 2.3f),
+            new Vector3(13f, 26f, 2.32f),
             new Vector3(-6.2f, 8.8f, 2.55f),
         };
         // smoke clouds: right, depth, seconds after the fire (the dummy's own cloud stands behind it)
+        // r04: sites 2 and 3 are far across the field (SiteFar)
+        static bool FarSite(int i) => i == 2 || i == 3;
         static readonly Vector3[] Clouds =
         {
             new Vector3(0f, 0.6f, 2.75f),
-            new Vector3(-5.6f, -2.0f, 2.75f),
+            new Vector3(-8.2f, -2.0f, 2.75f),
             new Vector3(-6.2f, 8.8f, 2.8f),
-            new Vector3(-4.45f, 21f, 2.75f),
-            new Vector3(6.2f, 9.3f, 2.78f),
+            new Vector3(8.5f, 9.3f, 2.78f),
         };
 
         const float ClipFps = 24f;
@@ -59,7 +60,7 @@ namespace TW.Presentation.VFX.Cel
             for (int i = 0; i < Sites.Length; i++)
             {
                 Vector3 g = GroundAt(s.Ground + rh * Sites[i].x + fh * Sites[i].y, s.Ground.y);
-                ExplosionRecipe.PlayAt(ExplosionRecipe.Site, g, fh, g, seed + 101u * (uint)(i + 1), Sites[i].z);
+                ExplosionRecipe.PlayAt(FarSite(i) ? ExplosionRecipe.SiteFar : ExplosionRecipe.Site, g, fh, g, seed + 101u * (uint)(i + 1), Sites[i].z);
             }
             // the late fan goes low to the lower left of the frame: left and toward the eye, a little down
             Vector3 fanDir = (-rh - 0.75f * fh - 0.1f * Vector3.up).normalized;

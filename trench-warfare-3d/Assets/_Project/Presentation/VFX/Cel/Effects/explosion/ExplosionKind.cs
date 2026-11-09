@@ -11,7 +11,7 @@ namespace TW.Presentation.VFX.Cel
     {
         public const string KindName = "ExpFx";
         /// <summary>extra.x of an ExpFx record.</summary>
-        public const float Pool = 0f, Flash = 1f, Arc = 2f;
+        public const float Pool = 0f, Flash = 1f, Arc = 2f, Star = 3f;
         public override string Name => KindName;
         public override Shader FindShader() => Shader.Find("TW/Cel/ExpFx");
         public override Mesh BuildMesh() => CelMeshes.Strip(8, "Cel ExpFx");

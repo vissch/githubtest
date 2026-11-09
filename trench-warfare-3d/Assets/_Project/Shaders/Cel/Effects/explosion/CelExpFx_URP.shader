@@ -2,6 +2,9 @@
 // (CelMeshes.Strip(8)) and one draw for three looks, picked per record by extra.x:
 //   0 soft ground pool   a smooth radial falloff lying on the ground, white-yellow middle to nothing (no bands)
 //   1 soft flash         the same field turned to the eye: a dome of light, a fireball's white heart, a bloom halo
+//   3 ragged star       r04: the soft flash's field cut to an n-pointed star with uneven spikes that re-jump 12
+//                        times a second (extra.w points), banded white heart / yellow / orange rim (the clip's
+//                        white-yellow star over the fireball)
 //   2 jagged arc         a white spark arc from the record outward along its velocity, kinked at three knots that
 //                        re-jump 12 times a second (the reference's lightning-like spark arcs)
 // The glows fade smoothly (light, not a shape); the arc is banded and cut like a streak.
@@ -10,7 +13,8 @@
 //   erode.xyz  glows: how far it has faded (0 full .. 1 gone) over the life; arc: the cross-section cut threshold
 //   tone       x palette, y HDR core, z opacity, w unused
 //   extra      x mode, y glows: falloff power (0: 1.5), z arc: kink size (x length); flash: the ground cut (m below
-//              the centre; 0 none: a dome of light with a flat foot, as the clip's), w unused
+//              the centre; 0 none: a dome of light with a flat foot, as the clip's), w flash: its own pull toward the
+//              eye with fog taken at the drawn place (0: ExpPull, true fog); star: points
 // A flash is drawn pulled toward the eye (same screen size, ExpPull of its distance), so a ruin or bank between it
 // and the eye does not hide a far dome; its fog is taken where it really is.
 // Palette use: glows blend c1 (edge) to c3 (middle) and to core x hdr above the core threshold; arcs use CelRamp.
@@ -72,14 +76,16 @@ Shader "TW/Cel/ExpFx"
                 float3 w, wf;
                 float2 uv;
                 float cut = 1.0;
-                if (mode < 1.5)
+                if (mode < 1.5 || mode > 2.5)
                 {
                     float radius = CelCurve(r.size.xyz, k) * alive;
                     if (mode < 0.5) { w = c + float3(corner.x, 0.0, corner.y) * radius + float3(0.0, 0.03, 0.0); wf = w; }
                     else
                     {
                         wf = CelBillboard(c, corner * radius);
-                        w = _WorldSpaceCameraPos + (wf - _WorldSpaceCameraPos) * ExpPull;
+                        // extra.w > 0 on a flash: its own pull, and fog taken where it is drawn (a far dome across the field)
+                        float pull = (mode < 1.5 && r.extra.w > 0.0) ? r.extra.w : ExpPull;
+                        w = _WorldSpaceCameraPos + (wf - _WorldSpaceCameraPos) * pull;
                         cut = r.extra.z > 0.0 ? wf.y - (c.y - r.extra.z) : 1.0;
                     }
                     uv = corner;
@@ -109,7 +115,8 @@ Shader "TW/Cel/ExpFx"
                 o.uv = uv;
                 o.tone = float4(r.tone.x, r.tone.y, r.tone.z, CelCurve(r.erode.xyz, k));
                 o.shape = r.extra;
-                o.more = float4(ComputeFogFactor(TransformWorldToHClip(wf).z), k, cut, 0);
+                float3 fogAt = (mode > 0.5 && mode < 1.5 && r.extra.w > 0.0) ? w : wf;
+                o.more = float4(ComputeFogFactor(TransformWorldToHClip(fogAt).z), k, cut, r.seed);
                 return o;
             }
 
@@ -117,7 +124,27 @@ Shader "TW/Cel/ExpFx"
             {
                 uint row = CelRowA(i.tone.x);
                 half3 col;
-                if (i.shape.x < 1.5)
+                if (i.shape.x > 2.5)
+                {
+                    // ragged star: radius per angle = a base disc plus uneven spikes; banded, not smooth
+                    float n = max(i.shape.w, 3.0);
+                    float tick = floor(_CelNow * 12.0);
+                    float ang = atan2(i.uv.y, i.uv.x) / 6.2831853 + i.more.w * 3.1 + tick * 0.037;
+                    float sct = ang * n;
+                    float idx = floor(sct + 0.5);
+                    float spk = pow(abs(cos(3.14159265 * (sct - idx))), 3.0);
+                    float lenI = lerp(0.5, 1.0, CelHash21(float2(idx + i.more.w * 31.0, tick)));
+                    float rad = lerp(0.42, lenI, spk);
+                    float field = saturate(1.0 - length(i.uv) / rad);
+                    half4 core = CelPalCore(row);
+                    float fade = saturate(1.0 - i.tone.w);
+                    float edge = 0.02 + i.tone.w * 0.3;
+                    col = CelPal(row, 1) * (half)CelAAStep(edge, field);
+                    col = lerp(col, CelPal(row, 3), (half)CelAAStep(0.22, field));
+                    col = lerp(col, core.rgb * (half)max(i.tone.y, 0.0), (half)CelAAStep(min(core.a, 0.99), field));
+                    col *= (half)(i.tone.z * fade * saturate(i.more.z * 40.0));
+                }
+                else if (i.shape.x < 1.5)
                 {
                     float field = saturate(1.0 - length(i.uv));
                     float p = i.shape.y > 0.0 ? i.shape.y : 1.5;
