@@ -27,7 +27,7 @@ Shader "TW/Cel/FlameJet"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "Assets/_Project/Shaders/Cel/CelFx.hlsl"
 
-        #define JET_ENV 1.8
+        #define JET_ENV 2.5
         struct JetOut { float3 positionWS; float along; float across; float metres; float alive; };
 
         // the reach of the jet at age t, as shares of the nozzle-target length: x the tail, y the front
@@ -53,7 +53,7 @@ Shader "TW/Cel/FlameJet"
                 // through the target so the flame spills past and over it, and wider going out (Mid/Far: the cone must
                 // still read as a cone at T1, not a line; detail does not rise, only the size)
                 w *= lerp(0.08, 1.0, smoothstep(0.0, 0.14, a));
-                w *= 1.0 + 0.3 * smoothstep(0.7, 1.15, a);
+                w *= 1.0 + 0.3 * smoothstep(0.65, 1.2, a);
                 w *= 1.0 + 2.2 * saturate(_CelLod.x);
             }
             return w;
@@ -104,6 +104,54 @@ Shader "TW/Cel/FlameJet"
             return o;
         }
 
+        // r06: the main jet is a union of separate flame tongues (the clip's jet is 10-15 overlapping tongues, not one
+        // slab with a noisy rim). Each tongue is born on a cell of the advected flow coordinate s (metres), runs 2-4
+        // cells downstream (4-8x longer than it is tall), has a rounded base and a pointed tip, and the outer ones curl
+        // away from the axis as they go (the upper ones up). Two lanes (low, high) overlap so the body stays
+        // connected and both edges are lobed; a thin spine keeps the white core. Past the target the lanes lift and
+        // spread, so the flame spills up and on past the dummy. 1 on a tongue's middle line, 0 on its edge.
+        float JetTongues(CelRecord r, float s, float y, float a01, float freq, float sd)
+        {
+            float P = 1.0 / max(freq, 0.05);
+            float cell = floor(s / P);
+            float past = smoothstep(0.8, 1.25, a01);
+            y -= 0.15 * past;                                   // the whole field lifts past the target
+            float best = (0.42 - abs(y)) / 0.42;                // the spine (the white core)
+            // r06b: two lanes (low, high), one tongue per cell each, overlapping ~1.6 deep, heights 0.6-1.3x: a union
+            // that stays scalloped (r06's three lanes ~3 deep merged into one smooth slab)
+            [unroll] for (int k = -4; k <= 0; k++)
+            {
+                float ci = cell + k;
+                [unroll] for (int lane = 0; lane < 2; lane++)
+                {
+                    float hb = ci * 2.0 + lane + sd * 13.0;
+                    float h1 = CelHash11(hb), h2 = CelHash11(hb + 17.3), h3 = CelHash11(hb + 41.9), h4 = CelHash11(hb + 77.1);
+                    float s0 = (ci + h1 * 0.7) * P;
+                    float L = P * (2.4 + 1.6 * h2);            // r06: long (the jet runs into depth, so on screen it is foreshortened)
+                    float u = (s - s0) / L;
+                    if (u <= 0.0 || u >= 1.0) continue;
+                    float c = (lane == 0 ? -0.28 : 0.32) + (h3 - 0.5) * 0.25;
+                    float H = (lane == 0 ? 0.5 : 0.62) * (0.5 + 0.8 * h4) * (1.0 + 0.3 * past);
+                    // curl: the low tongues bend down a little, the high ones lick up (more past the target)
+                    float lean = (lane == 0 ? -0.15 : 0.25) * (1.0 + 0.3 * past);
+                    float cy = c + lean * u * u;
+                    float prof = H * 2.6 * sqrt(u) * (1.0 - u);                // a round base, a pointed tip leaning on
+                    float f = (1.0 - abs(y - cy) / max(prof, 1e-3)) * 0.9;
+                    best = max(best, f);
+                }
+            }
+            return best;
+        }
+
+        // r06: where the cone meets the ground at the target it was cut in one straight line (ZTest); the body now
+        // ends above the ground in a row of lobes, so no straight edge shows. The ground is 1.4 m under the aim point.
+        float JetGround(CelRecord r, float3 p, float metres)
+        {
+            float gy = r.pos.y + r.vel.y * r.life - 1.4;
+            float g = CelSimplex3(float3((metres - CelAge(r) * r.extra.x) * 0.7, CelAge(r) * 0.6, r.seed * 9.0));
+            return (p.y - gy - 0.25 - 0.45 * abs(g)) / 0.35;
+        }
+
         /// The jet's field at a point: 1 in the middle of the core, 0 on the edge (below 0 outside).
         float JetField(CelRecord r, float along, float across, float metres, out float streak)
         {
@@ -145,10 +193,13 @@ Shader "TW/Cel/FlameJet"
             float base = up > 0.0 ? (upper ? 0.85 : 0.55) : 0.72;
             float edge = min(base + lick * rows * (upper ? 1.0 : 0.8), JET_ENV * 0.95);
             float field = (edge - ay) / edge;
+            if (up > 0.0) field = JetTongues(r, s, y, a01, freq, sd);
             // the front end spills past the target ragged (tongues reach on, no blunt cap); the cut-off tail is round
             float toFront = (tf.y - along) * len / (hw * 1.4);
             float toTail = (along - tf.x) * len / (hw * 0.9);
-            field = min(field, toFront + (rows - 0.6) * 0.6);
+            // r06: the main jet's front is a wavy row of tongue tips (r05's cap cut it on one hard diagonal)
+            if (up > 0.0) field = min(field, toFront * 0.6 + 0.45 * CelSimplex3(float3(y * 1.4, t * 1.6, sd + 9.0)) + 0.15);
+            else field = min(field, toFront + (rows - 0.6) * 0.6);
             if (tf.x > 0.0) field = min(field, toTail + g * 0.2);
             // the nozzle end tapers to a point (no square cut where the strip starts near the camera)
             else field = min(field, metres / (hw * 1.2) - 0.05);
@@ -199,12 +250,13 @@ Shader "TW/Cel/FlameJet"
                 float streak;
                 float3 jc = JetCoords(r, i.positionWS);
                 float f = JetField(r, jc.x, jc.y, jc.z, streak);
+                if (r.extra.w > 0.0) f = min(f, JetGround(r, i.positionWS, jc.z) + 8.0 * (1.0 - smoothstep(0.45, 0.7, jc.x)));
                 clip(f);
                 // the value the bands are cut from: the field, lifted along the white streaks, a little hotter at the nozzle
                 // a thin red rim, then orange and yellow, and the white core down the middle; cooler toward the target
                 // (red only on a thin rim: v passes the first band at f ~0.04)
                 // r04: the white core is about twice as wide (it shows over more of the field)
-                float v = saturate(0.15 + f * 0.76 + streak * 0.3 + 0.06 * (1.0 - saturate(jc.x * 1.5)) - 0.08 * saturate((jc.x - 0.6) * 1.5));
+                float v = saturate(0.1 + f * 0.8 + streak * 0.3 + 0.06 * (1.0 - saturate(jc.x * 1.5)) - 0.08 * saturate((jc.x - 0.6) * 1.5));
                 half3 col = CelRamp(v, CelRowA(r.tone.x), r.tone.y);
                 float ink = CelInk(f, 0.0, CelLodInk(r.tone.w));
                 col = lerp(col, CelPalInk(CelRowA(r.tone.x)).rgb, ink);
@@ -237,7 +289,9 @@ Shader "TW/Cel/FlameJet"
                 CelRecord r = _CelRecords[i.id];
                 float streak;
                 float3 jc = JetCoords(r, i.positionWS);
-                clip(JetField(r, jc.x, jc.y, jc.z, streak));
+                float f = JetField(r, jc.x, jc.y, jc.z, streak);
+                if (r.extra.w > 0.0) f = min(f, JetGround(r, i.positionWS, jc.z) + 8.0 * (1.0 - smoothstep(0.45, 0.7, jc.x)));
+                clip(f);
                 return 0;
             }
             ENDHLSL
