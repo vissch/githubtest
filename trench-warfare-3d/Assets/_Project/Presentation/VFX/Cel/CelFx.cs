@@ -61,6 +61,8 @@ namespace TW.Presentation.VFX.Cel
 
         /// <summary>Make this the live renderer (a renderer made by hand: a test, a stage).</summary>
         public static void Adopt(CelFxRenderer r) => live = r;
+        /// <summary>Make this the live renderer unless one is live already (a renderer's Awake).</summary>
+        public static void AdoptIfNone(CelFxRenderer r) { if (live == null) live = r; }
         internal static void Release(CelFxRenderer r) { if (live == r) live = null; }
 
         // ------------------------------------------------------------------ LOD

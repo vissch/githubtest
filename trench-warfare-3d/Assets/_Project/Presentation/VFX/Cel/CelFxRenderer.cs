@@ -45,7 +45,9 @@ namespace TW.Presentation.VFX.Cel
         static readonly int RecordsId = Shader.PropertyToID("_CelRecords"), PaletteId = Shader.PropertyToID("_CelPalette"),
             NowId = Shader.PropertyToID("_CelNow"), LodId = Shader.PropertyToID("_CelLod");
 
-        void Awake() { if (CelFx.Renderer == null || CelFx.Renderer == this) CelFx.Adopt(this); }
+        // adopt only when no renderer is live: reading CelFx.Renderer here would make another one (its AddComponent runs this
+        // Awake again before it returns) and recurse until the stack overflows
+        void Awake() { CelFx.AdoptIfNone(this); }
 
         void OnDestroy()
         {
