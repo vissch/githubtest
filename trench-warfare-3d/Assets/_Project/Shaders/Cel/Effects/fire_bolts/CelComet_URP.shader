@@ -80,11 +80,11 @@ Shader "TW/Cel/Comet"
                 float3 dir = speed > 1e-3 ? vel / speed : float3(0, 1, 0);
                 float rw = CelCurve(r.size.xyz, k);
                 float headR = max(r.extra.x, 0.0), flameL = max(r.extra.y, 0.0), amp = abs(r.extra.z);
-                float halfW = max(max(headR * 2.5, amp * 1.2 + rw), 0.01) * alive;
+                float halfW = max(max(headR * 3.5, amp * 1.2 + rw), 0.01) * alive;   // c01: room for the 3.4x bloom
                 float len = max(speed * abs(r.size.w), flameL);
                 if (r.size.w >= 0.0) len = min(len, distance(p, r.pos));   // no ribbon behind its birth (b02: a negative
                                                                            // size.w is a bolt already in flight: whole tail)
-                float front = max(headR * 2.5, rw) * alive;
+                float front = max(headR * 3.5, rw) * alive;
                 len *= alive;
                 float3 toEye = normalize(_WorldSpaceCameraPos - p);
                 float3 side = cross(dir, toEye);
@@ -135,7 +135,7 @@ Shader "TW/Cel/Comet"
 
                 // ---- the smoke ribbon: a thin wavy strand behind the flame that fades and thins to nothing
                 //      (a wisp instead: a cluster of round inked puffs along a curling path, lit from above)
-                float ribbonStart = fl * 0.55;
+                float ribbonStart = fl * (strand > 0.5 || puffs > 0.5 ? 0.55 : 0.3);   // c01: the bolt's smoke starts inside its flame (it frays out of it)
                 float grow = saturate((s - ribbonStart) / max(wl * 0.6, 1e-3));
                 float yc = amp * grow * sin(6.2832 * s / wl + seed * 40.0 - i.misc.z * i.misc.y)
                          + amp * 0.15 * grow * sin(6.2832 * s / (wl * 0.45) + seed * 17.0 - i.misc.z * i.misc.y * 1.7);
@@ -192,7 +192,7 @@ Shader "TW/Cel/Comet"
                     float lick = hr * 0.12 * sin(s * 5.0 / max(hr * 4.0, 1e-3) + seed * 30.0 - i.misc.z * 14.0) * sb;
                     // b05: the back half is ragged: its width flickers in tongues that travel down the body
                     float rag = 1.0 - smoothstep(0.35, 1.0, sb) * (0.55 + 0.45 * sin(s * 9.0 / max(hr * 4.0, 1e-3) + seed * 21.0 - i.misc.z * 22.0));
-                    float wBody = hr * (1.0 - 0.15 * smoothstep(0.0, 0.2, sb)) * pow(saturate(1.0 - sb), 0.6) * rag;   // b04: as wide as the head, tapering to a point
+                    float wBody = hr * (1.0 + 0.4 * smoothstep(0.0, 0.3, sb)) * pow(saturate(1.0 - sb), 0.75) * rag;   // c01: a fire plume that widens behind the head, then tapers (b04: never wider than the head)
                     float tailF = (s >= 0.0 && s <= bodyL) ? 1.0 - abs(y - lick) / max(wBody, 1e-4) : 0.0;
                     float streakF = 0.0, streakU = 1.0;
                     [unroll] for (int k5 = 0; k5 < 5; k5++)
@@ -209,10 +209,11 @@ Shader "TW/Cel/Comet"
                     float fMask = CelAAStep(0.03, f) * has;
                     // colour: the head white-hot to yellow; the body yellow in the middle, orange round it, red at its
                     // edge and toward its end; the streaks red to deep red
-                    float vHead = headF > 0.0 ? 0.78 + 0.22 * saturate((headF - 0.35) * 2.0) : 0.0;   // b04: white-yellow   // yellow, white only at the middle (b03: a smaller white)
+                    float vHead = headF > 0.0 ? 0.62 + 0.38 * saturate(headF * 1.6) : 0.0;   // c01: a soft white-hot middle grading to orange at its rim (b05: a flat yellow coin)
+                       // b04: white-yellow   // yellow, white only at the middle (b03: a smaller white)
                     // b04: yellow just behind the head, orange, then red-orange down the streak (b03's yellow-white inner band read as a white rectangle)
                     // b05: a white-yellow core band down the front two thirds, orange round it, red-orange at the edges
-                    float vBody = tailF > 0.0 ? (0.2 + 0.38 * saturate(tailF * 1.6)) + 0.3 * saturate(1.0 - sb * 1.5) * step(0.45, tailF) : 0.0;
+                    float vBody = tailF > 0.0 ? (0.2 + 0.38 * saturate(tailF * 1.6)) + 0.3 * saturate(1.0 - sb * 1.5) * step(0.45 + 0.4 * sb, tailF) : 0.0;   // c01: the core band narrows down the plume (a flat bar read as a rectangle)
                     float vStreak = streakF > 0.0 ? 0.08 + 0.3 * (1.0 - streakU) : 0.0;
                     float val = max(max(vHead, vBody), vStreak);
                     half3 fCol = CelRamp(saturate(val), rowA, i.tone.y);
@@ -224,8 +225,10 @@ Shader "TW/Cel/Comet"
                     col = lerp(col, fCol, fMask * fOp);
                     a = lerp(a, lerp(0.92, 1.0, fInk), fMask * fOp);
                     // the bloom: a soft yellow-orange light about 2.4x the head, added around it
-                    float bl = saturate(1.0 - hd / max(hr * 2.4, 1e-4));
-                    col += lerp(CelPal(rowA, 2), CelPal(rowA, 3), bl) * (bl * bl * 0.7 * has * (1.0 - fMask * 0.7));
+                    float bl = saturate(1.0 - hd / max(hr * 3.4, 1e-4));   // c01: 3.4x the head (b05 2.4x), stronger, and along the plume
+                    float blB = saturate(1.0 - abs(y) / max(hr * 2.2, 1e-4)) * saturate(1.0 - s / max(bodyL * 0.7, 1e-3)) * step(0.0, s);
+                    bl = max(bl, blB * 0.8);
+                    col += lerp(CelPal(rowA, 2), CelPal(rowA, 3), bl) * (bl * bl * 1.0 * has * (1.0 - fMask * 0.6));
                 }
 
                 half3 fogged = CelAdditiveFog(half3(1.0, 1.0, 1.0), i.positionWS, i.misc.x);

@@ -24,7 +24,7 @@ namespace TW.Presentation.VFX
         const float DummyUp = -1.3f;
         // b04: each bolt's extra launch height (m): about half the lanes start higher, so they cross the upper-left quarter
         // from near the horizon and arc down onto the dummy and the ground (b03: one low band)
-        static readonly float[] LaneUp = { 0f, 2.6f, 0.8f, 3.8f, 0.3f, 1.7f, 3.1f, 0.5f, 4.4f, 1.2f, 2.2f };   // b05: wider (b04 up to 2.6 m: one band)
+        static readonly float[] LaneUp = { 0f, 2.0f, 0.7f, 3.0f, 0.3f, 1.4f, 2.5f, 0.5f, 3.4f, 1.0f, 1.8f };   // c01: flatter lanes (the ref's bolts cross the left half nearly level)   // b05: wider (b04 up to 2.6 m: one band)
         static readonly Vector2[] DummyAt = { new Vector2(0f, 0f), new Vector2(0.05f, 0.3f), new Vector2(-0.1f, -0.1f), new Vector2(0.1f, 0.15f),
             new Vector2(0f, 0.05f), new Vector2(-0.05f, 0.25f), new Vector2(0.08f, -0.05f), new Vector2(0f, 0.1f),
             new Vector2(-0.12f, 0.2f), new Vector2(0.12f, 0.35f), new Vector2(-0.08f, -0.15f) };
@@ -98,12 +98,10 @@ namespace TW.Presentation.VFX
                 CelFx.Play(FireBolts.Comets[i], from, aim - from, aim, sd);
                 CelFx.Play(FireBolts.Hits[i], target, target - from, target, sd + 13u);
                 // b03: a smoke column on each ground hit, leaning up and along the shot (screen right)
-                if (FireBolts.OnGround[i] && s.Lod != RangeLod.Far)
-                {
-                    CelFx.Play(FireBolts.Smokes[i], target, Vector3.up + right * 0.35f, target, sd + 29u);
-                    // b04: a second, leaner column beside it on the near-dummy fires (Close only: Mid keeps one)
-                    if (s.Lod == RangeLod.Close && (gi & 1) == 0) CelFx.Play(FireBolts.Smokes[i], target + right * 0.35f, Vector3.up + right * 0.6f, target, sd + 31u);
-                }
+                // c01: one column on every other ground hit (1-2 per fire over the volley); dir = away, so the recipe's
+                // frame x is screen right and its S-chain leans right
+                if (FireBolts.OnGround[i] && s.Lod != RangeLod.Far && ((((gi - 1) & 3) + ((gi - 1) >> 2)) & 1) == 0)   // fires 0,2 then 1,3 then 0,2 ...
+                    CelFx.Play(s.Lod == RangeLod.Close ? FireBolts.Smokes[i] : FireBolts.SmokesMid[i], target, away, target, sd + 29u);
             }
         }
     }
