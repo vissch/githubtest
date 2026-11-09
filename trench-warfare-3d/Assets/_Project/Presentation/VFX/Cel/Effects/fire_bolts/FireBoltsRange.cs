@@ -24,8 +24,6 @@ namespace TW.Presentation.VFX
         static readonly Vector3[] FromAt = { new Vector3(0f, -0.1f, 0f), new Vector3(0.6f, 1.1f, 1.2f), new Vector3(-0.4f, -0.7f, -0.8f), new Vector3(0.3f, 0.5f, 0.5f),
             new Vector3(-0.2f, 1.4f, -1.2f), new Vector3(0.5f, -0.4f, 1.6f), new Vector3(0f, 0.8f, -0.4f), new Vector3(-0.5f, -0.2f, 0.9f),
             new Vector3(0.2f, 1.7f, 0.2f), new Vector3(-0.3f, 0.2f, -1.6f), new Vector3(0.4f, -0.6f, 0.4f) };
-        // the opening bolts start further along their line (already on screen at the fire, as in the reference's f19)
-        static readonly float[] AlongAt = { 0.6f, 0.5f, 0.4f, 0.3f, 0.2f };
 
         /// <summary>The point on the ground: the highest terrain within `radius` (a flat glow laid there is not
         /// buried by a bump), or the stage's ground height when no map is loaded.</summary>
@@ -79,11 +77,12 @@ namespace TW.Presentation.VFX
                 if (FireBolts.OnGround[i]) { var g = GroundAt[gi++ % GroundAt.Length]; target = OnGround(s.Ground + right * g.x + away * g.y, 0f, s.Ground.y); }
                 else { var d = DummyAt[di++ % DummyAt.Length]; target = s.Target + right * d.x + Vector3.up * d.y - away * 0.3f; }   // b01: on the board's front, so its sparks are not hidden behind it
                 var f = FromAt[i % FromAt.Length];
-                // b01: 1.1 m lower than r05 (the reference's bolts enter the left edge nearer chest height)
-                Vector3 from = s.MuzzleHigh + right * f.x + Vector3.up * (f.y - 1.1f) + away * f.z;
-                if (i < AlongAt.Length) from = Vector3.Lerp(from, target, AlongAt[i]);
+                // b02: 0.4 m above MuzzleHigh (b01 was 1.1 m below; the reference's bolts come in from the upper left
+                // about 2.5 m above the chest and arc down onto it)
+                Vector3 from = s.MuzzleHigh + right * f.x + Vector3.up * (f.y + 0.4f) + away * f.z;   // b02: 0.4 m above MuzzleHigh (a 1.4-2.2x spread scored worse) (the ref's bolts never share one line)
+                if (i < FireBolts.AlongAt.Length) from = Vector3.Lerp(from, target, FireBolts.AlongAt[i]);
                 // the comet is aimed above its hit by what its gravity drops over the flight: it arcs down onto it
-                Vector3 aim = target + Vector3.up * FireBolts.ArcLift(FireBolts.FlightOf[i]);
+                Vector3 aim = target + Vector3.up * FireBolts.ArcLift(FireBolts.Flights[i]);
                 uint sd = seed * 7u + (uint)i * 101u;
                 CelFx.Play(FireBolts.Comets[i], from, aim - from, aim, sd);
                 CelFx.Play(FireBolts.Hits[i], target, target - from, target, sd + 13u);
