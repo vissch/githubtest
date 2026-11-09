@@ -1,7 +1,7 @@
 // Phase: CelFx job (2026-11-09, lane/show/cel-explosion) - the explosion on the Range (CelRange id "explosion"):
 // the reference shot rebuilt from ExplosionRecipe's pieces. Shells stream into the dummy for ~2.7 s (Hold), secondary
 // ground blasts go off around it (Site, at the places and times read off explosive_blasts_nolora), a closing spark fan
-// is thrown low to the left, then five smoke clouds stand (Cloud) and cut away by ~4.8 s.
+// is thrown low to the left, then smoke clouds stand (Cloud) and cut away by ~4.8 s.
 // The Range films at Time.captureFramerate; when that is not the clips' 24 (the stage steps 20 today), the close film
 // pins CelFx.Clock so the effect still moves one 24th of a second a frame and starts on the clips' frame (t0 x 24): its
 // frames then line up with the reference frame for frame. The game and the battle stills keep real seconds.
@@ -18,20 +18,25 @@ namespace TW.Presentation.VFX.Cel
         static readonly Vector3[] Sites =
         {
             new Vector3(-12.8f, 5.7f, 0.95f),
-            new Vector3(-5.4f, -2.5f, 1.6f),
+            new Vector3(-5.0f, -2.2f, 1.6f),
             new Vector3(-16f, 33f, 2.3f),
-            new Vector3(13f, 26f, 2.32f),
+            new Vector3(11.5f, 27f, 2.32f),
             new Vector3(-6.2f, 8.8f, 2.55f),
+            new Vector3(6.5f, 9f, 2.1f),
         };
         // smoke clouds: right, depth, seconds after the fire (the dummy's own cloud stands behind it)
         // r04: sites 2 and 3 are far across the field (SiteFar)
+        // r05: every site throws big chunks and grey puffs; site 5 is new (right of the fire, mid field), so debris
+        // clusters stand ~40% of the frame either side of the fire through ref f59-f87
         static bool FarSite(int i) => i == 2 || i == 3;
+        // r05: the clouds stand from 2.95 s (ref f90: no smoke wall before it), and an early one at the left edge
         static readonly Vector3[] Clouds =
         {
-            new Vector3(0f, 0.6f, 2.75f),
-            new Vector3(-8.2f, -2.0f, 2.75f),
-            new Vector3(-6.2f, 8.8f, 2.8f),
-            new Vector3(8.5f, 9.3f, 2.78f),
+            new Vector3(0f, 0.6f, 2.95f),
+            new Vector3(-8.2f, -2.0f, 2.95f),
+            new Vector3(-6.2f, 8.8f, 3.0f),
+            new Vector3(8.5f, 9.3f, 2.98f),
+            new Vector3(-11.5f, 6f, 1.15f),
         };
 
         const float ClipFps = 24f;
