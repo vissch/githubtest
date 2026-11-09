@@ -132,10 +132,10 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // b02: the fireball swells late (the clip peaks at f84-f95 = 2.7-3.2 s after our fire): later, bigger, more
-                Name = "fire c", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.3f, -0.3f), Start = 2.6f, Duration = 1.3f, Life = 1.0f,   /* d12: the fireball swells on the dummy through the cut (d06) */ LifeJitter = 0.2f,
+                Name = "fire c", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.3f, -0.3f), Start = 2.6f, Duration = 1.0f, Life = 0.8f,   /* d12: the fireball swells on the dummy through the cut (d06); d13: out by ~f118 (was still burning at f122) */ LifeJitter = 0.2f,
                 Close = 26, Mid = 3, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.0f, 0f, 0f), Aim = CelAim.Dir, Speed = 3.0f, SpeedJitter = 0.4f, Spread = 60f, Drag = 1.0f, Buoyancy = 1.0f, Spin = 0.9f,
                 Size = new CelCurve(0.8f, 1.7f, 0.6f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.12f,
-                Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.55f, Core = 2.5f, Ink = 2.4f, Extra = new Vector4(1.4f, 0.26f, 0f, 0.88f),
+                Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.4f, Core = 2.5f, Ink = 2.4f, Extra = new Vector4(1.4f, 0.26f, 0f, 0.88f),
             },
             new CelLayer
             {
