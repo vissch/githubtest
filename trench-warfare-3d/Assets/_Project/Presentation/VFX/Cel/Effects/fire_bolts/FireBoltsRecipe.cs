@@ -264,7 +264,7 @@ namespace TW.Presentation.VFX.Cel
                     Size = new CelCurve(0.12f, 0.95f - 0.2f * k, 1.3f), SizeJitter = 0.15f, Stretch = 3.4f - 0.6f * k,
                     Erode = new CelCurve(0.02f, 0.7f, 2.6f),
                     Palette = "fb_wisp", Core = 1f, Opacity = 0.75f, Ink = 1.5f,
-                    Extra = new Vector4(-2f, 0.16f, 0.35f, 3.4f + 0.8f * k),
+                    Extra = new Vector4(-2f, 0.06f, 0.4f, 3.4f + 0.8f * k),   // d07: gentler S, more lean (the wider puffs fold on tight curls)
                 });
             }
             if (r.Layers.Count > 0) return r;

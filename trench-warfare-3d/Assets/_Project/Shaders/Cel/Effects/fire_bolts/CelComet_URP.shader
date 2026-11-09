@@ -81,7 +81,7 @@ Shader "TW/Cel/Comet"
                     R = dot(R, R) > 1e-6 ? normalize(R) : float3(1, 0, 0);
                     float3 F = float3(-R.z, 0.0, R.x);
                     float u0 = v.uv.x;
-                    float3 qa = WispPath(r, u0 * top, t), qb = WispPath(r, u0 * top + 0.03, t);
+                    float3 qa = WispPath(r, u0 * top, t), qb = WispPath(r, u0 * top + 0.35, t);   // d07: a smoothed tangent (less folding)
                     float3 pa = p + R * qa.x + float3(0, qa.y, 0) + F * qa.z;
                     float3 pb = p + R * qb.x + float3(0, qb.y, 0) + F * qb.z;
                     float3 tng = pb - pa;
@@ -93,7 +93,7 @@ Shader "TW/Cel/Comet"
                     if (dot(side, UNITY_MATRIX_V[0].xyz) < 0.0) side = -side;   // +across = screen right
                     // width: thin at the base, widening up the wisp and over the life
                     float wid = lerp(r.size.x, r.size.y, pow(saturate(k), max(r.size.z, 0.1))) * lerp(0.45, 1.0, u0);
-                    float across = (v.uv.y * 2.0 - 1.0) * 1.35;
+                    float across = (v.uv.y * 2.0 - 1.0) * 2.0;   // d07: room for the puffs
                     float3 w = pa + side * across * wid * 0.5 * alive;
                     o.positionWS = w;
                     o.positionCS = TransformWorldToHClip(w);
@@ -173,6 +173,26 @@ Shader "TW/Cel/Comet"
                     float yc = (n2 - 0.5) * 0.5;
                     float edge = 0.55 + 0.7 * n1;                          // frayed half width (1 = the nominal)
                     float field = saturate(1.0 - abs(y - yc) / edge);
+                    // d07 (fracture 2: width profile): from mid-life the wisp is a chain of separate overlapping
+                    // round puffs along its path (metres: sm along, ym across), each its own size and offset,
+                    // growing up the wisp and over the life; the strip stays only as the young thread at the base
+                    float ym = (y - yc) * wid * 0.5;
+                    float pitch = wid * 0.55 + 0.05;
+                    float puffF = 0.0, puffLit = 0.5;
+                    float grow = (0.55 + 0.9 * u) * lerp(0.7, 1.15, k);
+                    [unroll] for (int q = -1; q <= 1; q++)
+                    {
+                        float ci = floor(sm / pitch) + q;
+                        float h1 = CelHash21(float2(ci, seed * 131.0)), h2 = CelHash21(float2(ci + 17.0, seed * 59.0));
+                        float sc = (ci + 0.5 + (h1 - 0.5) * 0.4) * pitch;
+                        float cy = (h2 - 0.5) * wid * 0.3;
+                        float R = wid * 0.5 * (0.6 + 0.55 * h1) * grow;
+                        float2 dv = float2(sm - sc, ym - cy) / max(R, 1e-3);
+                        float f = (sc > 0.0 && sc < top) ? 1.0 - length(dv) : 0.0;
+                        if (f > puffF) { puffF = f; puffLit = saturate(0.62 + 0.3 * dv.x - 0.15 * dv.y); }
+                    }
+                    float billow = smoothstep(0.12, 0.45, k) * smoothstep(0.0, 0.25, u);
+                    field = lerp(field, saturate(puffF * 1.4), billow);
                     // pieces: the wisp tears into chunks as it ages, the top first
                     float brk = CelValue2(float2(sm / (wid * 2.5 + 0.1) - t * 0.4, seed * 91.0));
                     float thr = i.more.y + 0.35 * u * k;
@@ -182,6 +202,7 @@ Shader "TW/Cel/Comet"
                     float fm = field * cut * ends;
                     float mask = CelAAStep(0.06, fm);
                     float lit = saturate(0.5 - 0.5 * (y - yc) / edge + 0.25 * (n2 - 0.5));   // screen-left side lit
+                    lit = lerp(lit, puffLit, billow);   // d07: each puff lit on its upper side
                     half3 c = CelRamp(saturate(0.25 + 0.7 * lit), rowA, 1.0);
                     float ink = CelInk(fm, 0.06, CelLodInk(i.tone.w)) * mask;
                     c = lerp(c, CelPalInk(rowA).rgb, ink * 0.8);
