@@ -79,6 +79,7 @@ namespace TW.Presentation.VFX.Cel.Effects
             CelPalette.Add("bi_tracer", CelPalette.Hex(0xB0400C), CelPalette.Hex(0xF07A20), CelPalette.Hex(0xFF9C40), CelPalette.Hex(0xFFC070),
                 CelPalette.Hex(0xFFE2B0), 0.45f, 3, CelPalette.Hex(0x401004));
             // the hit's spark spikes: red-orange with a white tip
+            // d32: core 0.67x (critics: a white orb), 8 spikes at HDR 10 so the hot area moves into the rays
             // d24: white core back to d20 size (hot_peak is its saturated area), the orange flash glow stays small
             // d22: flash and core about half (read as a disc), spikes longer and a little wider (invisible at 0.07 m)
             // d21: white-orange (the clip's spikes are pale orange to white; red read as an orb)
@@ -162,7 +163,7 @@ namespace TW.Presentation.VFX.Cel.Effects
                 // d02: 1.6x bigger, Core 8 (b07 hot_peak 0.0018 vs the clip's 0.0045)
                 // b05: a little bigger and hotter, 3 frames (hot_peak 0.001 vs the clip's 0.0045)
                 Name = "core", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.03f, -0.3f), Start = 0f, Life = 0.16f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.24f * K, 0.13f * K), SizeJitter = 0.1f, Erode = new CelCurve(0f, 0.7f),
+                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.16f * K, 0.09f * K), SizeJitter = 0.1f, Erode = new CelCurve(0f, 0.7f),
                 Palette = "white", Core = 10f, Extra = new Vector4(2f, 0.5f, 0f, 0f),
             },
             new CelLayer
@@ -170,12 +171,12 @@ namespace TW.Presentation.VFX.Cel.Effects
                 // b02: longer spikes (about the dummy's head long), 5 a hit, 2-3 frames
                 // b05: wider, hotter and a frame longer, so they show at 19 m
                 Name = "spikes", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.03f, -0.3f), Start = 0f, Duration = 0.005f, Life = 0.17f, LifeJitter = 0.05f,
-                Close = 5, Mid = 2, Far = 0, Shape = CelShape.Shell, ShapeSize = new Vector3(0.03f, 0f, 0f), Aim = CelAim.Radial, UpBias = 0.25f,
+                Close = 8, Mid = 2, Far = 0, Shape = CelShape.Shell, ShapeSize = new Vector3(0.03f, 0f, 0f), Aim = CelAim.Radial, UpBias = 0.25f,
                 // b07: rays that stop about half the dummy's width out and hold for 4 frames (b06's 12 m/s spikes flew
                 // off in a frame or two, so f29 showed a star with no spikes): 6 m/s with drag 8 tops out at 0.75 m
                 // and the trail (stretch 0.17 s) reaches back to the core, so each reads as a ray from the hit
                 Speed = 11f, SpeedJitter = 0.3f, Drag = 9f,
-                Size = new CelCurve(0.10f, 0.05f), Stretch = 0.2f, Erode = new CelCurve(0f, 0.25f), Palette = "bi_spark", Core = 6f, Extra = new Vector4(0f, 0.3f, 0f, 0f),
+                Size = new CelCurve(0.10f, 0.05f), Stretch = 0.2f, Erode = new CelCurve(0f, 0.25f), Palette = "bi_spark", Core = 10f, Extra = new Vector4(0f, 0.3f, 0f, 0f),
             });
 
         // the crown: dark dirt spurts thrown up in a ring from the ground point, a few frames
