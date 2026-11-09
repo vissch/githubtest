@@ -228,7 +228,12 @@ Shader "TW/Cel/LightningBeam"
                 // b04: the kinks' size changes along the dash (an amplitude on its own long zig-zag, 0.25..1.75), and a
                 // sharp third scale, so the edge reads as irregular lightning kinks and not an even wave
                 float ampK = 1.0 + 0.75 * Zig(u, 1.3 * cs, salt + 71.0);
-                float zig = (Zig(u, 0.42 * cs, salt) * ampK + 0.45 * Zig(u, 0.13 * cs, salt + 5.1) + 0.3 * Zig(u, 0.045 * cs, salt + 77.0)) * i.shape.x * 1.6;
+                // b05: less dense fine wiggle (b04 read as an even braid) and 1-2 sharp kinks per dash: a tent offset at a seeded
+                // place along the dash, re-cut each tick
+                float kA = 0.25 + 0.5 * CelHash21(float2(salt, 3.1));
+                float kS = (CelHash21(float2(salt, 5.7)) > 0.5 ? 1.0 : -1.0) * (0.9 + 0.8 * CelHash21(float2(salt, 8.3)));
+                float kinkD = kS * saturate(1.0 - abs(a - kA) / 0.18) + 0.6 * kS * saturate(1.0 - abs(a - kA - 0.4) / 0.12);
+                float zig = (Zig(u, 0.42 * cs, salt) * ampK + 0.22 * Zig(u, 0.13 * cs, salt + 5.1) + 0.12 * Zig(u, 0.045 * cs, salt + 77.0) - kinkD) * i.shape.x * 1.6;
                 float rag = 1.0 + 0.35 * Zig(u, 0.07 * cs, salt + 9.3);
                 float w = prof * rag;
                 float dy = abs(y - zig * prof);
@@ -250,7 +255,7 @@ Shader "TW/Cel/LightningBeam"
                 float br = 0.0;
                 if (i.shape.y > 0.0)
                 {
-                    float cell = 0.55 * cs;
+                    float cell = 0.42 * cs;   // b05: more cells (3-6 forked arcs per bolt)
                     float ci = floor(u / cell);
                     [unroll] for (int c = 0; c < 2; c++)
                     {
