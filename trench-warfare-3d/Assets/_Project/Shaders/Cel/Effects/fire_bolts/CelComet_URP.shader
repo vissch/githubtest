@@ -292,11 +292,11 @@ Shader "TW/Cel/Comet"
                     float headF = 1.0 - hd / max(hr, 1e-4);
                     float bodyL = max(min(fl * 0.9, hr * 16.0), 1e-3);   // c05_2: ~8 head lengths (9 hr read as a dot)
                     float sb = saturate(s / bodyL);
-                    float lick = hr * 0.18 * sin(s * 2.2 / max(hr, 1e-3) + seed * 30.0 - i.misc.z * 16.0) * sb;
+                    float lick = hr * 0.05 * sin(s * 2.2 / max(hr, 1e-3) + seed * 30.0 - i.misc.z * 16.0) * sb;
                     float nz = CelValue2(float2(s / max(hr * 1.3, 1e-3) + i.misc.z * 9.0, seed * 41.0 + step(0.0, y - lick) * 7.0));
                     float nz2 = CelValue2(float2(s / max(hr * 0.6, 1e-3) + i.misc.z * 15.0, seed * 23.0 + 3.0));
                     float rag = lerp(1.0, 0.7 + 0.45 * nz + 0.2 * (nz2 - 0.5), smoothstep(0.25, 0.8, sb));
-                    float wBody = hr * 0.8 * (1.0 + 0.35 * smoothstep(0.0, 0.2, sb)) * pow(saturate(1.0 - sb), 0.7) * rag;   // ~1.4x narrower than the head just behind it
+                    float wBody = hr * 0.62 * (1.0 + 0.25 * smoothstep(0.0, 0.2, sb)) * pow(saturate(1.0 - sb), 0.7) * rag;   // ~1.4x narrower than the head just behind it
                     float tailF = (s >= 0.0 && s <= bodyL) ? 1.0 - abs(y - lick) / max(wBody, 1e-4) : 0.0;
                     float streakF = 0.0, streakU = 1.0;
                     [unroll] for (int k5 = 0; k5 < 3; k5++)
