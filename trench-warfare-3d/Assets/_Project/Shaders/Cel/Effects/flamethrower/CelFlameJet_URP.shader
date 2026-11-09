@@ -45,7 +45,8 @@ Shader "TW/Cel/FlameJet"
         {
             // the main jet (upper-edge licking on) starts slimmer and broadens over its first 1.3 s, like the clip's
             bool isMain = r.extra.w > 0.0;
-            float grow = isMain ? lerp(0.55, 1.0, smoothstep(0.0, 1.3, CelAge(r))) : 1.0;
+            // b04: broadens over 0.75 of its life (to 2.6 s), so the main jet keeps growing to the clip's peak (f84) and short tongues open fast
+            float grow = isMain ? lerp(0.55, 1.0, smoothstep(0.0, clamp(0.75 * r.life, 0.3, 2.6), CelAge(r))) : 1.0;
             float w = 0.5 * grow * lerp(r.size.x, r.size.y, pow(saturate(a), r.size.z > 0.0 ? r.size.z : 1.0));
             if (isMain)
             {
@@ -280,6 +281,10 @@ Shader "TW/Cel/FlameJet"
                 // (red only on a thin rim: v passes the first band at f ~0.04)
                 // r04: the white core is about twice as wide (it shows over more of the field)
                 float v = saturate(0.02 + f * 0.74 + streak * 0.25 + 0.06 * (1.0 - saturate(jc.x * 1.5)) - 0.08 * saturate((jc.x - 0.6) * 1.5));
+                // b04: a blown white core along the whole axis, nozzle to target (b03's spine peaked at v ~0.78 and never
+                // reached the core band: hot 0.010 vs the clip's 0.101); streaky, so it is wider where the white streaks run
+                float spine = saturate(1.0 - abs(jc.y) / (0.2 + 0.12 * streak)) * smoothstep(0.0, 0.05, jc.x) * (1.0 - smoothstep(0.8, 1.05, jc.x));
+                v = saturate(v + 0.24 * spine);
                 half3 col = CelRamp(v, CelRowA(r.tone.x), r.tone.y);
                 float ink = CelInk(f, 0.0, CelLodInk(r.tone.w));
                 col = lerp(col, CelPalInk(CelRowA(r.tone.x)).rgb, max(ink, seam * 0.35));
