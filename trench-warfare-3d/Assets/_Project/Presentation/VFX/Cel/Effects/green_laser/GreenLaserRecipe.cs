@@ -118,7 +118,7 @@ namespace TW.Presentation.VFX.Cel
             {
                 Name = "hit halo " + i, Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Start = h, Life = 0.24f, LifeJitter = 0.1f,
                 Close = 1, Mid = 1, Far = 1, Size = new CelCurve(2.0f * s, 2.5f * s, 0.4f), SizeJitter = 0.1f,
-                Palette = "gl_halo", Core = 1f, Opacity = 0.6f, Extra = new Vector4(2f, 3.0f, 0f, 0f),
+                Palette = "gl_halo", Core = 1f, Opacity = 0.4f, Extra = new Vector4(2f, 3.0f, 0f, 0f),   // d38: dimmer, same size (ref green area f70-f79 ~0.5-0.65x ours)
             });
             l.Add(new CelLayer
             {
@@ -215,6 +215,10 @@ namespace TW.Presentation.VFX.Cel
                     Close = 1, Mid = 1, Far = 0, Size = new CelCurve(4.0f * s, 4.6f * s, 0.5f), SizeJitter = 0.05f, Palette = "gl_haze", Core = 1f, Opacity = 0.5f, Extra = new Vector4(6f, 0.0f, 0.4f, 0.6f),
                 });
             }
+            // d39: the ref holds a wide bright pool on the dirt ~f110-f114 after the last hit, gone by ~f120: one held wash pulse
+            var lastPool = Shifted(Wash("wash last pool", CelAnchor.Origin, Hits[Hits.Length - 1] + 0.05f, 0f, 1, 1, 0, 0.42f, 3.0f, 3.3f, 1.3f, new Vector4(1f, 0.05f, 0.55f, 2.2f)), 0.45f, 0.6f);
+            lastPool.Palette = "gl_pulse";
+            l.Add(lastPool);
             for (int i = 0; i < Ground.Length; i++)
             {
                 float g = Ground[i], s = GroundScale[i];
