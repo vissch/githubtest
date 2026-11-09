@@ -211,7 +211,7 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // a dense spray of small embers thrown up off the target, arcing over it and falling
-                Name = "ember arcs", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.3f, 0.3f, -1.2f), Start = 1.0f, Duration = 3.2f, Life = 1.8f, LifeJitter = 0.4f,
+                Name = "ember arcs", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.3f, 0.3f, -1.2f), Start = 1.0f, Duration = 2.6f,   /* d21: 3.2 -> 2.6, the spray stops spawning with the cut (no late carpet), life and gravity kept */ Life = 1.8f, LifeJitter = 0.4f,
                 // b02: a denser spray (the clip throws hundreds), smaller, on longer
                 // b04: 720 -> 1100, bigger and brighter (the critic saw a thin trail where the clip throws hundreds)
                 Close = 1350, Mid = 60, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.6f, 0f, 0f), Aim = CelAim.Radial, Speed = 3.6f, SpeedJitter = 0.6f, UpBias = 1.0f, Gravity = 2.0f, Drag = 0.6f,   // b05: round the dummy (UpBias 2.5 threw them up into the smoke)
