@@ -171,7 +171,7 @@ namespace TW.Presentation.VFX.Cel
             // b03: a torso-wide white-core, blue-rim star on the chest: 10 rays, larger, plus a burst at the peak and a
             // faint crackle on the board after the beam
             Dim(Dot("rays", "blue_laser_hit", 4, 0.15f, Hold, 0.1f, 34, 10, new CelCurve(0.6f, 0.68f), 0.025f, 10f, 0.04f), 0.35f),   // d03: short dim rays (every paper: a lens flare)   // b07: 8-12 thin radial streaks over the ball   // b06: thinner, dimmer rays
-            Dim(Dot("burst rays", "blue_laser_hit", 4, Volley, 0.45f, 0.1f, 8, 2, new CelCurve(0.8f, 0.9f), 0.022f, 11f, 0.03f), 0.2f),   // b06: 8-12 long thin radial streaks
+            Dim(Dot("burst rays", "blue_laser_hit", 4, Volley, 0.5f, 0.12f, 16, 2, new CelCurve(1.0f, 1.1f), 0.02f, 9f, 0.06f), 0.7f),   // d35: a bright spiky star f98-f106 (readers: clip impact 29%/16% at f98/f106, ours 11%/3%)   // b06: 8-12 long thin radial streaks
             // b04: the crackle is short kinked lightning arcs clinging to the torso (clip f106-f132), not b03's dim ray stars
             CrackleArc("crackle", Hold + 0.3f, 1.15f, 46, 0.055f, 0.95f),
             CrackleArc("crackle hold", 0.4f, Hold - 0.4f, 40, 0.06f, 0.9f),
