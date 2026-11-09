@@ -52,13 +52,14 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Presentation.Meta` | `Presentation/Meta/` | `TW.Presentation.Meta` | Sim.Core, Sim.Terrain, Presentation.Core, Presentation.Camera, Presentation.Terrain |
 | `TW.Presentation.Terrain` | `Presentation/Terrain/` | `TW.Presentation.Terrain` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Camera, Presentation.Core |
 | `TW.Presentation.Units` | `Presentation/Units/` | `TW.Presentation.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core |
-| `TW.Presentation.VFX` | `Presentation/VFX/` | `TW.Presentation.VFX` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core |
+| `TW.Presentation.VFX` | `Presentation/VFX/` | `TW.Presentation.VFX`, `TW.Presentation.VFX.Cel` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core |
 | `TW.Sim.Combat` | `Sim/Combat/` | `TW.Sim.Combat` | Sim.Core, Sim.Terrain, Sim.Nav |
 | `TW.Sim.Core` | `Sim/Core/` | `TW.Sim` | (none) |
 | `TW.Sim.Match` | `Sim/Match/` | `TW.Sim.Match` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units |
 | `TW.Sim.Nav` | `Sim/Nav/` | `TW.Sim.Nav` | Sim.Core, Sim.Terrain |
 | `TW.Sim.Terrain` | `Sim/Terrain/` | `TW.Sim.Terrain` | Sim.Core |
 | `TW.Sim.Units` | `Sim/Units/` | `TW.Sim.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat |
+| `TW.Tests.Cel` | `Tests/Cel/` | `TW.Tests` | Sim.Core, Presentation.Core, Presentation.VFX |
 | `TW.Tests.EditMode` | `Tests/EditMode/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Meta, UI, Data, Editor, Perf |
 | `TW.Tests.Match` | `Tests/Match/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Core, Data |
 | `TW.Tests.PlayMode` | `Tests/PlayMode/` | `TW.Tests` | Sim.Core, Sim.Match, Sim.Terrain, Net, Presentation.Core, Sim.Nav, Sim.Combat, Sim.Units, Data, UI, Presentation.Camera, Perf |
@@ -69,7 +70,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Tests.UI` | `Tests/UI/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Meta, UI, Data |
 | `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera |
 
-29 assemblies. Assembly names and namespaces differ on purpose: `using` takes the namespace.
+30 assemblies. Assembly names and namespaces differ on purpose: `using` takes the namespace.
 <!-- /gen:assemblies -->
 
 ## Folders
@@ -81,6 +82,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Art/Characters/` | Owner's Mixamo-rigged figures (Soldier, Sniper) and the ~100 clip FBX the VAT baker reads. |
 | `Data/` | ScriptableObject schemas and the baker that turns them into sim tables (SIM lane). |
 | `Editor/` | Editor-only tools: scene builder, VAT baker, importers, CaptureRig, Windows build, prop editor. |
+| `Editor/Cel/` | CelFxStill: a contact sheet of a cel recipe rendered in an empty scene (the CelFx kit proving it draws). |
 | `Editor/UI/` | Editor tools for the UI skin: placeholder painter, importer, verifier, HUD capture. |
 | `Net/` | Lockstep driver, loopback transport, command seat; UTP/hash exchange/snapshot are stubs (SIM lane). |
 | `Perf/` | PerfBench (editor + player benchmark), AllocProbe, bench options. |
@@ -96,7 +98,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Presentation/Meta/` | The campaign views behind the menus: the Home Front diorama (sliced houses shown to a stage), the strategic map (a generated continent, pins, the front line) and their camera. |
 | `Presentation/Terrain/` | Ground mesh, battlefield composer and prop kit, destruction and wear, houses, weather, night, sea. |
 | `Presentation/Units/` | VATRenderer (all infantry), VAT codec/asset data, ProceduralSoldier far-tier fallback. |
-| `Presentation/VFX/` | Stub assembly (B5 router). Real effects live in Presentation/Camera. |
+| `Presentation/VFX/` | The B5 router stub, and Cel/: the CelFx kit (procedural cel effects from recipes of GPU-record primitives, one indirect draw per kind; Cel/README.md is its API). The other effects live in Presentation/Camera. |
 | `Resources/` | Everything loaded by name at runtime (Resources.Load). Moving a file here breaks a string somewhere. |
 | `Resources/Env/` | Imported environment sets (Tripo), one folder per set, plus EnvAtlas.jpg built by Tools/envatlas.py. |
 | `Resources/Layouts/` | PropLayout asset: the owner's hand edits over the composed props. |
@@ -107,6 +109,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Scenes/` | Bootstrap (entry), MainMenu, GreyboxCorridor (the dev battle scene: open this one to Play). |
 | `Settings/` | URP pipeline and renderer assets (TW-URP, TW-Renderer). |
 | `Shaders/` | All TW/* shaders and the shared .hlsl includes. |
+| `Shaders/Cel/` | TW/Cel/* shaders of the CelFx kit and CelFx.hlsl, the functions they share. |
 | `Sim/` | Deterministic lockstep simulation. References nothing outside TW.Sim.* (SIM lane). |
 | `Sim/Combat/` | Target acquisition, direct fire, blast, suppression, gas, tank gunnery, armour. |
 | `Sim/Core/` | SimWorld (state + hash), commands, events, config, RNG, math, roster, system order. |
@@ -115,6 +118,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Sim/Terrain/` | MapData, heightfield, battlefield generator, craters, wire, mud, props. |
 | `Sim/Units/` | Trench garrison and orders, vehicle modules, stats; stance/grenades/abilities are stubs. |
 | `Tests/` | NUnit tests, one assembly per module (Tools/gate_scope.py lists them); PlayMode spins real SimHosts. |
+| `Tests/Cel/` | EditMode tests of the CelFx kit (Presentation/VFX/Cel): allocation, LOD counts, shaders kept, statics. Fast. |
 | `Tests/EditMode/` | The landing folder of the test split: only LandingFolder.cs. A lane cut before 2026-10-02 lands its new tests here, and validate.py says which module folder each goes to. |
 | `Tests/Match/` | EditMode tests of whole matches run through LockstepSession and ScriptedEnemy (Sim + Presentation/Core). Slow. |
 | `Tests/PlayMode/` | PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router. |

@@ -672,6 +672,21 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   A missing PNG or a row out of order silently disables every flipbook in the game. Add the enum entry, the row and
   the PNG together, and check `books.Ready`.
 
+### Cel effects kit (CelFx: procedural cel VFX, no flipbooks, 2026-11-09)
+- **Files:** `Presentation/VFX/Cel/README.md` (the API in one page: recipes, adding a kind, LOD and budget rules),
+  `Presentation/VFX/Cel/CelFx.cs` (`CelFx.Play(recipe, origin, dir, target, seed)`, the zoom tier, chunk and light
+  layers on their frame), `Presentation/VFX/Cel/CelFxRecipe.cs` (layers: kind, timeline, counts per tier, shape, aim,
+  curves, palette), `Presentation/VFX/Cel/CelFxRenderer.cs` (a ring of 128-byte records per kind in one GPU buffer, one
+  indirect draw per live kind through `FrameBudget`), `Presentation/VFX/Cel/CelKind.cs` (the extension point: a kind
+  is one shader plus one `CelKind` class; Streak, Lobe, Glow built in), `Presentation/VFX/Cel/CelPalette.cs`,
+  `Presentation/VFX/Cel/CelRecord.cs`, `Presentation/VFX/Cel/CelDemo.cs` (a recipe using every primitive),
+  `Shaders/Cel/CelFx.hlsl` (bands, ink, erosion, camera-as-light, noise, SDFs) and `Shaders/Cel/Cel*_URP.shader`,
+  keepers `Resources/ShaderKeep/KeepCel*.mat`, `Editor/Cel/CelFxStill.cs` (a contact sheet of a recipe in an empty scene).
+- **Tests:** CelFxTests (`Tests/Cel`: 0 B per spawn, frame and play; counts never rise going out; every TW/Cel shader
+  found and kept; draws through FrameBudget; statics put back).
+- **See it:** `Unity.exe -batchmode -projectPath trench-warfare-3d -executeMethod TW.Editor.CelFxStill.Batch -celOut <dir>`
+  (with graphics) writes a sheet of eight moments, the peak frame and a json of the draws into that folder.
+
 ### Debris and destruction of props and houses
 - **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers,
   `ZoomShare`; a pool whose last piece has sunk is not drawn), `Presentation/Camera/DebrisRenderer.Parts.cs` (a man's
@@ -1123,7 +1138,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `VehicleGunPort` | TankRenderer | CombatFx.Bodies |
 | `DrawnWreck` | TankRenderer | BattlefieldComposer |
 | `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Deaths, CombatFx.Ground |
-| `Flash` | NightLights | CombatFx.Chunks, TankRenderer, TankRenderer.Riders, TankRenderer.Salvo |
+| `Flash` | NightLights | CelFx, CombatFx.Chunks, TankRenderer, TankRenderer.Riders, TankRenderer.Salvo |
 | `FireLight` | NightLights | Flamethrower, TankRenderer |
 | `FirePool` | NightLights.Pools | NightLights, TankRenderer |
 | `CookOff` | CombatFx | PropDestruction |
@@ -1134,6 +1149,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
+- **Cel:** CelFxTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, ScriptedEnemySlotTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** AnimClockPlayTests, CaptureRigPlayTests, DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudMinimapPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
