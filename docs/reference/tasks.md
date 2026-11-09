@@ -152,8 +152,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `old_bullets`; `-executeMethod TW.Editor.RangeStage.CommandLine -twrange "effect=<id> out=<dir> lod=all"`),
   `VfxLab.Range`. The capture script and its README are outside the repo (`C:/Users/PC/Documents/celfx/tools/capture.ps1`).
 - **Fire bolts (lab only, effect id `fire_bolts`):** `Presentation/VFX/Cel/Effects/fire_bolts/FireBoltsRecipe.cs` (the volley:
-  one recipe per bolt shifted by its launch time; head, flame tail, smoke ribbon, hit flash, sparks, burst, wisps, ground
-  fire, warm pools and lights), `Presentation/VFX/Cel/Effects/fire_bolts/FireBoltsRange.cs` (where the bolts start and land).
+  one recipe per bolt shifted by its launch time; comet, hit star, spark lines, flame tongues, smoke wisps, ground fire,
+  warm pools), `Presentation/VFX/Cel/Effects/fire_bolts/FireBoltsRange.cs` (where the bolts start and land; it puts a
+  1/20 s shot clock back to 1/24), `Presentation/VFX/Cel/Effects/fire_bolts/CometKind.cs` + `Shaders/Cel/Effects/fire_bolts/CelComet_URP.shader`
+  (the Comet kind: head, banded flame tail with ink, wavy smoke ribbon; with no head it is a curling wisp).
 - **Tests:** none of its own (an instrument; its outputs go to the scorer and the critic).
 - **See it:** `Tools/tw eval 'return TW.Editor.VfxLab.Range("old_shell", "C:/abs/run", "close");'`, then the PNGs in
   `C:/abs/run/frames`.
