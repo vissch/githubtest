@@ -90,9 +90,10 @@ namespace TW.Presentation.VFX.Cel.Effects
             // b03: orange, not cream (the pool and the dummy should read orange-lit; blue low so a bright pool does not clip white)
             CelPalette.Add("bi_wash", CelPalette.Hex(0x40300A), CelPalette.Hex(0x806030), CelPalette.Hex(0xC09060), CelPalette.Hex(0xFFB060),
                 CelPalette.Hex(0xFFB060), 1.1f, 2, CelPalette.Hex(0x000000));
+            // d25: warm orange #FFB878 like the dummy light (critics: a near-white cream disc); far beacon pools 0.7x
             // b06: the pool: pale orange-cream, not saturated (b05's #FFB060 pool read as a hard orange disc)
-            CelPalette.Add("bi_pool", CelPalette.Hex(0x403020), CelPalette.Hex(0x806848), CelPalette.Hex(0xC0A078), CelPalette.Hex(0xFFD2A0),
-                CelPalette.Hex(0xFFD2A0), 1.1f, 2, CelPalette.Hex(0x000000));
+            CelPalette.Add("bi_pool", CelPalette.Hex(0x40281A), CelPalette.Hex(0x805838), CelPalette.Hex(0xC08858), CelPalette.Hex(0xFFB878),
+                CelPalette.Hex(0xFFB878), 1.1f, 2, CelPalette.Hex(0x000000));
             // the near field's light under the bolt: cream, lower gain than the pool (r05 try4: gain 3.2 clipped yellow on the near slope; try5 tan at 1.8 read red)
             // b05: tan-orange, not cream-yellow (b04's lit the crates yellow-white; the clip's near glow is orange)
             // b07b: yellower (#FFC080; b07a's half-gain #FFAA60 read deep red on the near ground)
@@ -318,8 +319,8 @@ namespace TW.Presentation.VFX.Cel.Effects
         // b07b: bigger and longer (b07a's T1 flash missed both stills and O120 showed only a grey dot): the flash lives
         // longer than the shot gap, so a blink is always up while the gun fires; Far gets a pool too (the same Glow draw)
         public static readonly CelFxRecipe BeaconMid = new CelFxRecipe("bi_beacon_mid", 1.2f, BeaconFlash(1.4f, 0.24f), BeaconPool(3.0f, 0.3f), BeaconSmudge(0.8f, 1.05f, 1.6f));
-        public static readonly CelFxRecipe BeaconFar = new CelFxRecipe("bi_beacon_far", 1.2f, BeaconFlash(5.0f, 0.28f), BeaconPool(8f, 0.3f), BeaconSmudge(3.0f, 1.0f, 1.2f));
-        public static readonly CelFxRecipe BeaconFar2 = new CelFxRecipe("bi_beacon_far2", 1.2f, BeaconFlash(9.0f, 0.3f), BeaconPool(14f, 0.3f), BeaconSmudge(5.0f, 0.9f, 1f));
+        public static readonly CelFxRecipe BeaconFar = new CelFxRecipe("bi_beacon_far", 1.2f, BeaconFlash(5.0f, 0.28f), BeaconPool(5.5f, 0.3f), BeaconSmudge(3.0f, 1.0f, 1.2f));
+        public static readonly CelFxRecipe BeaconFar2 = new CelFxRecipe("bi_beacon_far2", 1.2f, BeaconFlash(9.0f, 0.3f), BeaconPool(9.5f, 0.3f), BeaconSmudge(5.0f, 0.9f, 1f));
 
         /// <summary>The beacon for the current zoom (none at Close).</summary>
         static CelFxRecipe BeaconFor(float zoom) => float.IsNaN(zoom) || zoom < 22f ? null : zoom < 75f ? BeaconMid : zoom < 180f ? BeaconFar : BeaconFar2;
