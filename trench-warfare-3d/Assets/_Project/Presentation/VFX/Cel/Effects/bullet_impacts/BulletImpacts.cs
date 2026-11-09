@@ -237,11 +237,13 @@ namespace TW.Presentation.VFX.Cel.Effects
             Size = new CelCurve(r, r * 0.5f, 1f), SizeJitter = 0.3f, Stretch = 1f, Erode = new CelCurve(0f, 0.35f, 3f), Feather = 0f,
             Palette = "bi_dust", Core = 1.0f, Ink = 1.6f, Extra = new Vector4(1.1f, 0.14f, 0.7f, 0f),
         };
+        // d20: the puff bodies live 1.4/1.2 s (were 1.75/1.5): the big masses clear by about f105 and only the small
+        // remnants linger to f125, as the clip's (ours stayed big clusters at f99-f110)
         // b05: never wider than the dummy (b04's 0.69 m box of 0.85 m lobes made 1.5 m clumps): a 0.4 m box, lobes to 0.34 m
         public static readonly CelFxRecipe PuffBig = new CelFxRecipe("bi_puff_big", 2.6f,
-            PuffBody(8, 3, 0.8f * K, 0.13f * K, 0.4f * K, 0.9f * K, 1.75f), PuffRemnant(5, 2, 0.75f * K, 0.12f * K, 0.8f * K, 0.75f, 1.1f));
+            PuffBody(8, 3, 0.8f * K, 0.13f * K, 0.4f * K, 0.9f * K, 1.4f), PuffRemnant(5, 2, 0.75f * K, 0.12f * K, 0.8f * K, 0.75f, 1.1f));
         public static readonly CelFxRecipe PuffSmall = new CelFxRecipe("bi_puff_small", 2.2f,
-            PuffBody(6, 2, 0.62f * K, 0.11f * K, 0.32f * K, 0.75f * K, 1.5f), PuffRemnant(4, 1, 0.55f * K, 0.1f * K, 0.7f * K, 0.65f, 1.0f));
+            PuffBody(6, 2, 0.62f * K, 0.11f * K, 0.32f * K, 0.75f * K, 1.2f), PuffRemnant(4, 1, 0.55f * K, 0.1f * K, 0.7f * K, 0.65f, 1.0f));
 
         // ------------------------------------------------------------------------------------------ the light
         // power: the light's gain (the scene x (1 + power x colour)); fill: an added share of it so black ground warms too
