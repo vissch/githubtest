@@ -213,12 +213,15 @@ Shader "TW/Cel/Comet"
                        // b04: white-yellow   // yellow, white only at the middle (b03: a smaller white)
                     // b04: yellow just behind the head, orange, then red-orange down the streak (b03's yellow-white inner band read as a white rectangle)
                     // b05: a white-yellow core band down the front two thirds, orange round it, red-orange at the edges
-                    float vBody = tailF > 0.0 ? (0.2 + 0.38 * saturate(tailF * 1.6)) + 0.3 * saturate(1.0 - sb * 1.5) * step(0.45 + 0.4 * sb, tailF) : 0.0;   // c01: the core band narrows down the plume (a flat bar read as a rectangle)
+                    // c03: a graded core: yellow-white along the middle near the head, banding out to orange and then red
+                    // at the edge and down the plume (c01's flat yellow bar read as a rectangle)
+                    float vBody = tailF > 0.0 ? 0.14 + 0.74 * pow(saturate(tailF * 1.1), 1.3) * (1.0 - 0.55 * sb) : 0.0;   // c03_3: a yellow core grading out (0.86 drew a white bar, 0.66 lost the yellow)
                     float vStreak = streakF > 0.0 ? 0.08 + 0.3 * (1.0 - streakU) : 0.0;
                     float val = max(max(vHead, vBody), vStreak);
                     half3 fCol = CelRamp(saturate(val), rowA, i.tone.y);
-                    // no ink on the flame (b02: an ink ring made the head read as a ball)
-                    float fInk = 0.0;
+                    // c03: a dark ink edge on the flame body and its streaks (never round the head: b02's ring read as a ball)
+                    float bodyF = max(tailF, streakF);
+                    float fInk = CelInk(bodyF, 0.03, inkPx) * step(headF, 0.0) * step(0.03, bodyF) * has;
                     fCol = lerp(fCol, CelPalInk(rowA).rgb, fInk);
                     // the streaks fade out along their length; the head and body are opaque
                     float fOp = max(step(1e-4, max(headF, tailF)), saturate(1.25 - streakU));
