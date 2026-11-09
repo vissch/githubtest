@@ -15,8 +15,15 @@
 //   tone       x palette, y HDR core, z opacity, w beam: clip, the window never reaches past this share of the beam
 //              (1: stops at the target; above 1: the pulse runs on through it)
 //   extra      beam: x zig-zag amplitude (share of the width, 0..1.5), y branch arcs per metre (0: none),
-//              z the window's head (share of the beam) at birth, w at death.  dot: x unused, y unused,
-//              z star points (0: round), w star sharpness
+//              z the window's head (share of the beam) at birth, w at death.
+//              dot: x mode: 0 star (banded, additive), 1 soft bloom facing the eye (additive, unbanded),
+//                   2 soft pool lying on the ground (additive), 3 puff facing the eye (soft lumpy disc that covers:
+//                   dust, or with a hard edge a black fleck);
+//                   y softness (1/2: falloff, 0 = 5; 3: edge width in field units);
+//                   z star points (0: star round; 3: lump amplitude), w star sharpness (1: white core radius share)
+//   erode.w    beam (r04): the window's head is jittered by +- this share of the beam per record (seeded), so the
+//              dashes re-draw at new places; the steady thread ignores it.  dot: unused
+// r04: dots move (CelPosition), so puffs and flecks drift; soft bloom, pool and puffs added (no new draw: one kind).
 Shader "TW/Cel/LightningBeam"
 {
     Properties { }
@@ -68,27 +75,30 @@ Shader "TW/Cel/LightningBeam"
                 if (r.size.w < 0.0)
                 {
                     // the impact dot: a camera-facing quad, at least -size.w px in radius at Far (half that at Mid)
-                    float3 c = r.pos;
-                    float minPx = -r.size.w * saturate(_CelLod.x * 0.5);
+                    float mode = r.extra.x;
+                    float3 c = CelPosition(r, CelAge(r));
+                    float minPx = mode < 0.5 ? -r.size.w * saturate(_CelLod.x * 0.5) : 0.0;
                     float rad = max(CelCurve(r.size.xyz, k), minPx * PixelMetres(c)) * alive;
                     float2 corner = float2(v.uv.x * 2.0 - 1.0, v.uv.y * 2.0 - 1.0);
-                    float3 w = CelBillboard(c, corner * rad);
+                    float3 w = (mode > 1.5 && mode < 2.5) ? c + float3(corner.x, 0.0, corner.y) * rad + float3(0.0, 0.05, 0.0)
+                                                          : CelBillboard(c, corner * rad);
                     o.positionWS = w;
                     o.positionCS = TransformWorldToHClip(w);
-                    o.beam = float4(corner, 0.0, -1.0);
-                    o.tone = float4(r.tone.x, r.tone.y, r.tone.z * (1.0 + 1.5 * far), CelCurve(r.erode.xyz, k));
-                    o.shape = float4(0.0, 0.0, r.extra.z, r.extra.w);
+                    o.beam = float4(corner, r.seed, -1.0);
+                    o.tone = float4(r.tone.x, r.tone.y, r.tone.z * (mode < 0.5 ? 1.0 + 1.5 * far : 1.0), CelCurve(r.erode.xyz, k));
+                    o.shape = float4(mode, r.extra.y, r.extra.z, r.extra.w);
                     o.more = float4(ComputeFogFactor(o.positionCS.z), far, 0, 0);
                     return o;
                 }
                 float3 span = r.vel * r.life;                     // start -> target
                 float lenB = max(length(span), 1e-3);
                 float3 dir = span / lenB;
-                float head = lerp(r.extra.z, r.extra.w, k);
+                bool thread = r.size.w > 0.999;
+                // r04: each dash's head is jittered by its seed (erode.w), so successive dashes land at new places
+                float head = lerp(r.extra.z, r.extra.w, k) + (thread ? 0.0 : (r.seed * 2.0 - 1.0) * r.erode.w);
                 float s0 = max(head - r.size.w, 0.0);
                 float s1 = min(head, r.tone.w > 0.0 ? r.tone.w : 1.0);
                 float open = (s1 > s0 + 1e-4) ? 1.0 : 0.0;
-                bool thread = r.size.w > 0.999;
                 float width = CelCurve(r.size.xyz, k) * alive * open;
                 float s = lerp(s0, s1, v.uv.x);
                 float3 p = r.pos + span * s;
@@ -138,6 +148,39 @@ Shader "TW/Cel/LightningBeam"
             half4 frag(Varyings i) : SV_Target
             {
                 uint row = CelRowA(i.tone.x);
+                if (i.beam.w < 0.0 && i.shape.x > 0.5)
+                {
+                    float2 q = i.beam.xy;
+                    float rr = length(q);
+                    float thrS = saturate(i.tone.w);
+                    if (i.shape.x < 2.5)
+                    {
+                        // r04: soft bloom (1) or soft pool (2): a smooth falloff, no bands, no rim; the bloom has a white-hot
+                        // round core (w: its radius share); erosion dims it
+                        float soft = i.shape.y > 0.0 ? i.shape.y : 5.0;
+                        float g = exp(-rr * rr * soft) * saturate(1.0 - rr) * (1.0 - thrS);
+                        half3 cs = CelPal(row, 2) * g + CelPal(row, 3) * g * g;
+                        float coreR = i.shape.w * (1.0 - thrS * 0.6);
+                        if (coreR > 0.0)
+                        {
+                            float core = 1.0 - smoothstep(coreR * 0.7, coreR, rr);
+                            cs = lerp(cs, CelPalCore(row).rgb * i.tone.y, core);
+                        }
+                        cs *= i.tone.z;
+                        return half4(AddFog(cs, i.positionWS, i.more.x, i.more.y), 0.0);
+                    }
+                    // r04: a puff (3): a lumpy disc with a soft edge that covers (dust, c2..c3), or a hard-edged fleck
+                    float sd = i.beam.z * 37.0;
+                    float ang = atan2(q.y, q.x);
+                    float lump = 0.5 * sin(ang * 3.0 + sd) + 0.3 * sin(ang * 5.0 + sd * 1.7 + 1.3) + 0.2 * sin(ang * 8.0 + sd * 2.3);
+                    float reach = 1.0 - i.shape.z * (0.5 + 0.5 * lump);
+                    float fieldP = saturate(1.0 - rr / max(reach, 0.2));
+                    float edge = max(i.shape.y, 0.01);
+                    float aP = smoothstep(thrS, thrS + edge, fieldP) * saturate(i.tone.z);
+                    half3 cp = lerp(CelPal(row, 2), CelPal(row, 3), saturate(fieldP * 1.6));
+                    cp = MixFog(cp, i.more.x);
+                    return half4(cp * aP, aP);
+                }
                 if (i.beam.w < 0.0)
                 {
                     // the dot: a small star, radial field banded, additive
@@ -165,6 +208,10 @@ Shader "TW/Cel/LightningBeam"
                 float dy = abs(y - zig * prof);
                 float field = saturate(1.0 - dy / max(w, 1e-3));
                 field = field * lerp(0.75, 1.0, saturate(a * 1.5));
+                // r04: a fine wisp (1-2 px) weaving about the spindle on its own zig-zag, out to ~2 half-widths
+                float wz = (Zig(u, 0.2 * cs, salt + 17.0) + 0.6 * Zig(u, 0.065 * cs, salt + 23.0)) * 1.4;
+                float wisp = saturate(1.0 - abs(y - wz * prof) / 0.32) * step(0.25, prof) * 0.62 * step(0.15, i.shape.x);
+                field = max(field, wisp);
                 // branch arcs: in some cells along the beam a thin crooked arc leaves the core and runs out to one side
                 float br = 0.0;
                 if (i.shape.y > 0.0)

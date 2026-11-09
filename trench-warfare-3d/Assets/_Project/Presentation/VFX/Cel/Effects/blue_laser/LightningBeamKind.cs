@@ -11,7 +11,7 @@ namespace TW.Presentation.VFX.Cel
         public override string Name => KindName;
         public override Shader FindShader() => Shader.Find("TW/Cel/LightningBeam");
         public override Mesh BuildMesh() => CelMeshes.Strip(48, "Cel LightningBeam");
-        public override int Capacity => 256;
+        public override int Capacity => 1024;   // r04: blooms, pool, puffs and flecks are LightningBeam dots too
         public override int Order => 21;
     }
 }
