@@ -272,7 +272,7 @@ namespace TW.Presentation.VFX.Cel
                 // loose separate black flecks: small hard-edged puff dots spread wider than the dust, drifting with it
                 Name = "flecks", Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.3f, 2.3f), Start = DustAt + 0.05f, Duration = 0.7f, Life = 1.5f, LifeJitter = 0.35f,
                 // b02: dense specks (clip ink_peak 0.053 vs b01 0.015): twice as many, larger
-                Close = 64, Mid = 6, Far = 0, Shape = CelShape.Box, ShapeSize = new Vector3(1.6f, 1.0f, 4.8f),   // d05: x2.5 dark specks (ink 0.009 vs clip 0.053) Aim = CelAim.Dir, Speed = 1.0f, SpeedJitter = 0.5f, Spread = 35f, Drag = 0.8f, Gravity = 0.4f,
+                Close = 24, Mid = 6, Far = 0, Shape = CelShape.Box, ShapeSize = new Vector3(1.6f, 1.0f, 4.8f),   // d23: black flecks 64 -> 24 (every A/B: heavy black chunks, clip has few)   // d05: x2.5 dark specks (ink 0.009 vs clip 0.053) Aim = CelAim.Dir, Speed = 1.0f, SpeedJitter = 0.5f, Spread = 35f, Drag = 0.8f, Gravity = 0.4f,
                 Size = new CelCurve(0.06f, 0.04f), SizeJitter = 0.5f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.6f, 3f), Feather = 0f,
                 Palette = "blue_laser_fleck", Core = 1f, Opacity = 1f, Extra = new Vector4(3f, 0.04f, 0.3f, 0f),
             });
