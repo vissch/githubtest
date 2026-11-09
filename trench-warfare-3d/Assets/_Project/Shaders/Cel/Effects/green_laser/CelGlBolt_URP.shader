@@ -1,8 +1,8 @@
 // Phase: CelFx job (2026-11-09, lane/show/cel-green-laser) - GlBolt: the green laser's own primitive, one quad.
 // Six modes, picked per record by extra.x (one kind = one draw for all six; two passes):
-//   mode 0  dart (additive): a pointed pale lozenge head, then a thinner saturated-green tail of a fixed length in
-//           metres trailing back along its velocity (never behind its birth), tapering to a point and broken into two
-//           or three ragged pieces; a faint bloom round the head. Capped on screen to ~1/10 of the frame.
+//   mode 0  dart (additive): a pointed white-hot lozenge head, then one smooth unbroken tail of a fixed length in
+//           metres trailing back along its velocity, hot down its middle, green at its rim, tapering to nothing; a soft
+//           green bloom round the whole spear. Capped on screen to ~1/6 of the frame.
 //   mode 1  wash (additive): a ground quad: a pale gaussian core plus a wide dim deep-green spill that fades to nothing
 //           at the quad's edge (no bands, no rings, no rim), faded in and out.
 //   mode 2  shade (multiply): a ground quad that darkens the dirt in a smooth disc (w small) or a soft ring.
@@ -101,11 +101,12 @@ Shader "TW/Cel/GlBolt"
                 // the cap is on the length seen on screen: a dart flying partly away from the eye may be longer in the world
                 float3 eyeDir = (_WorldSpaceCameraPos - p) / max(dcam, 1e-3);
                 float seen = max(length(cross(dir, eyeDir)), 0.35);
-                float lenCap = min(r.extra.y, 0.26 * dcam / max(UNITY_MATRIX_P[0][0], 1e-3) / seen);
+                float lenCap = min(r.extra.y, 0.3 * dcam / max(UNITY_MATRIX_P[0][0], 1e-3) / seen);
                 float hw = min(size, lenCap * 0.06);
                 float hl = hw * (r.extra.w > 0.0 ? r.extra.w : 4.0);
-                float bloom = min(max(r.extra.z, 0.0), hw * 1.5) * alive;
-                float len = min(max(lenCap, hl), distance(p, r.pos) + hl * 0.6);
+                float bloom = min(max(r.extra.z, 0.0), hw * 2.0) * alive;
+                // the whole spear from its first frame (darts are born at or past the frame's edge)
+                float len = max(lenCap, hl);
                 float3 toEye = normalize(_WorldSpaceCameraPos - p);
                 float3 side = cross(dir, toEye);
                 float sl = dot(side, side);
@@ -301,26 +302,21 @@ Shader "TW/Cel/GlBolt"
                     // the head: a pointed lozenge, widest a little behind its centre, sharp in front, short round back
                     float wHead = s >= 0.0 ? hw * pow(saturate(1.0 - s / hl), 0.9) : hw * sqrt(saturate(1.0 - (s / (hl * 0.45)) * (s / (hl * 0.45))));
                     float dHead = (s > hl || s < -hl * 0.45) ? 1e3 : y - wHead;
-                    // the tail: half the head's width where it leaves it, tapering to a point, ragged, broken into pieces
+                    // the tail: one smooth unbroken piece, most of the head's width where it leaves it, tapering to nothing
                     float u = saturate((-s - hl * 0.2) / max(len - hl * 0.2, 1e-3));
-                    float rag = CelValue2(float2(s * 9.0 / max(len, 0.2) - _CelNow * 9.0, seed * 91.0 + sign(i.st.y) * 3.1));
-                    float rT = hw * 0.62 * pow(1.0 - u, 1.1) * lerp(0.5, 1.25, rag);
-                    float j1 = CelHash11(seed * 37.0), j2 = CelHash11(seed * 53.0);
-                    float gap1 = (u > 0.36 + 0.08 * j1 && u < 0.44 + 0.08 * j1) ? 1.0 : 0.0;
-                    float gap2 = (u > 0.62 + 0.06 * j2 && u < 0.71 + 0.06 * j2) ? 1.0 : 0.0;
-                    float gap3 = (j2 > 0.45 && u > 0.84 && u < 0.89) ? 1.0 : 0.0;
-                    float dTail = (s <= 0.0 && s >= -len && gap1 + gap2 + gap3 < 0.5) ? y - rT : 1e3;
+                    float rT = hw * 0.8 * pow(1.0 - u, 1.35);
+                    float dTail = (s <= 0.0 && s >= -len) ? y - rT : 1e3;
                     float d = min(dHead, dTail);
-                    // the head is pale (#d7f39c), only its very middle reaches the core; the tail is saturated green
-                    float vHead = dHead < 0.0 ? 0.72 + 0.26 * saturate(-dHead / hw) : 0.0;
-                    float vTail = dTail < 0.0 ? 0.4 + 0.32 * saturate(-dTail / max(rT, 1e-4)) * (1.0 - u) : 0.0;
+                    // white-hot head and a hot centre line down the tail's first half; the tail's rim and end are green
+                    float vHead = dHead < 0.0 ? 0.74 + 0.26 * saturate(-dHead / hw) : 0.0;
+                    float vTail = dTail < 0.0 ? 0.4 + 0.42 * saturate(-dTail / max(rT, 1e-4)) * pow(1.0 - u, 1.2) : 0.0;
                     float v = max(vHead, vTail);
                     half3 body = CelRamp(saturate(v), row, i.tone.y);
                     float inside = CelAAStep(0.0, -d);
-                    // outside: a faint bloom round the head only (the tail pieces stay crisp)
-                    float x = max(dHead, 0.0) / max(bloom, 1e-4);
-                    float glow = bloom > 0.0 ? exp(-3.0 * x) * (1.0 - smoothstep(0.5, 1.0, x)) : 0.0;
-                    col = lerp(CelPal(row, 2) * (glow * 0.5), body, inside) * i.tone.z;
+                    // outside: a soft green bloom round the whole spear, strongest at the head, thinning down the tail
+                    float x = max(d, 0.0) / max(bloom * lerp(1.0, 0.45, u), 1e-4);
+                    float glow = bloom > 0.0 ? exp(-2.5 * x) * (1.0 - smoothstep(0.6, 1.0, x)) * lerp(1.0, 0.35, u) : 0.0;
+                    col = lerp(CelPal(row, 2) * (glow * 0.7), body, inside) * i.tone.z;
                 }
                 return half4(CelAdditiveFog(col, i.positionWS, i.more.x), 1.0);
             }
