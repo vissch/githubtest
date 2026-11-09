@@ -140,11 +140,11 @@ namespace TW.Presentation.VFX.Cel
                     Close = 1, Mid = 1, Far = 1, Aim = CelAim.Target, Speed = 0f, Spread = 0f, Spin = 3f, Gravity = ArcGravity,
                     // b01 (beach, 19 m camera): ribbon 0.2 m wide, 0.75 s of its speed long (a third to half the frame)
                     // b02: a negative Stretch draws the tail behind the birth (the opening bolts were in flight before the fire)
-                    Size = new CelCurve(0.07f, 0.16f), SizeJitter = 0.2f, Stretch = preflown ? -0.5f : 0.5f,   // c05: a longer, thin grey trail (the ref's are lines)   // c03: the smoke ribbon ~1.5x the flame (0.75 ran to the frame edge)
+                    Size = new CelCurve(0.12f, 0.26f), SizeJitter = 0.2f, Stretch = preflown ? -0.6f : 0.6f,   // d18: wider (mask diff) but unbroken and semi-transparent   // c05: a longer, thin grey trail (the ref's are lines)   // c03: the smoke ribbon ~1.5x the flame (0.75 ran to the frame edge)
                       // c01: 0.2 -> 0.26-0.3 m (the smoke trail frays wider)
-                    Erode = new CelCurve(0.12f, 0.3f),   // c03: the ribbon breaks into pieces (was whole)
+                    Erode = new CelCurve(0.06f, 0.2f),   // d18: stays whole (d17 dashes lost)   // c03: the ribbon breaks into pieces (was whole)
                     Palette = "fb_comet", CoolTo = "fb_ribbon", Core = 2.0f,   // b03: 2.6 -> 2.2 (the bodies read white-hot)
-                    Opacity = 1f, Ink = 2f,
+                    Opacity = 0.75f, Ink = 2f,   // d18: ribbon 75% (d16 opaque bands lost)
                     // b02: a round white-yellow head 0.2 m, a flame body that flares and tapers over 2.2 m, thin red
                     // streaks fading out to 5 m, a ribbon waving 0.08 m over 5.5 m
                     Extra = new Vector4(0.28f, 3.8f, 0.05f, 3.0f),   // d09: head 0.24 -> 0.28 m   // c05: head 0.3 -> 0.24 m (the teardrop flame is about half the old width), licks 3.6 m, trail wave 0.05 m over 3 m   // c03: ribbon wave 0.11 m over 2.2 m (wavy, not a straight line)   // c01: head 0.3 m, ribbon wave 0.04 m (it follows the flame's path)   // b04: head 0.26 m, the flame a long tapering streak (shader)   // b03: head 0.2 -> 0.27 m (the body is twice as wide in the shader)
