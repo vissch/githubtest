@@ -98,8 +98,8 @@ namespace TW.Presentation.VFX.Cel.Effects
             // the dummy's flare: yellow-white
             // b03: yellow-orange (the clip's dummy glows hot yellow-orange, not white)
             // b07: cream-gold (#FFDCA8), not yellow: b06's #FFC060 at gain 8 turned the board flat lemon yellow
-            CelPalette.Add("bi_flare", CelPalette.Hex(0x403020), CelPalette.Hex(0x806848), CelPalette.Hex(0xC0A078), CelPalette.Hex(0xFFDCA8),
-                CelPalette.Hex(0xFFDCA8), 1.1f, 2, CelPalette.Hex(0x000000));
+            CelPalette.Add("bi_flare", CelPalette.Hex(0x403020), CelPalette.Hex(0x806848), CelPalette.Hex(0xC0A078), CelPalette.Hex(0xFFB878),
+                CelPalette.Hex(0xFFB878), 1.1f, 2, CelPalette.Hex(0x000000));
             // the near bolt: a hot yellow head, orange body and rim (b03: less pure white, every shot now carries one)
             CelPalette.Add("bi_bolt", CelPalette.Hex(0xC04A10), CelPalette.Hex(0xFF8A30), CelPalette.Hex(0xFFC060), CelPalette.Hex(0xFFE0A0),
                 CelPalette.Hex(0xFFF0C8), 0.45f, 3, CelPalette.Hex(0x401004));
@@ -115,8 +115,8 @@ namespace TW.Presentation.VFX.Cel.Effects
             new CelLayer
             {
                 Name = "tracer", Kind = CelKinds.StreakName, Start = 0f, Duration = 0.03f, Life = Flight, LifeJitter = 0f,
-                Close = 2, Mid = 1, Far = 1, Shape = CelShape.Box, ShapeSize = new Vector3(0.5f, 0.3f, 0f), Aim = CelAim.Target, Speed = 0f, Arrive = 1f, Spread = 0f,
-                Size = new CelCurve(0.03f, 0.024f), SizeJitter = 0.15f, Stretch = 0.22f, Erode = new CelCurve(0f, 0.15f, 2f),
+                Close = 1, Mid = 1, Far = 1, Shape = CelShape.Box, ShapeSize = new Vector3(0.5f, 0.3f, 0f), Aim = CelAim.Target,   // d14: one a shot Speed = 0f, Arrive = 1f, Spread = 0f,
+                Size = new CelCurve(0.06f, 0.045f), SizeJitter = 0.15f, Stretch = 0.22f, Erode = new CelCurve(0f, 0.15f, 2f),   // d13: 2x wide (0.03 m is under a pixel at 19 m)
                 Palette = "bi_tracer", Core = 4f, Extra = new Vector4(0.1f, 0.8f, 0.1f, 0f),
             });
 
@@ -155,10 +155,11 @@ namespace TW.Presentation.VFX.Cel.Effects
             new CelLayer
             {
                 // b02: a small white core (b01's 0.125 m at Core 10 washed the board white: hot_peak 28x the clip's)
+                // d02: 1.6x bigger, Core 8 (b07 hot_peak 0.0018 vs the clip's 0.0045)
                 // b05: a little bigger and hotter, 3 frames (hot_peak 0.001 vs the clip's 0.0045)
                 Name = "core", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.03f, -0.3f), Start = 0f, Life = 0.16f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.14f * K, 0.08f * K), SizeJitter = 0.1f, Erode = new CelCurve(0f, 0.7f),
-                Palette = "white", Core = 5f, Extra = new Vector4(2f, 0.5f, 0f, 0f),
+                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.22f * K, 0.12f * K), SizeJitter = 0.1f, Erode = new CelCurve(0f, 0.7f),
+                Palette = "white", Core = 8f, Extra = new Vector4(2f, 0.5f, 0f, 0f),
             },
             new CelLayer
             {
@@ -263,7 +264,8 @@ namespace TW.Presentation.VFX.Cel.Effects
         // board lights orange on every burst (the clip's f29/f45/f53/f76) and the puffs beside it do not
         // b05: gain 8 and more fill, 0.17 s (4 frames): the board reads gold on each board hit (the clip's f29/f45/f53/
         // f63/f68); b04's gain 5 left it a dull orange
-        public static readonly CelFxRecipe WashDummy = new CelFxRecipe("bi_wash_dummy", 0.3f, Wash("dummy", "bi_flare", 1.25f * K, 1.25f * K, 3.6f, 0.26f, 1, -2.0f, 0.12f));
+        // d02: gain 2.0 and a warmer orange (#FFB878), half the fill: b07's gain 3.6 turned the board a flat white lantern (rings lost)
+        public static readonly CelFxRecipe WashDummy = new CelFxRecipe("bi_wash_dummy", 0.3f, Wash("dummy", "bi_flare", 1.25f * K, 1.25f * K, 2.0f, 0.26f, 1, -2.0f, 0.06f));
         // b05: the warm pool round the dummy's foot on a board hit, about three dummy widths, with enough fill that the
         // dark ground shows it (b04's gain-2.2 pool with fill 0.1 did not show on the dark beach)
         public static readonly CelFxRecipe WashPoolHit = new CelFxRecipe("bi_wash_pool_hit", 0.3f, Wash("pool", "bi_pool", 3.8f * K, 4.2f * K, 1.3f, 0.21f, 1, 6.0f, 0.42f, 1.5f));
@@ -327,6 +329,12 @@ namespace TW.Presentation.VFX.Cel.Effects
             // the line and read as short lines in mid-frame); an overshoot round flies past the dummy to the upper right
             Vector3 aim = overshoot ? hit + dir * 0.55f + Vector3.up * 1.2f : hit;
             CelFx.Play(Tracer, muzzle, aim - muzzle, aim, seed);
+            // d13/d14: about every other shot also sends one line on past and over the dummy (the clip's f63-f79 lines)
+            if (!overshoot && (seed & 1u) == 0u)
+            {
+                Vector3 past = hit + dir * 0.6f + Vector3.up * (0.8f + 0.6f * ((seed * 2654435761u >> 8) & 255) / 255f);
+                CelFx.Play(Tracer, muzzle + Vector3.up * 0.1f, past - muzzle, past, seed + 911u);
+            }
             // the gun's light on the near field, every shot (on the near field's own surface; r05 try2: lerped to the
             // dummy's ground it floated off the near slope)
             Vector3 near = Vector3.Lerp(muzzle, hit, 0.36f);
