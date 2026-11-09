@@ -103,28 +103,34 @@ Shader "TW/Cel/FlameJet"
             float flow = r.extra.x;
             float freq = r.extra.y > 0.0 ? r.extra.y : 0.9;
             float amp = r.erode.z > 0.0 ? r.erode.z : 0.45;
-            // the noise runs with the flow; across it is scaled by the local width so the tongues widen with the jet
+            // the noise runs with the flow (s: metres, advected); the jet is one connected body whose edge is a row of
+            // flame tongues: for each (sheared) place along the flow the body reaches out to edge(s), so every tongue
+            // is attached and leans downstream as it rises (no islands, no spots, and the edge never meets the strip's)
             float s = metres - t * flow;
             float up = r.extra.w;
-            float y = across * hw;
-            // the tongues run up across the jet on its upper side
-            float3 q = float3(s * freq * 0.55, (y - t * 1.6 * up) * freq * 1.2, t * 0.9 + r.seed * 17.0);
-            float n = CelSimplex3(q) * 0.75 + CelSimplex3(q * 2.1 + 5.3) * 0.25;
-            bool upper = across > 0.0;
-            float body = 1.0 - abs(across) * (upper ? 1.0 - 0.3 * up : 1.0 + 0.12 * up);
-            // more ragged toward the target, where the jet breaks into tongues, and most on the upper edge
-            float rag = amp * lerp(0.45, 1.0, saturate(along)) * (upper ? 1.0 + 0.35 * up : 1.0);
-            float field = body + n * rag;
-            // gaps between the tongues near the edge: the rim breaks into separate licks
-            float h = CelSimplex3(q * float3(1.6, 1.9, 1.0) + 11.0);
-            field = min(field, h * 0.9 + 0.3 + body * 1.2);
-            // the front end and the cut-off tail are round, eaten by the same noise
+            float sd = r.seed * 17.0;
+            float a01 = saturate(along);
+            // a slow sway of the whole jet across its axis, stretched far along the flow
+            float sway = CelSimplex3(float3(s * freq * 0.22, t * 0.5, sd)) * 0.22 * a01;
+            float y = across - sway;
+            bool upper = y > 0.0;
+            float ay = abs(y);
+            float shear = ay * hw * (upper ? 1.4 : 0.7);
+            float sl = s - shear;
+            float g = CelSimplex3(float3(sl * freq, t * 0.7, sd + (upper ? 3.1 : 7.7)));
+            float tongue = 1.0 - abs(g); tongue = tongue * tongue;                   // pointed tips, gaps between
+            float g2 = CelSimplex3(float3(sl * freq * 2.3, t * 1.1, sd + 1.7));
+            float fine = 1.0 - abs(g2); fine *= fine;
+            float lick = (upper ? amp * (1.0 + 0.6 * up) : amp * 0.8) * lerp(0.35, 1.0, a01);
+            float edge = min(0.85 + lick * (0.85 * tongue + 0.15 * fine), JET_ENV * 0.95);
+            float field = (edge - ay) / edge;
+            // the front end and the cut-off tail are round, eaten a little by the tongues
             float toFront = (tf.y - along) * len / (hw * 1.1);
             float toTail = (along - tf.x) * len / (hw * 0.9);
-            field = min(field, toFront + n * 0.35);
-            if (tf.x > 0.0) field = min(field, toTail + n * 0.35);
-            // the white core: long streaks along the flow
-            float3 q2 = float3(s * freq * 0.35, y * freq * 3.2, t * 1.3 + r.seed * 7.0);
+            field = min(field, toFront + g * 0.2);
+            if (tf.x > 0.0) field = min(field, toTail + g * 0.2);
+            // the white core and the bands: long streaks along the flow (about 7x longer than wide)
+            float3 q2 = float3(s * freq * 0.3, y * hw * freq * 2.2, t * 1.3 + r.seed * 7.0);
             streak = CelSimplex3(q2) * (r.extra.z);
             return field;
         }
@@ -171,7 +177,8 @@ Shader "TW/Cel/FlameJet"
                 clip(f);
                 // the value the bands are cut from: the field, lifted along the white streaks, a little hotter at the nozzle
                 // a thin red rim, then orange and yellow, and the white core down the middle; cooler toward the target
-                float v = saturate(0.04 + f * 0.92 + streak * 0.42 + 0.15 * (1.0 - saturate(jc.x * 1.5)) - 0.3 * saturate((jc.x - 0.45) * 1.2));
+                // (red only on a thin rim: v passes the first band at f ~0.04)
+                float v = saturate(0.22 + f * 0.7 + streak * 0.3 + 0.12 * (1.0 - saturate(jc.x * 1.5)) - 0.12 * saturate((jc.x - 0.5) * 1.5));
                 half3 col = CelRamp(v, CelRowA(r.tone.x), r.tone.y);
                 float ink = CelInk(f, 0.0, CelLodInk(r.tone.w));
                 col = lerp(col, CelPalInk(CelRowA(r.tone.x)).rgb, ink);
