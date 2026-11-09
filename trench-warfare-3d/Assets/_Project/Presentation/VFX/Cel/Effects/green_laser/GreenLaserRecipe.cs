@@ -175,7 +175,7 @@ namespace TW.Presentation.VFX.Cel
             // cauliflower lumps each ~1/6 of the cloud, not one or two big blobs), in flat unlit bands with a dark ink
             // line, rising and drifting right; the late ones olive-grey, dissolving into holes
             Name = name, Kind = BoltKind, Anchor = anchor, Offset = offset, Start = start, Duration = duration, Life = life, LifeJitter = 0.25f,
-            Close = close, Mid = mid, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(spread, 0f, 0f), Aim = CelAim.Dir, Speed = tan ? 1.7f : 1.4f, SpeedJitter = 0.5f, Spread = 40f, Drag = 0.6f, Buoyancy = tan ? 1.6f : 1.0f, Spin = 1.2f,
+            Close = close, Mid = mid, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(spread, 0f, 0f), Aim = CelAim.Dir, Speed = tan ? 1.2f : 1.4f, SpeedJitter = 0.5f, Spread = 40f, Drag = 0.6f, Buoyancy = tan ? 2.8f : 1.0f, Spin = 1.2f,
             Size = new CelCurve(r0, r1, 0.5f), SizeJitter = 0.35f,
             Palette = tan ? "gl_smoke_grey" : "gl_smoke", Core = 1f, Opacity = tan ? 0.62f : 0.75f, Extra = new Vector4(4f, 0.12f, 0.45f, 0.13f),
         };
