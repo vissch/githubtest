@@ -261,12 +261,12 @@ namespace TW.Presentation.VFX.Cel
             // living longer so the tail f101-f136 holds its area
             // b07: one big puff (two at the dummy) per clump on clumps 1.2 m apart, born big so the early tail is full, and
             // shorter lived (b06b ran 9 frames late and its 3-4 puffs per clump merged into one streak)
-            Wide(DustStretch("dust pool", 0.45f, 1.2f, DustAt + 0.02f, 6, 2, new CelCurve(0.8f, 1.65f, 0.4f), 2.2f)),   // d05: behind-right of the dummy (d02b)
-            DustStretch("dust 1", 1.3f, 0.3f, DustAt + 0.06f, 1, 1, new CelCurve(1.12f, 2.19f, 0.4f), 2.20f),
-            DustStretch("dust 2", 2.2f, 0.3f, DustAt + 0.12f, 1, 1, new CelCurve(1.06f, 2.12f, 0.4f), 2.15f),
-            DustStretch("dust 3", 3.4f, 0.3f, DustAt + 0.18f, 1, 1, new CelCurve(1.00f, 2.00f, 0.4f), 2.10f),
-            DustStretch("dust 4", 4.6f, 0.3f, DustAt + 0.24f, 1, 1, new CelCurve(0.94f, 1.88f, 0.4f), 2.00f),
-            DustStretch("dust 5", 5.7f, 0.3f, DustAt + 0.3f, 1, 0, new CelCurve(0.7f, 1.4f, 0.4f), 1.90f),
+            Wide(DustStretch("dust pool", 0.45f, 1.2f, DustAt + 0.02f, 6, 2, new CelCurve(0.92f, 1.90f, 0.4f), 2.50f)),   // d05: behind-right of the dummy (d02b)
+            DustStretch("dust 1", 1.3f, 0.3f, DustAt + 0.06f, 1, 1, new CelCurve(1.29f, 2.52f, 0.4f), 2.50f),
+            DustStretch("dust 2", 2.2f, 0.3f, DustAt + 0.12f, 1, 1, new CelCurve(1.22f, 2.44f, 0.4f), 2.45f),
+            DustStretch("dust 3", 3.4f, 0.3f, DustAt + 0.18f, 1, 1, new CelCurve(1.15f, 2.30f, 0.4f), 2.40f),
+            DustStretch("dust 4", 4.6f, 0.3f, DustAt + 0.24f, 1, 1, new CelCurve(1.08f, 2.16f, 0.4f), 2.30f),
+            DustStretch("dust 5", 5.7f, 0.3f, DustAt + 0.3f, 1, 0, new CelCurve(0.80f, 1.61f, 0.4f), 2.20f),
             new CelLayer
             {
                 // loose separate black flecks: small hard-edged puff dots spread wider than the dust, drifting with it
