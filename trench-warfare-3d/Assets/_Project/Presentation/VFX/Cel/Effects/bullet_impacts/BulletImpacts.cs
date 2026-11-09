@@ -183,6 +183,10 @@ namespace TW.Presentation.VFX.Cel.Effects
                 Size = new CelCurve(0.12f, 0.05f), Stretch = 0.22f, Erode = new CelCurve(0f, 0.25f), Palette = "bi_spark", Core = 10f, Extra = new Vector4(0f, 0.3f, 0f, 0f),
             });
 
+        // d41: a ground strike plays the orange flash and the spikes but not the white core (critics on every round: a stray
+        // white sphere on the ground at f76; the clip's ground strikes throw dirt, no white ball)
+        public static readonly CelFxRecipe HitGround = new CelFxRecipe("bi_hit_ground", 0.8f, Hit.Layers[0], Hit.Layers[2]);
+
         // the crown: dark dirt spurts thrown up in a ring from the ground point, a few frames
         public static readonly CelFxRecipe Ground = new CelFxRecipe("bi_ground", 0.9f,
             new CelLayer
@@ -370,7 +374,7 @@ namespace TW.Presentation.VFX.Cel.Effects
         public static void PlayImpact(Vector3 muzzle, Vector3 hit, Vector3 ground, Vector3 washAt, uint seed, bool onBody, int puff, float heat = 0.5f)
         {
             Vector3 dir = hit - muzzle;
-            CelFx.Play(Hit, muzzle, dir, hit, seed + 101u);
+            CelFx.Play(onBody ? Hit : HitGround, muzzle, dir, hit, seed + 101u);
             CelFx.Play(Ground, ground - dir.normalized * 0.01f, dir, ground, seed + 211u);
             if (puff > 0) CelFx.Play(puff > 1 ? PuffBig : PuffSmall, ground - dir.normalized * 0.01f, dir, ground, seed + 601u);
             Vector3 under = washAt + Vector3.up * 0.05f;
