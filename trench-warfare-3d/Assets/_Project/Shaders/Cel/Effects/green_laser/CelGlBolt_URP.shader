@@ -55,7 +55,11 @@ Shader "TW/Cel/GlBolt"
             float mode = r.extra.x;
             float isFace = mode > 2.5 ? 1.0 : 0.0;
             float isDark = (mode > 1.5 && mode < 2.5) ? 1.0 : 0.0;
-            alive *= (isFace > 0.5 || isDark == darkPass) ? 1.0 : 0.0;
+            // d07: puffs (mode 4) draw only in the third, alpha-blended pass (darkPass 2): in the two shared passes every
+            // puff darkened first and then every puff added its colour, so overlapping puffs summed to a self-lit yellow
+            float isPuff = (mode > 3.5 && mode < 4.5) ? 1.0 : 0.0;
+            if (darkPass > 1.5) alive *= isPuff;
+            else alive *= (isPuff < 0.5 && (isFace > 0.5 || isDark == darkPass)) ? 1.0 : 0.0;
             float3 p = CelPosition(r, t);
             float size = CelCurve(r.size.xyz, k) * alive;
             Varyings o;
@@ -363,6 +367,40 @@ Shader "TW/Cel/GlBolt"
                     col = lerp(CelPal(row, 2) * (glow * 0.7), body, inside) * i.tone.z;
                 }
                 return half4(CelAdditiveFog(col, i.positionWS, i.more.x), 1.0);
+            }
+            ENDHLSL
+        }
+        Pass
+        {
+            // d07: smoke puffs, ordinary alpha blending (each puff covers the ones drawn before it, no summing)
+            Name "CelGlBoltPuff"
+            Tags { "LightMode"="UniversalForwardOnly" }
+            Blend SrcAlpha OneMinusSrcAlpha
+            ZWrite Off ZTest LEqual Cull Off
+            HLSLPROGRAM
+            #pragma vertex vertPuff
+            #pragma fragment fragPuff
+            Varyings vertPuff(Attributes v, uint instanceID : SV_InstanceID) { return GlVert(v, instanceID, 2.0); }
+            half4 fragPuff(Varyings i) : SV_Target
+            {
+                uint row = CelRowA(i.tone.x);
+                float op = saturate(i.tone.z);
+                float on = i.dims.x > 0.02 ? 1.0 : 0.0;
+                float v, curlD;
+                float d = GlPuff(i.st, i.dims.x, i.dims.y, i.dims.w, i.more.y, v, curlD);
+                float px = max(fwidth(d), 1e-5);
+                float inkPx = CelLodInk(2.5);
+                float inside = 1.0 - smoothstep(-0.5, 0.5, d / px);
+                float band = (1.0 - smoothstep(inkPx - 0.5, inkPx + 0.5, d / px)) - inside;
+                float cpx = max(fwidth(curlD < 100.0 ? curlD : 0.0), 1e-5);
+                float curl = (d < 0.0 && curlD < 100.0) ? 1.0 - smoothstep(CelLodInk(1.2) - 0.5, CelLodInk(1.2) + 0.5, curlD / cpx) : 0.0;
+                float ia = saturate(max(band, curl));
+                float fa = inside * op;
+                float a = saturate(ia + fa * (1.0 - ia)) * on;
+                half3 body = CelRamp(saturate(v), row, i.tone.y);
+                half3 ink = CelPal(row, 0) * 0.25;
+                half3 c = lerp(body, ink, ia);
+                return half4(c, a);
             }
             ENDHLSL
         }

@@ -53,11 +53,11 @@ namespace TW.Presentation.VFX.Cel
             CelPalette.Add("gl_flame", CelPalette.Hex(0x2F6A22), CelPalette.Hex(0x5FA845), CelPalette.Hex(0x8CCB5E), CelPalette.Hex(0xB4E07E), CelPalette.Hex(0xD7F39C), 0.85f, 3, CelPalette.Hex(0x0A1A06));
             // d01: smoke colours measured on the reference's smoke cluster (f101 green-lit: dark #2c5430, mid #559c47,
             // light #b1e986; f118 cooled: #373b35 / #5a5d48 / #71825e), no hot core
-            CelPalette.Add("gl_smoke", CelPalette.Hex(0x4F8A42), CelPalette.Hex(0x6FAE55), CelPalette.Hex(0x95CF72), CelPalette.Hex(0xB4E48A), CelPalette.Hex(0xB4E48A), 1.1f, 3, CelPalette.Hex(0x0E160A));
+            CelPalette.Add("gl_smoke", CelPalette.Hex(0x5A9248), CelPalette.Hex(0x78B45C), CelPalette.Hex(0x98D076), CelPalette.Hex(0xB6E68C), CelPalette.Hex(0xB6E68C), 1.1f, 3, CelPalette.Hex(0x0E160A));
             CelPalette.Add("gl_smoke_tan", CelPalette.Hex(0x6E6550), CelPalette.Hex(0x8A7F62), CelPalette.Hex(0xA3977A), CelPalette.Hex(0xBDB094), CelPalette.Hex(0xC8BC9E), 1.1f, 3, CelPalette.Hex(0x16130E));
             CelPalette.Add("gl_wisp", CelPalette.Hex(0xBEDD96), CelPalette.Hex(0xCDE8A6), CelPalette.Hex(0xD7F39C), CelPalette.Hex(0xE4F6BA), CelPalette.Hex(0xF0FFD0), 0.98f, 4, CelPalette.Hex(0x0A1A06));
             CelPalette.Add("gl_burst", CelPalette.Hex(0x3F8A2A), CelPalette.Hex(0x6CC24A), CelPalette.Hex(0x9FE07A), CelPalette.Hex(0xB8EE98), CelPalette.Hex(0xE2FFD0), 0.93f, 3, CelPalette.Hex(0x0A1A06));
-            CelPalette.Add("gl_smoke_grey", CelPalette.Hex(0x5A5E4C), CelPalette.Hex(0x70755C), CelPalette.Hex(0x888D70), CelPalette.Hex(0xA0A682), CelPalette.Hex(0xA0A682), 1.1f, 3, CelPalette.Hex(0x0E140A));
+            CelPalette.Add("gl_smoke_grey", CelPalette.Hex(0x6A6E58), CelPalette.Hex(0x80866A), CelPalette.Hex(0x989E7E), CelPalette.Hex(0xB0B692), CelPalette.Hex(0xB0B692), 1.1f, 3, CelPalette.Hex(0x0E140A));
             CelPalette.Add("gl_dirt", CelPalette.Hex(0x0E0E0A), CelPalette.Hex(0x16150F), CelPalette.Hex(0x201E16), CelPalette.Hex(0x2C291E), CelPalette.Hex(0x2C291E), 1.1f, 3, CelPalette.Hex(0x040403));
                     }
 
@@ -157,13 +157,13 @@ namespace TW.Presentation.VFX.Cel
 
         static CelLayer Smoke(string name, CelAnchor anchor, Vector3 offset, float start, float duration, float life, int close, int mid, float r0, float r1, bool tan, float spread = 0.7f) => new CelLayer
         {
-            // d01: a CLUSTER of many small translucent lumpy cel puffs (GlBolt mode 4; the reference's cloud is a heap of
+            // d10: rising and drifting right (critics: "a heap that sits on the ground"), late ones see-through; d01: a CLUSTER of many small translucent lumpy cel puffs (GlBolt mode 4; the reference's cloud is a heap of
             // cauliflower lumps each ~1/6 of the cloud, not one or two big blobs), in flat unlit bands with a dark ink
             // line, rising and drifting right; the late ones olive-grey, dissolving into holes
             Name = name, Kind = BoltKind, Anchor = anchor, Offset = offset, Start = start, Duration = duration, Life = life, LifeJitter = 0.25f,
-            Close = close, Mid = mid, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(spread, 0f, 0f), Aim = CelAim.Dir, Speed = tan ? 0.9f : 0.8f, SpeedJitter = 0.5f, Spread = 50f, Drag = 0.8f, Buoyancy = tan ? 0.9f : 0.5f, Spin = 1.2f,
+            Close = close, Mid = mid, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(spread, 0f, 0f), Aim = CelAim.Dir, Speed = tan ? 1.7f : 1.4f, SpeedJitter = 0.5f, Spread = 40f, Drag = 0.6f, Buoyancy = tan ? 1.6f : 1.0f, Spin = 1.2f,
             Size = new CelCurve(r0, r1, 0.5f), SizeJitter = 0.35f,
-            Palette = tan ? "gl_smoke_grey" : "gl_smoke", Core = 1f, Opacity = tan ? 0.8f : 0.85f, Extra = new Vector4(4f, 0.12f, 0.45f, 0.13f),
+            Palette = tan ? "gl_smoke_grey" : "gl_smoke", Core = 1f, Opacity = tan ? 0.62f : 0.8f, Extra = new Vector4(4f, 0.12f, 0.45f, 0.13f),
         };
 
         static CelLayer[] GroundLayers()
