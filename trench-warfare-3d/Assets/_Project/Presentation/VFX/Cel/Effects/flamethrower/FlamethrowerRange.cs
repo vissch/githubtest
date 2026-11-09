@@ -13,12 +13,23 @@ namespace TW.Presentation.VFX.Cel
         [CelRangeEffect("flamethrower")]
         static void Fire(RangeShot s)
         {
+            // b02: the clip's nozzle is ON screen at the lower left (plate pixel ~(85,705)); the stage's Muzzle is off-screen
+            // 8 m from the eye, which blew the jet's near end up into a slab over the whole lower left. The nozzle is put
+            // where that plate pixel's ray meets 0.9 m above the dummy's ground (worked out from the beach pose), held
+            // in the shot's own frame (10.8 m back along the flat fire direction, 1.07 m to its left, 0.33 m below the
+            // chest), so the mid/far stills in the same battle keep it.
+            Vector3 fw = s.Direction; fw.y = 0f; fw = fw.sqrMagnitude > 1e-6f ? fw.normalized : Vector3.forward;
+            Vector3 right = new Vector3(fw.z, 0f, -fw.x);
+            // b03: 0.5 m further left and lower, so the jet comes in from the frame's lower-left corner like the clip's (b02's
+            // drawn start sat ~65 px right of and above the clip's nozzle at ~134 px/m)
+            Vector3 nozzle = s.Target - fw * 10.8f - right * 1.6f - Vector3.up * 0.8f;
+            Debug.Log("Range: flamethrower nozzle " + nozzle.ToString("F2") + " (stage muzzle " + s.Muzzle.ToString("F2") + ")");
             float k = Time.deltaTime * 24f;
             k = (k > 1.05f && k < 1.6f) ? Mathf.Round(k * 100f) / 100f : 1f;
-            if (k == 1f) { FlamethrowerRecipe.Play(s.Muzzle, s.Target, (uint)s.Seed); return; }
+            if (k == 1f) { FlamethrowerRecipe.Play(nozzle, s.Target, (uint)s.Seed); return; }
             var stretched = FlamethrowerRecipe.TimeScaled(FlamethrowerRecipe.Recipe, k, 0.8f * (k - 1f));   // once a shot (a Range lab hook)
             Debug.Log("Range: flamethrower plays " + k + "x stretched (shot clock step " + Time.deltaTime + " s)");
-            FlamethrowerRecipe.Play(stretched, s.Muzzle, s.Target, (uint)s.Seed);
+            FlamethrowerRecipe.Play(stretched, nozzle, s.Target, (uint)s.Seed);
         }
     }
 }
