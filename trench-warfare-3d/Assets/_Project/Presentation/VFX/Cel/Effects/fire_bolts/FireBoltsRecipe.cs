@@ -84,6 +84,9 @@ namespace TW.Presentation.VFX.Cel
             // grey wispy smoke (#726369 body)
             CelPalette.Add("fb_smoke", CelPalette.Hex(0x5A4F55), CelPalette.Hex(0x726369), CelPalette.Hex(0x8C8086), CelPalette.Hex(0xA59AA0),   // c05: the ref's #726369 grey (was near-white)
                 CelPalette.Hex(0xB0A6AA), 1.1f, 2, CelPalette.Hex(0x1C171A));   // b03: two bands, a near-black ink (the reference's smoke is inked)
+            // d01: the path-ribbon wisp: pale white-grey lit side, the ref's #726369 grey shade, a dark grey ink
+            CelPalette.Add("fb_wisp", CelPalette.Hex(0x5E565C), CelPalette.Hex(0x7A7076), CelPalette.Hex(0xA29BA0), CelPalette.Hex(0xCBC6C8),
+                CelPalette.Hex(0xE4E0E0), 1.1f, 3, CelPalette.Hex(0x2E282C));
             Comets = new CelFxRecipe[Launch.Length];
             Hits = new CelFxRecipe[Launch.Length];
             Smokes = new CelFxRecipe[Launch.Length];
@@ -249,6 +252,22 @@ namespace TW.Presentation.VFX.Cel
                 });
                 return r;
             }
+            // d01: smoke as path ribbons (Comet mode extra.x = -2): two soft grey wisps per smoked hit, each a strip
+            // bent along a curling path that climbs ~1.4 dummy heights, drifts screen-right, widens from a thin
+            // thread to a frayed band, tears into pieces and fades (replaces the Lobe bead columns at Close)
+            for (int k = 0; k < 2; k++)
+            {
+                r.Layers.Add(new CelLayer
+                {
+                    Name = "smoke wisp", Kind = CometKind.KindName, Anchor = CelAnchor.Origin, Offset = new Vector3(0.12f * k - 0.05f, 0.05f, 0.1f * k), Start = hit + 0.06f + 0.18f * k, Life = 2.3f - 0.3f * k, LifeJitter = 0.1f,
+                    Close = 1, Mid = 1, Far = 0, Aim = CelAim.None, Speed = 0f, Gravity = 0f, Drag = 0f, Buoyancy = 0f, Spin = 2.4f + 0.5f * k,
+                    Size = new CelCurve(0.12f, 0.95f - 0.2f * k, 1.3f), SizeJitter = 0.15f, Stretch = 3.4f - 0.6f * k,
+                    Erode = new CelCurve(0.02f, 0.7f, 2.6f),
+                    Palette = "fb_wisp", Core = 1f, Opacity = 0.75f, Ink = 1.5f,
+                    Extra = new Vector4(-2f, 0.16f, 0.35f, 3.4f + 0.8f * k),
+                });
+            }
+            if (r.Layers.Count > 0) return r;
             float phase = variant * 1.7f, sway = 0.42f + 0.1f * (variant % 3);   // c01_3: a wider S (0.22 m was lost in the column's width)
             for (int k = 0; k < SmokeLinks; k++)
             {

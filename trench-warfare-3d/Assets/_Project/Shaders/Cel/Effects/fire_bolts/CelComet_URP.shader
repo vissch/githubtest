@@ -49,12 +49,61 @@ Shader "TW/Cel/Comet"
                 float3 positionWS : TEXCOORD5;
             };
 
+            // d01 path ribbon: the wisp's offset at height h (m) and age t: x along the camera's right, y up, z depth.
+            // A drift right that grows with height and time, plus two travelling sines whose amplitude grows with
+            // height (an S that widens as it rises), plus a slow depth wobble.
+            float3 WispPath(CelRecord r, float h, float t)
+            {
+                float amp = r.extra.y, drift = r.extra.z, f = max(r.extra.w, 0.5), ws = r.motion.z;
+                float ph = r.seed * 37.0;
+                float g = amp * (0.25 + h);
+                float x = drift * h * (0.6 + 0.25 * t)
+                        + g * sin(h * f + ph - t * ws)
+                        + g * 0.3 * sin(h * f * 1.6 + ph * 1.7 - t * ws * 1.4);
+                float z = g * 0.5 * sin(h * f * 0.7 + ph * 2.3 - t * ws * 0.8);
+                return float3(x, h, z);
+            }
+
             Varyings vert(Attributes v, uint instanceID : SV_InstanceID)
             {
                 CelRecord r = CelFetch(instanceID);
                 float t = CelAge(r), k = CelLife01(r), alive = CelAlive(r);
                 float3 p = CelPosition(r, t);
                 Varyings o;
+                if (r.extra.x < -1.5)
+                {
+                    // d01 path ribbon (smoke wisp): a strip whose every vertex sits on a curling path rising from the
+                    // record's position. uv.x 0 = the base, 1 = the newest top; the top climbs over the life, the S
+                    // travels up it and grows with height, the whole wisp drifts along the camera's right.
+                    float hMax = max(r.size.w, 0.1);
+                    float top = hMax * (1.0 - exp(-t * 3.6 / hMax));
+                    float3 R = float3(UNITY_MATRIX_V[0].x, 0.0, UNITY_MATRIX_V[0].z);
+                    R = dot(R, R) > 1e-6 ? normalize(R) : float3(1, 0, 0);
+                    float3 F = float3(-R.z, 0.0, R.x);
+                    float u0 = v.uv.x;
+                    float3 qa = WispPath(r, u0 * top, t), qb = WispPath(r, u0 * top + 0.03, t);
+                    float3 pa = p + R * qa.x + float3(0, qa.y, 0) + F * qa.z;
+                    float3 pb = p + R * qb.x + float3(0, qb.y, 0) + F * qb.z;
+                    float3 tng = pb - pa;
+                    tng = dot(tng, tng) > 1e-8 ? normalize(tng) : float3(0, 1, 0);
+                    float3 toEye = normalize(_WorldSpaceCameraPos - pa);
+                    float3 side = cross(tng, toEye);
+                    float sl = dot(side, side);
+                    side = sl > 1e-6 ? side * rsqrt(sl) : UNITY_MATRIX_V[0].xyz;
+                    if (dot(side, UNITY_MATRIX_V[0].xyz) < 0.0) side = -side;   // +across = screen right
+                    // width: thin at the base, widening up the wisp and over the life
+                    float wid = lerp(r.size.x, r.size.y, pow(saturate(k), max(r.size.z, 0.1))) * lerp(0.45, 1.0, u0);
+                    float across = (v.uv.y * 2.0 - 1.0) * 1.35;
+                    float3 w = pa + side * across * wid * 0.5 * alive;
+                    o.positionWS = w;
+                    o.positionCS = TransformWorldToHClip(w);
+                    o.local = float2(u0, across);
+                    o.dims = float4(top, wid, k, 0.0);
+                    o.tone = r.tone;
+                    o.more = float4(wid, CelCurve(r.erode.xyz, k), r.seed, 0.0);
+                    o.misc = float4(ComputeFogFactor(o.positionCS.z), 0.0, t, 2.0);
+                    return o;
+                }
                 if (r.extra.x < 0.0)
                 {
                     // the pool: a level quad on the ground, nudged toward the eye so small bumps do not cut it
@@ -110,6 +159,37 @@ Shader "TW/Cel/Comet"
                 uint rowA = CelRowA(i.tone.x), rowB = CelRowB(i.tone.x);
                 if (rowB == 0u) rowB = rowA;
 
+                if (i.misc.w > 1.5)
+                {
+                    // ---- d01 path ribbon: a soft grey smoke wisp along its curling path. Its edges are eaten by
+                    //      noise that travels up it (fray), it breaks into pieces as it ages, the top thins out, the
+                    //      base lets go late; lit on its screen-left side, a mid-grey shade band, a thin ink line.
+                    float u = i.local.x, y = i.local.y;
+                    float top = i.dims.x, k = i.dims.z, t = i.misc.z, seed = i.more.z;
+                    float sm = u * top;                                    // metres up the wisp
+                    float wid = max(i.more.x, 1e-3);
+                    float n1 = CelValue2(float2(sm / (wid * 1.6 + 0.05) - t * 1.3, seed * 53.0 + step(0.0, y) * 11.0));
+                    float n2 = CelValue2(float2(sm / (wid * 0.7 + 0.03) - t * 2.1, seed * 29.0 + 5.0));
+                    float yc = (n2 - 0.5) * 0.5;
+                    float edge = 0.55 + 0.7 * n1;                          // frayed half width (1 = the nominal)
+                    float field = saturate(1.0 - abs(y - yc) / edge);
+                    // pieces: the wisp tears into chunks as it ages, the top first
+                    float brk = CelValue2(float2(sm / (wid * 2.5 + 0.1) - t * 0.4, seed * 91.0));
+                    float thr = i.more.y + 0.35 * u * k;
+                    float cut = smoothstep(thr, thr + 0.08, brk * 0.85 + 0.15);
+                    // the top thins to nothing, the base fades in from the fire and lets go late in the life
+                    float ends = saturate((1.0 - u) * 5.0) * saturate(u * 12.0 + 0.2 - k * 3.0 * saturate(k * 2.0 - 0.6));
+                    float fm = field * cut * ends;
+                    float mask = CelAAStep(0.06, fm);
+                    float lit = saturate(0.5 - 0.5 * (y - yc) / edge + 0.25 * (n2 - 0.5));   // screen-left side lit
+                    half3 c = CelRamp(saturate(0.25 + 0.7 * lit), rowA, 1.0);
+                    float ink = CelInk(fm, 0.06, CelLodInk(i.tone.w)) * mask;
+                    c = lerp(c, CelPalInk(rowA).rgb, ink * 0.8);
+                    float op = saturate(i.tone.z) * (1.0 - smoothstep(0.75, 1.0, k));
+                    float a = mask * op;
+                    float m = CelAdditiveFog(half3(1.0, 1.0, 1.0), i.positionWS, i.misc.x).r;
+                    return half4(c * a * m, a * m);
+                }
                 if (i.misc.w > 0.5)
                 {
                     // ---- the pool: a smooth radial gradient of the palette's lightest colour, the rim a little uneven
