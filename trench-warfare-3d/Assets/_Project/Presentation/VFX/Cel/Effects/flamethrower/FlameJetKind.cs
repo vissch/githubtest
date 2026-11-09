@@ -10,7 +10,7 @@ namespace TW.Presentation.VFX.Cel
         public override string Name => "FlameJet";
         public override Shader FindShader() => Shader.Find("TW/Cel/FlameJet");
         public override Mesh BuildMesh() => CelMeshes.Strip(48, "Cel FlameJet");
-        public override int Capacity => 64;
+        public override int Capacity => 192;   // d02: at the Close tier the jet + 96 tongues + 14 splash overfill 64
         public override int Order => 5;
     }
 }

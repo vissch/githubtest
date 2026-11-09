@@ -91,7 +91,7 @@ namespace TW.Presentation.VFX.Cel
                 // in 0.12 s, holds a moment, then its tail leaves the nozzle and runs out at the dummy, so tongues flicker in and
                 // out over and under the main jet, of uneven length (LifeJitter) and direction (Spread). Same kind: no draws.
                 Name = "jet tongues", Kind = "FlameJet", Start = 0.6f, Duration = 2.8f, Life = 0.95f, LifeJitter = 0.3f, Offset = new Vector3(0f, 0.1f, 0.7f),
-                Close = 96, Mid = 4, Far = 0, Shape = CelShape.Point, Aim = CelAim.Dir, Speed = 16f, SpeedJitter = 0.25f, Spread = 14f,   // b08: 56 -> 72 tongues, spread 17 -> 14 (no detached tongue up-right), longer reach   // b07: 40 -> 56 separate tongues, wider spread (they carry the jet's width now)   // b06: 26 -> 40, wider spread, on past the dummy
+                Close = 96, Mid = 4, Far = 0, Shape = CelShape.Point, Aim = CelAim.Dir, Speed = 12f, SpeedJitter = 0.2f, Spread = 14f,   // d02: 16 -> 12 (at Close the 96 tongues ran 4 m past the dummy, off the frame)   // b08: 56 -> 72 tongues, spread 17 -> 14 (no detached tongue up-right), longer reach   // b07: 40 -> 56 separate tongues, wider spread (they carry the jet's width now)   // b06: 26 -> 40, wider spread, on past the dummy
                 Size = new CelCurve(0.15f, 2.9f, 1.3f), SizeJitter = 0.45f, Stretch = 0f,
                 Erode = new CelCurve(0.12f, 0.3f, 0.85f), Feather = 0.45f,   // b07: tongue amplitude 0.3 -> 0.7 (wavy, licking tips)
                 Palette = Flame, Core = 3.5f, Ink = 1.1f, Extra = new Vector4(12f, 3.4f, 0.5f, 1.0f),   // b06: full upper-edge licking
@@ -161,26 +161,26 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 Name = "pool target", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -1.3f, -2.4f), Start = 0.75f, Life = 3.3f, LifeJitter = 0.2f,
-                Close = 16, Mid = 4, Far = 1, Shape = CelShape.Disc, ShapeSize = new Vector3(3.2f, 0f, 0f), Size = new CelCurve(6.5f, 8.5f, 0.3f), SizeJitter = 0.55f, Erode = new CelCurve(0.01f, 0.5f, 7f),
+                Close = 9, Mid = 4, Far = 1, Shape = CelShape.Disc, ShapeSize = new Vector3(3.2f, 0f, 0f), Size = new CelCurve(6.5f, 8.5f, 0.3f), SizeJitter = 0.55f, Erode = new CelCurve(0.01f, 0.5f, 7f),
                 Palette = Pool, Core = 1f, Opacity = 0.8f, Extra = new Vector4(0f, 3.4f, 0f, 0f),   // b06: falloff 2.8; b05: falloff 1.6 -> 2.6 (the rim read as a hard tan plate)
             },
             new CelLayer
             {
                 // b02: the jet's pool runs its full length: three spots along the 10.8 m jet (the nozzle is 0.9 m up)
                 Name = "pool jet", Kind = CelKinds.GlowName, Offset = new Vector3(0f, -1.1f, 8.5f), Start = 0.65f, Life = 3.35f, LifeJitter = 0.2f,
-                Close = 18, Mid = 2, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(2.6f, 0f, 0f), Size = new CelCurve(5.5f, 6.5f), SizeJitter = 0.5f, Erode = new CelCurve(0.01f, 0.5f, 7f),
+                Close = 8, Mid = 2, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(2.6f, 0f, 0f), Size = new CelCurve(5.5f, 6.5f), SizeJitter = 0.5f, Erode = new CelCurve(0.01f, 0.5f, 7f),
                 Palette = Pool, Core = 1f, Opacity = 0.85f, Extra = new Vector4(0f, 3.2f, 0f, 0f),
             },
             new CelLayer
             {
                 Name = "pool jet mid", Kind = CelKinds.GlowName, Offset = new Vector3(0f, -0.92f, 5.5f), Start = 0.45f, Life = 3.5f, LifeJitter = 0.2f,
-                Close = 16, Mid = 2, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(2.0f, 0f, 0f), Size = new CelCurve(4.5f, 5.5f), SizeJitter = 0.5f, Erode = new CelCurve(0.01f, 0.5f, 7f),
+                Close = 8, Mid = 2, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(2.0f, 0f, 0f), Size = new CelCurve(4.5f, 5.5f), SizeJitter = 0.5f, Erode = new CelCurve(0.01f, 0.5f, 7f),
                 Palette = Pool, Core = 1f, Opacity = 0.85f, Extra = new Vector4(0f, 3.2f, 0f, 0f),
             },
             new CelLayer
             {
                 Name = "pool jet near", Kind = CelKinds.GlowName, Offset = new Vector3(0f, -0.68f, 1.6f), Start = 0.15f, Life = 3.7f, LifeJitter = 0.2f,
-                Close = 20, Mid = 1, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(1.8f, 0f, 0f), Size = new CelCurve(4.6f, 5.6f), SizeJitter = 0.5f, Erode = new CelCurve(0.01f, 0.5f, 7f),
+                Close = 9, Mid = 1, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(1.8f, 0f, 0f), Size = new CelCurve(4.6f, 5.6f), SizeJitter = 0.5f, Erode = new CelCurve(0.01f, 0.5f, 7f),
                 Palette = Pool, Core = 1f, Opacity = 0.85f, Extra = new Vector4(0f, 3.2f, 0f, 0f),
             },
             new CelLayer

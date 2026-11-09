@@ -20,6 +20,10 @@ namespace TW.Presentation.VFX.Cel
             // chest), so the mid/far stills in the same battle keep it.
             Vector3 fw = s.Direction; fw.y = 0f; fw = fw.sqrMagnitude > 1e-6f ? fw.normalized : Vector3.forward;
             Vector3 right = new Vector3(fw.z, 0f, -fw.x);
+            // d02: the beach eye reads ViewEye.Zoom 30 (T1), so every close film before d02 played the MID counts and the
+            // Mid widening (4 jet tongues, 60 ember arcs, the jet 3.2x wide). The close film now pins the Close tier, as
+            // explosion b03 (38efc6de5) does; the LOD stills keep the eye's own zoom. CelFx's reset clears the pin.
+            CelFx.ZoomOverride = s.Lod == RangeLod.Close ? 7.5f : float.NaN;
             // b03: 0.5 m further left and lower, so the jet comes in from the frame's lower-left corner like the clip's (b02's
             // drawn start sat ~65 px right of and above the clip's nozzle at ~134 px/m)
             Vector3 nozzle = s.Target - fw * 10.8f - right * 1.6f - Vector3.up * 0.8f;
