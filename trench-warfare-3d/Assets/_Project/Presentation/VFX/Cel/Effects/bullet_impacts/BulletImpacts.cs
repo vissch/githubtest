@@ -79,8 +79,9 @@ namespace TW.Presentation.VFX.Cel.Effects
             CelPalette.Add("bi_tracer", CelPalette.Hex(0xB0400C), CelPalette.Hex(0xF07A20), CelPalette.Hex(0xFF9C40), CelPalette.Hex(0xFFC070),
                 CelPalette.Hex(0xFFE2B0), 0.45f, 3, CelPalette.Hex(0x401004));
             // the hit's spark spikes: red-orange with a white tip
-            CelPalette.Add("bi_spark", CelPalette.Hex(0xA02008), CelPalette.Hex(0xE04A14), CelPalette.Hex(0xFF7A2A), CelPalette.Hex(0xFFB060),
-                CelPalette.Hex(0xFFF0D0), 0.85f, 3, CelPalette.Hex(0x300802));
+            // d21: white-orange (the clip's spikes are pale orange to white; red read as an orb)
+            CelPalette.Add("bi_spark", CelPalette.Hex(0xC05010), CelPalette.Hex(0xF08A30), CelPalette.Hex(0xFFB860), CelPalette.Hex(0xFFDCA0),
+                CelPalette.Hex(0xFFF6E8), 0.85f, 3, CelPalette.Hex(0x300802));
             // the light: c3 is the light's colour (saturated orange; the scene is multiplied by 1 + it)
             // r05: cream-yellow (#e8c48a as it reads), not red: on the blue night ground a saturated orange light multiplied
             // into red, so the light colour is set near neutral warm and the fill brings the cream
@@ -149,7 +150,7 @@ namespace TW.Presentation.VFX.Cel.Effects
                 // star did not show in any sheet frame)
                 // b07: 4 frames (0.17 s)
                 Name = "flash", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.02f, -0.3f), Start = 0f, Life = 0.17f, LifeJitter = 0.05f,
-                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(0.34f * K, 0.22f * K, 0.5f), SizeJitter = 0.15f, Erode = new CelCurve(0.05f, 0.8f, 1.6f),
+                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(0.26f * K, 0.17f * K, 0.5f), SizeJitter = 0.15f, Erode = new CelCurve(0.05f, 0.8f, 1.6f),
                 Palette = "fire_hot", Core = 2.4f, Opacity = 0.95f, Spin = 2f, Extra = new Vector4(2f, 2.2f, 6f, 10f),
             },
             new CelLayer
@@ -170,8 +171,8 @@ namespace TW.Presentation.VFX.Cel.Effects
                 // b07: rays that stop about half the dummy's width out and hold for 4 frames (b06's 12 m/s spikes flew
                 // off in a frame or two, so f29 showed a star with no spikes): 6 m/s with drag 8 tops out at 0.75 m
                 // and the trail (stretch 0.17 s) reaches back to the core, so each reads as a ray from the hit
-                Speed = 6f, SpeedJitter = 0.2f, Drag = 8f,
-                Size = new CelCurve(0.11f, 0.06f), Stretch = 0.17f, Erode = new CelCurve(0f, 0.25f), Palette = "bi_spark", Core = 6f, Extra = new Vector4(0f, 0.3f, 0f, 0f),
+                Speed = 7.5f, SpeedJitter = 0.25f, Drag = 8f,
+                Size = new CelCurve(0.07f, 0.04f), Stretch = 0.17f, Erode = new CelCurve(0f, 0.25f), Palette = "bi_spark", Core = 6f, Extra = new Vector4(0f, 0.3f, 0f, 0f),
             });
 
         // the crown: dark dirt spurts thrown up in a ring from the ground point, a few frames
