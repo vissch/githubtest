@@ -682,6 +682,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/VFX/Cel/CelRecord.cs`, `Presentation/VFX/Cel/CelDemo.cs` (a recipe using every primitive),
   `Shaders/Cel/CelFx.hlsl` (bands, ink, erosion, camera-as-light, noise, SDFs) and `Shaders/Cel/Cel*_URP.shader`,
   keepers `Resources/ShaderKeep/KeepCel*.mat`, `Editor/Cel/CelFxStill.cs` (a contact sheet of a recipe in an empty scene).
+- **Effect, bullet impacts:** `Presentation/VFX/Cel/Effects/bullet_impacts/BulletImpacts.cs` (an MG round as three recipes: tracer, hit, ground dust and pools; `PlayRound`; the Range id `bullet_impacts` fires a 16-round burst).
 - **Tests:** CelFxTests (`Tests/Cel`: 0 B per spawn, frame and play; counts never rise going out; every TW/Cel shader
   found and kept; draws through FrameBudget; statics put back).
 - **See it:** `Unity.exe -batchmode -projectPath trench-warfare-3d -executeMethod TW.Editor.CelFxStill.Batch -celOut <dir>`

@@ -52,7 +52,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Presentation.Meta` | `Presentation/Meta/` | `TW.Presentation.Meta` | Sim.Core, Sim.Terrain, Presentation.Core, Presentation.Camera, Presentation.Terrain |
 | `TW.Presentation.Terrain` | `Presentation/Terrain/` | `TW.Presentation.Terrain` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Camera, Presentation.Core |
 | `TW.Presentation.Units` | `Presentation/Units/` | `TW.Presentation.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core |
-| `TW.Presentation.VFX` | `Presentation/VFX/` | `TW.Presentation.VFX`, `TW.Presentation.VFX.Cel` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core |
+| `TW.Presentation.VFX` | `Presentation/VFX/` | `TW.Presentation.VFX`, `TW.Presentation.VFX.Cel`, `TW.Presentation.VFX.Cel.Effects` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core |
 | `TW.Sim.Combat` | `Sim/Combat/` | `TW.Sim.Combat` | Sim.Core, Sim.Terrain, Sim.Nav |
 | `TW.Sim.Core` | `Sim/Core/` | `TW.Sim` | (none) |
 | `TW.Sim.Match` | `Sim/Match/` | `TW.Sim.Match` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units |
