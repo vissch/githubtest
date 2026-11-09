@@ -1,4 +1,4 @@
-// Phase: CelFx job (2026-11-09, lane/show/cel-fire-bolts; b04: a small round head tapering into a long thin red-orange flame streak; b03: flame body twice as wide, wider yellow band) - Comet: a fire bolt drawn as one camera-facing quad along
+// Phase: CelFx job (2026-11-09, lane/show/cel-fire-bolts; c05: the flame is a noise-warped teardrop SDF coloured by heat distance; b04: a small round head tapering into a long thin red-orange flame streak; b03: flame body twice as wide, wider yellow band) - Comet: a fire bolt drawn as one camera-facing quad along
 // its velocity, an SDF in the fragment: a white-yellow head with a soft yellow bloom, a flame tail banded yellow to
 // orange to deep red that tapers smoothly to a point, a dark ink line on the screen-lower edge, and behind it a thin
 // wavy smoke ribbon with an ink edge that thins to a point and breaks up in steps. With no head and no flame it is a
@@ -181,56 +181,53 @@ Shader "TW/Cel/Comet"
                 // ---- the flame (b02): a round white-yellow head, a yellow flame body as wide as the head behind it
                 //      that flares out and then tapers to a point, and thin red streaks that run on behind it and fade
                 {
+                    // c05 (technique change): the banded plume + five flat streaks (a capsule with an inner bar) is
+                    // replaced by a noise-warped teardrop: a round head, a tail tapering to a point over ~4.5 head
+                    // lengths whose edge is eaten by travelling value noise (licking tongues), coloured by a 2D heat
+                    // distance from the head (white-orange head, orange, red toward the tip; no band across), plus
+                    // three hair-thin red licks that run on behind it and fade
                     float has = step(1e-5, fl + hr);
                     float hd = length(float2(s, y));
                     float headF = 1.0 - hd / max(hr, 1e-4);
-                    // b04: the body is a long thin flame streak, 6x the head's length, never wider than the head
-                    // b05: 7x the head's length (b04: 5x)
-                    float bodyL = max(min(fl * 0.85, hr * 14.0), 1e-3);
+                    float bodyL = max(min(fl * 0.9, hr * 16.0), 1e-3);   // c05_2: ~8 head lengths (9 hr read as a dot)
                     float sb = saturate(s / bodyL);
-                    // a lick that travels down the body (the flame flickers, never a rigid capsule)
-                    float lick = hr * 0.12 * sin(s * 5.0 / max(hr * 4.0, 1e-3) + seed * 30.0 - i.misc.z * 14.0) * sb;
-                    // b05: the back half is ragged: its width flickers in tongues that travel down the body
-                    float rag = 1.0 - smoothstep(0.35, 1.0, sb) * (0.55 + 0.45 * sin(s * 9.0 / max(hr * 4.0, 1e-3) + seed * 21.0 - i.misc.z * 22.0));
-                    float wBody = hr * (1.0 + 0.4 * smoothstep(0.0, 0.3, sb)) * pow(saturate(1.0 - sb), 0.75) * rag;   // c01: a fire plume that widens behind the head, then tapers (b04: never wider than the head)
+                    float lick = hr * 0.18 * sin(s * 2.2 / max(hr, 1e-3) + seed * 30.0 - i.misc.z * 16.0) * sb;
+                    float nz = CelValue2(float2(s / max(hr * 1.3, 1e-3) + i.misc.z * 9.0, seed * 41.0 + step(0.0, y - lick) * 7.0));
+                    float nz2 = CelValue2(float2(s / max(hr * 0.6, 1e-3) + i.misc.z * 15.0, seed * 23.0 + 3.0));
+                    float rag = lerp(1.0, 0.7 + 0.45 * nz + 0.2 * (nz2 - 0.5), smoothstep(0.25, 0.8, sb));
+                    float wBody = hr * 0.8 * (1.0 + 0.35 * smoothstep(0.0, 0.2, sb)) * pow(saturate(1.0 - sb), 0.7) * rag;   // ~1.4x narrower than the head just behind it
                     float tailF = (s >= 0.0 && s <= bodyL) ? 1.0 - abs(y - lick) / max(wBody, 1e-4) : 0.0;
                     float streakF = 0.0, streakU = 1.0;
-                    [unroll] for (int k5 = 0; k5 < 5; k5++)
+                    [unroll] for (int k5 = 0; k5 < 3; k5++)
                     {
                         float hk = CelHash21(float2(k5, seed * 57.0));
-                        float Lk = fl * (k5 == 2 ? 1.0 : 0.35 + 0.5 * hk);
+                        float Lk = fl * (0.85 + 0.3 * hk);
                         float uk = saturate(s / max(Lk, 1e-3));
-                        float yk = hr * 0.3 * (k5 - 2) * (1.0 - 0.7 * uk) + hr * 0.1 * sin(s * 2.5 + hk * 20.0 - i.misc.z * 9.0) * uk;
-                        float wk = hr * (k5 == 2 ? 0.26 : 0.16) * pow(saturate(1.0 - uk), 0.8);   // b04: thinner
-                        float fk = (s >= bodyL * 0.3 && s <= Lk) ? 1.0 - abs(y - yk) / max(wk, 1e-4) : 0.0;
+                        float yk = hr * 0.35 * (k5 - 1) * (1.0 - 0.6 * uk) + hr * 0.15 * sin(s * 2.5 + hk * 20.0 - i.misc.z * 9.0) * uk;
+                        float wk = hr * 0.12 * pow(saturate(1.0 - uk), 0.8);
+                        float fk = (s >= bodyL * 0.6 && s <= Lk) ? 1.0 - abs(y - yk) / max(wk, 1e-4) : 0.0;
                         if (fk > streakF) { streakF = fk; streakU = uk; }
                     }
                     float f = max(max(headF, tailF), streakF);
                     float fMask = CelAAStep(0.03, f) * has;
-                    // colour: the head white-hot to yellow; the body yellow in the middle, orange round it, red at its
-                    // edge and toward its end; the streaks red to deep red
-                    float vHead = headF > 0.0 ? 0.62 + 0.38 * saturate(headF * 1.6) : 0.0;   // c01: a soft white-hot middle grading to orange at its rim (b05: a flat yellow coin)
-                       // b04: white-yellow   // yellow, white only at the middle (b03: a smaller white)
-                    // b04: yellow just behind the head, orange, then red-orange down the streak (b03's yellow-white inner band read as a white rectangle)
-                    // b05: a white-yellow core band down the front two thirds, orange round it, red-orange at the edges
-                    // c03: a graded core: yellow-white along the middle near the head, banding out to orange and then red
-                    // at the edge and down the plume (c01's flat yellow bar read as a rectangle)
-                    float vBody = tailF > 0.0 ? 0.14 + 0.74 * pow(saturate(tailF * 1.1), 1.3) * (1.0 - 0.55 * sb) : 0.0;   // c03_3: a yellow core grading out (0.86 drew a white bar, 0.66 lost the yellow)
-                    float vStreak = streakF > 0.0 ? 0.08 + 0.3 * (1.0 - streakU) : 0.0;
+                    // heat: 1 at the head's middle, falling with an elliptic distance down the tail (no band across)
+                    float heat = saturate(1.0 - length(float2(max(s, 0.0) / (bodyL * 1.05), (y - lick * sb) / max(hr * 1.5, 1e-4))));
+                    float vHead = headF > 0.0 ? 0.6 + 0.4 * saturate(headF * 1.4) : 0.0;
+                    float vBody = tailF > 0.0 ? 0.08 + 0.84 * pow(heat, 0.5) : 0.0;
+                    float vStreak = streakF > 0.0 ? 0.05 + 0.2 * (1.0 - streakU) : 0.0;
                     float val = max(max(vHead, vBody), vStreak);
                     half3 fCol = CelRamp(saturate(val), rowA, i.tone.y);
-                    // c03: a dark ink edge on the flame body and its streaks (never round the head: b02's ring read as a ball)
+                    // the dark ink edge on the tail and licks (never round the head)
                     float bodyF = max(tailF, streakF);
                     float fInk = CelInk(bodyF, 0.03, inkPx) * step(headF, 0.0) * step(0.03, bodyF) * has;
                     fCol = lerp(fCol, CelPalInk(rowA).rgb, fInk);
-                    // the streaks fade out along their length; the head and body are opaque
                     float fOp = max(step(1e-4, max(headF, tailF)), saturate(1.25 - streakU));
                     col = lerp(col, fCol, fMask * fOp);
                     a = lerp(a, lerp(0.92, 1.0, fInk), fMask * fOp);
-                    // the bloom: a soft yellow-orange light about 2.4x the head, added around it
-                    float bl = saturate(1.0 - hd / max(hr * 3.4, 1e-4));   // c01: 3.4x the head (b05 2.4x), stronger, and along the plume
-                    float blB = saturate(1.0 - abs(y) / max(hr * 2.2, 1e-4)) * saturate(1.0 - s / max(bodyL * 0.7, 1e-3)) * step(0.0, s);
-                    bl = max(bl, blB * 0.8);
+                    // the bloom: a soft yellow-orange light round the head and the front of the tail
+                    float bl = saturate(1.0 - hd / max(hr * 3.0, 1e-4));
+                    float blB = saturate(1.0 - abs(y) / max(hr * 1.8, 1e-4)) * saturate(1.0 - s / max(bodyL * 0.8, 1e-3)) * step(0.0, s);
+                    bl = max(bl, blB * 0.7);
                     col += lerp(CelPal(rowA, 2), CelPal(rowA, 3), bl) * (bl * bl * 1.0 * has * (1.0 - fMask * 0.6));
                 }
 
