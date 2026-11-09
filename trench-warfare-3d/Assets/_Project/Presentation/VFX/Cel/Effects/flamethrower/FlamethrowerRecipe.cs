@@ -61,7 +61,8 @@ namespace TW.Presentation.VFX.Cel
         public const float AimLift = 0.35f;
 
         // the flame reaches the target and holds for JetLife seconds (the clip: cut at 3.15-3.45 s after our fire)
-        const float JetLife = 3.95f;   // b05: grows from the trigger, 0.5 s longer (the clip's cut is at f84+)
+        const float JetLife = 4.25f;   // b07: 3.95 -> 4.25 (peak -8 f, end -7 f: the tail was cut short)
+        // b05: grows from the trigger, 0.5 s longer (the clip's cut is at f84+)
 
         // Offsets of the target layers are from the aim point: the chest is 0.45 m below it, the foot 1.4 m.
         public static readonly CelFxRecipe Recipe = new CelFxRecipe("flamethrower", 7.6f,
@@ -77,11 +78,11 @@ namespace TW.Presentation.VFX.Cel
                 // b03: narrow for longer and widening late (pow 1.2 -> 1.8: mid-jet was 1.8x the clip's height), many
                 // more, shorter tongues (2.6 -> 3.6 /m), the front on the dummy by ~f30 (grow 0.6 -> 0.4 s)
                 // b04: narrower (2.7 -> 2.1 at the dummy); the ragged outline now comes from the separate tongue ribbons below
-                Size = new CelCurve(0.36f, 3.3f, 1.4f), SizeJitter = 0f, Stretch = 0f,   // b06: 2.9 -> 3.3 at the dummy (peak area 0.71)
+                Size = new CelCurve(0.3f, 2.3f, 1.4f), SizeJitter = 0f, Stretch = 0f,   // b07 (new approach): the main jet is only the hot spine; its width comes from separate tongues   // b06: 2.9 -> 3.3 at the dummy (peak area 0.71)
                 // b05: wider (2.1 -> 2.9 at the dummy, pow 1.8 -> 1.5: the mid-jet was ~2/3 of the clip's height, peak area 0.71),
                 // the front out of the nozzle in 1.0 s, eased so its screen length grows evenly (the near half is foreshortened less)
-                Erode = new CelCurve(1.0f, 0.32f, 0.5f), Feather = 0.45f,
-                Palette = Flame, Core = 3.5f, Ink = 1.6f, Extra = new Vector4(9f, 3.6f, 0.4f, 1f),
+                Erode = new CelCurve(1.0f, 0.32f, 0.85f), Feather = 0.45f,   // b07: tongue amplitude 0.5 -> 0.85 (edge breaks into licks)
+                Palette = Flame, Core = 3.5f, Ink = 1.6f, Extra = new Vector4(9f, 2.2f, 0.5f, 1f),   // b07: fewer, bigger licks (3.6 -> 2.2 /m)
             },
             new CelLayer
             {
@@ -89,11 +90,11 @@ namespace TW.Presentation.VFX.Cel
                 // tongue is its own short FlameJet record fired from the nozzle along a slightly spread direction: it shoots out
                 // in 0.12 s, holds a moment, then its tail leaves the nozzle and runs out at the dummy, so tongues flicker in and
                 // out over and under the main jet, of uneven length (LifeJitter) and direction (Spread). Same kind: no draws.
-                Name = "jet tongues", Kind = "FlameJet", Start = 0.7f, Duration = 2.4f, Life = 0.9f, LifeJitter = 0.25f, Offset = new Vector3(0f, 0.1f, 0.7f),
-                Close = 40, Mid = 4, Far = 0, Shape = CelShape.Point, Aim = CelAim.Dir, Speed = 16f, SpeedJitter = 0.2f, Spread = 12f,   // b06: 26 -> 40, wider spread, on past the dummy
-                Size = new CelCurve(0.15f, 2.0f, 1.3f), SizeJitter = 0.35f, Stretch = 0f,
-                Erode = new CelCurve(0.12f, 0.3f, 0.3f), Feather = 0.45f,
-                Palette = Flame, Core = 3.5f, Ink = 1.4f, Extra = new Vector4(12f, 3.0f, 0.5f, 1.0f),   // b06: full upper-edge licking
+                Name = "jet tongues", Kind = "FlameJet", Start = 0.6f, Duration = 2.8f, Life = 0.95f, LifeJitter = 0.3f, Offset = new Vector3(0f, 0.1f, 0.7f),
+                Close = 56, Mid = 4, Far = 0, Shape = CelShape.Point, Aim = CelAim.Dir, Speed = 16f, SpeedJitter = 0.25f, Spread = 17f,   // b07: 40 -> 56 separate tongues, wider spread (they carry the jet's width now)   // b06: 26 -> 40, wider spread, on past the dummy
+                Size = new CelCurve(0.15f, 2.5f, 1.3f), SizeJitter = 0.4f, Stretch = 0f,
+                Erode = new CelCurve(0.12f, 0.3f, 0.7f), Feather = 0.45f,   // b07: tongue amplitude 0.3 -> 0.7 (wavy, licking tips)
+                Palette = Flame, Core = 3.5f, Ink = 1.4f, Extra = new Vector4(12f, 2.2f, 0.5f, 1.0f),   // b06: full upper-edge licking
             },
             new CelLayer
             {
@@ -152,10 +153,10 @@ namespace TW.Presentation.VFX.Cel
                 // (Aim Dir = right on screen), at the frame's top by ~2.8 s, kept to ~4.7 s, cooling to grey and eroding away
                 // b03: more, separate lobes over a wider base (the clip's column billows from left of the dummy to far
                 // right), brown lit from below, grey sooner and gone by ~f143 (b02's was dense black at f153)
-                Name = "smoke column", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.4f, 2.0f, 0.4f), Start = 1.4f, Duration = 2.4f, Life = 2.75f, LifeJitter = 0.2f,
+                Name = "smoke column", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.4f, 2.0f, 0.4f), Start = 1.4f, Duration = 2.4f, Life = 3.2f, LifeJitter = 0.2f,   // b07: 2.75 -> 3.2 (end -7 f: the tail was cut short)
                 Close = 30, Mid = 6, Far = 1, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.8f, 0f, 0f), Aim = CelAim.Dir, Speed = 1.1f, Spread = 35f, Drag = 0.5f, Buoyancy = 1.1f, Spin = 0.3f,
                 Size = new CelCurve(0.7f, 1.6f, 0.5f), SizeJitter = 0.35f, Erode = new CelCurve(0f, 1f, 1.5f), Feather = 0.12f,
-                Palette = SmokeInk, CoolTo = SmokeGrey, CoolFrom = 0.2f, Core = 1f, Ink = 2.4f, Extra = new Vector4(1.4f, 0.2f, -0.7f, 0.4f),
+                Palette = SmokeInk, CoolTo = SmokeGrey, CoolFrom = 0.12f,   // b07: grey sooner Core = 1f, Ink = 2.4f, Extra = new Vector4(1.4f, 0.2f, -0.7f, 0.4f),
             },
             new CelLayer
             {
