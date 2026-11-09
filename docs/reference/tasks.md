@@ -152,6 +152,12 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `old_bullets`; `-executeMethod TW.Editor.RangeStage.CommandLine -twrange "effect=<id> out=<dir> lod=all"`),
   `VfxLab.Range`. The capture script and its README are outside the repo (`C:/Users/PC/Documents/celfx/tools/capture.ps1`).
 - **Tests:** none of its own (an instrument; its outputs go to the scorer and the critic).
+
+### The blue laser (CelFx job, LAB ONLY, 2026-11-09)
+- **Files (SHOW):** `Presentation/VFX/Cel/Effects/blue_laser/BlueLaserRecipe.cs` (the beam, ground and dust recipes,
+  their palettes, `BlueLaserRecipe.Play` and the Range effect `blue_laser`), `Presentation/VFX/Cel/Effects/blue_laser/LightningBeamKind.cs`
+  (the LightningBeam kind: `Shaders/Cel/Effects/blue_laser/CelLightningBeam_URP.shader`, kept by `Resources/ShaderKeep/KeepCelLightningBeam.mat`).
+- **Tests:** the kit's (`Tests/Cel/CelFxTests.cs`: every static recipe validates, every cel shader is kept).
 - **See it:** `Tools/tw eval 'return TW.Editor.VfxLab.Range("old_shell", "C:/abs/run", "close");'`, then the PNGs in
   `C:/abs/run/frames`.
 ### Map generation and ground (sim side)
