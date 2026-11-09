@@ -19,11 +19,16 @@ namespace TW.Presentation.VFX
         public Vector3 Foot;
         public float Yaw;          // degrees: the board faces local +z turned by this
         public float Lean = 4f;    // degrees to its left
+        /// <summary>Its warm self-light (the corridor's look; the beach sets its own to the plate's dummy).</summary>
+        public Color Emission = new Color(0.13f, 0.09f, 0.05f);
+        public void SetEmission(Color c) { Emission = c; if (mat != null) mat.SetColor("_Emission", c); }
         public int Layer;          // the layer it is drawn on (the Range draws it on its own, to measure it)
+        public float Scale = 1f;   // size (the beach Range fits it to the plate's dummy)
+        public float Width = 1f, Depth = 1f;   // across and front-to-back on top of Scale (the plate's dummy is broader and its board thicker)
         Mesh mesh; Material mat;
         RenderParams rp;
 
-        public Matrix4x4 LocalToWorld => Matrix4x4.TRS(Foot, Quaternion.Euler(0f, Yaw, 0f) * Quaternion.Euler(0f, 0f, Lean), Vector3.one);
+        public Matrix4x4 LocalToWorld => Matrix4x4.TRS(Foot, Quaternion.Euler(0f, Yaw, 0f) * Quaternion.Euler(0f, 0f, Lean), new Vector3(Scale * Width, Scale, Scale * Depth));
 
         /// <summary>The chest point in the world.</summary>
         public Vector3 Chest => LocalToWorld.MultiplyPoint3x4(new Vector3(0f, ChestHeight, 0.04f));
@@ -40,7 +45,7 @@ namespace TW.Presentation.VFX
                 mat = new Material(Shader.Find("TW/Toon (URP)")) { name = "RangeDummy", enableInstancing = true, hideFlags = HideFlags.HideAndDontSave };
                 mat.SetColor("_BaseColor", Color.white);
                 mat.SetFloat("_OutlineWidth", 1.6f);
-                mat.SetColor("_Emission", new Color(0.13f, 0.09f, 0.05f));   // the plate's dummy reads warm against the blue night
+                mat.SetColor("_Emission", Emission);   // the plate's dummy reads warm against the blue night
             }
             rp = new RenderParams(mat) { shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, layer = 0 };
         }
@@ -55,16 +60,16 @@ namespace TW.Presentation.VFX
         {
             if (!Visible || mesh == null || mat == null) return;
             rp.layer = Layer;
-            rp.worldBounds = new Bounds(Foot + Vector3.up * 1f, new Vector3(3f, 3f, 3f));
+            rp.worldBounds = new Bounds(Foot + Vector3.up * Scale, Vector3.one * (3f * Mathf.Max(1f, Scale)));
             FrameBudget.Draw(rp, mesh, 0, LocalToWorld);
         }
 
-        /// <summary>The dummy's corners in the world (every vertex above its foot), for its screen box.</summary>
+        /// <summary>The dummy's corners in the world (every vertex, the buried post cut at the ground), for its screen box.</summary>
         public void WorldPoints(List<Vector3> into)
         {
             into.Clear();
             var m = LocalToWorld;
-            foreach (var v in Mesh.vertices) if (v.y >= 0f) into.Add(m.MultiplyPoint3x4(v));   // the post's foot under the ground is not seen
+            foreach (var v in Mesh.vertices) into.Add(m.MultiplyPoint3x4(v.y >= 0f ? v : new Vector3(v.x, 0f, v.z)));   // the post's foot under the ground: cut at the ground, where it is seen to end
         }
 
         // ------------------------------------------------------------------------------------------------ the mesh

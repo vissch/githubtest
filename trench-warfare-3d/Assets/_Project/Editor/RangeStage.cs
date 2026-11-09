@@ -1,13 +1,19 @@
 // Phase: CelFx job (2026-11-09, lane/show/cel-vfx) - the Range stage and its capture. The owner's six reference clips
 // (C:/Users/PC/Downloads/vfx_h3/final/finalfinal, 8 s, 1344x768, 24 fps) are painted over one plate of this game's
-// night field with a wooden target dummy (plates/start.png). This recreates that shot in GreyboxCorridor at night: a
-// TargetDummy on open ground, a fixed camera solved so the dummy's screen box matches the plate's (792,314)-(890,480),
-// and the effect fired into it through CelRange at 0.8 s. Then the same effect is fired in the battle and photographed
-// through CaptureRig at T1 (zoom 30), O120 and O240, with the frame's FrameBudget numbers.
+// night field with a wooden target dummy (plates/start.png). That plate is an image edit of a real game frame: the
+// footage session's beach still dim_novfx/1_side_track/05.png (2026-11-08, Footage.cs PartBeach, shot 1_side_track,
+// still 05: no effects, no flare, look.menClose 0), with a dummy painted where the frog rifleman ran.
+// stage=beach (the default) replays that shot: the SHELLED WOOD 1917 mission launched as the menu launches it, the
+// same settle, the same runner and props cleared, then the camera fixed at the still's exact pose (logged by a
+// re-run of the footage) with the plate's crop and scale built into its projection, the runner gone and a
+// TargetDummy fitted to the plate's dummy (792,314)-(890,480) where he stood. Frames are drawn at 2x and averaged
+// 2x2, as the plate was made (the edit's 2752x1536, halved). stage=corridor is the first Range: GreyboxCorridor at
+// night, a dummy on open ground and a camera solved to the plate's dummy box. Either way the effect is fired through
+// CelRange at 0.8 s, then fired in the battle and photographed through CaptureRig at T1 (zoom 30), O120 and O240.
 //   Unity.exe -batchmode -projectPath <project> -executeMethod TW.Editor.RangeStage.CommandLine
 //             -twrange "effect=old_shell out=C:/x/run lod=all run=<id>" -logFile <log>
 //   Tools/tw eval 'return TW.Editor.RangeStage.Run("effect=none out=C:/x/run lod=close");'
-// Options: effect=<CelRange id> out=<folder> lod=close|mid|far|all (close) seed=<int> (1917) t0=<s> (0.8)
+// Options: stage=beach|corridor (beach) effect=<CelRange id> out=<folder> lod=close|mid|far|all (close) seed=<int> (1917) t0=<s> (0.8)
 // frames=<n> (192) peaks=<s,s,..> (seconds after the fire for the mid/far stills; 0.1,0.3,0.6,1.2) run=<id>
 // minutes=<watchdog> (12) quit=1 (exit when done; CommandLine adds it).
 // Writes into out: frames/f_0000.png.. (close), close.json (per-frame draws), dummy.json (the dummy's projected and
@@ -55,13 +61,59 @@ namespace TW.Editor
         /// left): the tracers enter at the lower-left corner, the bolts and beams at the left edge above the head.</summary>
         public static readonly Vector2 MuzzleScreen = new Vector2(-150f, 835f), MuzzleHighScreen = new Vector2(-150f, 175f);
 
+        // ------------------------------------------------------------------------------------- the beach shot (default)
+        public const string MenuScene = "Assets/_Project/Scenes/MainMenu.unity";
+        public const string Catalog = "Assets/_Project/UI/Missions/MissionCatalog.asset";
+        /// <summary>The footage's frame rate: the battle is replayed to the still at it, then filmed at 24.</summary>
+        public const int BeachFps = 30;
+        /// <summary>The still's camera, logged from the footage re-run (C:/Users/PC/Documents/celfx/ref/rerun1/footage.log,
+        /// SNAPLOG 1_side_track/05.png): a 2560x1440 render, fov 32, near 0.2.</summary>
+        public static readonly Vector3 BeachCamPos = new Vector3(28.8478928f, 7.710133f, 267.163757f);
+        public static readonly Quaternion BeachCamRot = new Quaternion(-6.08345E-09f, -0.9902681f, 0.13917312f, -4.32859935E-08f);
+        public const float BeachFov = 32f, BeachSrcW = 2560f, BeachSrcH = 1440f, BeachHeading = 180f;
+        /// <summary>The runner at the still (sim position) and where the footage cleared the kit props (centre, and the camera it cleared from).</summary>
+        public static readonly Vector2 BeachHero = new Vector2(26.6862526f, 248.878021f);
+        public static readonly Vector2 BeachClearAt = new Vector2(23.8939133f, 248.98851f), BeachClearFrom = new Vector2(26.2911034f, 267.252472f);
+        /// <summary>Time.time at the footage's still 00 (the wind clock; each later still is 4 frames at 30 fps on).</summary>
+        public const float BeachClock0 = 18.6647587f;
+        /// <summary>plates/start.png pixel (u, v, 1) -> game-frame pixel (x, y), both from the top left: ECC (affine, dummy
+        /// masked, correlation 0.98) of the game still onto the plate. The plate is a crop at 1.86 game px per plate px.</summary>
+        public static readonly float[] PlateToGame = { 1.860913174109612f, 0.0019546899804882417f, 28.35248406418461f, 0.00019452836568234488f, 1.8590595200657845f, 4.865661710500717f };
+
+        /// <summary>The still's lens, cropped and scaled the way the plate was: a 2560x1440 fov-32 projection followed by the
+        /// plate's affine in normalized device coordinates, so a 1344x768 render lands on start.png pixel for pixel.</summary>
+        public static Matrix4x4 BeachProjection(float near, float far)
+        {
+            var p = Matrix4x4.Perspective(BeachFov, BeachSrcW / BeachSrcH, near, far);
+            var w = PlateToGame;
+            float a = w[0], b = w[1], c = w[2], d = w[3], e = w[4], f = w[5], det = a * e - b * d;
+            float hw = BeachSrcW * 0.5f, hh = BeachSrcH * 0.5f, pw = W * 0.5f, ph = H * 0.5f;
+            // game px x = hw (xg + 1), y = hh (1 - yg); plate px (u, v) = W^-1 (x - c, y - f); plate ndc xp = u/pw - 1, yp = 1 - v/ph
+            var m = Matrix4x4.identity;
+            m.m00 = e * hw / (pw * det); m.m01 = b * hh / (pw * det); m.m03 = (e * (hw - c) - b * (hh - f)) / (pw * det) - 1f;
+            m.m10 = d * hw / (ph * det); m.m11 = a * hh / (ph * det); m.m13 = 1f - (a * (hh - f) - d * (hw - c)) / (ph * det);
+            return m * p;
+        }
+
+        /// <summary>The footage's mission: the first SHELLED WOOD card of the catalog, as the mission list orders it.</summary>
+        public static TW.UI.MissionCard BeachCard()
+        {
+            var cat = AssetDatabase.LoadAssetAtPath<TW.UI.MissionCatalog>(Catalog);
+            if (cat == null || cat.Cards == null) return null;
+            foreach (var c in cat.Cards) if (c != null && c.Ground == Ground.ShelledForest) return c;
+            return null;
+        }
+
+        static string StageOf(string options) => (Gym.Opt(options ?? "", "stage") ?? "beach").ToLowerInvariant();
+
         public static string Run(string options = "")
         {
             if (EditorApplication.isPlaying) { StartRunner(options); return InSession + options; }
-            if (EditorSceneManager.GetActiveScene().path != Scene)
+            string scene = StageOf(options) == "corridor" ? Scene : MenuScene;
+            if (EditorSceneManager.GetActiveScene().path != scene)
             {
                 if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return "the open scene has unsaved changes: save or discard them first";
-                EditorSceneManager.OpenScene(Scene);
+                EditorSceneManager.OpenScene(scene);
             }
             SessionState.SetString(Request, options ?? "");
             EditorApplication.EnterPlaymode();
@@ -102,6 +154,14 @@ namespace TW.Editor
 
         static void StartRunner(string options)
         {
+            if (StageOf(options) == "beach")
+            {
+                // the beach run loads its mission, so it lives on its own object that survives the scene load
+                var go = new GameObject("RangeRun");
+                Object.DontDestroyOnLoad(go);
+                go.AddComponent<RangeRun>().Options = options ?? "";
+                return;
+            }
             var host = Object.FindFirstObjectByType<SimHost>();
             if (host == null) { Debug.LogError("Range: no SimHost in the open scene"); if (Gym.Opt(options, "quit") == "1") EditorApplication.Exit(1); return; }
             var run = host.gameObject.GetComponent<RangeRun>();
@@ -198,6 +258,17 @@ namespace TW.Editor
         /// <summary>The field's wetness on the Range (the plate's matte mud); negative keeps the biome's own.</summary>
         public const float DefaultWet = 0.3f;
 
+        // the stage: "beach" (the plate's own shot, the default) or "corridor" (the first Range)
+        string stage = "beach";
+        bool Beach => stage == "beach";
+        float closeUp = 1f;              // SceneHooks.CloseUp while filming (the beach: what the footage's free camera set)
+        float poseFov = RangeStage.Fov;
+        bool poseCustom; Matrix4x4 poseProj;
+        int superSample = 1;             // frames drawn at this many times the size and box-averaged down (the beach: 2)
+        bool clockRun; float clockOffset; // the wind clock (Atmosphere.PinnedClock) held to the footage's
+        int pendingFps;                  // the frame rate to switch to once frame 0 is drawn
+        Vector3 heroFoot; int hero = -1;
+
         // the close film, driven from Update (the effect's tick) and LateUpdate (the render) so frame k is drawn at
         // exactly k/24 s on the shot clock
         bool filming, begun; int frame;
@@ -211,10 +282,11 @@ namespace TW.Editor
         void Update()
         {
             if (!finished && Time.realtimeSinceStartup > deadline) { Debug.LogError("Range: the run passed its wall-clock limit; stopping"); Finish(1); return; }
+            if (clockRun) TW.Presentation.Terrain.Atmosphere.PinnedClock = Time.time + clockOffset;
             if (filming)
             {
                 HoldPose();
-                SceneHooks.CloseUp = 1f; Shader.SetGlobalFloat("_TWClose", 1f);
+                SceneHooks.CloseUp = closeUp; Shader.SetGlobalFloat("_TWClose", closeUp);
                 if (!begun)
                 {
                     begun = true;
@@ -248,6 +320,7 @@ namespace TW.Editor
             string path = Path.Combine(outDir, "frames", "f_" + frame.ToString("0000", Inv) + ".png");
             Render(path);
             closeWritten++;
+            if (pendingFps > 0) { Time.captureFramerate = pendingFps; pendingFps = 0; }   // the beach: replayed at 30, filmed at 24
             if (perFrame.Length > 0) perFrame.Append(",\n");
             perFrame.Append("    {\"f\": ").Append(frame).Append(", \"t\": ").Append(RangeStage.Inv(CelRange.Now))
                 .Append(", \"draws\": ").Append(FrameBudget.DrawCalls).Append(", \"verts\": ").Append(FrameBudget.Vertices)
@@ -265,7 +338,7 @@ namespace TW.Editor
             if (!poseSet) return;
             if (tc != null && tc.enabled) tc.enabled = false;
             var t = cam.transform;
-            if (!poseWarned && ((t.position - posePos).sqrMagnitude > 1e-6f || Quaternion.Angle(t.rotation, poseRot) > 0.01f || Mathf.Abs(cam.fieldOfView - RangeStage.Fov) > 0.01f))
+            if (!poseWarned && ((t.position - posePos).sqrMagnitude > 1e-6f || Quaternion.Angle(t.rotation, poseRot) > 0.01f || Mathf.Abs(cam.fieldOfView - poseFov) > 0.01f))
             {
                 poseWarned = true;
                 var who = new StringBuilder();
@@ -274,6 +347,7 @@ namespace TW.Editor
                     + ", tc " + (tc != null ? tc.enabled + " zoom " + tc.Zoom : "none") + ", main is ours " + (Camera.main == cam) + ", on it: " + who + "); held at the Range pose");
             }
             t.SetPositionAndRotation(posePos, poseRot);
+            if (poseCustom) { cam.fieldOfView = poseFov; cam.projectionMatrix = poseProj; return; }   // the beach: the footage never set the zoom
             cam.fieldOfView = RangeStage.Fov; cam.aspect = RangeStage.W / (float)RangeStage.H;
             if (tc != null) tc.Zoom = RangeStage.CloseZoom;
         }
@@ -297,9 +371,23 @@ namespace TW.Editor
             RangeStage.Heading = float.TryParse(Gym.Opt(Options, "heading"), NumberStyles.Float, Inv, out float hd) ? hd : RangeStage.DefaultHeading;
             wet = float.TryParse(Gym.Opt(Options, "wet"), NumberStyles.Float, Inv, out float wt) ? wt : DefaultWet;
             int spotPick = int.TryParse(Gym.Opt(Options, "spot"), out int sp) ? sp : 0;
+            stage = (Gym.Opt(Options, "stage") ?? "beach").ToLowerInvariant();
             if (string.IsNullOrEmpty(outDir)) { Debug.LogError("Range: out=<folder> is required"); Finish(1); yield break; }
+            if (stage != "beach" && stage != "corridor") { Debug.LogError("Range: stage=beach|corridor, not '" + stage + "'"); Finish(1); yield break; }
             if (!CelRange.Has(effect)) { Debug.LogError("Range: no effect '" + effect + "'; known: " + string.Join(", ", CelRange.Ids())); Finish(1); yield break; }
             Directory.CreateDirectory(Path.Combine(outDir, "frames"));
+            bool doClose = lod == "close" || lod == "all", doMid = lod == "mid" || lod == "all", doFar = lod == "far" || lod == "all";
+
+            if (Beach)
+            {
+                superSample = int.TryParse(Gym.Opt(Options, "ss"), out int ssv) ? Mathf.Clamp(ssv, 1, 2) : 2;
+                bool ok = false;
+                yield return BeachRun(peaks, doClose, doMid, doFar, r => ok = r);
+                if (!ok) yield break;
+                WriteRunRecord();
+                Finish(0);
+                yield break;
+            }
 
             Time.captureFramerate = RangeStage.Fps;
             UnityEngine.Random.InitState(seed);
@@ -326,7 +414,6 @@ namespace TW.Editor
             for (int k = 0; spots.Count < 5; k++) { Debug.LogWarning("Range: only " + spots.Count + " spots; the battle stills share one"); spots.Add(found > 1 ? spots[1 + k % (found - 1)] : spots[0]); }
             Debug.Log("Range: effect " + effect + ", lod " + lod + ", spots " + string.Join(" ", spots.ConvertAll(s => s.ToString("0", Inv))));
 
-            bool doClose = lod == "close" || lod == "all", doMid = lod == "mid" || lod == "all", doFar = lod == "far" || lod == "all";
             if (spotPick > 0 && spotPick < spots.Count) { var t = spots[0]; spots[0] = spots[spotPick]; spots[spotPick] = t; }
             if (doClose) yield return Close(spots[0], night);
             if (doMid || doFar)
@@ -334,16 +421,20 @@ namespace TW.Editor
                 if (doClose) for (int f = 0; f < 10 * RangeStage.Fps; f++) yield return null;   // let the close shot's smoke go
                 yield return Lod(spots, peaks, doMid, doFar);
             }
+            WriteRunRecord();
+            Finish(0);
+        }
 
+        void WriteRunRecord()
+        {
             var sb = new StringBuilder("{\n");
             sb.Append("  \"run\": \"").Append(Gym.Esc(runId)).Append("\",\n");
-            sb.Append("  \"effect\": \"").Append(Gym.Esc(effect)).Append("\", \"lod\": \"").Append(lod).Append("\", \"seed\": ").Append(seed).Append(",\n");
+            sb.Append("  \"stage\": \"").Append(stage).Append("\", \"effect\": \"").Append(Gym.Esc(effect)).Append("\", \"lod\": \"").Append(lod).Append("\", \"seed\": ").Append(seed).Append(",\n");
             sb.Append("  \"close_frames\": ").Append(closeWritten).Append(", \"lod_stills\": ").Append(lodWritten).Append(",\n");
             sb.Append("  \"sha\": \"").Append(Gym.ShortSha()).Append("\", \"wall_seconds\": ").Append(RangeStage.Inv(Time.realtimeSinceStartup - wallStart)).Append(",\n");
             sb.Append("  \"ok\": true\n}\n");
             File.WriteAllText(Path.Combine(outDir, "range_run.json"), sb.ToString());
             Debug.Log("Range: done, " + closeWritten + " close frames and " + lodWritten + " lod stills in " + outDir);
-            Finish(0);
         }
 
         /// <summary>No weather, no shake, no lightning, no overlays, a pinned sky: the shot is the effect and nothing else.</summary>
@@ -357,6 +448,245 @@ namespace TW.Editor
             TW.Presentation.Terrain.Storm.Hold = true;
             CameraShake.Strength = 0f; CameraShake.Reset();
             CombatFx.ShowOverlays = false;
+        }
+
+        // ---------------------------------------------------------------------------------------------- the beach shot
+        /// <summary>The plate's own shot (Footage.cs PartBeach + BeachShot "1_side_track" with fx=0 men=0, still 05),
+        /// replayed step for step at the footage's 30 fps, then filmed from that still's exact camera.</summary>
+        IEnumerator BeachRun(List<float> peaks, bool doClose, bool doMid, bool doFar, System.Action<bool> done)
+        {
+            done(false);
+            RangeStage.Heading = RangeStage.BeachHeading;
+            Time.captureFramerate = RangeStage.BeachFps;
+            UnityEngine.Random.InitState(seed);
+            var card = RangeStage.BeachCard();
+            if (card == null) { Debug.LogError("Range: no SHELLED WOOD card in " + RangeStage.Catalog); Finish(1); yield break; }
+            var req = card.ToRequest(card.DefaultDifficulty, card.BattlefieldSeed);
+            Debug.Log("Range: beach: launching mission " + card.Id + " (" + card.Title + "), battlefield seed " + req.BattlefieldSeed + ", ground " + req.Ground + ", difficulty " + req.Difficulty);
+            MatchLaunch.Start(req);
+            yield return null;
+            float until = Time.realtimeSinceStartup + 120f;
+            while (Time.realtimeSinceStartup < until)
+            {
+                host = FindFirstObjectByType<SimHost>();
+                if (host != null && host.Local != null && host.Local.World.Tick > 40 && FindFirstObjectByType<TW.UI.HudController>() != null) break;
+                yield return null;
+            }
+            if (host == null || host.Local == null) { Debug.LogError("Range: the beach match never started"); Finish(1); yield break; }
+            var map = host.Local.Map;
+            Debug.Log("Range: beach: match up, tick " + host.Local.World.Tick + ", shore " + RangeStage.Inv(map.ShoreZ) + ", sand from " + RangeStage.Inv(map.SeaStartZ) + ", map " + map.SizeMeters + ", t " + RangeStage.Inv(Time.time));
+            var director = GymDirector.Attach(host);
+            director.Quiet();
+            yield return null;
+            VfxLab.Rain(0f);
+            float was = host.TimeScale; host.TimeScale = 3f;
+            for (int f = 0; f < 4 * RangeStage.BeachFps; f++) yield return null;
+            host.TimeScale = was;
+            Knobs.Set("look.menClose", "0");
+            CameraShake.Strength = 0f; CameraShake.Reset();
+
+            // BeachShot: the stage cleared, the foes gone, the camera on the still's pose
+            director.Clear(); ClearFoes();
+            for (int i = 0; i < 3 + 4; i++) yield return null;
+            tc = FindFirstObjectByType<TacticalCamera>();
+            cam = Camera.main;
+            if (tc == null || cam == null) { Debug.LogError("Range: no TacticalCamera or Camera.main"); Finish(1); yield break; }
+            tc.enabled = false;
+            closeUp = tc.CloseUpAt(tc.NearZoom);
+            cam.nearClipPlane = 0.2f;
+            posePos = RangeStage.BeachCamPos; poseRot = RangeStage.BeachCamRot; poseFov = RangeStage.BeachFov;
+            poseProj = RangeStage.BeachProjection(cam.nearClipPlane, cam.farClipPlane); poseCustom = true; poseSet = true;
+            cam.transform.SetPositionAndRotation(posePos, poseRot); cam.fieldOfView = poseFov;   // placed before the hold starts watching it
+            Debug.Log("Range: beach: closeUp " + RangeStage.Inv(closeUp) + ", tc zoom " + RangeStage.Inv(tc.Zoom) + ", far " + RangeStage.Inv(cam.farClipPlane));
+            for (int i = 0; i < Mathf.RoundToInt(1.5f * RangeStage.BeachFps); i++) { PoseBeach(); yield return null; }
+
+            // the runner: his footprints are in the plate, and the dummy stands where he is at the still
+            float zs = Mathf.Lerp(map.SeaStartZ, map.ShoreZ, 0.45f);
+            hero = Runner(director, new Vector2(20f, zs), new Vector2(map.SizeMeters.x - 8f, zs), 3.2f);
+            if (hero < 0) { Debug.LogError("Range: no runner"); Finish(1); yield break; }
+            int runFrames = Mathf.RoundToInt(1.3f * RangeStage.BeachFps);
+            for (int i = 0; i < runFrames; i++) { if (i % 5 == 0) ClearFoes(); PoseBeach(); yield return null; }
+            ClearProps(RangeStage.BeachClearAt, 7f, 3f, RangeStage.BeachClearFrom);
+
+            // the footage's stills 00..05, four frames each; still 05 is film frame 0
+            for (int s = 0; s <= 5; s++)
+            {
+                ClearFoes();
+                // the wind clock: at this still's frame (3 frames on) it reads what the footage's did
+                clockOffset = RangeStage.BeachClock0 + s * 4f / RangeStage.BeachFps - (Time.time + 3f / RangeStage.BeachFps); clockRun = true;
+                if (s == 3)
+                {
+                    var hp = host.Local.World.Position[hero];
+                    Debug.Log("Range: beach: runner at " + RangeStage.Inv(hp.x) + ", " + RangeStage.Inv(hp.z) + " at still 03 (the footage: 25.7296, 248.957)");
+                    int sl = hero;
+                    host.WriteWorlds(m => { if (m.World.IsAlive(sl)) m.World.Despawn(sl); });
+                }
+                if (s == 4) PlaceBeachDummy(map);
+                if (s == 4) grab = true;   // the drawn box, at still 04's frame (the runner gone, the dummy in)
+                for (int i = 0; i < 3; i++)
+                {
+                    PoseBeach();
+                    if (s == 5 && i == 2) { StartFilm(); }   // frame 0 is drawn on the next frame: the still's
+                    yield return null;
+                }
+                if (s < 5) { PoseBeach(); yield return null; }
+            }
+            var without = grabbed; var with = grabbedWith;
+            var drawn = without != null && with != null ? DrawnBox(without, with) : new Vector4(-1, -1, -1, -1);
+            if (without != null) Object.Destroy(without); if (with != null) Object.Destroy(with);
+            WriteDummy(drawn);
+            if (doClose)
+            {
+                int n = 0;
+                while (filming) { if (n++ % 4 == 0) ClearFoes(); yield return null; }
+                File.WriteAllText(Path.Combine(outDir, "close.json"), "{\n  \"stage\": \"beach\", \"effect\": \"" + Gym.Esc(effect) + "\", \"fps\": " + RangeStage.Fps + ", \"t0\": " + RangeStage.Inv(t0)
+                    + ", \"zoom\": " + RangeStage.Inv(RangeStage.CloseZoom) + ",\n  \"frames\": [\n" + perFrame + "\n  ]\n}\n");
+            }
+            else { filming = false; Time.captureFramerate = RangeStage.Fps; pendingFps = 0; }
+            CelRange.Clear();
+            ReleaseFlare();
+            if (dummy != null) { Object.Destroy(dummy); dummy = null; }
+            poseSet = false; poseCustom = false; clockRun = false;
+            TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
+            cam.ResetProjectionMatrix(); cam.ResetAspect();
+            tc.enabled = true;
+            superSample = 1;   // the battle stills are CaptureRig's
+
+            if (doMid || doFar)
+            {
+                var spots = Spots(RangeStage.BeachHero, 5, 14f);   // near the dummy: the sand strip is narrow, 32 m apart sends them 100 m off
+                if (spots.Count == 0) { Debug.LogError("Range: no open ground near the dummy for the battle stills"); Finish(1); yield break; }
+                int found = spots.Count;
+                for (int k = 0; spots.Count < 5; k++) spots.Add(found > 1 ? spots[1 + k % (found - 1)] : spots[0]);
+                // Lod takes O240 = [1], O120 = [2], T1 = [3], the T1 series = [4]: T1 on the dummy's own spot (its smoke has had
+                // the 10 s below and the far bands' time), the series on the next nearest; the far bands see the whole strip
+                spots[3] = spots[0]; spots[4] = spots[1];
+                Debug.Log("Range: beach battle stills at " + string.Join(" ", spots.ConvertAll(q => q.ToString("0", Inv))));
+                if (doClose) for (int f = 0; f < 10 * RangeStage.Fps; f++) yield return null;   // let the close shot's smoke go
+                yield return Lod(spots, peaks, doMid, doFar);
+            }
+            done(true);
+        }
+
+        void PoseBeach() { HoldPose(); SceneHooks.CloseUp = closeUp; Shader.SetGlobalFloat("_TWClose", closeUp); }
+
+        /// <summary>Begin the close film so that its frame 0 is drawn on the next frame: the places, the shot clock (in
+        /// that frame's Update) and the switch to 24 fps after frame 0. The night's star shell is held off for the film:
+        /// the plate has none, and one bursting mid-shot would light the whole field.</summary>
+        void StartFilm()
+        {
+            HoldFlare();
+            frame = 0; begun = false; filming = true; pendingFps = RangeStage.Fps;
+        }
+
+        FieldInfo flareField; TW.Presentation.Terrain.NightLights flareOwner; float flareWas;
+
+        void HoldFlare()
+        {
+            flareOwner = FindFirstObjectByType<TW.Presentation.Terrain.NightLights>();
+            flareField = typeof(TW.Presentation.Terrain.NightLights).GetField("nextFlare", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (flareOwner == null || flareField == null) { Debug.LogWarning("Range: could not hold the star shell off (no NightLights.nextFlare)"); return; }
+            flareWas = (float)flareField.GetValue(flareOwner);
+            flareField.SetValue(flareOwner, float.MaxValue);
+            Debug.Log("Range: beach: star shell held off for the film (it was due at t " + RangeStage.Inv(flareWas) + ", now " + RangeStage.Inv(Time.time) + ")");
+        }
+
+        void ReleaseFlare()
+        {
+            if (flareOwner != null && flareField != null) flareField.SetValue(flareOwner, Mathf.Max(flareWas, Time.time + 6f));
+            flareOwner = null;
+        }
+
+        /// <summary>The dummy on the runner's spot, turned like the plate's (facing the camera, 28 degrees round so its side
+        /// shows), then moved a little on the ground and scaled until its projected box is the plate's dummy box.</summary>
+        void PlaceBeachDummy(MapData map)
+        {
+            var hp = host.Local.World.Position[hero];
+            heroFoot = new Vector3(RangeStage.BeachHero.x, RenderGround.Sample(map, RangeStage.BeachHero.x, RangeStage.BeachHero.y), RangeStage.BeachHero.y);
+            dummy = gameObject.AddComponent<TargetDummy>();
+            dummy.Layer = RangeStage.DummyLayer;
+            cam.cullingMask |= 1 << RangeStage.DummyLayer;
+            HoldPose();
+            float yaw = RangeStage.BeachHeading + 180f + 28f;
+            if (float.TryParse(Gym.Opt(Options, "dummyyaw"), NumberStyles.Float, Inv, out float dy)) yaw = dy;
+            var foot = heroFoot; float scale = 1f, width = 1f;
+            dummy.Depth = float.TryParse(Gym.Opt(Options, "dummydepth"), NumberStyles.Float, Inv, out float dd) ? dd : 2f;   // the plate's board is a thick slab
+            // 0.4 of the corridor's warm self-light: the board then reads the plate dummy's mean colour (65, 61, 58 RGB)
+            dummy.SetEmission(new Color(0.13f, 0.09f, 0.05f) * (float.TryParse(Gym.Opt(Options, "dummyglow"), NumberStyles.Float, Inv, out float dg) ? dg : 0.4f));
+            var plate = RangeStage.PlateBox;
+            float wantCx = (plate.x + plate.z) * 0.5f, wantBottom = plate.w, wantH = plate.w - plate.y, wantW = plate.z - plate.x;
+            var pts = new List<Vector3>();
+            bool fit = Gym.Opt(Options, "dummyfit") != "0";
+            for (int it = 0; it < (fit ? 40 : 1); it++)
+            {
+                dummy.Place(foot, yaw); dummy.Scale = scale; dummy.Width = width;
+                dummy.WorldPoints(pts);
+                var box = Project(pts);
+                float cx = (box.x + box.z) * 0.5f, h = box.w - box.y, bw = box.z - box.x;
+                if (!fit) break;
+                scale *= wantH / Mathf.Max(1f, h);
+                width = Mathf.Clamp(width * wantW / Mathf.Max(1f, bw * wantH / Mathf.Max(1f, h)), 0.5f, 2.5f);
+                var fs = ToScreen(foot);
+                var r = cam.ViewportPointToRay(Viewport(fs + new Vector2(wantCx - cx, wantBottom - box.w)));
+                if (Mathf.Abs(r.direction.y) < 1e-4f) break;
+                var q = r.origin + r.direction * ((foot.y - r.origin.y) / r.direction.y);
+                foot = new Vector3(q.x, RenderGround.Sample(map, q.x, q.z), q.z);
+            }
+            dummy.Place(foot, yaw); dummy.Scale = scale; dummy.Width = width;
+            ground = foot; target = dummy.Chest;
+            muzzle = OnPlane(RangeStage.MuzzleScreen, foot.y + 1.3f);
+            var hr = cam.ViewportPointToRay(Viewport(RangeStage.MuzzleHighScreen));
+            float depth = Vector3.Dot(target - cam.transform.position, cam.transform.forward);
+            muzzleHigh = hr.origin + hr.direction * (depth / Mathf.Max(0.05f, Vector3.Dot(hr.direction, cam.transform.forward)));
+            Debug.Log("Range: beach: dummy foot " + RangeStage.V3(foot) + " (" + RangeStage.Inv(Vector2.Distance(new Vector2(foot.x, foot.z), RangeStage.BeachHero)) + " m from the runner's spot "
+                + RangeStage.V3(heroFoot) + ", runner now " + RangeStage.Inv(hp.x) + ", " + RangeStage.Inv(hp.z) + "), scale " + RangeStage.Inv(scale) + ", width " + RangeStage.Inv(width) + ", depth " + RangeStage.Inv(dummy.Depth) + ", yaw " + RangeStage.Inv(yaw));
+        }
+
+        void ClearFoes()
+        {
+            host.WriteWorlds(m =>
+            {
+                var w = m.World;
+                for (int i = 0; i < w.HighWater; i++)
+                    if ((w.Flags[i] & (uint)TW.Sim.UnitFlags.Alive) != 0 && w.Team[i] == 1) w.Despawn(i);
+            });
+        }
+
+        /// <summary>The footage's runner: a frog rifleman that cannot die, sent along the sand at `speed`.</summary>
+        int Runner(GymDirector dir, Vector2 at, Vector2 to, float speed)
+        {
+            var d = to - at; float yaw = Mathf.Atan2(d.x, d.y) * Mathf.Rad2Deg;
+            int sl = dir.Spawn(0, TW.Sim.InfantryArchetype.Frog, at.x, at.y, yaw);
+            if (sl < 0) return -1;
+            host.WriteWorlds(m =>
+            {
+                var w = m.World; w.Hp[sl] = 1e6f; w.MaxHp[sl] = 1e6f; w.Speed[sl] = speed;
+                var c = m.Map.NavCellOf(new float3(to.x, 0f, to.y));
+                w.GoalId[sl] = m.Fields.GetGoal(TW.Sim.Nav.GoalKey.Cell(m.Map.NavIndex(c.x, c.y), TW.Sim.Nav.NavMode.Infantry));
+            });
+            return sl;
+        }
+
+        /// <summary>The footage's prop clearing: every kit prop (wrecks, stakes, trees) out of the draw within `radius` of
+        /// `focus` and within `corridor` of the line from the camera (`from`) to it.</summary>
+        void ClearProps(Vector2 focus, float radius, float corridor, Vector2 from)
+        {
+            var bp = FindFirstObjectByType<TW.Presentation.Terrain.BattlefieldProps>();
+            if (bp == null) { Debug.LogWarning("Range: no BattlefieldProps to clear"); return; }
+            var fi = typeof(TW.Presentation.Terrain.BattlefieldProps).GetField("batches", BindingFlags.NonPublic | BindingFlags.Instance);
+            var dict = fi != null ? fi.GetValue(bp) as System.Collections.IDictionary : null;
+            if (dict == null) { Debug.LogWarning("Range: ClearProps: no batches"); return; }
+            var mods = new List<TW.Presentation.Terrain.BattlefieldKit.Module>();
+            foreach (var k in dict.Keys) if (k is TW.Presentation.Terrain.BattlefieldKit.Module mm) mods.Add(mm);
+            var found = new List<(int page, int slot, Matrix4x4 m)>(); int hidden = 0;
+            foreach (var mm in mods)
+                for (int i = 0; i <= 10; i++)
+                {
+                    found.Clear(); bp.Within(mm, Vector2.Lerp(from, focus, i / 10f), i == 10 ? radius : corridor, found);
+                    foreach (var f in found) { bp.Hide(mm, f.page, f.slot); hidden++; }
+                    if (i == 10) { found.Clear(); bp.Within(mm, focus, radius, found); foreach (var f in found) { bp.Hide(mm, f.page, f.slot); hidden++; } }
+                }
+            Debug.Log("Range: beach: props hidden " + hidden + " (the footage: 25)");
         }
 
         // ----------------------------------------------------------------------------------------------- the close film
@@ -489,6 +819,20 @@ namespace TW.Editor
             sb.Append("  \"w\": ").Append(RangeStage.W).Append(", \"h\": ").Append(RangeStage.H).Append(",\n");
             sb.Append("  \"world\": {\"target\": ").Append(RangeStage.V3(target)).Append(", \"ground\": ").Append(RangeStage.V3(ground))
                 .Append(", \"muzzle\": ").Append(RangeStage.V3(muzzle)).Append(", \"muzzle_high\": ").Append(RangeStage.V3(muzzleHigh)).Append("},\n");
+            if (Beach)
+            {
+                var e = cam.transform.rotation.eulerAngles; var q = cam.transform.rotation;
+                sb.Append("  \"stage\": \"beach\",\n");
+                sb.Append("  \"dummy\": {\"foot\": ").Append(RangeStage.V3(dummy.Foot)).Append(", \"scale\": ").Append(RangeStage.Inv(dummy.Scale)).Append(", \"width\": ").Append(RangeStage.Inv(dummy.Width)).Append(", \"depth\": ").Append(RangeStage.Inv(dummy.Depth)).Append(", \"yaw\": ").Append(RangeStage.Inv(dummy.Yaw))
+                    .Append(", \"runner_spot\": ").Append(RangeStage.V3(heroFoot)).Append(", \"from_runner_m\": ").Append(RangeStage.Inv(Vector2.Distance(new Vector2(dummy.Foot.x, dummy.Foot.z), RangeStage.BeachHero))).Append("},\n");
+                sb.Append("  \"camera\": {\"pos\": ").Append(RangeStage.V3(cam.transform.position)).Append(", \"rot\": [").Append(RangeStage.Inv(q.x)).Append(", ").Append(RangeStage.Inv(q.y)).Append(", ")
+                    .Append(RangeStage.Inv(q.z)).Append(", ").Append(RangeStage.Inv(q.w)).Append("], \"euler\": ").Append(RangeStage.V3(e))
+                    .Append(", \"fov\": ").Append(RangeStage.Inv(RangeStage.BeachFov)).Append(", \"source\": [2560, 1440], \"near\": ").Append(RangeStage.Inv(cam.nearClipPlane))
+                    .Append(", \"plate_to_source_px\": [").Append(string.Join(", ", System.Array.ConvertAll(RangeStage.PlateToGame, v => v.ToString("R", Inv)))).Append("]")
+                    .Append(", \"supersample\": ").Append(superSample).Append(", \"close_up\": ").Append(RangeStage.Inv(closeUp))
+                    .Append(", \"distance\": ").Append(RangeStage.Inv(Vector3.Distance(cam.transform.position, target))).Append("}\n}\n");
+            }
+            else
             sb.Append("  \"camera\": {\"pos\": ").Append(RangeStage.V3(cam.transform.position)).Append(", \"pitch\": ").Append(RangeStage.Inv(RangeStage.Pitch))
                 .Append(", \"heading\": ").Append(RangeStage.Inv(RangeStage.Heading)).Append(", \"fov\": ").Append(RangeStage.Inv(RangeStage.Fov))
                 .Append(", \"distance\": ").Append(RangeStage.Inv(Vector3.Distance(cam.transform.position, target))).Append("}\n}\n");
@@ -497,12 +841,8 @@ namespace TW.Editor
 
         Texture2D RenderTex()
         {
-            var rt = RenderTexture.GetTemporary(RangeStage.W, RangeStage.H, 24, RenderTextureFormat.ARGB32);
-            cam.targetTexture = rt; cam.Render(); cam.targetTexture = null;
-            var was = RenderTexture.active; RenderTexture.active = rt;
             var t = new Texture2D(RangeStage.W, RangeStage.H, TextureFormat.RGB24, false);
-            t.ReadPixels(new Rect(0, 0, RangeStage.W, RangeStage.H), 0, 0); t.Apply(false);
-            RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
+            Draw(t);
             return t;
         }
 
@@ -510,15 +850,47 @@ namespace TW.Editor
         {
             try
             {
-                var rt = RenderTexture.GetTemporary(RangeStage.W, RangeStage.H, 24, RenderTextureFormat.ARGB32);
-                cam.targetTexture = rt; cam.Render(); cam.targetTexture = null;
-                var was = RenderTexture.active; RenderTexture.active = rt;
                 if (tex == null) tex = new Texture2D(RangeStage.W, RangeStage.H, TextureFormat.RGB24, false);
-                tex.ReadPixels(new Rect(0, 0, RangeStage.W, RangeStage.H), 0, 0); tex.Apply(false);
-                RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
+                Draw(tex);
                 File.WriteAllBytes(path, tex.EncodeToPNG());
             }
             catch (System.Exception ex) { Debug.LogError("Range: frame " + path + " failed: " + ex); }
+        }
+
+        Texture2D big;
+
+        /// <summary>The camera into a 1344x768 RGB24 texture. With superSample 2 it draws at 2688x1536 and averages each
+        /// 2x2 block on the stored (sRGB) values, the way the plate was halved from the edit's 2752x1536 (cv2 INTER_AREA).</summary>
+        void Draw(Texture2D into)
+        {
+            int ss = superSample, w = RangeStage.W * ss, h = RangeStage.H * ss;
+            var rt = RenderTexture.GetTemporary(w, h, 24, RenderTextureFormat.ARGB32);
+            cam.targetTexture = rt; cam.Render(); cam.targetTexture = null;
+            if (poseCustom) cam.projectionMatrix = poseProj;
+            var was = RenderTexture.active; RenderTexture.active = rt;
+            if (ss == 1)
+            {
+                into.ReadPixels(new Rect(0, 0, w, h), 0, 0); into.Apply(false);
+                RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
+                return;
+            }
+            if (big == null || big.width != w || big.height != h) { if (big != null) Destroy(big); big = new Texture2D(w, h, TextureFormat.RGB24, false); }
+            big.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+            RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
+            var src = big.GetRawTextureData<byte>();
+            var dst = into.GetRawTextureData<byte>();
+            int sw = w * 3, dw = RangeStage.W * 3;
+            for (int y = 0; y < RangeStage.H; y++)
+            {
+                int r0 = 2 * y * sw, r1 = r0 + sw, o = y * dw;
+                for (int x = 0; x < dw; x += 3)
+                {
+                    int s0 = r0 + 2 * x, s1 = r1 + 2 * x;
+                    for (int c = 0; c < 3; c++)
+                        dst[o + x + c] = (byte)((src[s0 + c] + src[s0 + 3 + c] + src[s1 + c] + src[s1 + 3 + c] + 2) >> 2);
+                }
+            }
+            into.Apply(false);
         }
 
         // ------------------------------------------------------------------------------------------------- mid and far
@@ -614,7 +986,7 @@ namespace TW.Editor
         /// <summary>`count` spots of open ground, 32 m apart, nearest the gym's stage first: no trench, wire, bunker or
         /// blocked cell, prop or cover near, and nobody alive near. The field is cluttered, so the first pass asks for 12 m
         /// clear and nobody within 30 m, and each later pass asks less of the spots still missing.</summary>
-        List<Vector2> Spots(Vector2 near, int count)
+        List<Vector2> Spots(Vector2 near, int count, float apart = 32f)
         {
             var map = host.Local.Map;
             var w = host.Local.World;
@@ -630,7 +1002,7 @@ namespace TW.Editor
                 {
                     if (used.Count >= count) return used;
                     bool clear = true;
-                    foreach (var u in used) if ((u - c).sqrMagnitude < 32f * 32f) { clear = false; break; }
+                    foreach (var u in used) if ((u - c).sqrMagnitude < apart * apart) { clear = false; break; }
                     if (!clear || !Open(map, c.x, c.y, r)) continue;
                     // the close camera stands about 11 m back along the heading: open ground there too
                     var cb = c + back * 11f;
@@ -679,7 +1051,10 @@ namespace TW.Editor
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
             TW.Presentation.Terrain.Storm.Hold = false;
             CaptureRig.Rig.YawPin = float.NaN;
+            clockRun = false; ReleaseFlare();
+            if (poseCustom && cam != null) { cam.ResetProjectionMatrix(); poseCustom = false; }
             if (tex != null) Destroy(tex);
+            if (big != null) Destroy(big);
             if (!quit) return;
             EditorApplication.ExitPlaymode();
             EditorApplication.delayCall += () => EditorApplication.Exit(code);
