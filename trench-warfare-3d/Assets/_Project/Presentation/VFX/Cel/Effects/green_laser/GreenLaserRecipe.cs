@@ -56,7 +56,7 @@ namespace TW.Presentation.VFX.Cel
             CelPalette.Add("gl_smoke", CelPalette.Hex(0x5A9248), CelPalette.Hex(0x78B45C), CelPalette.Hex(0x98D076), CelPalette.Hex(0xB6E68C), CelPalette.Hex(0xB6E68C), 1.1f, 3, CelPalette.Hex(0x0E160A));
             CelPalette.Add("gl_smoke_tan", CelPalette.Hex(0x6E6550), CelPalette.Hex(0x8A7F62), CelPalette.Hex(0xA3977A), CelPalette.Hex(0xBDB094), CelPalette.Hex(0xC8BC9E), 1.1f, 3, CelPalette.Hex(0x16130E));
             CelPalette.Add("gl_wisp", CelPalette.Hex(0xBEDD96), CelPalette.Hex(0xCDE8A6), CelPalette.Hex(0xD7F39C), CelPalette.Hex(0xE4F6BA), CelPalette.Hex(0xF0FFD0), 0.98f, 4, CelPalette.Hex(0x0A1A06));
-            CelPalette.Add("gl_burst", CelPalette.Hex(0x3F8A2A), CelPalette.Hex(0x6CC24A), CelPalette.Hex(0x9FE07A), CelPalette.Hex(0xB8EE98), CelPalette.Hex(0xE2FFD0), 0.93f, 3, CelPalette.Hex(0x0A1A06));
+            CelPalette.Add("gl_burst", CelPalette.Hex(0x3A8A26), CelPalette.Hex(0x5CBE3C), CelPalette.Hex(0x86DA5E), CelPalette.Hex(0xA8EA82), CelPalette.Hex(0xC8F6A8), 0.96f, 3, CelPalette.Hex(0x0A1A06));
             CelPalette.Add("gl_smoke_grey", CelPalette.Hex(0x6A6E58), CelPalette.Hex(0x80866A), CelPalette.Hex(0x989E7E), CelPalette.Hex(0xB0B692), CelPalette.Hex(0xB0B692), 1.1f, 3, CelPalette.Hex(0x0E140A));
             CelPalette.Add("gl_dirt", CelPalette.Hex(0x0E0E0A), CelPalette.Hex(0x16150F), CelPalette.Hex(0x201E16), CelPalette.Hex(0x2C291E), CelPalette.Hex(0x2C291E), 1.1f, 3, CelPalette.Hex(0x040403));
                     }
@@ -236,14 +236,14 @@ namespace TW.Presentation.VFX.Cel
                 {
                     Name = "burst splat " + i, Kind = BoltKind, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.35f * s, 0f), Start = g, Duration = 0.08f, Life = 0.22f, LifeJitter = 0.2f,
                     Close = 2, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.15f, 0f, 0f), Size = new CelCurve(0.55f * s, 0.85f * s, 0.4f), SizeJitter = 0.25f,
-                    Palette = "gl_burst", Core = 1.1f, Opacity = 1f, Extra = new Vector4(7f, 0.1f, 0.45f, 0f),
+                    Palette = "gl_burst", Core = 0.7f, Opacity = 1f, Extra = new Vector4(7f, 0.1f, 0.45f, 0f),
                 });
                 // a white-hot flash at the burst's heart (the reference's bright ground starburst core)
                 l.Add(new CelLayer
                 {
                     Name = "burst flash " + i, Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.25f * s, 0f), Start = g, Life = 0.16f, LifeJitter = 0.1f,
                     Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.8f * s, 1.0f * s, 0.4f), SizeJitter = 0.1f,
-                    Palette = "gl_burst", Core = 1.6f, Opacity = 0.85f, Extra = new Vector4(2f, 3.0f, 0f, 0f),
+                    Palette = "gl_burst", Core = 0.9f, Opacity = 0.85f, Extra = new Vector4(2f, 3.0f, 0f, 0f),
                 });
                 l.Add(Wash("burst wash " + i, CelAnchor.Target, g, 0f, 1, 1, 0, 0.3f, 1.5f * s, 1.7f * s, 1.0f, new Vector4(1f, 0.05f, 0.4f, 2.4f)));
                 // a dark scorch splat left on the dirt where a big burst lands (the reference's black craters), gone by ~f130
