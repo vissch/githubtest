@@ -206,9 +206,9 @@ namespace TW.Presentation.VFX.Cel
                 r.Layers.Add(new CelLayer
                 {
                     Name = "ground fire", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit + 0.12f, Duration = 0.75f, Life = 0.6f, LifeJitter = 0.3f,
-                    Close = 16, Mid = 14, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.2f, 0f, 0f), Aim = CelAim.Up, Spread = 22f, SpeedJitter = 0.35f, Buoyancy = 1.8f,
-                    Speed = 1.6f, Size = new CelCurve(0.75f, 0.2f, 0.7f),   // d21: compact crater fire of long-lived flame tongues (16-20 f each), Mid near Close (LOD trap)   // c03: low round flames ~0.5 dummy tall (c01: 3.7 m/s carrots in a column)   // c01: as tall as the torso (b05: 0.65 m, speed 3.0)   // b04: about the torso tall (b03: under half)
-                    SizeJitter = 0.3f, Stretch = 0.3f, Erode = new CelCurve(0.1f, 0.6f), Palette = "fire", Core = 1.7f, Ink = 2f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
+                    Close = 12, Mid = 10, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Up, Spread = 50f, SpeedJitter = 0.35f, Buoyancy = 0.6f,
+                    Speed = 0.8f, Size = new CelCurve(0.95f, 0.3f, 0.7f),   // d22: low wide dome-then-shreds (ref f87-f101 zoom), not tall tongues   // d21: compact crater fire of long-lived flame tongues (16-20 f each), Mid near Close (LOD trap)   // c03: low round flames ~0.5 dummy tall (c01: 3.7 m/s carrots in a column)   // c01: as tall as the torso (b05: 0.65 m, speed 3.0)   // b04: about the torso tall (b03: under half)
+                    SizeJitter = 0.3f, Stretch = 0.1f, Erode = new CelCurve(0.1f, 0.6f), Palette = "fire", Core = 1.7f, Ink = 2f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
                 });
                 r.Layers.Add(new CelLayer
                 {
