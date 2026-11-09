@@ -91,12 +91,13 @@ namespace TW.Presentation.VFX.Cel
             Hits = new CelFxRecipe[Launch.Length];
             Smokes = new CelFxRecipe[Launch.Length];
             SmokesMid = new CelFxRecipe[Launch.Length];
+            int gfires = 0;
             for (int i = 0; i < Launch.Length; i++)
             {
                 bool pre = i < AlongAt.Length;
                 Flights[i] = pre ? FlightOf[i] * (1f - AlongAt[i]) : FlightOf[i];
                 Comets[i] = MakeComet(Launch[i], Flights[i], pre);
-                Hits[i] = MakeHit(Launch[i] + Flights[i], OnGround[i]);
+                Hits[i] = MakeHit(Launch[i] + Flights[i], OnGround[i], OnGround[i] && Launch[i] + Flights[i] > 1.15f && (gfires++ & 1) == 0);
                 Smokes[i] = MakeSmoke(Launch[i] + Flights[i], i);   // played on ground hits only (the film: the lobe chain)
                 SmokesMid[i] = MakeSmoke(Launch[i] + Flights[i], -1);   // c01: T1 plays the b05 strand (no Lobe draw added at T1)
             }
@@ -151,7 +152,7 @@ namespace TW.Presentation.VFX.Cel
                 });
         }
 
-        static CelFxRecipe MakeHit(float hit, bool ground)
+        static CelFxRecipe MakeHit(float hit, bool ground, bool bigFire = true)
         {
             // b02: no glowing disc on the dummy (the critic read it as a flat white plate): a dummy hit is a starburst of
             // 24 thin bright spark streaks (6-10 frames) and a few flame tongues; a ground hit keeps a small short flash
@@ -203,7 +204,7 @@ namespace TW.Presentation.VFX.Cel
                     SizeJitter = 0.3f, Stretch = 0.12f,   // c03: round flicker flames on the ground (c01 shot carrots up into the air)   // b04: narrower fan, taller (about the torso)
                     Erode = new CelCurve(0.05f, 0.55f), Palette = "fire", Core = 1.7f, Ink = 2f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
                 });
-                r.Layers.Add(new CelLayer
+                if (bigFire) r.Layers.Add(new CelLayer   // d23: the lasting fire body on every other ground hit after ~f40 only (ref: 1-2 fires at once)
                 {
                     Name = "ground fire", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit + 0.12f, Duration = 0.75f, Life = 0.6f, LifeJitter = 0.3f,
                     Close = 12, Mid = 10, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Up, Spread = 50f, SpeedJitter = 0.35f, Buoyancy = 0.6f,
