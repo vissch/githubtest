@@ -89,7 +89,7 @@ namespace TW.Presentation.VFX.Cel
             l.Add(InFlight("darts in flight a", 6.0f, 0.13f, 0.15f));
             l.Add(InFlight("darts in flight b", 2.6f, 0.22f, 0.15f));
             for (int i = 0; i < Hits.Length; i++)
-                l.Add(Darts("darts " + i, Hits[i] - TravelOf(i) * (1f - Enter), TravelOf(i), 3, 1, (i & 1) == 0 ? 1 : 0, 0.15f));
+                l.Add(Darts("darts " + i, Hits[i] - TravelOf(i) * (1f - Enter), TravelOf(i), i == Hits.Length - 1 ? 2 : 3, 1, (i & 1) == 0 ? 1 : 0, 0.15f));   // d18: last volley 2 darts (d16 ran ~7 f past the ref, d17 1 dart stopped ~4 f early)
             return l.ToArray();
         }
 
@@ -98,7 +98,7 @@ namespace TW.Presentation.VFX.Cel
             var l = new List<CelLayer>();
             l.Add(InFlight("darts lane 2 in flight", 4.2f, 0.2f, 0.14f));
             for (int i = 0; i < Hits.Length; i++)
-                l.Add(Darts("darts lane 2 " + i, Hits[i] - TravelOf(i) * (1f - Enter) + Gap * 0.5f, TravelOf(i), i == 2 || i == 6 ? 2 : 3, (i & 1) == 1 ? 1 : 0, 0, 0.14f));
+                l.Add(Darts("darts lane 2 " + i, Hits[i] - TravelOf(i) * (1f - Enter) + Gap * 0.5f, TravelOf(i), i == Hits.Length - 1 ? 1 : (i == 2 || i == 6 ? 2 : 3), (i & 1) == 1 ? 1 : 0, 0, 0.14f));
             return l.ToArray();
         }
 
