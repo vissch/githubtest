@@ -15,6 +15,10 @@
 // and narrow), dark ink and dark chunks through the fire, a brown ground wash over the near field, flat-footed side
 // domes each throwing 30+ big dark chunks, grey puffs and a spark fan, wider spark dots, embers kept to ~f155.
 // b01: the Hold's late wrap is a low wide row behind the dummy (was a tall block).
+// b02: the blast builds to its peak at ~2.7 s (ref f86): a smaller first flash, a small fireball that hands over to a
+// big one from 1.4 s with a pale white-yellow core in front of orange lobes, grey-tan wrap from 1.55 s (ref f59), ~30
+// jagged white arcs alive at once, a wider ground fan, small angular chunks thrown low, heavier ink, smoke held round
+// to its end and more embers low over the field.
 // b01: the beach stage (camera 19 m out at fov 32, dummy x1.31): every size, offset, speed and gravity rescaled to
 // keep the old screen size (Hold x1.5, Site x1.25, SiteFar x0.75, Cloud x1.35, Fan x1.5); a smaller fainter star over
 // deeper orange lobes with dark ink; thicker tracers; site chunks thrown low; low wide clouds with dark ink and specks.
@@ -48,11 +52,13 @@ namespace TW.Presentation.VFX.Cel
             // r05: the same lobes with a dark brown ink (the ref's cel outlines read dark over the fire)
             CelPalette.Add("exp_ball_ink", CelPalette.Hex(0xC27444), CelPalette.Hex(0xDA8A4C), CelPalette.Hex(0xF0A85C), CelPalette.Hex(0xF8CC84), CelPalette.Hex(0xF8D896), 0.97f, 4, CelPalette.Hex(0x1C0A04));
             // the grey-tan puffs that wrap the fire from f40 on and take it over (warm-lit from the fire below)
+            // b02: the fireball's pale heart lobes (ref #f9e3a5), drawn in front of the orange lobes
+            CelPalette.Add("exp_ball_hot", CelPalette.Hex(0xF0B060), CelPalette.Hex(0xF8D088), CelPalette.Hex(0xFBE2A4), CelPalette.Hex(0xFFF0C8), CelPalette.Hex(0xFFF8E8), 0.9f, 4, CelPalette.Hex(0x6A2A0A));
             CelPalette.Add("exp_wrap", CelPalette.Hex(0x9A8C80), CelPalette.Hex(0xB4A694), CelPalette.Hex(0xC8BAA6), CelPalette.Hex(0xDACCB6), CelPalette.Hex(0xDACCB6), 1.1f, 4, CelPalette.Hex(0x8A7866));
             // r04: the ragged white-yellow star over the fireball (additive: orange rim, yellow, white heart)
             CelPalette.Add("exp_star", CelPalette.Hex(0x702808), CelPalette.Hex(0xA04812), CelPalette.Hex(0xD08A30), CelPalette.Hex(0xFFC860), CelPalette.Hex(0xFFFFFF), 0.68f, 4, CelPalette.Hex(0x000000));
             CelPalette.Add("exp_ember", CelPalette.Hex(0xC04010), CelPalette.Hex(0xF07020), CelPalette.Hex(0xFF9A30), CelPalette.Hex(0xFFB850), CelPalette.Hex(0xFFD080), 0.8f, 3, CelPalette.Hex(0x401004));
-            CelPalette.Add("exp_arc", CelPalette.Hex(0xB8C8FF), CelPalette.Hex(0xD8E2FF), CelPalette.Hex(0xF0F4FF), CelPalette.Hex(0xFFFFFF), CelPalette.Hex(0xFFFFFF), 0.45f, 3, CelPalette.Hex(0x000000));
+            CelPalette.Add("exp_arc", CelPalette.Hex(0xE08A40), CelPalette.Hex(0xFFD8A0), CelPalette.Hex(0xFFF4E4), CelPalette.Hex(0xFFFFFF), CelPalette.Hex(0xFFFFFF), 0.45f, 3, CelPalette.Hex(0x000000));
             CelPalette.Add("exp_spark", CelPalette.Hex(0xE08030), CelPalette.Hex(0xFFC070), CelPalette.Hex(0xFFE8B0), CelPalette.Hex(0xFFFFFF), CelPalette.Hex(0xFFFFFF), 0.6f, 3, CelPalette.Hex(0x401004));
             CelPalette.Add("exp_tracer", CelPalette.Hex(0xC04010), CelPalette.Hex(0xF07A20), CelPalette.Hex(0xFFB040), CelPalette.Hex(0xFFE090), CelPalette.Hex(0xFFF4D0), 0.75f, 3, CelPalette.Hex(0x401004));
             // the pool is additive: these are what it adds to the dark plate (#282c37 -> #b77650 at the middle)
@@ -87,8 +93,8 @@ namespace TW.Presentation.VFX.Cel
             {
                 // the first dome of light: soft, a little wider than the dummy is tall, gone in 8 frames
                 Name = "flash", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.45f, -3.3f), Start = 0f, Life = 0.34f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(3.0f, 3.3f, 0.5f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 1.5f),
-                Palette = "exp_dome", Core = 1.6f, Extra = new Vector4(ExpFxKind.Flash, 0.7f, 1.845f, 0f),
+                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(1.9f, 2.1f, 0.5f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 1.5f),
+                Palette = "exp_dome", Core = 1.2f, Opacity = 0.6f, Extra = new Vector4(ExpFxKind.Flash, 0.7f, 1.845f, 0f),
             },
             new CelLayer
             {
@@ -128,17 +134,36 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // the peak (ref f72-f89): the side blasts and the closing burst light the whole near field
-                Name = "peak wash", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(-7.5f, -1.395f, 3.0f), Start = 2.25f, Life = 0.95f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(9.0f, 13.5f, 0.6f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 8f),
-                Palette = "exp_wash", Core = 1f, Opacity = 1.4f, Extra = new Vector4(ExpFxKind.Pool, 0.6f, 0f, 0f),
+                Name = "peak wash", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(-6.0f, -1.395f, 1.0f), Start = 1.9f, Life = 1.3f, LifeJitter = 0f,
+                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(10.0f, 15.5f, 0.6f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 8f),
+                Palette = "exp_wash", Core = 1f, Opacity = 1.9f, Extra = new Vector4(ExpFxKind.Pool, 0.6f, 0f, 0f),
             },
             new CelLayer
             {
-                Name = "fireball", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.3f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.825f, 0.0f, 0.0f),
-                Start = 0f, Duration = 2.75f, Life = 0.5f, LifeJitter = 0.3f, Close = 84, Mid = 26, Far = 0,
-                Aim = CelAim.Radial, Speed = 2.7f, Drag = 2.5f, Buoyancy = 0.45f, Spin = 2.0f,
-                Size = new CelCurve(0.63f, 1.11f, 0.5f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 3.5f), Feather = 0.08f,
-                Palette = "exp_ball_ink", CoolTo = "exp_wrap", CoolFrom = 0.8f, Core = 1f, Ink = 2.2f, Extra = new Vector4(1.2f, 0.12f, 0.3f, 0.7f),
+                // b02: the early fireball, small (the blast builds; ref f31-f68)
+                Name = "fireball", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.3f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.6f, 0.0f, 0.0f),
+                Start = 0f, Duration = 1.6f, Life = 0.5f, LifeJitter = 0.3f, Close = 40, Mid = 14, Far = 0,
+                Aim = CelAim.Radial, Speed = 2.2f, Drag = 2.5f, Buoyancy = 0.45f, Spin = 2.0f,
+                Size = new CelCurve(0.5f, 0.85f, 0.5f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 3.5f), Feather = 0.08f,
+                Palette = "exp_ball_ink", CoolTo = "exp_wrap", CoolFrom = 0.8f, Core = 1f, Ink = 3.0f, Extra = new Vector4(1.2f, 0.12f, 0.3f, 0.7f),
+            },
+            new CelLayer
+            {
+                // b02: the big fireball growing to the peak (ref f77-f90: 1.5-2x the dummy's height across)
+                Name = "fireball big", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.4f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(1.25f, 0.0f, 0.0f),
+                Start = 1.35f, Duration = 1.55f, Life = 0.6f, LifeJitter = 0.3f, Close = 62, Mid = 20, Far = 0,
+                Aim = CelAim.Radial, Speed = 2.6f, Drag = 2.5f, Buoyancy = 0.4f, Spin = 2.0f,
+                Size = new CelCurve(0.8f, 1.45f, 0.5f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 3.5f), Feather = 0.08f,
+                Palette = "exp_ball_ink", CoolTo = "exp_wrap", CoolFrom = 0.75f, Core = 1f, Ink = 3.0f, Extra = new Vector4(1.2f, 0.12f, 0.3f, 0.7f),
+            },
+            new CelLayer
+            {
+                // b02: the pale white-yellow heart: lobes in front of the orange ones filling most of the ball
+                Name = "fire heart", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.45f, -2.4f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.6f, 0.0f, 0.0f),
+                Start = 0.4f, Duration = 2.45f, Life = 0.45f, LifeJitter = 0.3f, Close = 46, Mid = 12, Far = 0,
+                Aim = CelAim.Radial, Speed = 1.6f, Drag = 2.5f, Buoyancy = 0.3f, Spin = 2.0f,
+                Size = new CelCurve(0.55f, 1.0f, 0.5f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 3.0f), Feather = 0.08f,
+                Palette = "exp_ball_hot", Core = 1.15f, Ink = 1.6f, Extra = new Vector4(1.2f, 0.12f, 0.3f, 0f),
             },
             new CelLayer
             {
@@ -151,40 +176,48 @@ namespace TW.Presentation.VFX.Cel
             {
                 // grey-tan puffs in a slab just behind the fire: the fireball hides the middle ones, so they show round its
                 // outline from ~f40 and grow until the fire sinks into them (f96-f105)
-                Name = "wrap", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.075f, 1.125f), Shape = CelShape.Box, ShapeSize = new Vector3(2.25f, 1.8f, 0.6f),
-                Start = 2.3f, Duration = 0.5f, Life = 1.4f, LifeJitter = 0.1f, Close = 16, Mid = 6, Far = 0, Aim = CelAim.Radial, Speed = 0.75f, Drag = 1.5f, Buoyancy = 0.18f, Spin = 0.5f,
-                Size = new CelCurve(0.48f, 0.96f, 0.4f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 10f), Feather = 0.1f,
-                Palette = "exp_wrap", Core = 1f, Ink = 1.0f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0f),
+                Name = "wrap", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.075f, 1.125f), Shape = CelShape.Box, ShapeSize = new Vector3(3.6f, 2.2f, 0.6f),
+                Start = 1.55f, Duration = 1.3f, Life = 1.5f, LifeJitter = 0.1f, Close = 30, Mid = 8, Far = 0, Aim = CelAim.Radial, Speed = 0.75f, Drag = 1.5f, Buoyancy = 0.18f, Spin = 0.5f,
+                Size = new CelCurve(0.6f, 1.15f, 0.4f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 10f), Feather = 0.1f,
+                Palette = "exp_wrap", Core = 1f, Ink = 2.4f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0f),
             },
             new CelLayer
             {
                 Name = "wrap late", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, -0.35f, 1.6f), Shape = CelShape.Box, ShapeSize = new Vector3(5.0f, 0.9f, 0.6f),
                 Start = 2.75f, Duration = 0.4f, Life = 1.5f, LifeJitter = 0.1f, Close = 26, Mid = 8, Far = 0, Aim = CelAim.Radial, Speed = 0.6f, Drag = 1.5f, Buoyancy = 0.04f, Spin = 0.5f,
                 Size = new CelCurve(0.5f, 0.85f, 0.4f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 10f), Feather = 0.1f,
-                Palette = "exp_wrap", Core = 1f, Ink = 1.8f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0f),
+                Palette = "exp_wrap", Core = 1f, Ink = 2.4f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0f),
             },
             new CelLayer
             {
                 // r04: grey-tan puffs on a shell round the fire, the front ones over its rim (the star is drawn over them)
                 Name = "rim puffs", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.225f, -0.225f), Shape = CelShape.Shell, ShapeSize = new Vector3(1.5f, 0.0f, 0.0f),
-                Start = 1.0f, Duration = 1.8f, Life = 0.8f, LifeJitter = 0.2f, Close = 14, Mid = 5, Far = 0, Aim = CelAim.Radial, Speed = 1.05f, Drag = 1.6f, Buoyancy = 0.225f, Spin = 0.5f,
+                Start = 1.0f, Duration = 1.8f, Life = 0.8f, LifeJitter = 0.2f, Close = 10, Mid = 5, Far = 0, Aim = CelAim.Radial, Speed = 1.05f, Drag = 1.6f, Buoyancy = 0.225f, Spin = 0.5f,
                 Size = new CelCurve(0.24f, 0.48f, 0.4f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 6f), Feather = 0.1f,
-                Palette = "exp_wrap", Core = 1f, Ink = 0.9f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0f),
+                Palette = "exp_wrap", Core = 1f, Ink = 2.0f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0f),
             },
             new CelLayer
             {
-                Name = "sparks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.45f, 0.0f, 0.0f),
-                Start = 0f, Duration = 2.8f, Life = 0.4f, Close = 60, Mid = 20, Far = 0, Aim = CelAim.Radial, Speed = 30.0f, SpeedJitter = 0.5f, UpBias = 0.7f,
+                Name = "sparks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.3f, -2.6f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.45f, 0.0f, 0.0f),
+                Start = 0f, Duration = 2.8f, Life = 0.4f, Close = 140, Mid = 20, Far = 0, Aim = CelAim.Radial, Speed = 30.0f, SpeedJitter = 0.5f, UpBias = 0.7f,
                 Gravity = 6.0f, Drag = 1.5f, Size = new CelCurve(0.09f, 0.045f), Stretch = 0.09f, Erode = new CelCurve(0.05f, 0.5f),
                 Palette = "exp_spark", Core = 5f, Extra = new Vector4(0f, 0.3f, 0.5f, 0f),
             },
             new CelLayer
             {
+                // b02: ~30 white streaks alive at once spraying radially in front of the fire from ref f31 (orange tails)
+                Name = "white streaks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.4f, -2.9f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0.0f, 0.0f),
+                Start = 0.45f, Duration = 2.5f, Life = 0.3f, LifeJitter = 0.3f, Close = 240, Mid = 30, Far = 0, Aim = CelAim.Radial, Speed = 13.0f, SpeedJitter = 0.5f, UpBias = 0.3f,
+                Gravity = 3.0f, Drag = 1.0f, Size = new CelCurve(0.08f, 0.04f), SizeJitter = 0.3f, Stretch = 0.11f, Erode = new CelCurve(0.03f, 0.4f),
+                Palette = "exp_arc", Core = 5f, Extra = new Vector4(0f, 0.4f, 0.6f, 0f),
+            },
+            new CelLayer
+            {
                 // white lightning-like arcs out of the fireball: 4 px wide, three kinks, up to ~1.5x its radius long
-                Name = "arcs", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.525f, -1.5f), Shape = CelShape.Shell, ShapeSize = new Vector3(1.8f, 0.0f, 0.0f),
-                Start = 0.05f, Duration = 2.9f, Life = 0.2f, LifeJitter = 0.3f, Close = 60, Mid = 0, Far = 0, Aim = CelAim.Radial, Speed = 0.9f, Drag = 4f, UpBias = 0.35f,
-                Size = new CelCurve(0.15f, 0.09f), SizeJitter = 0.25f, Stretch = 2.0f, Erode = new CelCurve(0.03f, 0.3f),
-                Palette = "exp_arc", Core = 4f, Extra = new Vector4(ExpFxKind.Arc, 0f, 0.22f, 0f),
+                Name = "arcs", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.525f, -3.4f), Shape = CelShape.Shell, ShapeSize = new Vector3(1.5f, 0.0f, 0.0f),
+                Start = 0.4f, Duration = 2.55f, Life = 0.28f, LifeJitter = 0.3f, Close = 280, Mid = 0, Far = 0, Aim = CelAim.Radial, Speed = 2.5f, Drag = 3f, UpBias = 0.2f,
+                Size = new CelCurve(0.1f, 0.05f), SizeJitter = 0.3f, Stretch = 2.8f, Erode = new CelCurve(0.03f, 0.3f),
+                Palette = "exp_arc", Core = 5f, Opacity = 1.5f, Extra = new Vector4(ExpFxKind.Arc, 0f, 0.32f, 0f),
             },
             new CelLayer
             {
@@ -197,9 +230,9 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 Name = "debris", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.6f, 0.0f, 0.0f),
-                Start = 0.05f, Duration = 2.7f, Life = 1.0f, Close = 48, Mid = 14, Far = 0, Aim = CelAim.Radial, Speed = 9.0f, SpeedJitter = 0.6f, UpBias = 0.35f,
-                Gravity = 14.7f, Drag = 0.6f, Spin = 4f, Size = new CelCurve(0.15f, 0.105f), SizeJitter = 0.5f, Stretch = 0.7f, Erode = new CelCurve(0f, 0.4f, 4f),
-                Palette = "exp_chunk", Core = 1f, Ink = 1.5f, Extra = new Vector4(2.5f, 0.35f, 0f, 0f),
+                Start = 0.05f, Duration = 2.7f, Life = 1.0f, Close = 40, Mid = 14, Far = 0, Aim = CelAim.Radial, Speed = 9.0f, SpeedJitter = 0.6f, UpBias = 0.35f,
+                Gravity = 14.7f, Drag = 0.6f, Spin = 4f, Size = new CelCurve(0.12f, 0.08f), SizeJitter = 0.5f, Stretch = 0.7f, Erode = new CelCurve(0f, 0.4f, 4f),
+                Palette = "exp_chunk", Core = 1f, Ink = 1.5f, Extra = new Vector4(3.5f, 0.6f, 0f, 0f),
             },
             new CelLayer
             {
@@ -223,8 +256,19 @@ namespace TW.Presentation.VFX.Cel
             },
             new CelLayer
             {
-                Name = "light", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = 0f, Life = 3.0f,
-                Close = 1, Mid = 1, Far = 0, Palette = "exp_fire", Core = 3.2f, Extra = new Vector4(19.5f, 0f, 0f, 0f),
+                Name = "light", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = 0f, Life = 1.5f,
+                Close = 1, Mid = 1, Far = 0, Palette = "exp_fire", Core = 2.6f, Extra = new Vector4(16f, 0f, 0f, 0f),
+            },
+            new CelLayer
+            {
+                // b02: the light grows to the peak (ref f86 lights the whole near field)
+                Name = "light build", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = 1.2f, Life = 1.5f,
+                Close = 1, Mid = 1, Far = 0, Palette = "exp_fire", Core = 3.4f, Extra = new Vector4(21f, 0f, 0f, 0f),
+            },
+            new CelLayer
+            {
+                Name = "light peak", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = 2.2f, Life = 1.0f,
+                Close = 1, Mid = 0, Far = 0, Palette = "exp_fire", Core = 4.2f, Extra = new Vector4(26f, 0f, 0f, 0f),
             });
 
         /// <summary>Two tracers that arrive before the fire (the clips' first round is in the air at 0.6 s).</summary>
@@ -262,24 +306,24 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 Name = "sparks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.625f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.375f, 0.0f, 0.0f),
-                Duration = 0.2f, Life = 0.45f, Close = 40, Mid = 12, Far = 0, Aim = CelAim.Radial, Speed = 22.5f, SpeedJitter = 0.5f, UpBias = 0.9f,
-                Gravity = 7.5f, Drag = 1.2f, Size = new CelCurve(0.062f, 0.037f), Stretch = 0.06f, Erode = new CelCurve(0.05f, 0.5f),
-                Palette = "exp_tracer", Core = 4f, Extra = new Vector4(0f, 0.3f, 0.4f, 0f),
+                Duration = 0.3f, Life = 0.55f, Close = 60, Mid = 12, Far = 0, Aim = CelAim.Radial, Speed = 22.5f, SpeedJitter = 0.5f, UpBias = 0.6f,
+                Gravity = 7.5f, Drag = 1.2f, Size = new CelCurve(0.09f, 0.05f), Stretch = 0.07f, Erode = new CelCurve(0.05f, 0.5f),
+                Palette = "exp_spark", Core = 4f, Extra = new Vector4(0f, 0.3f, 0.4f, 0f),
             },
             new CelLayer
             {
                 Name = "debris", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.5f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0.0f, 0.0f),
-                Start = 0.04f, Duration = 0.3f, Life = 1.3f, LifeJitter = 0.2f, Close = 26, Mid = 8, Far = 0, Aim = CelAim.Radial, Speed = 8.75f, SpeedJitter = 0.6f, UpBias = 0.8f,
-                Gravity = 12.25f, Drag = 0.5f, Spin = 4f, Size = new CelCurve(0.275f, 0.188f), SizeJitter = 0.4f, Stretch = 0.7f, Erode = new CelCurve(0f, 0.4f, 4f),
-                Palette = "exp_chunk", Core = 1f, Ink = 1.5f, Extra = new Vector4(2.5f, 0.35f, 0f, 0f),
+                Start = 0.04f, Duration = 0.3f, Life = 1.3f, LifeJitter = 0.2f, Close = 34, Mid = 8, Far = 0, Aim = CelAim.Radial, Speed = 5.0f, SpeedJitter = 0.6f, UpBias = 0.45f,
+                Gravity = 14f, Drag = 0.5f, Spin = 4f, Size = new CelCurve(0.18f, 0.12f), SizeJitter = 0.4f, Stretch = 0.7f, Erode = new CelCurve(0f, 0.4f, 4f),
+                Palette = "exp_chunk", Core = 1f, Ink = 1.5f, Extra = new Vector4(3.5f, 0.6f, 0f, 0f),
             },
             new CelLayer
             {
                 // r05: big chunks thrown high, a cluster against the fog (ref f59-f87)
                 Name = "big chunks", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.75f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(1.0f, 0.0f, 0.0f),
-                Start = 0.06f, Duration = 0.5f, Life = 1.4f, LifeJitter = 0.25f, Close = 18, Mid = 4, Far = 0, Aim = CelAim.Radial, Speed = 4.5f, SpeedJitter = 0.5f, UpBias = 0.35f,
-                Gravity = 12.25f, Drag = 0.6f, Spin = 3f, Size = new CelCurve(0.25f, 0.175f), SizeJitter = 0.4f, Stretch = 0.6f, Erode = new CelCurve(0f, 0.4f, 4f),
-                Palette = "exp_chunk", Core = 1f, Ink = 1.2f, Extra = new Vector4(2.5f, 0.35f, 0f, 0f),
+                Start = 0.06f, Duration = 0.5f, Life = 1.4f, LifeJitter = 0.25f, Close = 22, Mid = 4, Far = 0, Aim = CelAim.Radial, Speed = 3.0f, SpeedJitter = 0.5f, UpBias = 0.2f,
+                Gravity = 14f, Drag = 0.6f, Spin = 3f, Size = new CelCurve(0.14f, 0.1f), SizeJitter = 0.4f, Stretch = 0.6f, Erode = new CelCurve(0f, 0.4f, 4f),
+                Palette = "exp_chunk", Core = 1f, Ink = 1.2f, Extra = new Vector4(3.5f, 0.6f, 0f, 0f),
             },
             new CelLayer
             {
@@ -323,17 +367,17 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 Name = "debris", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.3f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0.0f, 0.0f),
-                Start = 0.04f, Duration = 0.3f, Life = 1.3f, LifeJitter = 0.2f, Close = 34, Mid = 8, Far = 0, Aim = CelAim.Radial, Speed = 5.25f, SpeedJitter = 0.6f, UpBias = 0.8f,
-                Gravity = 7.35f, Drag = 0.5f, Spin = 4f, Size = new CelCurve(0.165f, 0.112f), SizeJitter = 0.4f, Stretch = 0.7f, Erode = new CelCurve(0f, 0.4f, 4f),
-                Palette = "exp_chunk", Core = 1f, Ink = 1.5f, Extra = new Vector4(2.5f, 0.35f, 0f, 0f),
+                Start = 0.04f, Duration = 0.3f, Life = 1.3f, LifeJitter = 0.2f, Close = 24, Mid = 8, Far = 0, Aim = CelAim.Radial, Speed = 5.25f, SpeedJitter = 0.6f, UpBias = 0.8f,
+                Gravity = 9.8f, Drag = 0.5f, Spin = 4f, Size = new CelCurve(0.1f, 0.07f), SizeJitter = 0.4f, Stretch = 0.7f, Erode = new CelCurve(0f, 0.4f, 4f),
+                Palette = "exp_chunk", Core = 1f, Ink = 1.5f, Extra = new Vector4(3.5f, 0.6f, 0f, 0f),
             },
             new CelLayer
             {
                 // r05: big chunks thrown high, so the cluster reads at ~40 m against the fog (ref f87 left and right)
                 Name = "big chunks", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.45f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.9f, 0.0f, 0.0f),
-                Start = 0.06f, Duration = 0.5f, Life = 1.4f, LifeJitter = 0.25f, Close = 18, Mid = 5, Far = 0, Aim = CelAim.Radial, Speed = 3.2f, SpeedJitter = 0.5f, UpBias = 0.4f,
-                Gravity = 9.8f, Drag = 0.6f, Spin = 3f, Size = new CelCurve(0.24f, 0.165f), SizeJitter = 0.4f, Stretch = 0.6f, Erode = new CelCurve(0f, 0.4f, 4f),
-                Palette = "exp_chunk", Core = 1f, Ink = 1.2f, Extra = new Vector4(2.5f, 0.35f, 0f, 0f),
+                Start = 0.06f, Duration = 0.5f, Life = 1.4f, LifeJitter = 0.25f, Close = 18, Mid = 5, Far = 0, Aim = CelAim.Radial, Speed = 2.2f, SpeedJitter = 0.5f, UpBias = 0.2f,
+                Gravity = 11f, Drag = 0.6f, Spin = 3f, Size = new CelCurve(0.12f, 0.085f), SizeJitter = 0.4f, Stretch = 0.6f, Erode = new CelCurve(0f, 0.4f, 4f),
+                Palette = "exp_chunk", Core = 1f, Ink = 1.2f, Extra = new Vector4(3.5f, 0.6f, 0f, 0f),
             },
             new CelLayer
             {
@@ -348,25 +392,25 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 Name = "smoke", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Shape = CelShape.Box, ShapeSize = new Vector3(5.4f, 1.3f, 1.4f),
-                Duration = 0.35f, Life = 1.55f, LifeJitter = 0.05f, Close = 44, Mid = 14, Far = 0, Aim = CelAim.Radial, Speed = 0.6f, Drag = 1.4f, Buoyancy = 0.04f, Spin = 0.4f,
-                Size = new CelCurve(0.5f, 0.88f, 0.35f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 9f), Feather = 0.1f,
-                Palette = "exp_smoke", Core = 1f, Ink = 1.8f, Extra = new Vector4(1.3f, 0.16f, 0.8f, 0f),
+                Duration = 0.35f, Life = 1.95f, LifeJitter = 0.05f, Close = 38, Mid = 14, Far = 0, Aim = CelAim.Radial, Speed = 0.6f, Drag = 1.4f, Buoyancy = 0.04f, Spin = 0.4f,
+                Size = new CelCurve(0.5f, 0.88f, 0.35f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 18f), Feather = 0.1f,
+                Palette = "exp_smoke", Core = 1f, Ink = 2.6f, Extra = new Vector4(1.3f, 0.16f, 0.8f, 0f),
             },
             new CelLayer
             {
                 // r03: a few small debris specks in the cloud, not black holes
                 Name = "dirt", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.1f, -1.0f), Shape = CelShape.Box, ShapeSize = new Vector3(4.8f, 1.2f, 0.4f),
-                Duration = 0.3f, Life = 1.5f, LifeJitter = 0.1f, Close = 18, Mid = 4, Far = 0, Aim = CelAim.Radial, Speed = 0.3f, Drag = 1.5f, Spin = 0.5f,
-                Size = new CelCurve(0.1f, 0.16f, 0.4f), SizeJitter = 0.4f, Erode = new CelCurve(0f, 1f, 6f), Feather = 0.1f,
-                Palette = "exp_chunk", Core = 1f, Ink = 0.8f, Extra = new Vector4(1.8f, 0.25f, 0f, 0f),
+                Duration = 0.3f, Life = 1.9f, LifeJitter = 0.1f, Close = 14, Mid = 4, Far = 0, Aim = CelAim.Radial, Speed = 0.3f, Drag = 1.5f, Spin = 0.5f,
+                Size = new CelCurve(0.1f, 0.14f, 0.4f), SizeJitter = 0.4f, Erode = new CelCurve(0f, 1f, 14f), Feather = 0.1f,
+                Palette = "exp_chunk", Core = 1f, Ink = 0.8f, Extra = new Vector4(3.5f, 0.6f, 0f, 0f),
             },
             new CelLayer
             {
                 // orange embers drifting up through and past the cloud, to the clip's f152 and after
-                Name = "embers", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, -0.675f, -1.08f), Shape = CelShape.Box, ShapeSize = new Vector3(7.425f, 2.43f, 2.7f),
-                Start = 0.1f, Duration = 1.9f, Life = 0.8f, LifeJitter = 0.3f, Close = 34, Mid = 10, Far = 0, Aim = CelAim.Up, Spread = 45f, Speed = 0.945f, SpeedJitter = 0.4f, Buoyancy = 0.472f,
-                Size = new CelCurve(0.135f, 0.095f), SizeJitter = 0.3f, Stretch = 0.05f, Erode = new CelCurve(0.05f, 0.5f, 2f),
-                Palette = "exp_ember", Core = 3.5f, Extra = new Vector4(1f, 0.04f, 0.3f, 0f),
+                Name = "embers", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, -0.15f, -2.6f), Shape = CelShape.Box, ShapeSize = new Vector3(9.0f, 1.3f, 3.5f),
+                Start = 0.05f, Duration = 1.85f, Life = 0.75f, LifeJitter = 0.3f, Close = 56, Mid = 12, Far = 0, Aim = CelAim.Up, Spread = 60f, Speed = 0.7f, SpeedJitter = 0.4f, Buoyancy = 0.3f,
+                Size = new CelCurve(0.17f, 0.12f), SizeJitter = 0.3f, Stretch = 0.05f, Erode = new CelCurve(0.05f, 0.5f, 2f),
+                Palette = "exp_ember", Core = 5f, Extra = new Vector4(1f, 0.04f, 0.3f, 0f),
             });
 
         public static readonly CelFxRecipe Fan = new CelFxRecipe("explosion_fan", 1.6f,
@@ -374,14 +418,14 @@ namespace TW.Presentation.VFX.Cel
             {
                 // thick orange streaks thrown low to the lower left, kept coming through the clips' peak window
                 Name = "ground fan", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, -0.675f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.525f, 0.0f, 0.0f),
-                Duration = 0.8f, Life = 0.55f, LifeJitter = 0.2f, Close = 64, Mid = 18, Far = 0, Aim = CelAim.Dir, Spread = 20f, Speed = 39.0f, SpeedJitter = 0.4f,
-                Gravity = 4.5f, Drag = 1f, Size = new CelCurve(0.225f, 0.105f), SizeJitter = 0.35f, Stretch = 0.16f, Erode = new CelCurve(0.05f, 0.45f),
+                Duration = 0.85f, Life = 0.55f, LifeJitter = 0.2f, Close = 130, Mid = 18, Far = 0, Aim = CelAim.Dir, Spread = 40f, Speed = 39.0f, SpeedJitter = 0.4f,
+                Gravity = 4.5f, Drag = 1f, Size = new CelCurve(0.33f, 0.14f), SizeJitter = 0.35f, Stretch = 0.16f, Erode = new CelCurve(0.05f, 0.45f),
                 Palette = "exp_tracer", Core = 2.5f, Extra = new Vector4(0.2f, 0.6f, 0.2f, 0f),
             },
             new CelLayer
             {
                 Name = "fan dots", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, -0.45f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.9f, 0.0f, 0.0f),
-                Duration = 0.9f, Life = 0.75f, LifeJitter = 0.3f, Close = 80, Mid = 20, Far = 0, Aim = CelAim.Dir, Spread = 55f, Speed = 16.5f, SpeedJitter = 0.7f,
+                Duration = 0.9f, Life = 0.75f, LifeJitter = 0.3f, Close = 130, Mid = 20, Far = 0, Aim = CelAim.Dir, Spread = 55f, Speed = 16.5f, SpeedJitter = 0.7f,
                 Gravity = 9.0f, Drag = 1.2f, Size = new CelCurve(0.09f, 0.053f), Stretch = 0.015f, Erode = new CelCurve(0.05f, 0.5f),
                 Palette = "exp_tracer", Core = 3f, Extra = new Vector4(1f, 0f, 0.3f, 0f),
             });
