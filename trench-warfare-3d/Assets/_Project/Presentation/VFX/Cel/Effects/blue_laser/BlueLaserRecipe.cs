@@ -126,7 +126,7 @@ namespace TW.Presentation.VFX.Cel
             Side(Dash("dash side", 0.38f, 0.2f, 0.04f, 0.15f, 22, 0, 0.07f), 0.35f),
             Side(Dash("dash side 2", 0.64f, 0.17f, 0.04f, 0.25f, 18, 0, 0.065f), 0.3f),   // b07b: a second parallel bolt (clip f50/f84)
             // d30: small blue-white spark ticks scattered along and beside the beam (every critic: "spark dots along the beam", clip f30/f64/f81)
-            Side(Dash("beam specks", 0.55f, 0.035f, 0.42f, 0.3f, 220, 0, 0.04f), 0.6f),
+            Side(Dash("beam specks", 0.55f, 0.035f, 0.42f, 0.3f, 380, 0, 0.04f), 0.7f),   // d33: more and wider spread (d30 won both A/Bs; critics: hold area 30-40% low)
             // b05: the last volley as two wide bolts with a gap (clip f101: one from the corner, one into the dummy)
             VolleyBolt("volley a", 0.45f, 0.31f, 4, 0.11f),
             VolleyBolt("volley b", 0.97f, 0.24f, 4, 0.1f),
