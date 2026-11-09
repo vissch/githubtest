@@ -252,11 +252,11 @@ namespace TW.Presentation.VFX.Cel
             // smoke: translucent pale green puffs while the volley lasts (gone by ~f106), then translucent tan-grey puffs
             // from ~f90 that drift right, gone by ~f130
             l.Add(Smoke("smoke dummy", CelAnchor.Origin, new Vector3(0f, 1.9f, 0.4f), 1.4f, 1.4f, 0.7f, 8, 1, 0.3f, 0.5f, false, 0.5f));
-            l.Add(Smoke("smoke dummy late", CelAnchor.Origin, new Vector3(0f, 1.3f, 0.8f), 3.1f, 0.5f, 1.0f, 10, 1, 0.36f, 0.6f, true, 0.7f));
+            l.Add(Smoke("smoke dummy late", CelAnchor.Origin, new Vector3(0f, 1.3f, 0.8f), 3.1f, 0.5f, 1.0f, 12, 1, 0.42f, 0.7f, true, 0.7f));
             l.Add(Smoke("smoke burst", CelAnchor.Target, new Vector3(0f, 0.9f, 0.3f), 2.05f, 0.8f, 0.7f, 6, 1, 0.3f, 0.5f, false, 0.8f));
             // the big late cloud right of the dummy: green-lit lumps first, then olive-grey ones (ref f95-f126), about 2x the dummy tall
             l.Add(Smoke("smoke burst lit", CelAnchor.Target, new Vector3(0f, 1.0f, 0.2f), 2.95f, 0.45f, 0.7f, 6, 1, 0.5f, 0.75f, false, 0.9f));
-            l.Add(Smoke("smoke burst late", CelAnchor.Target, new Vector3(0f, 1.0f, 0.3f), 3.25f, 0.45f, 1.15f, 7, 2, 0.5f, 0.8f, true, 0.9f));
+            l.Add(Smoke("smoke burst late", CelAnchor.Target, new Vector3(0f, 1.0f, 0.3f), 3.25f, 0.45f, 1.15f, 10, 2, 0.6f, 0.95f, true, 0.9f));
             l.Add(new CelLayer
             {
                 // small green embers glinting at the feet after the volley (reference frames 112-125)
