@@ -242,6 +242,7 @@ Shader "TW/Cel/FlameJet"
         // the nozzle, a round base and a pointed tip leading downstream. Bands from the strip's own cross distance, so
         // the ink line is a real contour on every tongue (overlapping tongues keep their own outlines).
         #define RIB_ENV 1.3
+        float4 _FlameAxisA, _FlameAxisB;
         float2 RibWindow(CelRecord r, float t)
         {
             float len = max(length(r.vel * r.life), 1e-3);
@@ -292,6 +293,9 @@ Shader "TW/Cel/FlameJet"
             float hw = 0.5 * r.size.x * lerp(0.1, 1.0, sqrt(saturate(a))) * (1.0 + 1.2 * saturate(_CelLod.x));
             // a tongue shrinking into the target thins with its visible length (no wide stub at the end)
             hw *= saturate((w.y - w.x) * length(r.vel * r.life) / max(r.size.y, 0.1));
+            // d37: the build-up: tongues born later in the burn are wider (0.7x at 0.6 s -> 1.15x by 3.0 s), so the jet
+            // keeps growing to REF's peak (~f84) instead of peaking 22 frames early
+            hw *= lerp(0.7, 1.15, smoothstep(0.6, 3.0, r.born - _FlameAxisA.w));
             float prof = max(RibProfile(uv.x), 0.04);
             RibOut o;
             o.positionWS = c + side * (uv.y * 2.0 - 1.0) * hw * prof * RIB_ENV * alive;
@@ -313,7 +317,6 @@ Shader "TW/Cel/FlameJet"
         // cross distance, so overlapping tongues union into one body (no concentric rings per lobe). x: heat 0 (outer
         // edge of the jet's envelope) .. 1 (the axis); y: a torn-streak noise stretched along the axis and flowing to the
         // target; z: the axis line's own value (1 on a thin white streak down the middle).
-        float4 _FlameAxisA, _FlameAxisB;
         float3 FlameHeat(float3 p)
         {
             float3 ab = _FlameAxisB.xyz - _FlameAxisA.xyz;
