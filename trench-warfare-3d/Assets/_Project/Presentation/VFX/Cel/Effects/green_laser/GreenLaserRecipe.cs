@@ -47,8 +47,8 @@ namespace TW.Presentation.VFX.Cel
             CelPalette.Add("gl_bolt", CelPalette.Hex(0x2E8A1A), CelPalette.Hex(0x4FB82A), CelPalette.Hex(0x77CF42), CelPalette.Hex(0xD7F39C), CelPalette.Hex(0xE6FFB0), 0.95f, 3, CelPalette.Hex(0x0C2A06));
             CelPalette.Add("gl_star", CelPalette.Hex(0x49763C), CelPalette.Hex(0x77B556), CelPalette.Hex(0xA8DC78), CelPalette.Hex(0xD7F39C), CelPalette.Hex(0xF0FFD0), 0.93f, 3, CelPalette.Hex(0x0A1A06));
             CelPalette.Add("gl_wash", CelPalette.Hex(0x14260F), CelPalette.Hex(0x1A3414), CelPalette.Hex(0x3E6A32), CelPalette.Hex(0x77B556), CelPalette.Hex(0xA4D088), 1.1f, 4, CelPalette.Hex(0x000000));
-            CelPalette.Add("gl_haze", CelPalette.Hex(0x1C2C18), CelPalette.Hex(0x2E4626), CelPalette.Hex(0x4E7040), CelPalette.Hex(0x77B556), CelPalette.Hex(0xA8CC90), 1.1f, 4, CelPalette.Hex(0x000000));
-            CelPalette.Add("gl_pulse", CelPalette.Hex(0x14300F), CelPalette.Hex(0x163A10), CelPalette.Hex(0x2C5E1E), CelPalette.Hex(0x8CC468), CelPalette.Hex(0x9AD86A), 1.1f, 4, CelPalette.Hex(0x000000));
+            CelPalette.Add("gl_haze", CelPalette.Hex(0x1C2C18), CelPalette.Hex(0x3E5A36), CelPalette.Hex(0x5E8050), CelPalette.Hex(0x9CC88A), CelPalette.Hex(0xB4D8A0), 1.1f, 4, CelPalette.Hex(0x000000));
+            CelPalette.Add("gl_pulse", CelPalette.Hex(0x14300F), CelPalette.Hex(0x163A10), CelPalette.Hex(0x2C5E1E), CelPalette.Hex(0x77B556), CelPalette.Hex(0x86BE66), 1.1f, 4, CelPalette.Hex(0x000000));
             CelPalette.Add("gl_halo", CelPalette.Hex(0x14300F), CelPalette.Hex(0x2C5E20), CelPalette.Hex(0x4E8E3A), CelPalette.Hex(0x77B556), CelPalette.Hex(0xB5E07A), 1.1f, 6, CelPalette.Hex(0x000000));
             CelPalette.Add("gl_flame", CelPalette.Hex(0x2F6A22), CelPalette.Hex(0x5FA845), CelPalette.Hex(0x8CCB5E), CelPalette.Hex(0xB4E07E), CelPalette.Hex(0xD7F39C), 0.85f, 3, CelPalette.Hex(0x0A1A06));
             // d01: smoke colours measured on the reference's smoke cluster (f101 green-lit: dark #2c5430, mid #559c47,
@@ -172,28 +172,34 @@ namespace TW.Presentation.VFX.Cel
             {
                 // one soft pale wash under the feet, about 2.5x the dummy's height wide, held through ~f115: a pale
                 // core plus a wide dim deep-green spill on the darkened dirt, no rim
-                Shifted(Wash("wash", CelAnchor.Origin, Hits[0], 0f, 1, 1, 1, 3.9f, 2.6f, 2.7f, 1.0f, new Vector4(1f, 0.05f, 0.9f, 2.0f)), 0.45f, 0.3f),
-                // the same light seen as a soft pale haze standing over the feet (the reference's wash rises well above the
+                Shifted(Wash("wash", CelAnchor.Origin, Hits[0], 0f, 1, 1, 1, 3.9f, 1.4f, 1.5f, 0.9f, new Vector4(1f, 0.05f, 0.9f, 2.0f)), 0.45f, 0.3f),
+                // d03: the ref's "pool" is mostly a wide soft pale-green MIST standing round the dummy (f54-f87), not a ground slab: a big flat flash facing the eye centred on the torso; the same light seen as a soft pale haze standing over the feet (the reference's wash rises well above the
                 // dirt): a flat flash facing the eye, about 2.5x the dummy's height wide
                 new CelLayer
                 {
-                    Name = "wash haze", Kind = CelKinds.GlowName, Anchor = CelAnchor.Origin, Offset = new Vector3(0f, 0.6f, 0.3f), Start = Hits[0], Life = 3.9f, LifeJitter = 0f,
-                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(2.4f, 2.5f, 0.5f), SizeJitter = 0f, Palette = "gl_haze", Core = 1f, Opacity = 0.4f, Extra = new Vector4(2f, 1.3f, 0f, 0f),
+                    Name = "wash haze", Kind = BoltKind, Anchor = CelAnchor.Origin, Offset = new Vector3(0f, 1.1f, 0.1f), Start = Hits[0], Life = 3.9f, LifeJitter = 0f,
+                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(4.2f, 4.4f, 0.5f), SizeJitter = 0f, Palette = "gl_haze", Core = 1f, Opacity = 0.95f, Extra = new Vector4(6f, 0.05f, 0.85f, 0.6f),
                 },
                 // the dirt round the glow goes dark (the reference's night ground round the light), a smooth disc, no ring
                 new CelLayer
                 {
                     Name = "wash shade", Kind = BoltKind, Anchor = CelAnchor.Origin, Offset = new Vector3(0f, 0.45f, 0.3f), Start = Hits[0], Life = 3.9f, LifeJitter = 0f,
-                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(4.2f, 4.3f, 0.5f), SizeJitter = 0f, Palette = "gl_wash", Opacity = 1.0f, Extra = new Vector4(2f, 0.08f, 0.88f, 0.01f),
+                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(2.4f, 2.5f, 0.5f), SizeJitter = 0f, Palette = "gl_wash", Opacity = 0.6f, Extra = new Vector4(2f, 0.08f, 0.88f, 0.01f),
                 },
             };
             for (int i = 0; i < Hits.Length; i++)
             {
                 float h = Hits[i], s = HitScale[i];
                 // the wash flares with every hit: a short wide pulse (one area spike per hit)
-                var pulse = Shifted(Wash("wash pulse " + i, CelAnchor.Origin, h, 0f, 1, 1, 0, 0.17f, 4.8f * s, 5.4f * s, 2.1f, new Vector4(1f, 0.05f, 0.35f, 2.2f)), 0.45f, 0.6f);
+                var pulse = Shifted(Wash("wash pulse " + i, CelAnchor.Origin, h, 0f, 1, 1, 0, 0.17f, 3.4f * s, 3.8f * s, 1.6f, new Vector4(1f, 0.05f, 0.35f, 2.2f)), 0.45f, 0.6f);
                 pulse.Palette = "gl_pulse";
                 l.Add(pulse);
+                // d03: the mist flares with every hit too (an upright soft flash round the dummy, desaturated)
+                l.Add(new CelLayer
+                {
+                    Name = "mist pulse " + i, Kind = BoltKind, Anchor = CelAnchor.Origin, Offset = new Vector3(0f, 1.1f, 0.1f), Start = h, Life = 0.22f, LifeJitter = 0.1f,
+                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(4.0f * s, 4.6f * s, 0.5f), SizeJitter = 0.05f, Palette = "gl_haze", Core = 1f, Opacity = 0.6f, Extra = new Vector4(6f, 0.0f, 0.4f, 0.6f),
+                });
             }
             for (int i = 0; i < Ground.Length; i++)
             {

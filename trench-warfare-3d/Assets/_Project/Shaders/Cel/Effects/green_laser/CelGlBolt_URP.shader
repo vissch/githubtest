@@ -22,6 +22,7 @@
 //              mode 3: x 3, y fade-in, z fade-out start, w curl amplitude (0..0.6 of the half-width; 0: 0.4)
 //              mode 4: x 4, y fade-in, z fade-out start, w lump amplitude (0: 0.1)
 //              mode 5: x 5, y fade-in, z fade-out start, w spike count (0: 9)
+//              mode 6: x 6, y fade-in, z fade-out start, w height / width (0: 0.5): a soft unbanded upright mist (additive)
 // Colours: modes 0/3/4/5 band the body with CelRamp of its palette (core above the row's threshold); the bloom and the
 // wash use the palette's c1..c3 times the opacity.
 Shader "TW/Cel/GlBolt"
@@ -76,7 +77,10 @@ Shader "TW/Cel/GlBolt"
                 {
                     // puff / star: a centred quad facing the eye
                     float y = v.uv.y * 2.0 - 1.0;
-                    w = p + right * (x * size) + UNITY_MATRIX_V[1].xyz * (y * size);
+                    // mode 6 mist: squashed to extra.w of its width (0: 0.5), upright in the world
+                    float sq = mode > 5.5 ? (r.extra.w > 0.0 ? r.extra.w : 0.5) : 1.0;
+                    float3 upv = mode > 5.5 ? float3(0.0, 1.0, 0.0) : UNITY_MATRIX_V[1].xyz;
+                    w = p + right * (x * size) + upv * (y * size * sq);
                     o.st = float2(x, y);
                     float def = mode < 4.5 ? 0.1 : 9.0;
                     o.dims = float4(fin * fout * alive, fin, 0.0, r.extra.w > 0.0 ? r.extra.w : def);
@@ -199,6 +203,7 @@ Shader "TW/Cel/GlBolt"
             {
                 float mode = i.tone.w;
                 float op = saturate(i.tone.z);
+                if (mode > 5.5) return half4(0.0, 0.0, 0.0, 1.0);   // mist: additive only
                 if (mode > 2.5)
                 {
                     float d, inkPx, inner = 0.0, extraInk = 0.0;
@@ -263,6 +268,21 @@ Shader "TW/Cel/GlBolt"
                 uint row = CelRowA(i.tone.x);
                 half3 col;
                 float mode = i.tone.w;
+                if (mode > 5.5)
+                {
+                    // mode 6 mist (d03): a smooth unbanded pale haze standing round the target, its edge broken by slow
+                    // drifting noise, fading out towards the bottom so the ground never cuts it with a hard line
+                    float2 st = i.st;
+                    float rr = length(st);
+                    float n = CelValue2(st * 1.8 + float2(i.more.y * 13.0 + _CelNow * 0.25, i.more.y * 7.0 - _CelNow * 0.15));
+                    float n2 = CelValue2(st * 4.1 + float2(i.more.y * 5.0 - _CelNow * 0.4, _CelNow * 0.3));
+                    float field = exp(-rr * rr * (i.dims.w > 0.0 ? 2.6 : 2.6)) * (0.55 + 0.3 * n + 0.15 * n2);
+                    field *= 1.0 - smoothstep(0.55, 1.0, rr);
+                    field *= smoothstep(-0.95, -0.35, st.y);
+                    float core = exp(-rr * rr * 7.0);
+                    col = (CelPal(row, 3) * (field * 0.8 + core * 0.1) + CelPal(row, 1) * field * 0.5) * (i.dims.x * i.tone.z);
+                    return half4(CelAdditiveFog(col, i.positionWS, i.more.x), 1.0);
+                }
                 if (mode > 2.5)
                 {
                     float d, v;
