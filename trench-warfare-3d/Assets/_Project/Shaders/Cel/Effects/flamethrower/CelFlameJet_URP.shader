@@ -44,8 +44,19 @@ Shader "TW/Cel/FlameJet"
         float JetHalfWidth(CelRecord r, float a)
         {
             // the main jet (upper-edge licking on) starts slimmer and broadens over its first 1.3 s, like the clip's
-            float grow = r.extra.w > 0.0 ? lerp(0.55, 1.0, smoothstep(0.0, 1.3, CelAge(r))) : 1.0;
-            return 0.5 * grow * lerp(r.size.x, r.size.y, pow(saturate(a), r.size.z > 0.0 ? r.size.z : 1.0));
+            bool isMain = r.extra.w > 0.0;
+            float grow = isMain ? lerp(0.55, 1.0, smoothstep(0.0, 1.3, CelAge(r))) : 1.0;
+            float w = 0.5 * grow * lerp(r.size.x, r.size.y, pow(saturate(a), r.size.z > 0.0 ? r.size.z : 1.0));
+            if (isMain)
+            {
+                // r05: a pointed nozzle start (the body grows out of a point over the first 14 % of the length), a flare
+                // through the target so the flame spills past and over it, and wider going out (Mid/Far: the cone must
+                // still read as a cone at T1, not a line; detail does not rise, only the size)
+                w *= lerp(0.08, 1.0, smoothstep(0.0, 0.14, a));
+                w *= 1.0 + 0.3 * smoothstep(0.7, 1.15, a);
+                w *= 1.0 + 2.2 * saturate(_CelLod.x);
+            }
+            return w;
         }
 
         // The field's coordinates read from the fragment's own world place (not interpolated off the strip, whose
@@ -101,7 +112,8 @@ Shader "TW/Cel/FlameJet"
             float len = max(length(r.vel * r.life), 1e-3);
             float hw = max(JetHalfWidth(r, saturate(along)), 1e-3);
             float flow = r.extra.x;
-            float freq = r.extra.y > 0.0 ? r.extra.y : 0.9;
+            // r05: tongues scale with the LOD widening (Mid/Far), so detail does not rise going out (no comb at T1)
+            float freq = (r.extra.y > 0.0 ? r.extra.y : 0.9) / (r.extra.w > 0.0 ? 1.0 + 2.2 * saturate(_CelLod.x) : 1.0);
             float amp = r.erode.z > 0.0 ? r.erode.z : 0.45;
             // the noise runs with the flow (s: metres, advected); the jet is one connected body whose edge is a row of
             // flame tongues: for each (sheared) place along the flow the body reaches out to edge(s), so every tongue
@@ -118,7 +130,9 @@ Shader "TW/Cel/FlameJet"
             // r04: both edges are a row of long, low tongues leaning downstream (each about 4-8x longer along the flow
             // than it is tall): a strong shear tips them forward, and two overlapping rows (offset phases) make the edge
             // ragged without needles. The upper edge is only a little taller than the lower one.
-            float shear = ay * hw * (upper ? 1.8 : 1.4);
+            // r05: a much stronger shear (the jet runs away from the eye, so its length is foreshortened on screen and
+            // r04's 1.8 still read as near-vertical spikes): each tongue now runs 4-8x longer along the flow than tall
+            float shear = ay * hw * (upper ? 2.4 : 1.8);
             float sl = s - shear;
             float g = CelSimplex3(float3(sl * freq, t * 0.7, sd + (upper ? 3.1 : 7.7)));
             float tongue = 1.0 - abs(g); tongue *= sqrt(tongue);                    // crests between pointed and round
@@ -126,7 +140,10 @@ Shader "TW/Cel/FlameJet"
             float tongue2 = 1.0 - abs(g2); tongue2 *= sqrt(tongue2);
             float rows = max(tongue, tongue2 * 0.8);
             float lick = (upper ? amp * (1.0 + 0.25 * up) : amp) * lerp(0.7, 1.0, a01);
-            float edge = min(0.72 + lick * rows, JET_ENV * 0.95);
+            // r05: the body sits above the axis on the main jet (upper edge base 0.85, lower 0.55), so the lower edge
+            // stays off the ground at the target (the ground cut it in a straight line) and the top spills over it
+            float base = up > 0.0 ? (upper ? 0.85 : 0.55) : 0.72;
+            float edge = min(base + lick * rows * (upper ? 1.0 : 0.8), JET_ENV * 0.95);
             float field = (edge - ay) / edge;
             // the front end spills past the target ragged (tongues reach on, no blunt cap); the cut-off tail is round
             float toFront = (tf.y - along) * len / (hw * 1.4);
@@ -187,7 +204,7 @@ Shader "TW/Cel/FlameJet"
                 // a thin red rim, then orange and yellow, and the white core down the middle; cooler toward the target
                 // (red only on a thin rim: v passes the first band at f ~0.04)
                 // r04: the white core is about twice as wide (it shows over more of the field)
-                float v = saturate(0.20 + f * 0.76 + streak * 0.3 + 0.12 * (1.0 - saturate(jc.x * 1.5)) - 0.08 * saturate((jc.x - 0.6) * 1.5));
+                float v = saturate(0.15 + f * 0.76 + streak * 0.3 + 0.06 * (1.0 - saturate(jc.x * 1.5)) - 0.08 * saturate((jc.x - 0.6) * 1.5));
                 half3 col = CelRamp(v, CelRowA(r.tone.x), r.tone.y);
                 float ink = CelInk(f, 0.0, CelLodInk(r.tone.w));
                 col = lerp(col, CelPalInk(CelRowA(r.tone.x)).rgb, ink);
