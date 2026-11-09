@@ -68,8 +68,10 @@ namespace TW.Presentation.VFX.Cel.Effects
             // b07: measured on b06b f84-f107: the beach grade reads a lobe at about (0.78, 0.66, 0.59) of its set colour
             // (#B89E84 read #8f684e orange-brown), so the set is a cool grey that reads grey-tan (#a89484 light, #806757 mid)
             // b07b: half way back (b07a's cool grey read silver-white): the clip's are warm grey-tan
-            CelPalette.Add("bi_dust", CelPalette.Hex(0x544D4A), CelPalette.Hex(0x776B63), CelPalette.Hex(0x968679), CelPalette.Hex(0xC2B19F),
-                CelPalette.Hex(0xE4CAAE), 0.9f, 3, CelPalette.Hex(0x141010));
+            // d03: two bands, the lightest (a light grey-tan body and a pale top), a slightly warmer body: b07's third,
+            // dark band read #382723 and made the puffs dark brown boulders; the clip's are light tan, low contrast inside
+            CelPalette.Add("bi_dust", CelPalette.Hex(0x544D4A), CelPalette.Hex(0x776B63), CelPalette.Hex(0x9C8A7A), CelPalette.Hex(0xC8B49F),
+                CelPalette.Hex(0xE4CAAE), 0.9f, 2, CelPalette.Hex(0x141010));
             // the dirt crowns: darker than the puffs
             CelPalette.Add("bi_dirt", CelPalette.Hex(0x261C14), CelPalette.Hex(0x463628), CelPalette.Hex(0x5E4A3A), CelPalette.Hex(0x7A6450),
                 CelPalette.Hex(0x7A6450), 1.1f, 3, CelPalette.Hex(0x0E0806));
