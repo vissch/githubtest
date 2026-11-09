@@ -237,6 +237,10 @@ Shader "TW/Cel/LightningBeam"
                 float wisp = saturate(1.0 - abs(y - wz * prof) / 0.32) * step(0.25, prof) * 0.8 * step(0.15, i.shape.x);
                 float wz2 = (Zig(u, 0.16 * cs, salt + 41.0) + 0.7 * Zig(u, 0.05 * cs, salt + 47.0)) * 2.3;
                 float wisp2 = saturate(1.0 - abs(y - wz2 * prof) / 0.28) * step(0.3, prof) * 0.75 * step(0.15, i.shape.x);
+                // b02: the wisps only show in some cells (b01's ran the dash's whole length: an even sine wrapping a rod)
+                float wc = 0.9 * cs;
+                wisp *= step(0.45, CelHash21(float2(floor(u / wc), salt + 61.0)));
+                wisp2 *= step(0.6, CelHash21(float2(floor(u / wc + 0.5), salt + 67.0)));
                 field = max(field, max(wisp, wisp2));
                 // branch arcs: in some cells along the beam a thin crooked arc leaves the core and runs out to one side
                 float br = 0.0;
@@ -254,10 +258,11 @@ Shader "TW/Cel/LightningBeam"
                         float t = (u - x0) / lenA;
                         if (t < 0.0 || t > 1.0) continue;
                         float sgn = CelHash21(float2(id, salt + 4.0)) > 0.5 ? 1.0 : -1.0;
-                        float reach = BEAM_PAD * (0.4 + 0.4 * CelHash21(float2(id, salt + 6.0)));
+                        // b02: reach further (10-30 px off the beam) and brighter
+                        float reach = BEAM_PAD * (0.5 + 0.42 * CelHash21(float2(id, salt + 6.0)));
                         float yb = sgn * (pow(t, 0.8) * reach + 0.6 * Zig(u, 0.06, salt + id)) + zig * prof;
-                        float bw = 0.4 * (1.0 - t * 0.6);
-                        br = max(br, saturate(1.0 - abs(y - yb) / bw) * 0.55 * step(0.15, prof));
+                        float bw = 0.5 * (1.0 - t * 0.6);
+                        br = max(br, saturate(1.0 - abs(y - yb) / bw) * 0.75 * step(0.15, prof));
                     }
                 }
                 field = max(field, br);
