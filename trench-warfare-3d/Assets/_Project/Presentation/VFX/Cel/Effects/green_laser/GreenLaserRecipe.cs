@@ -216,7 +216,7 @@ namespace TW.Presentation.VFX.Cel
                 });
             }
             // d39: the ref holds a wide bright pool on the dirt ~f110-f114 after the last hit, gone by ~f120: one held wash pulse
-            var lastPool = Shifted(Wash("wash last pool", CelAnchor.Origin, Hits[Hits.Length - 1] + 0.05f, 0f, 1, 1, 0, 0.42f, 3.0f, 3.3f, 1.3f, new Vector4(1f, 0.05f, 0.55f, 2.2f)), 0.45f, 0.6f);
+            var lastPool = Shifted(Wash("wash last pool", CelAnchor.Origin, Hits[Hits.Length - 1] + 0.05f, 0f, 1, 1, 0, 0.42f, 4.0f, 4.4f, 1.0f, new Vector4(1f, 0.05f, 0.55f, 2.2f)), 0.45f, 0.6f);
             lastPool.Palette = "gl_pulse";
             l.Add(lastPool);
             for (int i = 0; i < Ground.Length; i++)
