@@ -165,26 +165,26 @@ namespace TW.Presentation.VFX.Cel
             },
             new CelLayer
             {
-                Name = "pool target", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -1.3f, -2.4f), Start = 0.75f, Life = 3.3f, LifeJitter = 0.2f,
+                Name = "pool target", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -1.3f, -2.4f), Start = 0.75f, Life = 3.3f, LifeJitter = 0.05f,
                 Close = 9, Mid = 4, Far = 1, Shape = CelShape.Disc, ShapeSize = new Vector3(3.2f, 0f, 0f), Size = new CelCurve(6.5f, 8.5f, 0.3f), SizeJitter = 0.55f, Erode = new CelCurve(0.01f, 0.5f, 7f),
                 Palette = Pool, Core = 1f, Opacity = 0.8f, Extra = new Vector4(0f, 3.4f, 0f, 0f),   // b06: falloff 2.8; b05: falloff 1.6 -> 2.6 (the rim read as a hard tan plate)
             },
             new CelLayer
             {
                 // b02: the jet's pool runs its full length: three spots along the 10.8 m jet (the nozzle is 0.9 m up)
-                Name = "pool jet", Kind = CelKinds.GlowName, Offset = new Vector3(0f, -1.1f, 8.5f), Start = 0.65f, Life = 3.35f, LifeJitter = 0.2f,
+                Name = "pool jet", Kind = CelKinds.GlowName, Offset = new Vector3(0f, -1.1f, 8.5f), Start = 0.65f, Life = 3.35f, LifeJitter = 0.05f,
                 Close = 8, Mid = 2, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(2.6f, 0f, 0f), Size = new CelCurve(5.5f, 6.5f), SizeJitter = 0.5f, Erode = new CelCurve(0.01f, 0.5f, 7f),
                 Palette = Pool, Core = 1f, Opacity = 0.85f, Extra = new Vector4(0f, 3.2f, 0f, 0f),
             },
             new CelLayer
             {
-                Name = "pool jet mid", Kind = CelKinds.GlowName, Offset = new Vector3(0f, -0.92f, 5.5f), Start = 0.45f, Life = 3.5f, LifeJitter = 0.2f,
+                Name = "pool jet mid", Kind = CelKinds.GlowName, Offset = new Vector3(0f, -0.92f, 5.5f), Start = 0.45f, Life = 3.5f, LifeJitter = 0.05f,
                 Close = 8, Mid = 2, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(2.0f, 0f, 0f), Size = new CelCurve(4.5f, 5.5f), SizeJitter = 0.5f, Erode = new CelCurve(0.01f, 0.5f, 7f),
                 Palette = Pool, Core = 1f, Opacity = 0.85f, Extra = new Vector4(0f, 3.2f, 0f, 0f),
             },
             new CelLayer
             {
-                Name = "pool jet near", Kind = CelKinds.GlowName, Offset = new Vector3(0f, -0.68f, 1.6f), Start = 0.15f, Life = 3.7f, LifeJitter = 0.2f,
+                Name = "pool jet near", Kind = CelKinds.GlowName, Offset = new Vector3(0f, -0.68f, 1.6f), Start = 0.15f, Life = 3.7f, LifeJitter = 0.05f,
                 Close = 9, Mid = 1, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(1.8f, 0f, 0f), Size = new CelCurve(4.6f, 5.6f), SizeJitter = 0.5f, Erode = new CelCurve(0.01f, 0.5f, 7f),
                 Palette = Pool, Core = 1f, Opacity = 0.85f, Extra = new Vector4(0f, 3.2f, 0f, 0f),
             },
@@ -220,8 +220,8 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // embers floating up with the smoke, on after the cut
-                Name = "embers", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.6f, 0.9f, -1.5f), Start = 1.3f, Duration = 3.8f, Life = 2.4f,
-                Close = 520, Mid = 30, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(2.0f, 0f, 0f), Aim = CelAim.Radial, Speed = 2.5f, SpeedJitter = 0.5f, UpBias = 1f, Gravity = 0.6f, Drag = 0.8f, Buoyancy = 0.5f,
+                Name = "embers", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.6f, 0.9f, -1.5f), Start = 1.3f, Duration = 3.2f, Life = 1.5f,   /* d08: life 2.4 -> 1.5, on 3.8 -> 3.2 s (late ember carpet f111-f164) */
+                Close = 140, Mid = 30, Far = 0,   /* d08: 520 -> 140 (the arcs keep the mid-burn spray) */ Shape = CelShape.Sphere, ShapeSize = new Vector3(2.0f, 0f, 0f), Aim = CelAim.Radial, Speed = 2.5f, SpeedJitter = 0.5f, UpBias = 1f, Gravity = 0.6f, Drag = 0.8f, Buoyancy = 0.5f,
                 Size = new CelCurve(0.11f, 0.06f), Stretch = 0.012f,   // b08: fine sparks
                 Erode = new CelCurve(0.02f, 0.5f, 2f), Palette = "ember", Core = 8f, Extra = new Vector4(1f, 0.0f, 0.5f, 0f),
             },
