@@ -54,6 +54,10 @@ namespace TW.Presentation.VFX.Cel
             // from now on CelRange also calls Update every frame of the shot (the attribute alone registers no update)
             CelRange.Register("explosion", FireCb, UpdateCb);
             ExplosionRecipe.Init();
+            // b03: the beach camera reads ViewEye.Zoom 30 (T1), so without a pin the close film played the Mid counts and
+            // Mid ink (no arcs at all). The close film pins the Close tier; the other shots keep the eye's own zoom.
+            // (CelFx's own reset clears the pin between scenes; nothing else on the Range sets it.)
+            CelFx.ZoomOverride = s.Lod == RangeLod.Close ? 7.5f : float.NaN;
             CelFx.Clock = Pinned(s) ? s.FiredAt : float.NaN;
             Vector3 fh = s.Eye.sqrMagnitude > 1e-6f ? s.Target - s.Eye : s.Direction;
             fh.y = 0f;
@@ -74,14 +78,24 @@ namespace TW.Presentation.VFX.Cel
                 ExplosionRecipe.PlayAt(FarSite(i) ? ExplosionRecipe.SiteFar : ExplosionRecipe.Site, g, fh, g, seed + 101u * (uint)(i + 1), Sites[i].z);
             }
             // the late fan goes low to the lower left of the frame: left and toward the eye, a little down
-            Vector3 fanDir = (-rh - 0.75f * fh - 0.1f * Vector3.up).normalized;
-            ExplosionRecipe.PlayAt(ExplosionRecipe.Fan, s.Target, fanDir, s.Target, seed + 7u, 2.45f);
+            Vector3 fanDir = (-rh - 0.75f * fh - 0.22f * Vector3.up).normalized;
+            ExplosionRecipe.PlayAt(ExplosionRecipe.Fan, s.Target, fanDir, s.Target, seed + 7u, 2.3f);
             for (int i = 0; i < Clouds.Length; i++)
             {
                 Vector3 g = GroundAt(s.Ground + rh * Clouds[i].x + fh * Clouds[i].y, s.Ground.y);
                 ExplosionRecipe.PlayAt(ExplosionRecipe.Cloud, g, fh, g + Vector3.up * 1.0f, seed + 211u * (uint)(i + 1), Clouds[i].z);
             }
             Update(s, 0f);
+            LogPools();
+        }
+
+        /// <summary>b03: records spawned against each pool's cap (past the cap the oldest, the Hold's, are overwritten).</summary>
+        static void LogPools()
+        {
+            var r = CelFx.Renderer;
+            if (r == null) return;
+            for (int k = 0; k < r.KindCount; k++)
+                Debug.Log("ExplosionRange pool " + r.KindName(k) + " spawned " + r.SpawnedOf(k) + " cap " + r.CapacityOf(k) + " tier " + FxQuality.Tier);
         }
 
         /// <summary>The close film only, and only when the Range does not step at the clips' rate.</summary>
