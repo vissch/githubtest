@@ -106,6 +106,7 @@ Shader "TW/Cel/GlBolt"
                 float3 eyeDir = (_WorldSpaceCameraPos - p) / max(dcam, 1e-3);
                 float seen = max(length(cross(dir, eyeDir)), 0.35);
                 float lenCap = min(r.extra.y, 0.3 * dcam / max(UNITY_MATRIX_P[0][0], 1e-3) / seen);
+                lenCap *= lerp(0.7, 1.3, CelHash11(r.seed * 3.1 + 0.7));   // d04: each dart's tail +-30%
                 float hw = min(size, lenCap * 0.06);
                 float hl = hw * (r.extra.w > 0.0 ? r.extra.w : 4.0);
                 float bloom = min(max(r.extra.z, 0.0), hw * 2.0) * alive;
@@ -116,7 +117,7 @@ Shader "TW/Cel/GlBolt"
                 float sl = dot(side, side);
                 side = sl > 1e-6 ? side * rsqrt(sl) : UNITY_MATRIX_V[0].xyz;
                 float along = lerp(-len - bloom, hl + bloom, v.uv.x);
-                float across = (v.uv.y * 2.0 - 1.0) * (hw * 1.05 + bloom);
+                float across = (v.uv.y * 2.0 - 1.0) * (hw * 1.9 + bloom);   // d04: room for the flicks
                 w = p + dir * along + side * across;
                 o.st = float2(along, across);
                 o.dims = float4(hw, len, hl, bloom);
@@ -319,17 +320,36 @@ Shader "TW/Cel/GlBolt"
                     float s = i.st.x, y = abs(i.st.y);
                     float hw = max(i.dims.x, 1e-4), len = max(i.dims.y, 1e-3), hl = max(i.dims.z, 1e-4), bloom = i.dims.w;
                     float seed = i.more.y;
-                    // the head: a pointed lozenge, widest a little behind its centre, sharp in front, short round back
-                    float wHead = s >= 0.0 ? hw * pow(saturate(1.0 - s / hl), 0.9) : hw * sqrt(saturate(1.0 - (s / (hl * 0.45)) * (s / (hl * 0.45))));
-                    float dHead = (s > hl || s < -hl * 0.45) ? 1e3 : y - wHead;
-                    // the tail: one smooth unbroken piece, most of the head's width where it leaves it, tapering to nothing
+                    float sy = i.st.y;
+                    // d04 (ref zoom work/zoom/bolts_ref.jpg): a small pale OVAL head, a collar of swept-back flame flicks
+                    // behind it (like fletching), then a thin pale tail that wobbles and tapers to nothing
+                    float hx = s / (hl * 0.5);
+                    float dHead = (sqrt(hx * hx + (sy / (hw * 0.8)) * (sy / (hw * 0.8))) - 1.0) * hw * 0.8;
+                    // flicks: four slanted tapered blades from just behind the head, two each side, uneven, flickering
+                    float dFl = 1e3;
+                    [unroll] for (int k = 0; k < 4; k++)
+                    {
+                        float side = (k & 1) == 0 ? 1.0 : -1.0;
+                        float hk = CelHash11(seed * 3.7 + k * 1.31);
+                        float L = hl * lerp(0.6, 1.3, hk) * (0.85 + 0.15 * sin(_CelNow * 23.0 + k * 2.1 + seed * 9.0));
+                        float2 a0 = float2(-hl * (0.25 + 0.35 * (k >> 1)), side * hw * 0.3);
+                        float2 a1 = a0 + float2(-L, side * hw * lerp(0.7, 1.5, frac(hk * 7.3)));
+                        float2 pa = float2(s, sy) - a0, ba = a1 - a0;
+                        float h = saturate(dot(pa, ba) / dot(ba, ba));
+                        float th = hw * 0.38 * (1.0 - h);
+                        dFl = min(dFl, length(pa - ba * h) - th);
+                    }
+                    // the tail: thin, wobbling slightly, tapering to nothing
                     float u = saturate((-s - hl * 0.2) / max(len - hl * 0.2, 1e-3));
-                    float rT = hw * 0.8 * pow(1.0 - u, 1.35);
-                    float dTail = (s <= 0.0 && s >= -len) ? y - rT : 1e3;
-                    float d = min(dHead, dTail);
-                    // white-hot head and a hot centre line down the tail's first half; the tail's rim and end are green
-                    float vHead = dHead < 0.0 ? 0.74 + 0.26 * saturate(-dHead / hw) : 0.0;
-                    float vTail = dTail < 0.0 ? 0.4 + 0.42 * saturate(-dTail / max(rT, 1e-4)) * pow(1.0 - u, 1.2) : 0.0;
+                    float wob = hw * 0.25 * sin(-s * 6.0 / max(hl, 1e-3) * 0.35 + _CelNow * 18.0 + seed * 11.0) * u;
+                    float rT = hw * 0.42 * pow(1.0 - u, 1.1);
+                    float dTail = (s <= 0.0 && s >= -len) ? abs(sy - wob) - rT : 1e3;
+                    float d = min(min(dHead, dFl), dTail);
+                    // pale everywhere (the ref bolt is pale yellow-green, white-hot at the head), green only at the rim
+                    float vHead = dHead < 0.0 ? 0.86 + 0.14 * saturate(-dHead / hw) : 0.0;
+                    float vFl = dFl < 0.0 ? 0.72 + 0.2 * saturate(-dFl / (hw * 0.3)) : 0.0;
+                    float vTail = dTail < 0.0 ? 0.62 + 0.3 * saturate(-dTail / max(rT, 1e-4)) * pow(1.0 - u, 0.8) : 0.0;
+                    vHead = max(vHead, vFl);
                     float v = max(vHead, vTail);
                     half3 body = CelRamp(saturate(v), row, i.tone.y);
                     float inside = CelAAStep(0.0, -d);
