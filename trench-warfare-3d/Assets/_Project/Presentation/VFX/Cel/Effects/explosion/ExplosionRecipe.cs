@@ -85,6 +85,7 @@ namespace TW.Presentation.VFX.Cel
         public static void Init() { }
 
         const string Fx = ExpFxKind.KindName;
+        const string Chunk = ExpChunkKind.KindName;
 
         public static readonly CelFxRecipe Hold = new CelFxRecipe("explosion_hold", 3.4f,
             new CelLayer
@@ -241,6 +242,14 @@ namespace TW.Presentation.VFX.Cel
             },
             new CelLayer
             {
+                // d11: a dense burst of small black angular chunks thrown out of the fireball and falling (ref f60-f115)
+                Name = "chunk throw", Kind = Chunk, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.5f, -1.6f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.7f, 0.0f, 0.0f),
+                Start = 1.35f, Duration = 1.6f, Life = 1.1f, LifeJitter = 0.3f, Close = 190, Mid = 20, Far = 0, Aim = CelAim.Radial, Speed = 8.0f, SpeedJitter = 0.65f, UpBias = 0.45f,
+                Gravity = 12f, Drag = 0.6f, Spin = 7f, Size = new CelCurve(0.09f, 0.055f), SizeJitter = 0.55f, Stretch = 1.7f,
+                Palette = "exp_chunk", Core = 0.3f, Ink = 1.5f, Extra = new Vector4(4f, 3f, 0.5f, 0f),
+            },
+            new CelLayer
+            {
                 Name = "closing burst", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.35f, 0.0f, 0.0f),
                 Start = 2.65f, Duration = 0.1f, Life = 0.6f, Close = 8, Mid = 4, Far = 0, Aim = CelAim.Radial, Speed = 3.6f, Drag = 2.5f, Buoyancy = 0.3f, Spin = 2f,
                 Size = new CelCurve(0.6f, 1.0f, 0.4f), Erode = new CelCurve(0f, 1f, 3.5f), Feather = 0.08f,
@@ -332,6 +341,14 @@ namespace TW.Presentation.VFX.Cel
             },
             new CelLayer
             {
+                // d11: dense black angular chunks thrown up and out over the side blast, falling (ref f87-f91)
+                Name = "chunk burst", Kind = Chunk, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.55f, -1.4f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0.0f, 0.0f),
+                Start = 0.05f, Duration = 0.45f, Life = 1.3f, LifeJitter = 0.3f, Close = 105, Mid = 12, Far = 0, Aim = CelAim.Radial, Speed = 7.0f, SpeedJitter = 0.65f, UpBias = 0.55f,
+                Gravity = 12f, Drag = 0.6f, Spin = 7f, Size = new CelCurve(0.105f, 0.065f), SizeJitter = 0.55f, Stretch = 1.7f,
+                Palette = "exp_chunk", Core = 0.3f, Ink = 1.5f, Extra = new Vector4(4f, 3f, 0.5f, 0f),
+            },
+            new CelLayer
+            {
                 // r05: grey puffs standing round the site after its dome
                 Name = "puffs", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.875f, 0.0f), Shape = CelShape.Box, ShapeSize = new Vector3(2.5f, 1.0f, 1.0f),
                 Start = 0.03f, Duration = 0.18f, Life = 1.4f, LifeJitter = 0.2f, Close = 13, Mid = 3, Far = 0, Aim = CelAim.Radial, Speed = 1.0f, Drag = 1.2f, Buoyancy = 0.188f, Spin = 0.4f,
@@ -383,6 +400,14 @@ namespace TW.Presentation.VFX.Cel
                 Start = 0.06f, Duration = 0.5f, Life = 1.4f, LifeJitter = 0.25f, Close = 13, Mid = 5, Far = 0, Aim = CelAim.Radial, Speed = 2.2f, SpeedJitter = 0.5f, UpBias = 0.2f,
                 Gravity = 11f, Drag = 0.6f, Spin = 3f, Size = new CelCurve(0.12f, 0.085f), SizeJitter = 0.4f, Stretch = 0.6f, Erode = new CelCurve(0f, 0.4f, 4f),
                 Palette = "exp_chunk", Core = 1f, Ink = 2.2f, Extra = new Vector4(4.5f, 0.75f, 0f, 0f),
+            },
+            new CelLayer
+            {
+                // d11: dense black angular chunks over the far side blast
+                Name = "chunk burst", Kind = Chunk, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.35f, -0.9f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0.0f, 0.0f),
+                Start = 0.05f, Duration = 0.45f, Life = 1.3f, LifeJitter = 0.3f, Close = 60, Mid = 8, Far = 0, Aim = CelAim.Radial, Speed = 5.0f, SpeedJitter = 0.65f, UpBias = 0.6f,
+                Gravity = 9.8f, Drag = 0.6f, Spin = 7f, Size = new CelCurve(0.07f, 0.042f), SizeJitter = 0.55f, Stretch = 1.7f,
+                Palette = "exp_chunk", Core = 0.3f, Ink = 1.2f, Extra = new Vector4(4f, 3f, 0.5f, 0f),
             },
             new CelLayer
             {

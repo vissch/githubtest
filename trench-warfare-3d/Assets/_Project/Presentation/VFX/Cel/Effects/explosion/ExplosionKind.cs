@@ -18,4 +18,16 @@ namespace TW.Presentation.VFX.Cel
         public override int Capacity => 512;
         public override int Order => 15;
     }
+
+    /// <summary>d11: dense dark angular debris chunks (Shaders/Cel/Effects/explosion/CelExpChunk_URP.shader): opaque
+    /// cut-out polygons, one quad each, one draw. Kept for a build by Resources/ShaderKeep/KeepCelExpChunk.mat.</summary>
+    public sealed class ExpChunkKind : CelKind
+    {
+        public const string KindName = "ExpChunk";
+        public override string Name => KindName;
+        public override Shader FindShader() => Shader.Find("TW/Cel/ExpChunk");
+        public override Mesh BuildMesh() => CelMeshes.Quad01("Cel ExpChunk");
+        public override int Capacity => 1024;
+        public override int Order => 12;
+    }
 }
