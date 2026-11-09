@@ -24,23 +24,23 @@ namespace TW.Presentation.VFX.Cel
         public static void AddPalettes()
         {
             // the jet: a thin red-orange rim, orange, a gold band, the clip's yellow (#f8e671), a white core
-            CelPalette.Add(Flame, CelPalette.Hex(0xC24A12), CelPalette.Hex(0xEC8A2C), CelPalette.Hex(0xF9C04A), CelPalette.Hex(0xF8E671),
-                CelPalette.Hex(0xFFF6DC), 0.84f, 4, CelPalette.Hex(0x5A1606));
+            CelPalette.Add(Flame, CelPalette.Hex(0xC9501A), CelPalette.Hex(0xE8862E), CelPalette.Hex(0xFADC80), CelPalette.Hex(0xFCF0A8),
+                CelPalette.Hex(0xFFF8E2), 0.88f, 4, CelPalette.Hex(0x5A1606));
             // the fire round the target: the same colours, a smaller white heart
-            CelPalette.Add(Burn, CelPalette.Hex(0xD0601A), CelPalette.Hex(0xEC8A2C), CelPalette.Hex(0xF9B840), CelPalette.Hex(0xF8DC68),
-                CelPalette.Hex(0xFFF4D8), 0.94f, 4, CelPalette.Hex(0x3A0E06));
+            CelPalette.Add(Burn, CelPalette.Hex(0xB8401A), CelPalette.Hex(0xE8822E), CelPalette.Hex(0xF9D474), CelPalette.Hex(0xFCEEA0),
+                CelPalette.Hex(0xFFF6DC), 0.97f, 4, CelPalette.Hex(0x2A0A04));
             // the smoke: near black with a brown lit crescent on each lobe, so the lobes read one by one
-            CelPalette.Add(SmokeInk, CelPalette.Hex(0x1A1210), CelPalette.Hex(0x2E211B), CelPalette.Hex(0x4A362B), CelPalette.Hex(0x735544),
+            CelPalette.Add(SmokeInk, CelPalette.Hex(0x1C1411), CelPalette.Hex(0x352620), CelPalette.Hex(0x5A4132), CelPalette.Hex(0x8A6448),
                 CelPalette.Hex(0x735544), 1.1f, 3, CelPalette.Hex(0x050303));
             // the column thinning: a cold grey-blue like the clip's last frames
-            CelPalette.Add(SmokeGrey, CelPalette.Hex(0x26272E), CelPalette.Hex(0x383A45), CelPalette.Hex(0x4E5262), CelPalette.Hex(0x666B7E),
-                CelPalette.Hex(0x666B7E), 1.1f, 3, CelPalette.Hex(0x14141A));
+            CelPalette.Add(SmokeGrey, CelPalette.Hex(0x3A3C46), CelPalette.Hex(0x4C4F5C), CelPalette.Hex(0x626777), CelPalette.Hex(0x7A8092),
+                CelPalette.Hex(0x7A8092), 1.1f, 3, CelPalette.Hex(0x14141A));
             CelPalette.Add(Pool, CelPalette.Hex(0x3A2006), CelPalette.Hex(0x704010), CelPalette.Hex(0xA8641C), CelPalette.Hex(0xD88A2C),
                 CelPalette.Hex(0xE8A040), 1.1f, 4, CelPalette.Hex(0x000000));
         }
 
         /// <summary>How far above the chest the jet is aimed (the dummy's upper chest), m.</summary>
-        public const float AimLift = 0.45f;
+        public const float AimLift = 0.55f;
 
         // the flame reaches the target and holds for JetLife seconds (the clip: cut at 3.15-3.45 s after our fire)
         const float JetLife = 3.45f;
@@ -54,32 +54,32 @@ namespace TW.Presentation.VFX.Cel
                 // ten tongues along the top), core streaks 0.8, upper-edge licking 1
                 Name = "jet", Kind = "FlameJet", Start = 0f, Life = JetLife, LifeJitter = 0f, Offset = new Vector3(0f, 0.25f, 0.9f),
                 Close = 1, Mid = 1, Far = 1, Shape = CelShape.Point, Aim = CelAim.Target, Speed = 0f, Spread = 0f, Arrive = 1f, SpeedJitter = 0f,
-                Size = new CelCurve(0.12f, 3.5f, 1.0f), SizeJitter = 0f, Stretch = 0.3f,
-                Erode = new CelCurve(0.4f, 0.32f, 0.55f), Feather = 0.45f,
-                Palette = Flame, Core = 3.5f, Ink = 1.5f, Extra = new Vector4(9f, 1.0f, 0.8f, 1f),
+                Size = new CelCurve(0.25f, 3.1f, 0.75f), SizeJitter = 0f, Stretch = 0.38f,
+                Erode = new CelCurve(0.4f, 0.32f, 0.5f), Feather = 0.45f,
+                Palette = Flame, Core = 3.5f, Ink = 1.5f, Extra = new Vector4(9f, 0.8f, 0.8f, 1f),
             },
             // the fire at the target: round curling lobes that roll up and downstream off the dummy, in three waves of
             // growing size so the burning mass keeps growing to the cut (the clip's peak, ~2.7 s), cooling to smoke
             new CelLayer
             {
                 Name = "fire a", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.65f, 0.1f), Start = 0.5f, Duration = 2.6f, Life = 0.8f, LifeJitter = 0.25f,
-                Close = 26, Mid = 8, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.45f, 0f, 0f), Aim = CelAim.Dir, Speed = 1.6f, SpeedJitter = 0.3f, Spread = 55f, Drag = 1.2f, Buoyancy = 1.0f, Spin = 1.2f,
+                Close = 20, Mid = 7, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.45f, 0f, 0f), Aim = CelAim.Dir, Speed = 1.8f, SpeedJitter = 0.3f, Spread = 55f, Drag = 1.2f, Buoyancy = 1.0f, Spin = 1.2f,
                 Size = new CelCurve(0.25f, 0.6f, 0.6f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.12f,
-                Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.75f, Core = 2.5f, Ink = 2.2f, Extra = new Vector4(1.4f, 0.18f, 0.5f, 0.75f),
+                Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.88f, Core = 2.5f, Ink = 3.2f, Extra = new Vector4(1.6f, 0.26f, 0f, 0.88f),
             },
             new CelLayer
             {
                 Name = "fire b", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.35f, 0.3f), Start = 1.3f, Duration = 1.85f, Life = 0.9f, LifeJitter = 0.25f,
-                Close = 22, Mid = 6, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.55f, 0f, 0f), Aim = CelAim.Dir, Speed = 1.8f, SpeedJitter = 0.3f, Spread = 50f, Drag = 1.1f, Buoyancy = 1.0f, Spin = 1.0f,
-                Size = new CelCurve(0.4f, 0.9f, 0.6f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.12f,
-                Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.75f, Core = 2.5f, Ink = 2.4f, Extra = new Vector4(1.3f, 0.18f, 0.5f, 0.75f),
+                Close = 18, Mid = 6, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.55f, 0f, 0f), Aim = CelAim.Dir, Speed = 2.0f, SpeedJitter = 0.3f, Spread = 50f, Drag = 1.1f, Buoyancy = 1.0f, Spin = 1.0f,
+                Size = new CelCurve(0.5f, 1.1f, 0.6f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.12f,
+                Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.88f, Core = 2.5f, Ink = 3.4f, Extra = new Vector4(1.5f, 0.26f, 0f, 0.88f),
             },
             new CelLayer
             {
                 Name = "fire c", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.1f, 0.4f), Start = 1.9f, Duration = 1.2f, Life = 1.0f, LifeJitter = 0.2f,
-                Close = 16, Mid = 4, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.6f, 0f, 0f), Aim = CelAim.Dir, Speed = 1.8f, SpeedJitter = 0.3f, Spread = 45f, Drag = 1.0f, Buoyancy = 1.0f, Spin = 0.9f,
-                Size = new CelCurve(0.55f, 1.15f, 0.6f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.12f,
-                Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.75f, Core = 2.5f, Ink = 2.5f, Extra = new Vector4(1.2f, 0.18f, 0.5f, 0.75f),
+                Close = 14, Mid = 4, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.6f, 0f, 0f), Aim = CelAim.Dir, Speed = 2.0f, SpeedJitter = 0.3f, Spread = 45f, Drag = 1.0f, Buoyancy = 1.0f, Spin = 0.9f,
+                Size = new CelCurve(0.7f, 1.4f, 0.6f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.12f,
+                Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.88f, Core = 2.5f, Ink = 3.5f, Extra = new Vector4(1.4f, 0.26f, 0f, 0.88f),
             },
             new CelLayer
             {
@@ -95,16 +95,16 @@ namespace TW.Presentation.VFX.Cel
                 Name = "smoke base", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.4f, 0.5f), Start = 0.9f, Duration = 2.4f, Life = 0.9f,
                 Close = 12, Mid = 4, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.6f, 0f, 0f), Aim = CelAim.Up, Speed = 1.2f, Spread = 30f, Drag = 0.6f, Buoyancy = 1.2f, Spin = 0.8f,
                 Size = new CelCurve(0.35f, 0.8f, 0.6f), Erode = new CelCurve(0f, 1f, 3f), Feather = 0.1f,
-                Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.15f, Core = 2f, Ink = 2.5f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0.2f),
+                Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.35f, Core = 2f, Ink = 3f, Extra = new Vector4(1.3f, 0.2f, 0f, 0.35f),
             },
             new CelLayer
             {
                 // the column: big round ink lobes born over the fire, rising fast (buoyancy) and drifting downstream
                 // (Aim Dir = right on screen), at the frame's top by ~2.8 s, kept to ~4.7 s, cooling to grey and eroding away
-                Name = "smoke column", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.9f, 0.6f), Start = 0.9f, Duration = 2.5f, Life = 2.1f, LifeJitter = 0.15f,
-                Close = 30, Mid = 10, Far = 1, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.7f, 0f, 0f), Aim = CelAim.Dir, Speed = 1.4f, Spread = 30f, Drag = 0.5f, Buoyancy = 1.6f, Spin = 0.4f,
-                Size = new CelCurve(0.55f, 1.35f, 0.5f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 3.5f), Feather = 0.1f,
-                Palette = SmokeInk, CoolTo = SmokeGrey, CoolFrom = 0.6f, Core = 1f, Ink = 3f, Extra = new Vector4(1.2f, 0.15f, 0.8f, 0.6f),
+                Name = "smoke column", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 1.1f, 0.6f), Start = 1.1f, Duration = 2.3f, Life = 2.0f, LifeJitter = 0.1f,
+                Close = 14, Mid = 6, Far = 1, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.0f, 0f, 0f), Aim = CelAim.Dir, Speed = 0.7f, Spread = 35f, Drag = 0.5f, Buoyancy = 0.9f, Spin = 0.35f,
+                Size = new CelCurve(0.5f, 1.9f, 0.5f), SizeJitter = 0.2f, Erode = new CelCurve(0f, 1f, 2.6f), Feather = 0.12f,
+                Palette = SmokeInk, CoolTo = SmokeGrey, CoolFrom = 0.55f, Core = 1f, Ink = 3.5f, Extra = new Vector4(0.9f, 0.12f, 0.8f, 0.55f),
             },
             new CelLayer
             {
@@ -134,15 +134,15 @@ namespace TW.Presentation.VFX.Cel
             {
                 // a dense spray of small embers thrown up off the target, arcing over it and falling
                 Name = "ember arcs", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.2f, 0.2f), Start = 0.6f, Duration = 3.0f, Life = 1.3f, LifeJitter = 0.4f,
-                Close = 300, Mid = 60, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.8f, 0f, 0f), Aim = CelAim.Radial, Speed = 5f, SpeedJitter = 0.5f, UpBias = 1.6f, Gravity = 3.5f, Drag = 0.5f,
-                Size = new CelCurve(0.09f, 0.05f), Stretch = 0.04f, Erode = new CelCurve(0.05f, 0.6f, 2f), Palette = "ember", Core = 4f, Extra = new Vector4(1f, 0.05f, 0.5f, 0f),
+                Close = 420, Mid = 70, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.9f, 0f, 0f), Aim = CelAim.Radial, Speed = 5.5f, SpeedJitter = 0.5f, UpBias = 1.8f, Gravity = 3.5f, Drag = 0.5f,
+                Size = new CelCurve(0.075f, 0.05f), Stretch = 0.008f, Erode = new CelCurve(0.05f, 0.6f, 2f), Palette = "ember", Core = 4f, Extra = new Vector4(1f, 0.0f, 0.5f, 0f),
             },
             new CelLayer
             {
                 // embers floating up with the smoke, on after the cut
                 Name = "embers", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.45f, 0f), Start = 1.0f, Duration = 3.8f, Life = 2.0f,
                 Close = 90, Mid = 25, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.4f, 0f, 0f), Aim = CelAim.Radial, Speed = 2.5f, SpeedJitter = 0.5f, UpBias = 1f, Drag = 0.8f, Buoyancy = 1f,
-                Size = new CelCurve(0.06f, 0.035f), Stretch = 0.035f, Erode = new CelCurve(0.05f, 0.6f, 2f), Palette = "ember", Core = 3.5f, Extra = new Vector4(1f, 0.06f, 0.5f, 0f),
+                Size = new CelCurve(0.06f, 0.04f), Stretch = 0.01f, Erode = new CelCurve(0.05f, 0.6f, 2f), Palette = "ember", Core = 3.5f, Extra = new Vector4(1f, 0.0f, 0.5f, 0f),
             },
             new CelLayer
             {

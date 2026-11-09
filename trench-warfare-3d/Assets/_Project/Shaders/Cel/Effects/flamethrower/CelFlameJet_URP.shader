@@ -83,7 +83,7 @@ Shader "TW/Cel/FlameJet"
             if (side.y < 0.0) side = -side;
             // the envelope is wider than the body so the tongues have room; the round front cap reaches past the end
             float hw = JetHalfWidth(r, a) * JET_ENV * alive;
-            float cap = (uv.x > 0.999) ? hw * 0.6 : 0.0;
+            float cap = (uv.x > 0.999) ? hw * 1.3 : 0.0;
             JetOut o;
             o.positionWS = c + side * (uv.y * 2.0 - 1.0) * hw + dir * cap;
             o.along = a + cap / len;
@@ -115,23 +115,31 @@ Shader "TW/Cel/FlameJet"
             float y = across - sway;
             bool upper = y > 0.0;
             float ay = abs(y);
-            float shear = ay * hw * (upper ? 1.4 : 0.7);
+            // r04: both edges are a row of long, low tongues leaning downstream (each about 4-8x longer along the flow
+            // than it is tall): a strong shear tips them forward, and two overlapping rows (offset phases) make the edge
+            // ragged without needles. The upper edge is only a little taller than the lower one.
+            float shear = ay * hw * (upper ? 1.8 : 1.4);
             float sl = s - shear;
             float g = CelSimplex3(float3(sl * freq, t * 0.7, sd + (upper ? 3.1 : 7.7)));
-            float tongue = 1.0 - abs(g); tongue = tongue * tongue;                   // pointed tips, gaps between
-            float g2 = CelSimplex3(float3(sl * freq * 2.3, t * 1.1, sd + 1.7));
-            float fine = 1.0 - abs(g2); fine *= fine;
-            float lick = (upper ? amp * (1.0 + 0.6 * up) : amp * 0.8) * lerp(0.35, 1.0, a01);
-            float edge = min(0.85 + lick * (0.85 * tongue + 0.15 * fine), JET_ENV * 0.95);
+            float tongue = 1.0 - abs(g); tongue *= sqrt(tongue);                    // crests between pointed and round
+            float g2 = CelSimplex3(float3(sl * freq * 1.9 + 4.3, t * 1.1, sd + (upper ? 1.7 : 5.3)));
+            float tongue2 = 1.0 - abs(g2); tongue2 *= sqrt(tongue2);
+            float rows = max(tongue, tongue2 * 0.8);
+            float lick = (upper ? amp * (1.0 + 0.25 * up) : amp) * lerp(0.7, 1.0, a01);
+            float edge = min(0.72 + lick * rows, JET_ENV * 0.95);
             float field = (edge - ay) / edge;
-            // the front end and the cut-off tail are round, eaten a little by the tongues
-            float toFront = (tf.y - along) * len / (hw * 1.1);
+            // the front end spills past the target ragged (tongues reach on, no blunt cap); the cut-off tail is round
+            float toFront = (tf.y - along) * len / (hw * 1.4);
             float toTail = (along - tf.x) * len / (hw * 0.9);
-            field = min(field, toFront + g * 0.2);
+            field = min(field, toFront + (rows - 0.6) * 0.6);
             if (tf.x > 0.0) field = min(field, toTail + g * 0.2);
-            // the white core and the bands: long streaks along the flow (about 7x longer than wide)
+            // the nozzle end tapers to a point (no square cut where the strip starts near the camera)
+            else field = min(field, metres / (hw * 1.2) - 0.05);
+            // the bands follow overlapping tongues inside the body too (chevrons sheared like the edge), plus long
+            // streaks along the flow for the white core
             float3 q2 = float3(s * freq * 0.3, y * hw * freq * 2.2, t * 1.3 + r.seed * 7.0);
-            streak = CelSimplex3(q2) * (r.extra.z);
+            float inner = CelSimplex3(float3((s - ay * hw * 2.3) * freq * 1.3, ay * 1.2, t * 0.9 + sd + 2.9));
+            streak = CelSimplex3(q2) * r.extra.z * 0.7 + inner * 0.45;
             return field;
         }
         ENDHLSL
@@ -178,7 +186,8 @@ Shader "TW/Cel/FlameJet"
                 // the value the bands are cut from: the field, lifted along the white streaks, a little hotter at the nozzle
                 // a thin red rim, then orange and yellow, and the white core down the middle; cooler toward the target
                 // (red only on a thin rim: v passes the first band at f ~0.04)
-                float v = saturate(0.22 + f * 0.7 + streak * 0.3 + 0.12 * (1.0 - saturate(jc.x * 1.5)) - 0.12 * saturate((jc.x - 0.5) * 1.5));
+                // r04: the white core is about twice as wide (it shows over more of the field)
+                float v = saturate(0.20 + f * 0.76 + streak * 0.3 + 0.12 * (1.0 - saturate(jc.x * 1.5)) - 0.08 * saturate((jc.x - 0.6) * 1.5));
                 half3 col = CelRamp(v, CelRowA(r.tone.x), r.tone.y);
                 float ink = CelInk(f, 0.0, CelLodInk(r.tone.w));
                 col = lerp(col, CelPalInk(CelRowA(r.tone.x)).rgb, ink);
