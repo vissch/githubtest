@@ -159,12 +159,12 @@ namespace TW.Presentation.VFX.Cel
                 new CelLayer
                 {
                     Name = "spark starburst", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit, Duration = 0.05f, Life = 0.34f, LifeJitter = 0.25f,
-                    Close = ground ? 26 : 30, Mid = 6,   // c03: a fuller radial spray / dummy spark fan
+                    Close = ground ? 36 : 46, Mid = 6,   // d06 (from d04): denser sprays   // c03: a fuller radial spray / dummy spark fan
                     Far = 0, Shape = CelShape.Shell, ShapeSize = new Vector3(ground ? 0.1f : 0.16f, 0f, 0f), Aim = CelAim.Radial,
-                    Speed = 8.5f, SpeedJitter = 0.45f, UpBias = ground ? 0.55f : 0.15f, Gravity = 3f, Drag = 1.4f,   // c01: born on a shell (no pile-up disc at the middle), ground sparks fan upward
+                    Speed = 11f, SpeedJitter = 0.5f, UpBias = ground ? 0.55f : 0.15f, Gravity = 3f, Drag = 1.4f,   // c01: born on a shell (no pile-up disc at the middle), ground sparks fan upward
                     // b04: short orange dots and streaks over the torso's width (b03 lost its palette, erosion and core
                     // to a comment, so 28 default-white streaks piled up into a disc at the chest)
-                    Size = new CelCurve(0.035f, 0.02f), Stretch = ground ? 0.08f : 0.12f,   // c01: thinner, longer streaks (b05: 0.05, 0.09)
+                    Size = new CelCurve(0.045f, 0.02f), Stretch = ground ? 0.12f : 0.2f,   // c01: thinner, longer streaks (b05: 0.05, 0.09)
                     Erode = new CelCurve(0.02f, 0.6f), Palette = "fb_spark", Core = 1.15f, Extra = new Vector4(0f, 0.08f, 0.3f, 0f),
                 },
                 new CelLayer
@@ -182,7 +182,7 @@ namespace TW.Presentation.VFX.Cel
             r.Layers.Add(new CelLayer
             {
                 Name = "hit flash", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Start = hit, Life = 0.12f, LifeJitter = 0.04f,   // c05: a flame flash on every hit
-                Close = ground ? 0 : 1, Mid = ground ? 0 : 1, Far = 0, Size = new CelCurve(0.25f, 0.5f, 0.5f), SizeJitter = 0.2f, Erode = new CelCurve(0.03f, 0.9f, 1.5f),
+                Close = ground ? 0 : 1, Mid = ground ? 0 : 1, Far = 0, Size = new CelCurve(0.45f, 0.85f, 0.5f), SizeJitter = 0.2f, Erode = new CelCurve(0.03f, 0.9f, 1.5f),
                 Palette = "fb_spark", Core = 1.6f, Spin = 2f, Extra = new Vector4(2f, 1.1f, 10f, 5f),
             });
             if (ground)

@@ -113,7 +113,7 @@ Shader "TW/Cel/Comet"
                     float3 toEye = _WorldSpaceCameraPos - w;
                     w += normalize(toEye) * min(0.7, length(toEye) * 0.1);
                     // brightness over the life: a soft start, a rise to the peak, a smooth fade to nothing
-                    float env = smoothstep(0.0, 0.025, k) * lerp(0.4, 1.0, smoothstep(0.02, max(r.extra.z, 0.03), k))
+                    float env = smoothstep(0.03, 0.06, k) * lerp(0.4, 1.0,   /* d06: dark until the first hit (f17) */ smoothstep(0.02, max(r.extra.z, 0.03), k))
                               * (1.0 - smoothstep(max(r.extra.w, r.extra.z), 1.0, k));
                     o.positionWS = w;
                     o.positionCS = TransformWorldToHClip(w);
