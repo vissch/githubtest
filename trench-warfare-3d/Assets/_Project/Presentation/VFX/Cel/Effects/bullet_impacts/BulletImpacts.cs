@@ -30,6 +30,9 @@ namespace TW.Presentation.VFX.Cel.Effects
 
     public static class BulletImpacts
     {
+        // b01: the beach Range sits 19 m from a dummy scaled 1.31 (the corridor: 11.5 m, scale 1); the world sizes that
+        // must keep their size against the dummy on screen are multiplied by K
+        const float K = 1.25f;
         public const string WashName = "BiWash";
 
         static BulletImpacts()
@@ -38,8 +41,9 @@ namespace TW.Presentation.VFX.Cel.Effects
             // brown shade, and a dark brown ink
             // r05: the field fog takes about 40 % off a lobe (r04: #E2BE96 read #8e6c57), so the colours are set lighter
             // than they should read; the light top is the core band (the lobe's up-facing side) so it shows on top only
-            CelPalette.Add("bi_dust", CelPalette.Hex(0x56483E), CelPalette.Hex(0x8A7262), CelPalette.Hex(0xB49A84), CelPalette.Hex(0xD4B898),
-                CelPalette.Hex(0xF0D6B0), 0.86f, 3, CelPalette.Hex(0x080402));
+            // b01: the beach has no corridor fog, so the clip's own tones (r05's lightened set read yellow-orange)
+            CelPalette.Add("bi_dust", CelPalette.Hex(0x60534F), CelPalette.Hex(0x89604C), CelPalette.Hex(0xA88A74), CelPalette.Hex(0xC4A486),
+                CelPalette.Hex(0xDFB78F), 0.9f, 3, CelPalette.Hex(0x2D2424));
             // the dirt crowns: darker than the puffs
             CelPalette.Add("bi_dirt", CelPalette.Hex(0x3A281C), CelPalette.Hex(0x5E4430), CelPalette.Hex(0x86644A), CelPalette.Hex(0xB08C68),
                 CelPalette.Hex(0xB08C68), 1.1f, 3, CelPalette.Hex(0x1A0E06));
@@ -68,7 +72,7 @@ namespace TW.Presentation.VFX.Cel.Effects
 
         // ------------------------------------------------------------------------------------------ the shot
         /// <summary>Seconds from the shot to the impact: the tracers arrive at the hit on the frame they die.</summary>
-        public const float Flight = 0.15f;
+        public const float Flight = 0.19f;   // b01: about 4.5 frames at the beach's 24 fps, so a whole line reaches the board
 
         // Tracers: Speed 0 + Arrive 1 makes each arrive at the hit on the frame it dies, so none flies past it.
         public static readonly CelFxRecipe Tracer = new CelFxRecipe("bi_tracer", 0.3f,
@@ -76,8 +80,8 @@ namespace TW.Presentation.VFX.Cel.Effects
             {
                 Name = "tracer", Kind = CelKinds.StreakName, Start = 0f, Duration = 0.03f, Life = Flight, LifeJitter = 0f,
                 Close = 2, Mid = 1, Far = 1, Shape = CelShape.Box, ShapeSize = new Vector3(0.5f, 0.3f, 0f), Aim = CelAim.Target, Speed = 0f, Arrive = 1f, Spread = 0f,
-                Size = new CelCurve(0.03f, 0.022f), SizeJitter = 0.15f, Stretch = 0.075f, Erode = new CelCurve(0f, 0.15f, 2f),
-                Palette = "bi_tracer", Core = 2.5f, Extra = new Vector4(0.1f, 0.8f, 0.1f, 0f),
+                Size = new CelCurve(0.03f, 0.024f), SizeJitter = 0.15f, Stretch = 0.22f, Erode = new CelCurve(0f, 0.15f, 2f),
+                Palette = "bi_tracer", Core = 4f, Extra = new Vector4(0.1f, 0.8f, 0.1f, 0f),
             });
 
         // the near bolt: thick (3x a tracer as it looks), a long trail back to the gun so it enters from the frame's
@@ -87,14 +91,14 @@ namespace TW.Presentation.VFX.Cel.Effects
             {
                 Name = "bolt", Kind = CelKinds.StreakName, Start = 0f, Life = 0.13f, LifeJitter = 0f,
                 Close = 1, Mid = 0, Far = 0, Aim = CelAim.Target, Speed = 0f, Arrive = 1f, Spread = 0f,
-                Size = new CelCurve(0.24f, 0.16f, 0.7f), SizeJitter = 0.1f, Stretch = 0.14f, Erode = new CelCurve(0f, 0.1f, 2f),
+                Size = new CelCurve(0.1f, 0.075f, 0.7f), SizeJitter = 0.1f, Stretch = 0.14f, Erode = new CelCurve(0f, 0.1f, 2f),
                 Palette = "bi_bolt", Core = 3f, Extra = new Vector4(0.15f, 0.8f, 0f, 0f),
             },
             new CelLayer
             {
                 Name = "bolt bloom", Kind = CelKinds.GlowName, Start = 0f, Life = 0.13f, LifeJitter = 0f,
                 Close = 1, Mid = 0, Far = 0, Aim = CelAim.Target, Speed = 0f, Arrive = 1f, Spread = 0f,
-                Size = new CelCurve(0.26f, 0.2f), Erode = new CelCurve(0.05f, 0.3f), Palette = "fire", Core = 1.5f, Opacity = 0.5f,
+                Size = new CelCurve(0.14f, 0.1f), Erode = new CelCurve(0.05f, 0.3f), Palette = "fire", Core = 1.5f, Opacity = 0.35f,
                 Extra = new Vector4(2f, 1.8f, 0f, 0f),
             });
 
@@ -110,16 +114,16 @@ namespace TW.Presentation.VFX.Cel.Effects
             {
                 // r05: a white core that clips (the clip's f68/f79 hits are white in the middle, not an orange glow)
                 Name = "core", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.03f, -0.3f), Start = 0f, Life = 0.1f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.13f, 0.1f), SizeJitter = 0.1f, Erode = new CelCurve(0f, 0.7f),
+                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.1f * K, 0.075f * K), SizeJitter = 0.1f, Erode = new CelCurve(0f, 0.7f),
                 Palette = "white", Core = 10f, Extra = new Vector4(2f, 0.5f, 0f, 0f),
             },
             new CelLayer
             {
                 // thin red-orange spikes about half the dummy's head long (0.14 m), all round and up, 2-3 frames
-                Name = "spikes", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.03f, -0.3f), Start = 0f, Duration = 0.005f, Life = 0.12f, LifeJitter = 0.15f,
-                Close = 5, Mid = 2, Far = 0, Shape = CelShape.Shell, ShapeSize = new Vector3(0.03f, 0f, 0f), Aim = CelAim.Radial, UpBias = 0.2f,
-                Speed = 6f, SpeedJitter = 0.25f, Drag = 4f,
-                Size = new CelCurve(0.022f, 0.014f), Stretch = 0.06f, Erode = new CelCurve(0f, 0.3f), Palette = "bi_spark", Core = 5f, Extra = new Vector4(0f, 0.14f, 0f, 0f),
+                Name = "spikes", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.03f, -0.3f), Start = 0f, Duration = 0.005f, Life = 0.1f, LifeJitter = 0.1f,
+                Close = 6, Mid = 2, Far = 0, Shape = CelShape.Shell, ShapeSize = new Vector3(0.03f, 0f, 0f), Aim = CelAim.Radial, UpBias = 0.2f,
+                Speed = 9f, SpeedJitter = 0.2f, Drag = 6f,
+                Size = new CelCurve(0.034f, 0.02f), Stretch = 0.035f, Erode = new CelCurve(0f, 0.2f), Palette = "bi_spark", Core = 6f, Extra = new Vector4(0f, 0.14f, 0f, 0f),
             },
             new CelLayer
             {
@@ -135,9 +139,9 @@ namespace TW.Presentation.VFX.Cel.Effects
             new CelLayer
             {
                 Name = "crown", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.03f, 0f), Start = 0.0f, Duration = 0.02f, Life = 0.4f, LifeJitter = 0.2f,
-                Close = 7, Mid = 0, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.14f, 0.06f, 0f), Aim = CelAim.Up, Spread = 50f, Speed = 2.4f, SpeedJitter = 0.35f,
+                Close = 7, Mid = 0, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.14f * K, 0.06f, 0f), Aim = CelAim.Up, Spread = 50f, Speed = 2.4f * K, SpeedJitter = 0.35f,
                 Gravity = 7f, Drag = 2.5f,
-                Size = new CelCurve(0.06f, 0.03f), SizeJitter = 0.3f, Stretch = 3f, Erode = new CelCurve(0f, 0.9f, 2f), Feather = 0f,
+                Size = new CelCurve(0.06f * K, 0.03f * K), SizeJitter = 0.3f, Stretch = 3f, Erode = new CelCurve(0f, 0.9f, 2f), Feather = 0f,
                 Palette = "bi_dirt", Core = 1f, Ink = 2.5f, Extra = new Vector4(2f, 0.25f, 1f, 0f),
             });
 
@@ -148,14 +152,14 @@ namespace TW.Presentation.VFX.Cel.Effects
         // as grapes. Size shrinks from r1 to a third with pow 2 (stays big, then shrinks late); ink 2.5 px.
         static CelLayer PuffLobes(int close, int mid, float width, float r1, float rise) => new CelLayer
         {
-            Name = "puff", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, r1 * 0.6f, 0f), Start = 0.0f, Duration = 0.3f, Life = 2.15f, LifeJitter = 0.12f,
+            Name = "puff", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, r1 * 0.35f, 0f), Start = 0.0f, Duration = 0.2f, Life = 1.7f, LifeJitter = 0.12f,
             Close = close, Mid = mid, Far = 0, Shape = CelShape.Box, ShapeSize = new Vector3(width, 0.05f, width * 0.5f), Aim = CelAim.Up, Spread = 30f,
             Speed = rise, SpeedJitter = 0.45f, Drag = 2.4f, Buoyancy = 0.1f, Spin = 0.25f,
             Size = new CelCurve(r1, r1 * 0.35f, 2f), SizeJitter = 0.25f, Stretch = 1f, Erode = new CelCurve(0f, 0.75f, 4f), Feather = 0f,
-            Palette = "bi_dust", Core = 1.1f, Ink = 3.2f, Extra = new Vector4(1.1f, 0.12f, 0.7f, 0f),
+            Palette = "bi_dust", Core = 1.1f, Ink = 3.6f, Extra = new Vector4(1.1f, 0.12f, 0.7f, 0f),
         };
-        public static readonly CelFxRecipe PuffBig = new CelFxRecipe("bi_puff_big", 2.1f, PuffLobes(6, 3, 0.45f, 0.24f, 0.8f));
-        public static readonly CelFxRecipe PuffSmall = new CelFxRecipe("bi_puff_small", 2.1f, PuffLobes(4, 2, 0.32f, 0.19f, 0.6f));
+        public static readonly CelFxRecipe PuffBig = new CelFxRecipe("bi_puff_big", 2.1f, PuffLobes(7, 3, 0.7f * K, 0.34f * K, 0.9f * K));
+        public static readonly CelFxRecipe PuffSmall = new CelFxRecipe("bi_puff_small", 2.1f, PuffLobes(5, 2, 0.5f * K, 0.27f * K, 0.7f * K));
 
         // ------------------------------------------------------------------------------------------ the light
         // power: the light's gain (the scene x (1 + power x colour)); fill: an added share of it so black ground warms too
@@ -166,18 +170,18 @@ namespace TW.Presentation.VFX.Cel.Effects
             Palette = palette, Core = power, Opacity = 1f, Ink = fill, Stretch = 1.4f, Extra = new Vector4(0f, 1.3f, squash, 0.1f),
         };
         // the pool at the dummy's feet: about two dummy heights across, flat, 2-4 frames
-        public static readonly CelFxRecipe WashPool = new CelFxRecipe("bi_wash_pool", 0.3f, Wash("pool", "bi_wash", 1.6f, 1.9f, 5f, 0.24f, 1, 2.5f, 0.3f));
+        public static readonly CelFxRecipe WashPool = new CelFxRecipe("bi_wash_pool", 0.3f, Wash("pool", "bi_wash", 1.9f * K, 2.2f * K, 2.6f, 0.18f, 1, 1.8f, 0.12f));
         // the same late in the burst, when the clip's light is at its brightest (f60-f80)
-        public static readonly CelFxRecipe WashPoolBig = new CelFxRecipe("bi_wash_pool_big", 0.3f, Wash("pool", "bi_wash", 1.8f, 2.1f, 5f, 0.26f, 1, 2.5f, 0.3f));
+        public static readonly CelFxRecipe WashPoolBig = new CelFxRecipe("bi_wash_pool_big", 0.3f, Wash("pool", "bi_wash", 2.1f * K, 2.4f * K, 3.0f, 0.2f, 1, 1.8f, 0.14f));
         // the dummy's facing side: a round light just in front of the board on the gun's side, 2-3 frames
-        public static readonly CelFxRecipe WashFace = new CelFxRecipe("bi_wash_face", 0.3f, Wash("face", "bi_flare", 1.0f, 1.1f, 9f, 0.13f, 1, 1.0f, 0.05f));
+        public static readonly CelFxRecipe WashFace = new CelFxRecipe("bi_wash_face", 0.3f, Wash("face", "bi_flare", 1.3f * K, 1.4f * K, 7f, 0.12f, 1, 1.0f, 0.04f));
         // the same, softer, when the round strikes the ground beside the dummy
-        public static readonly CelFxRecipe WashFaceSoft = new CelFxRecipe("bi_wash_face_soft", 0.3f, Wash("face", "bi_flare", 0.8f, 0.9f, 2f, 0.1f, 0, 1.0f, 0f));
+        public static readonly CelFxRecipe WashFaceSoft = new CelFxRecipe("bi_wash_face_soft", 0.3f, Wash("face", "bi_flare", 1.0f * K, 1.1f * K, 6f, 0.09f, 0, 1.0f, 0.03f));
         // the foreground along the near bolt's path, at most 6 frames: r05 three small lights along the path (a soft strip),
         // not one 3.4 m sheet (r04 read as a flat red-orange blotch over the bottom quarter)
-        public static readonly CelFxRecipe WashNear = new CelFxRecipe("bi_wash_near", 0.4f, Wash("near", "bi_wash_near", 1.8f, 2.1f, 2.1f, 0.22f, 0, 1.6f, 0.1f));
+        public static readonly CelFxRecipe WashNear = new CelFxRecipe("bi_wash_near", 0.4f, Wash("near", "bi_wash_near", 1.0f, 1.2f, 1.3f, 0.12f, 0, 1.6f, 0.04f));
         // the last bolt (the clip's f76, its brightest frame): a wider, still soft light on the near field
-        public static readonly CelFxRecipe WashNearBig = new CelFxRecipe("bi_wash_near_big", 0.4f, Wash("near", "bi_wash_near", 2.8f, 3.2f, 2.6f, 0.26f, 0, 1.6f, 0.13f));
+        public static readonly CelFxRecipe WashNearBig = new CelFxRecipe("bi_wash_near_big", 0.4f, Wash("near", "bi_wash_near", 2.0f, 2.4f, 2.2f, 0.18f, 0, 1.6f, 0.1f));
 
         // ------------------------------------------------------------------------------------------ one round
         /// <summary>The shot: tracers from `muzzle` to `hit` (they arrive after Flight s); `nearBolt` adds the thick bolt
@@ -227,7 +231,7 @@ namespace TW.Presentation.VFX.Cel.Effects
 
         // ------------------------------------------------------------------------------------------ the Range burst
         const int Rounds = 16;
-        const float Every = 0.2075f;   // the clip's 4.15-frame pulse on the shot clock (0.05 s a frame, close.json)
+        const float Every = 0.1729f;   // the clip's 4.15-frame pulse; b01: the beach films at 24 fps (close.json t = f/24; the corridor was 0.05 s a frame)
 
         sealed class Burst { public int NextShot, NextHit; }
 
@@ -256,12 +260,12 @@ namespace TW.Presentation.VFX.Cel.Effects
             onBody = spot.sqrMagnitude < 1e-6f;
             if (onBody)
             {
-                hit = s.Target + right * ((a - 0.5f) * 0.3f) + Vector3.up * ((c - 0.5f) * 0.45f);
-                ground = s.Ground + right * (0.8f + 0.5f * a) + look * (0.9f + 0.4f * c);
+                hit = s.Target + right * ((a - 0.5f) * 0.3f * K) + Vector3.up * ((c - 0.5f) * 0.45f * K);
+                ground = s.Ground + right * K * (0.8f + 0.5f * a) + look * K * (0.9f + 0.4f * c);
             }
             else
             {
-                ground = s.Ground + right * (spot.x + (a - 0.5f) * 0.45f) + look * (spot.y + (c - 0.5f) * 0.4f);
+                ground = s.Ground + right * K * (spot.x + (a - 0.5f) * 0.45f) + look * K * (spot.y + (c - 0.5f) * 0.4f);
                 hit = ground;
             }
             // on the field's own surface (the ground left of the dummy rises: a flat height buried the puffs there)
@@ -307,7 +311,7 @@ namespace TW.Presentation.VFX.Cel.Effects
                 int k = b.NextHit++;
                 Places(s, k, look, right, out from, out hit, out ground, out onBody);
                 // dust on the ground hits up to round 14 (all gone by about f120); big puffs right and near left, small far left
-                int puff = onBody || k > 14 ? 0 : (Order[k % Order.Length] == 3 ? 1 : 2);
+                int puff = onBody || k > 14 ? 0 : 2;   // b01: big on both sides (r05's small far-left puffs left the dust bunched on the right)
                 PlayImpact(from, hit, ground, s.Ground, (uint)(s.Seed * 13 + k * 977), onBody, puff, k / (float)(Rounds - 1));
             }
             CelFx.ZoomOverride = keep;
