@@ -4,6 +4,8 @@
 // wavy smoke ribbon with an ink edge that thins to a point and breaks up in steps. With no head and no flame it is a
 // curling smoke wisp rising from a fire, drawn as a chain of inked grey cel puffs. Premultiplied alpha: the fire is
 // nearly opaque colour, the ink darkens what is behind it, the ribbon is part covering, the bloom is additive.
+// Mode extra.y < 0 (no head): a thin curling smoke strand (the ribbon alone, no ink), widening toward its newest end
+// and breaking up in pieces over its life.
 // Mode extra.x < 0: a soft warm light pool lying on the ground (additive, a smooth radial gradient, no bands), whose
 // brightness rises to a peak and fades smoothly over the life.
 //   size.xyz   ribbon width (m) at birth, at death, ease        size.w  ribbon length in seconds of its speed
@@ -61,7 +63,7 @@ Shader "TW/Cel/Comet"
                     float3 toEye = _WorldSpaceCameraPos - w;
                     w += normalize(toEye) * min(0.7, length(toEye) * 0.1);
                     // brightness over the life: a soft start, a rise to the peak, a smooth fade to nothing
-                    float env = smoothstep(0.0, 0.025, k) * lerp(0.75, 1.0, smoothstep(0.02, max(r.extra.z, 0.03), k))
+                    float env = smoothstep(0.0, 0.025, k) * lerp(0.4, 1.0, smoothstep(0.02, max(r.extra.z, 0.03), k))
                               * (1.0 - smoothstep(max(r.extra.w, r.extra.z), 1.0, k));
                     o.positionWS = w;
                     o.positionCS = TransformWorldToHClip(w);
@@ -97,7 +99,7 @@ Shader "TW/Cel/Comet"
                 o.dims = float4(len, headR, flameL, amp);
                 o.tone = r.tone;
                 o.more = float4(rw, CelCurve(r.erode.xyz, k), r.seed, max(r.extra.w, 0.05));
-                o.misc = float4(ComputeFogFactor(o.positionCS.z), r.motion.z, t, 0.0);
+                o.misc = float4(ComputeFogFactor(o.positionCS.z), r.motion.z, t, (r.extra.y < 0.0 && headR <= 0.0) ? -1.0 : 0.0);
                 return o;
             }
 
@@ -126,7 +128,8 @@ Shader "TW/Cel/Comet"
                 float len = i.dims.x, hr = i.dims.y, fl = i.dims.z, amp = i.dims.w;
                 float seed = i.more.z, wl = i.more.w;
                 float inkPx = CelLodInk(i.tone.w);
-                float puffs = step(fl + hr, 1e-5);                    // a wisp: a chain of round puffs
+                float strand = step(i.misc.w, -0.5);                  // a smoke strand: the ribbon alone
+                float puffs = step(fl + hr, 1e-5) * (1.0 - strand);   // a wisp: a chain of round puffs
 
                 // ---- the smoke ribbon: a thin wavy strand behind the flame that fades and thins to nothing
                 //      (a wisp instead: a cluster of round inked puffs along a curling path, lit from above)
@@ -135,7 +138,7 @@ Shader "TW/Cel/Comet"
                 float yc = amp * grow * sin(6.2832 * s / wl + seed * 40.0 - i.misc.z * i.misc.y)
                          + amp * 0.15 * grow * sin(6.2832 * s / (wl * 0.45) + seed * 17.0 - i.misc.z * i.misc.y * 1.7);
                 float taper = saturate(1.0 - s / max(len, 1e-3));
-                float rwid = i.more.x * 0.5 * lerp(sqrt(taper), 1.0, puffs) * saturate((s - ribbonStart) / max(wl * 0.25, 1e-3) + 0.15);
+                float rwid = i.more.x * 0.5 * lerp(lerp(sqrt(taper), 0.35 + 0.65 * taper, strand), 1.0, puffs) * saturate((s - ribbonStart) / max(wl * 0.25, 1e-3) + 0.15);
                 float rField = 0.0;
                 if (puffs > 0.5)
                 {
@@ -159,13 +162,14 @@ Shader "TW/Cel/Comet"
                 float rCut = puffs > 0.5 ? 1.0 : step(i.more.y, brk * 0.9 + 0.1 * taper);
                 float rMask = CelAAStep(0.04, rField) * rCut;
                 // a puff is lit from above: light on its upper side, darker below
-                float rVal = lerp(rField * 0.8, saturate(0.6 + 0.4 * (y - yc) / max(rwid, 1e-4)) * lerp(0.75, 1.0, rField), puffs);
+                float rVal = lerp(lerp(0.62 + 0.38 * rField, 0.45 + 0.5 * rField, strand), saturate(0.6 + 0.4 * (y - yc) / max(rwid, 1e-4)) * lerp(0.75, 1.0, rField), puffs);
                 half3 rCol = CelRamp(rVal, rowB, 1.0);
                 float rInk = CelInk(rField, 0.04, inkPx * puffs) * rMask;    // the strand has no ink (it read doubled)
                 half3 col = lerp(rCol, CelPalInk(rowB).rgb, rInk) * rMask;
                 // the strand fades along its length and thins out at far zoom (the comet carries the read there)
                 float lodY = _CelLod.y > 0.0 ? _CelLod.y : 1.0;
-                float rFade = lerp(sqrt(taper) * saturate(lodY * 2.0 - 0.8), 1.0, puffs);
+                float rFade = lerp(saturate(taper * 2.2) * saturate(lodY * 2.0 - 0.8), 1.0, puffs);
+                rFade = lerp(rFade, saturate(taper * 3.0) * saturate(lodY * 2.0 - 0.6), strand);
                 float rOp = saturate(i.tone.z) * rFade;
                 col *= lerp(rFade, 1.0, rInk);
                 float a = rMask * lerp(rOp, 1.0, rInk);
@@ -178,17 +182,17 @@ Shader "TW/Cel/Comet"
                     float u = saturate(s / max(fl, 1e-3));
                     // the tail: a short body that tapers fast behind the head, and five thin flame streaks of different
                     // lengths that run back from it, converging a little and tapering to points
-                    float bodyL = max(fl * 0.3, 1e-3);
+                    float bodyL = max(fl * 0.55, 1e-3);
                     float sb = saturate(s / bodyL);
-                    float tailF = (s >= 0.0 && s <= bodyL) ? 1.0 - abs(y) / max(hr * 0.95 * pow(1.0 - sb, 0.7), 1e-4) : 0.0;
+                    float tailF = (s >= 0.0 && s <= bodyL) ? 1.0 - abs(y) / max(hr * 1.6 * (0.55 + 0.45 * saturate(sb * 5.0)) * pow(1.0 - sb, 1.2), 1e-4) : 0.0;
                     float tailLen = 0.0;
                     [unroll] for (int k5 = 0; k5 < 5; k5++)
                     {
                         float hk = CelHash21(float2(k5, seed * 57.0));
-                        float Lk = fl * (k5 == 2 ? 1.0 : 0.45 + 0.45 * hk);
+                        float Lk = fl * (k5 == 2 ? 1.0 : 0.3 + 0.55 * hk);
                         float uk = saturate(s / max(Lk, 1e-3));
-                        float yk = hr * 0.42 * (k5 - 2) * (1.0 - 0.5 * uk) + hr * 0.08 * sin(s * 3.0 + hk * 20.0 - i.misc.z * 9.0) * uk;
-                        float wk = hr * (k5 == 2 ? 0.42 : 0.26) * pow(saturate(1.0 - uk), 0.8);
+                        float yk = hr * 0.34 * (k5 - 2) * (1.0 - 0.6 * uk) + hr * 0.08 * sin(s * 3.0 + hk * 20.0 - i.misc.z * 9.0) * uk;
+                        float wk = hr * (k5 == 2 ? 0.3 : 0.17) * pow(saturate(1.0 - uk), 0.9);
                         float fk = (s >= 0.0 && s <= Lk) ? 1.0 - abs(y - yk) / max(wk, 1e-4) : 0.0;
                         if (fk > tailF) { tailF = fk; tailLen = Lk; }
                     }
@@ -198,8 +202,8 @@ Shader "TW/Cel/Comet"
                     float fMask = CelAAStep(0.03, f) * has;
                     // colour: a white-hot head; the tail yellow along its middle, orange round it, deep red at the edges and
                     // toward the end (the value falls across the tail and along it, so bands follow the flame's shape)
-                    float valTail = pow(saturate(1.0 - uT), 0.7) * (0.35 + 0.55 * saturate(tailF * 1.5));
-                    float val = max(min(valTail, 0.83), headF > 0.0 ? 0.72 + 0.5 * headF : 0.0);
+                    float valTail = pow(saturate(1.0 - uT), 0.8) * (0.42 + 0.5 * saturate(tailF * 1.6));
+                    float val = max(min(valTail, 0.83), headF > 0.0 ? 0.62 + 0.48 * headF : 0.0);
                     half3 fCol = CelRamp(saturate(val), rowA, i.tone.y);
                     // ink: a thin line on the screen-lower edge of the head and the front of the tail only
                     float below = saturate(-y / max(hr * 0.15, 1e-4) + 0.5) * saturate(1.0 - u * 2.0);
@@ -209,7 +213,7 @@ Shader "TW/Cel/Comet"
                     a = lerp(a, lerp(0.9, 1.0, fInk), fMask * saturate(1.2 - u * 0.8));
                     // the bloom: a soft yellow-orange light about 2x the head, added around it
                     float bl = saturate(1.0 - hd / max(hr * 2.0, 1e-4));
-                    col += lerp(CelPal(rowA, 2), CelPal(rowA, 3), bl) * (bl * bl * 0.9 * has * (1.0 - fMask * 0.6));
+                    col += lerp(CelPal(rowA, 2), CelPal(rowA, 3), bl) * (bl * bl * 0.6 * has * (1.0 - fMask * 0.7));
                 }
 
                 half3 fogged = CelAdditiveFog(half3(1.0, 1.0, 1.0), i.positionWS, i.misc.x);

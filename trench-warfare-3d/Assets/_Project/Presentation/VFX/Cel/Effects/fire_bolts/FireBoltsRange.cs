@@ -1,5 +1,5 @@
 // Phase: CelFx job (2026-11-09, lane/show/cel-fire-bolts) - fire bolts on the Range (effect id "fire_bolts", lab
-// only). Fires FireBolts.Volley: each bolt launched from a spot near the stage's MuzzleHigh (off-screen left, at the
+// only). Fires FireBolts.Comets and .Hits: each bolt launched from a spot near the stage's MuzzleHigh (off-screen left, at the
 // dummy's depth) and aimed at the dummy's board or at the ground beside and behind it, plus a soft warm light pool on
 // the ground under the volley, left of and in front of the dummy. Places are laid out in the eye's frame (screen right / away from the eye on level
 // ground), so the battle stills, seen from another heading, keep the same picture. Spawns everything at the fire.
@@ -13,13 +13,15 @@ namespace TW.Presentation.VFX
     {
         // ground hits: (screen right m, away from the eye m) from the dummy's foot; dummy hits: (right, up) from its chest
         // (three fire spots about a metre right of and in front of the dummy, the reference's bursts, so every bolt ends at its hit)
-        static readonly Vector2[] GroundAt = { new Vector2(1.3f, -0.5f), new Vector2(2.0f, -1.0f), new Vector2(1.7f, 0.3f) };
+        // (r05: 1-1.5 dummy widths right of and in front of the dummy)
+        static readonly Vector2[] GroundAt = { new Vector2(1.0f, -0.7f), new Vector2(1.45f, -1.2f), new Vector2(1.25f, -0.2f) };
         static readonly Vector2[] DummyAt = { new Vector2(0f, 0f), new Vector2(0.05f, 0.3f), new Vector2(-0.1f, -0.1f), new Vector2(0.1f, 0.15f),
             new Vector2(0f, 0.05f), new Vector2(-0.05f, 0.25f), new Vector2(0.08f, -0.05f), new Vector2(0f, 0.1f) };
-        // launch spots: (screen right m, up m) from MuzzleHigh
-        // (all at or above it: the bolts come down 10-15 degrees on the screen onto the dummy and the ground)
-        static readonly Vector2[] FromAt = { new Vector2(0f, -0.1f), new Vector2(0.6f, 0.4f), new Vector2(-0.4f, -0.5f), new Vector2(0.3f, 0.1f),
-            new Vector2(-0.2f, 0.5f), new Vector2(0.5f, -0.3f), new Vector2(0f, 0.3f), new Vector2(-0.5f, -0.2f) };
+        // launch spots: (screen right m, up m, away m) from MuzzleHigh, staggered in height and depth so the volley's
+        // paths cross at different angles instead of flying as a parallel row
+        static readonly Vector3[] FromAt = { new Vector3(0f, -0.1f, 0f), new Vector3(0.6f, 1.1f, 1.2f), new Vector3(-0.4f, -0.7f, -0.8f), new Vector3(0.3f, 0.5f, 0.5f),
+            new Vector3(-0.2f, 1.4f, -1.2f), new Vector3(0.5f, -0.4f, 1.6f), new Vector3(0f, 0.8f, -0.4f), new Vector3(-0.5f, -0.2f, 0.9f),
+            new Vector3(0.2f, 1.7f, 0.2f), new Vector3(-0.3f, 0.2f, -1.6f), new Vector3(0.4f, -0.6f, 0.4f) };
         // the opening bolts start further along their line (already on screen at the fire, as in the reference's f19)
         static readonly float[] AlongAt = { 0.6f, 0.5f, 0.4f, 0.3f, 0.2f };
 
@@ -52,7 +54,7 @@ namespace TW.Presentation.VFX
             // The Range promises frame k at k/24 s, but the shot clock arrives stepping 1/20 s (Gym's CaptureFps wins
             // over RangeStage's 24; reported to the stage). On the close film, put the clock back to 24 fps and start
             // the volley late by the frames the fast clock skipped, so it lands on the reference's frames.
-            var volley = FireBolts.Volley; var pool = FireBolts.Pool;
+            var pool = FireBolts.Pool;
             if (s.Lod == RangeLod.Close && Time.captureFramerate > 0 && Time.captureFramerate != 24)
             {
                 float lateBy = Mathf.Max(0f, s.T0 - s.T0 * Time.captureFramerate / 24f);
@@ -64,20 +66,24 @@ namespace TW.Presentation.VFX
 
             // warm light on the ground under the volley: one soft pool left of and a little in front of the dummy (the
             // reference's lit oval over the lower-left third)
-            Vector3 p0 = OnGround(s.Ground + right * -1.6f + away * -0.5f, 2.5f, s.Ground.y);
+            Vector3 p0 = OnGround(s.Ground + right * -0.7f + away * -0.9f, 1.4f, s.Ground.y);
             CelFx.Play(pool, p0, away, p0, seed);
 
             int gi = 0, di = 0;
-            for (int i = 0; i < volley.Length; i++)
+            for (int i = 0; i < FireBolts.Launch.Length; i++)
             {
                 if (s.Lod == RangeLod.Far && (i & 1) == 1) continue;
                 Vector3 target;
                 if (FireBolts.OnGround[i]) { var g = GroundAt[gi++ % GroundAt.Length]; target = OnGround(s.Ground + right * g.x + away * g.y, 0f, s.Ground.y); }
                 else { var d = DummyAt[di++ % DummyAt.Length]; target = s.Target + right * d.x + Vector3.up * d.y; }
                 var f = FromAt[i % FromAt.Length];
-                Vector3 from = s.MuzzleHigh + right * f.x + Vector3.up * f.y;
+                Vector3 from = s.MuzzleHigh + right * f.x + Vector3.up * f.y + away * f.z;
                 if (i < AlongAt.Length) from = Vector3.Lerp(from, target, AlongAt[i]);
-                CelFx.Play(volley[i], from, target - from, target, seed * 7u + (uint)i * 101u);
+                // the comet is aimed above its hit by what its gravity drops over the flight: it arcs down onto it
+                Vector3 aim = target + Vector3.up * FireBolts.ArcLift(FireBolts.FlightOf[i]);
+                uint sd = seed * 7u + (uint)i * 101u;
+                CelFx.Play(FireBolts.Comets[i], from, aim - from, aim, sd);
+                CelFx.Play(FireBolts.Hits[i], target, target - from, target, sd + 13u);
             }
         }
     }
