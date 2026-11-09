@@ -684,7 +684,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   keepers `Resources/ShaderKeep/KeepCel*.mat`, `Editor/Cel/CelFxStill.cs` (a contact sheet of a recipe in an empty scene).
   The explosion: `Presentation/VFX/Cel/Effects/explosion/ExplosionRecipe.cs` (Hold, Site, Cloud, Fan recipes and their
   palettes; `PlayShell` for one shell) and `Presentation/VFX/Cel/Effects/explosion/ExplosionRange.cs` (Range id
-  `explosion`: the reference barrage composed from them).
+  `explosion`: the reference barrage composed from them; on a Range not stepping at 24 fps it pins `CelFx.Clock` so
+  the film lines up with the clip) and `Presentation/VFX/Cel/Effects/explosion/ExplosionKind.cs` (its own kind `ExpFx`,
+  shader `Shaders/Cel/Effects/explosion/CelExpFx_URP.shader`: soft pools and flashes and jagged spark arcs in one draw).
 - **Tests:** CelFxTests (`Tests/Cel`: 0 B per spawn, frame and play; counts never rise going out; every TW/Cel shader
   found and kept; draws through FrameBudget; statics put back).
 - **See it:** `Unity.exe -batchmode -projectPath trench-warfare-3d -executeMethod TW.Editor.CelFxStill.Batch -celOut <dir>`
