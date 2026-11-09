@@ -429,6 +429,15 @@ namespace TW.Presentation.VFX.Cel
             },
             new CelLayer
             {
+                // d07: a dense layer of SHORT orange sparks ON TOP of the long rods (d01 lost by replacing them): born
+                // f78-f100, each on its own low arc (wide spread, jittered speed, gravity), fading over ~0.5 s
+                Name = "fan sparks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, -0.5f, 3.6f), Shape = CelShape.Box, ShapeSize = new Vector3(4.0f, 0.3f, 5.0f),
+                Start = 0.45f, Duration = 0.75f, Life = 0.5f, LifeJitter = 0.4f, Close = 300, Mid = 0, Far = 0, Aim = CelAim.Dir, Spread = 50f, Speed = 6.0f, SpeedJitter = 0.75f, UpBias = 0.35f,
+                Gravity = 6.0f, Drag = 0.8f, Size = new CelCurve(0.2f, 0.09f), SizeJitter = 0.5f, Stretch = 0.006f, Erode = new CelCurve(0.05f, 0.5f),
+                Palette = "exp_tracer", Core = 4f, Extra = new Vector4(0.6f, 0.3f, 0.3f, 0f),
+            },
+            new CelLayer
+            {
                 Name = "fan dots", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, -0.45f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.9f, 0.0f, 0.0f),
                 Duration = 0.9f, Life = 0.75f, LifeJitter = 0.3f, Close = 90, Mid = 20, Far = 0, Aim = CelAim.Dir, Spread = 55f, Speed = 16.5f, SpeedJitter = 0.7f,
                 Gravity = 9.0f, Drag = 1.2f, Size = new CelCurve(0.09f, 0.053f), Stretch = 0.015f, Erode = new CelCurve(0.05f, 0.5f),
