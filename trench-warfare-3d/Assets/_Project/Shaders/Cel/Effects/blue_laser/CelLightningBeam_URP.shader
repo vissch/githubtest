@@ -46,7 +46,8 @@ Shader "TW/Cel/LightningBeam"
             #include "Assets/_Project/Shaders/Cel/CelFx.hlsl"
 
             // the ribbon is this many half-widths to each side, room for the zig-zag, the halo and the branches
-            #define BEAM_PAD 6.0
+            // b06: 8 (the bolts are half as wide, so forks and sparks need more half-widths of room)
+            #define BEAM_PAD 8.0
 
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; };
             struct Varyings
@@ -221,7 +222,8 @@ Shader "TW/Cel/LightningBeam"
                 float tick = floor(_CelNow * 16.0);
                 float salt = i.shape.z * 97.0 + tick * 13.7;
                 // the spindle: pointed at both ends, fullest a little behind the head
-                float prof = pow(saturate(sin(3.14159 * pow(saturate(a), 1.6))), 0.55);
+                // b07: a straight rod with pointed tips (b06b's sine spindle read as a fat lens)
+                float prof = pow(saturate(min(a * 4.0, (1.0 - a) * 3.0)), 0.6);
                 // the centre line zig-zags (two scales, in half-widths) and the outline is ragged
                 // r03: the cells scale with the width (more.w), or the foreshortened far half aliases away
                 float cs = max(i.more.w, 0.15);
@@ -233,8 +235,9 @@ Shader "TW/Cel/LightningBeam"
                 float kA = 0.25 + 0.5 * CelHash21(float2(salt, 3.1));
                 float kS = (CelHash21(float2(salt, 5.7)) > 0.5 ? 1.0 : -1.0) * (0.9 + 0.8 * CelHash21(float2(salt, 8.3)));
                 float kinkD = kS * saturate(1.0 - abs(a - kA) / 0.18) + 0.6 * kS * saturate(1.0 - abs(a - kA - 0.4) / 0.12);
-                float zig = (Zig(u, 0.42 * cs, salt) * ampK + 0.22 * Zig(u, 0.13 * cs, salt + 5.1) + 0.12 * Zig(u, 0.045 * cs, salt + 77.0) - kinkD) * i.shape.x * 1.6;
-                float rag = 1.0 + 0.35 * Zig(u, 0.07 * cs, salt + 9.3);
+                // b06: the even wiggle is cut to a third and the tent kinks doubled (b05 read as an even braided lens)
+                float zig = (Zig(u, 0.42 * cs, salt) * ampK * 0.35 + 0.08 * Zig(u, 0.13 * cs, salt + 5.1) + 0.05 * Zig(u, 0.045 * cs, salt + 77.0) - kinkD * 2.0) * i.shape.x * 1.6;
+                float rag = 1.0 + 0.2 * Zig(u, 0.07 * cs, salt + 9.3);
                 float w = prof * rag;
                 float dy = abs(y - zig * prof);
                 float field = saturate(1.0 - dy / max(w, 1e-3));
@@ -248,9 +251,13 @@ Shader "TW/Cel/LightningBeam"
                 // b02: the wisps only show in some cells (b01's ran the dash's whole length: an even sine wrapping a rod)
                 float wc = 0.9 * cs;
                 // b04: fewer still (the critic read b03's wisps as an even sine edge)
-                wisp *= step(0.72, CelHash21(float2(floor(u / wc), salt + 61.0)));
-                wisp2 *= step(0.82, CelHash21(float2(floor(u / wc + 0.5), salt + 67.0)));
+                // b06: rarer still (the wrapping wisps made the bolts read as braided)
+                wisp *= step(0.94, CelHash21(float2(floor(u / wc), salt + 61.0)));   // b07: rarer
+                wisp2 *= step(0.98, CelHash21(float2(floor(u / wc + 0.5), salt + 67.0)));
                 field = max(field, max(wisp, wisp2));
+                // b06: half-width in screen px, so hairs and sparks keep a minimum size down the beam
+                float hwPx = i.beam.w / max(PixelMetres(i.positionWS), 1e-6);
+                float onePx = 1.0 / max(hwPx, 0.5);
                 // branch arcs: in some cells along the beam a thin crooked arc leaves the core and runs out to one side
                 float br = 0.0;
                 if (i.shape.y > 0.0)
@@ -270,12 +277,14 @@ Shader "TW/Cel/LightningBeam"
                         if (t < 0.0 || t > 1.0) continue;
                         float sgn = CelHash21(float2(id, salt + 4.0)) > 0.5 ? 1.0 : -1.0;
                         // b02: reach further (10-30 px off the beam) and brighter
-                        float reach = BEAM_PAD * (0.4 + 0.38 * CelHash21(float2(id, salt + 6.0)));   // b04: room for the kinks inside the pad
+                        // b06: 2.5-6.5 half-widths (10-30 px off the thinner bolt near the frame edge)
+                        float reach = BEAM_PAD * (0.32 + 0.5 * CelHash21(float2(id, salt + 6.0)));
                         float kink = 0.9 * Zig(u, 0.06, salt + id) + 0.5 * Zig(u, 0.025, salt + id + 3.3);
                         float yb = sgn * (pow(t, 0.8) * reach + kink) + zig * prof;
                         // b04: wider and white at the root (b03's 0.5-half-width arcs were all ink), and forked: a second,
                         // flatter arm leaves the arc at 0.35-0.6 of its length
-                        float bw = 1.0 * (1.0 - t * 0.55);
+                        // b06: hair-thin forks (~1.5-2 px), never under ~1.2 px
+                        float bw = max(0.5 * (1.0 - t * 0.5), 1.2 * onePx);
                         float bf = saturate(1.0 - abs(y - yb) / bw) * lerp(1.0, 0.7, t);
                         float tf = 0.35 + 0.25 * CelHash21(float2(id, salt + 8.0));
                         if (t > tf)
@@ -284,6 +293,19 @@ Shader "TW/Cel/LightningBeam"
                             bf = max(bf, saturate(1.0 - abs(y - ybf) / (bw * 0.8)) * 0.8);
                         }
                         br = max(br, bf * step(0.15, prof));
+                    }
+                    // b06: small white sparks along the bolt (6-12 per bolt), off the core by 1.5-5.5 half-widths, re-cut each tick
+                    float scell = 0.22 * cs;
+                    float si = floor(u / scell);
+                    float hs = CelHash21(float2(si, salt + 51.0));
+                    if (hs > 0.45)
+                    {
+                        float sx = (si + 0.2 + 0.6 * CelHash21(float2(si, salt + 52.0))) * scell;
+                        float sg = CelHash21(float2(si, salt + 53.0)) > 0.5 ? 1.0 : -1.0;
+                        float sy = sg * (1.5 + 4.0 * CelHash21(float2(si, salt + 54.0))) + zig * prof;
+                        float sr = max(0.35 + 0.3 * hs, 1.3 * onePx);
+                        float dS = length(float2((u - sx) / max(i.beam.w, 1e-4), y - sy));
+                        br = max(br, saturate(1.0 - dS / sr) * step(0.2, prof));
                     }
                 }
                 field = max(field, br);
@@ -299,9 +321,11 @@ Shader "TW/Cel/LightningBeam"
                 float cover = mask * saturate(i.tone.z * 1.4);
                 // the halo: dim blue light a few half-widths around the spindle (not around the arcs)
                 // r03: tighter and softer (the clip's beam is pale cyan, not ringed in saturated blue)
-                float halo = saturate(1.0 - (dy - w) / max(4.0 * prof, 1e-3)) * step(0.05, prof) * (1.0 - mask);
+                // b07: a tight rim (2 half-widths, was 4: the wide halo made the bolt 20-30 px fat)
+                float halo = saturate(1.0 - (dy - w) / max(2.6 * prof, 1e-3)) * step(0.05, prof) * (1.0 - mask);
                 halo = CelAAStep(0.55, halo) * 0.4 + CelAAStep(0.02, halo) * 0.6;
-                half3 add = CelPal(row, 0) * halo * 0.45 * i.tone.z * (1.0 - i.more.z);
+                // b06: a brighter cyan glow round the thinner bolt
+                half3 add = CelPal(row, 0) * halo * 0.95 * i.tone.z * (1.0 - i.more.z);
                 // the far thread is all light: no cover, it adds
                 if (i.more.z > 0.5) { add += body * mask * i.tone.z; cover = 0.0; straight = 0; }
                 add = AddFog(add, i.positionWS, i.more.x, i.more.y);

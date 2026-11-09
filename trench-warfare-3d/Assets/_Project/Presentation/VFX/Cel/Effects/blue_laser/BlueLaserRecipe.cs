@@ -24,7 +24,7 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>The spindles: cyan body (#9fdcec), a thin white core, dark ink; c0 is the halo's light.</summary>
         public static readonly int BeamRow = CelPalette.Add("blue_laser_beam",
             CelPalette.Hex(0x3C7E9E), CelPalette.Hex(0x8ED2E6), CelPalette.Hex(0x9FDCEC), CelPalette.Hex(0xB6E6F2),
-            CelPalette.Hex(0xF2FCFF), 0.88f, 3, CelPalette.Hex(0x1A4258));
+            CelPalette.Hex(0xF2FCFF), 0.62f, 3, CelPalette.Hex(0x1A4258));   // b07: 3-6 px white core in an 8-12 px cyan rim (coreAt 0.7 -> 0.62)
         /// <summary>The impact: white-blue (star, rings, sparks).</summary>
         public static readonly int HitRow = CelPalette.Add("blue_laser_hit",
             CelPalette.Hex(0x2C6488), CelPalette.Hex(0x5AAED0), CelPalette.Hex(0x9FDCEC), CelPalette.Hex(0xD8F4FF),
@@ -117,21 +117,24 @@ namespace TW.Presentation.VFX.Cel
             // b05: 2-4 SEPARATE bolts with dark gaps (b04's overlapping windows read as one braided rod): four lanes on
             // fixed stretches of the beam (edge-0.40, 0.48-0.64, 0.74-0.88, 0.93-1.0) with small head jitter, so the gaps
             // (~0.04 of the beam, 30-80 px) stay dark; one side bolt beside the corner one (b05b: longer bolts, b05a lost hold area)
-            Dash("dash a", 0.42f, 0.27f, 0.025f, 0.00f, 40, 12, 0.19f, 0.12f),
-            Dash("dash b", 0.66f, 0.2f, 0.025f, 0.04f, 40, 12, 0.17f, 0.08f),
-            Dash("dash c", 0.89f, 0.19f, 0.02f, 0.08f, 38, 10, 0.15f),
-            Dash("dash d", 1.00f, 0.08f, 0.01f, 0.12f, 34, 8, 0.12f),
-            Side(Dash("dash side", 0.38f, 0.17f, 0.04f, 0.15f, 22, 0, 0.11f), 0.35f),
+            // b06: about half as wide (b05 read as fat 20-30 px braided lenses): a thin white core in a cyan rim
+            // b07: straight rods with pointed tips (shader), about 0.7x as wide, a little longer (b06b read as fat braided lenses)
+            Dash("dash a", 0.42f, 0.3f, 0.025f, 0.00f, 40, 12, 0.11f, 0.12f),
+            Dash("dash b", 0.67f, 0.22f, 0.025f, 0.04f, 40, 12, 0.105f, 0.08f),
+            Dash("dash c", 0.9f, 0.2f, 0.02f, 0.08f, 38, 10, 0.1f),
+            Dash("dash d", 1.00f, 0.08f, 0.01f, 0.12f, 34, 8, 0.085f),
+            Side(Dash("dash side", 0.38f, 0.2f, 0.04f, 0.15f, 22, 0, 0.07f), 0.35f),
+            Side(Dash("dash side 2", 0.64f, 0.17f, 0.04f, 0.25f, 18, 0, 0.065f), 0.3f),   // b07b: a second parallel bolt (clip f50/f84)
             // b05: the last volley as two wide bolts with a gap (clip f101: one from the corner, one into the dummy)
-            VolleyBolt("volley a", 0.45f, 0.29f, 4, 0.2f),
-            VolleyBolt("volley b", 0.97f, 0.22f, 4, 0.17f),
+            VolleyBolt("volley a", 0.45f, 0.31f, 4, 0.11f),
+            VolleyBolt("volley b", 0.97f, 0.24f, 4, 0.1f),
             new CelLayer
             {
                 // a dash that carries on past the dummy, up-right along the beam (clip f89-f101)
                 Name = "through", Kind = LightningBeamKind.KindName, Start = 1.0f, Duration = Hold - 0.9f, TimeJitter = 0.1f, Life = 0.16f, LifeJitter = 0.2f,
                 Close = 14, Mid = 4, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.03f, 0f, 0f), Aim = CelAim.Target, Speed = 0f, Spread = 0f,
                 // b02: longer and further (the clip's through-bolts run on to ~(1250, 250) px)
-                Size = new CelCurve(0.08f, 0.06f), SizeJitter = 0.2f, Stretch = 0.3f, Erode = new CelCurve(0.06f, 0.3f), Feather = 0.12f,
+                Size = new CelCurve(0.055f, 0.045f), SizeJitter = 0.2f, Stretch = 0.3f, Erode = new CelCurve(0.06f, 0.3f), Feather = 0.12f,
                 Palette = "blue_laser_beam", Core = 1.6f, Opacity = 0.95f, Ink = 1.9f, Extra = new Vector4(0.3f, 0f, 1.5f, 1.65f),
             },
             new CelLayer
@@ -158,13 +161,14 @@ namespace TW.Presentation.VFX.Cel
             // b02: a white-blue glow ball about as wide as the torso (clip: ~75 x 90 px over the board): a wider, brighter
             // steady glow and larger blooms with bigger white cores
             // b04: a wider, flatter glow (1.35 m, falloff 1.9) so the pale-blue light covers the whole torso (peak area 0.72)
-            Dim(Dot("glow", "blue_laser_bloom", 1, 0.15f, 0f, Hold + 0.1f, 1, 1, new CelCurve(1.3f, 1.4f), 1.9f, 0f, 0.13f), 0.9f),
-            Dim(Dot("bloom", "blue_laser_bloom", 1, 0.15f, Hold, 0.13f, 30, 12, new CelCurve(0.65f, 0.75f, 0.6f), 2.6f, 0f, 0.3f), 0.85f),
+            // b06: a larger white-blue ball about the torso wide (b05's white-yellow ray star was smaller than the clip's glow)
+            Dim(Dot("glow", "blue_laser_bloom", 1, 0.15f, 0f, Hold + 0.1f, 1, 1, new CelCurve(1.2f, 1.3f), 2.4f, 0f, 0.12f), 0.9f),   // b07: 1x torso (b06b: 2x the dummy)
+            Dim(Dot("bloom", "blue_laser_bloom", 1, 0.15f, Hold, 0.13f, 30, 12, new CelCurve(0.6f, 0.66f, 0.6f), 2.6f, 0f, 0.2f), 0.75f),
             // b01: 6-10 thin white spike rays of uneven length out to 1-1.5 torso widths, re-drawn every 2-3 frames at a new turn
             // b03: a torso-wide white-core, blue-rim star on the chest: 10 rays, larger, plus a burst at the peak and a
             // faint crackle on the board after the beam
-            Dim(Dot("rays", "blue_laser_hit", 4, 0.15f, Hold, 0.1f, 34, 10, new CelCurve(0.8f, 0.92f), 0.045f, 10f, 0.13f), 0.8f),
-            Dim(Dot("burst rays", "blue_laser_hit", 4, Volley, 0.45f, 0.1f, 8, 2, new CelCurve(0.9f, 1.0f), 0.045f, 12f, 0.1f), 0.45f),
+            Dim(Dot("rays", "blue_laser_hit", 4, 0.15f, Hold, 0.1f, 34, 10, new CelCurve(0.95f, 1.05f), 0.025f, 10f, 0.06f), 0.8f),   // b07: 8-12 thin radial streaks over the ball   // b06: thinner, dimmer rays
+            Dim(Dot("burst rays", "blue_laser_hit", 4, Volley, 0.45f, 0.1f, 8, 2, new CelCurve(1.3f, 1.45f), 0.022f, 11f, 0.04f), 0.4f),   // b06: 8-12 long thin radial streaks
             // b04: the crackle is short kinked lightning arcs clinging to the torso (clip f106-f132), not b03's dim ray stars
             CrackleArc("crackle", Hold + 0.3f, 1.15f, 46, 0.055f, 0.95f),
             CrackleArc("crackle hold", 0.4f, Hold - 0.4f, 40, 0.06f, 0.9f),
@@ -173,7 +177,7 @@ namespace TW.Presentation.VFX.Cel
             {
                 Name = "star", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0.2f, 0f, -0.12f), Start = 0.2f, Duration = Hold - 0.1f, TimeJitter = 0.03f, Life = 0.1f, LifeJitter = 0.2f,
                 Close = 26, Mid = 10, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.05f, 0f, 0f), Size = new CelCurve(0.16f, 0.26f, 0.5f), SizeJitter = 0.25f,
-                Erode = new CelCurve(0.1f, 0.7f, 1.5f), Spin = 3f, Palette = "blue_laser_hit", Core = 1.5f, Opacity = 0.7f, Extra = new Vector4(2f, 1.6f, 10f, 14f),
+                Erode = new CelCurve(0.1f, 0.7f, 1.5f), Spin = 3f, Palette = "blue_laser_hit", Core = 1.2f, Opacity = 0.5f, Extra = new Vector4(2f, 1.6f, 10f, 14f),
             },
             new CelLayer
             {
@@ -201,15 +205,15 @@ namespace TW.Presentation.VFX.Cel
                 // r04: orange spark streaks thrown 0.5-1 torso widths out (more, longer and brighter than r03)
                 Name = "warm sparks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.2f, 0.1f, -0.15f), Start = 0.3f, Duration = Hold - 0.2f, Life = 0.45f,
                 // b04: fewer, bigger, flying up and out past the glow (b03's were hidden in the white burst)
-                Close = 64, Mid = 12, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.25f, 0f, 0f), Aim = CelAim.Radial, Speed = 4.6f, SpeedJitter = 0.4f, UpBias = 0.9f, Gravity = 4f, Drag = 1.4f,
-                Size = new CelCurve(0.06f, 0.03f), Stretch = 0.2f, Erode = new CelCurve(0.05f, 0.5f), Palette = "spark", Core = 3f, Extra = new Vector4(0.2f, 0.05f, 0.2f, 0f),
+                Close = 34, Mid = 8, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.35f, 0f, 0f), Aim = CelAim.Radial, Speed = 4.6f, SpeedJitter = 0.4f, UpBias = 0.9f, Gravity = 4f, Drag = 1.4f,
+                Size = new CelCurve(0.06f, 0.03f), Stretch = 0.2f, Erode = new CelCurve(0.05f, 0.5f), Palette = "spark", Core = 2f, Extra = new Vector4(0.2f, 0.05f, 0.2f, 0f),
             },
             new CelLayer
             {
                 // b05: 4-8 orange sparks flying up and out of the impact at the peak (clip f101), born outside the glow's core
-                Name = "warm burst", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.2f, 0.25f, -0.15f), Start = Volley + 0.12f, Duration = 0.35f, Life = 0.5f, LifeJitter = 0.2f,
-                Close = 10, Mid = 3, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Radial, Speed = 3.8f, SpeedJitter = 0.4f, UpBias = 1.4f, Gravity = 3f, Drag = 1.2f,
-                Size = new CelCurve(0.05f, 0.03f), Stretch = 0.16f, Erode = new CelCurve(0.05f, 0.5f), Palette = "spark", Core = 3f, Extra = new Vector4(0.2f, 0.05f, 0.2f, 0f),
+                Name = "warm burst", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.2f, 0.35f, -0.15f), Start = Volley + 0.12f, Duration = 0.35f, Life = 0.5f, LifeJitter = 0.2f,
+                Close = 7, Mid = 3, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.45f, 0f, 0f), Aim = CelAim.Radial, Speed = 5.2f, SpeedJitter = 0.35f, UpBias = 1.5f, Gravity = 3f, Drag = 1.1f,
+                Size = new CelCurve(0.075f, 0.045f), Stretch = 0.22f, Erode = new CelCurve(0.05f, 0.5f), Palette = "spark", Core = 3f, Extra = new Vector4(0.2f, 0.05f, 0.2f, 0f),
             });
 
         public static readonly CelFxRecipe Ground = new CelFxRecipe("blue_laser_ground", 4f,
@@ -218,16 +222,17 @@ namespace TW.Presentation.VFX.Cel
                 // r04: a soft bright cyan pool ~1.5 torso widths across (no bands, no hard rim), a LightningBeam dot on the ground
                 Name = "pool", Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0.05f, 0.02f, 0.05f), Start = 0.25f, Life = Hold + 0.1f, LifeJitter = 0f,
                 // b02: a soft pale-blue ellipse about 1.5x the dummy's width (1.2 m), softer and paler than b01's puddle
-                Close = 1, Mid = 1, Far = 0, Shape = CelShape.Point, Aim = CelAim.None, Speed = 0f, Size = new CelCurve(2.2f, 2.3f), SizeJitter = 0f, Stretch = -0.001f,
+                Close = 1, Mid = 1, Far = 0, Shape = CelShape.Point, Aim = CelAim.None, Speed = 0f, Size = new CelCurve(2.4f, 2.5f), SizeJitter = 0f, Stretch = -0.001f,
                 // b03: feathered (falloff 3.2: b02's 1.5 was a flat cone with a hard rim)
-                Erode = new CelCurve(0f, 0.1f), Feather = 0f, Palette = "blue_laser_pool", Core = 1f, Opacity = 1.1f, Extra = new Vector4(2f, 1.2f, 0f, 0f),   // b05: 2.2 m, falloff 1.2 (a feathered halo)   // b04: wider, softer halo (1.5x the dummy)
+                Erode = new CelCurve(0f, 0.1f), Feather = 0f, Palette = "blue_laser_pool", Core = 1f, Opacity = 0.85f, Extra = new Vector4(2f, 4.2f, 0f, 0f),   // b07: 2.4 m, falloff 4.2 (b06b read as a slab)   // b06: 2.9 m, falloff 3.2 (b05 read as a hard-edged disc)   // b05: 2.2 m, falloff 1.2 (a feathered halo)   // b04: wider, softer halo (1.5x the dummy)
             },
             new CelLayer
             {
                 // b03: a soft blue halo standing at the feet (facing the eye), so the glow feathers up the legs
-                Name = "foot halo", Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.2f, 0f), Start = 0.3f, Life = Hold, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 0, Shape = CelShape.Point, Aim = CelAim.None, Speed = 0f, Size = new CelCurve(1.15f, 1.25f), SizeJitter = 0f, Stretch = -0.001f,
-                Erode = new CelCurve(0f, 0.1f), Feather = 0f, Palette = "blue_laser_pool", Core = 1f, Opacity = 0.45f, Extra = new Vector4(1f, 2.2f, 0f, 0f),
+                Name = "foot halo", Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.5f, 0f), Start = 0.3f, Life = Hold, LifeJitter = 0f,
+                // b07: smaller, softer and raised (b06b: its bottom cut by the ground drew a hard-edged slab under the feet)
+                Close = 1, Mid = 1, Far = 0, Shape = CelShape.Point, Aim = CelAim.None, Speed = 0f, Size = new CelCurve(1.0f, 1.05f), SizeJitter = 0f, Stretch = -0.001f,
+                Erode = new CelCurve(0f, 0.1f), Feather = 0f, Palette = "blue_laser_pool", Core = 1f, Opacity = 0.3f, Extra = new Vector4(1f, 5f, 0f, 0f),
             });
 
         /// <summary>The dust trail, played along the trail (see Play): four stretches born near to far, then the flecks.</summary>
@@ -244,18 +249,22 @@ namespace TW.Presentation.VFX.Cel
             // b04b: larger and denser (b04a's tail area was ~25% of the clip's)
             // b05: 5 separate translucent grey-tan lumpy clumps trailing up-right (clip f98-f115), short boxes with gaps
             // between them, out to ~3 dummy widths; a smaller low pool round the dummy
-            Wide(DustStretch("dust pool", 0.2f, 1.3f, DustAt + 0.02f, 22, 4, new CelCurve(0.2f, 0.85f, 0.45f), 2.8f)),
-            DustStretch("dust 1", 0.9f, 0.7f, DustAt + 0.06f, 13, 2, new CelCurve(0.2f, 0.88f, 0.45f), 2.7f),
-            DustStretch("dust 2", 1.9f, 0.7f, DustAt + 0.12f, 13, 2, new CelCurve(0.19f, 0.88f, 0.45f), 2.6f),
-            DustStretch("dust 3", 2.9f, 0.7f, DustAt + 0.18f, 11, 2, new CelCurve(0.18f, 0.82f, 0.45f), 2.5f),
-            DustStretch("dust 4", 3.9f, 0.7f, DustAt + 0.24f, 9, 1, new CelCurve(0.17f, 0.76f, 0.45f), 2.4f),
-            DustStretch("dust 5", 4.8f, 0.6f, DustAt + 0.3f, 6, 1, new CelCurve(0.15f, 0.65f, 0.45f), 2.2f),
+            // b06: 4-6 separate puffs (b05's 13 per clump merged into one opaque streak): 2-3 big lumpy puffs per clump, translucent,
+            // living longer so the tail f101-f136 holds its area
+            // b07: one big puff (two at the dummy) per clump on clumps 1.2 m apart, born big so the early tail is full, and
+            // shorter lived (b06b ran 9 frames late and its 3-4 puffs per clump merged into one streak)
+            Wide(DustStretch("dust pool", 0.2f, 1.3f, DustAt + 0.02f, 8, 2, new CelCurve(0.8f, 1.65f, 0.4f), 2.5f)),
+            DustStretch("dust 1", 1.0f, 0.3f, DustAt + 0.06f, 2, 1, new CelCurve(0.9f, 1.75f, 0.4f), 2.5f),
+            DustStretch("dust 2", 2.2f, 0.3f, DustAt + 0.12f, 2, 1, new CelCurve(0.85f, 1.7f, 0.4f), 2.45f),
+            DustStretch("dust 3", 3.4f, 0.3f, DustAt + 0.18f, 2, 1, new CelCurve(0.8f, 1.6f, 0.4f), 2.4f),
+            DustStretch("dust 4", 4.6f, 0.3f, DustAt + 0.24f, 1, 1, new CelCurve(0.75f, 1.5f, 0.4f), 2.3f),
+            DustStretch("dust 5", 5.7f, 0.3f, DustAt + 0.3f, 1, 0, new CelCurve(0.7f, 1.4f, 0.4f), 2.2f),
             new CelLayer
             {
                 // loose separate black flecks: small hard-edged puff dots spread wider than the dust, drifting with it
                 Name = "flecks", Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.3f, 2.3f), Start = DustAt + 0.05f, Duration = 0.7f, Life = 1.5f, LifeJitter = 0.35f,
                 // b02: dense specks (clip ink_peak 0.053 vs b01 0.015): twice as many, larger
-                Close = 115, Mid = 20, Far = 0, Shape = CelShape.Box, ShapeSize = new Vector3(1.4f, 0.8f, 4.8f), Aim = CelAim.Dir, Speed = 1.0f, SpeedJitter = 0.5f, Spread = 35f, Drag = 0.8f, Gravity = 0.4f,
+                Close = 26, Mid = 6, Far = 0, Shape = CelShape.Box, ShapeSize = new Vector3(1.4f, 0.8f, 4.8f), Aim = CelAim.Dir, Speed = 1.0f, SpeedJitter = 0.5f, Spread = 35f, Drag = 0.8f, Gravity = 0.4f,
                 Size = new CelCurve(0.042f, 0.03f), SizeJitter = 0.5f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.6f, 3f), Feather = 0f,
                 Palette = "blue_laser_fleck", Core = 1f, Opacity = 1f, Extra = new Vector4(3f, 0.04f, 0.3f, 0f),
             });
@@ -279,10 +288,10 @@ namespace TW.Presentation.VFX.Cel
         {
             return new CelLayer
             {
-                Name = name, Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.3f, along), Start = start, Duration = 0.22f, TimeJitter = 0.05f, Life = life, LifeJitter = 0.2f,
-                Close = close, Mid = mid, Far = 0, Shape = CelShape.Box, ShapeSize = new Vector3(0.9f, 0.5f, length), Aim = CelAim.Dir, Speed = 0.5f, SpeedJitter = 0.4f, Spread = 20f, Drag = 1f, Buoyancy = 0.05f,
+                Name = name, Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.3f, along), Start = start, Duration = 0.22f, TimeJitter = 0.05f, Life = life, LifeJitter = 0.1f,
+                Close = close, Mid = mid, Far = 0, Shape = CelShape.Box, ShapeSize = new Vector3(0.6f, 0.4f, length), Aim = CelAim.Dir, Speed = 0.5f, SpeedJitter = 0.4f, Spread = 20f, Drag = 1f, Buoyancy = 0.05f,
                 Size = size, SizeJitter = 0.3f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.95f, 2.2f), Feather = 0f,
-                Palette = "blue_laser_dust", Core = 1f, Opacity = 0.42f, Extra = new Vector4(3f, 0.55f, 0.5f, 0f),
+                Palette = "blue_laser_dust", Core = 1f, Opacity = 0.6f, Extra = new Vector4(3f, 0.6f, 0.55f, 0f),   // b06: alpha 0.6, lumpier
             };
         }
 
@@ -302,7 +311,8 @@ namespace TW.Presentation.VFX.Cel
             // b03: rising 0.2 (the clip's dust pools low round the dummy)
             // b04: rising 0.12 (pooling, not a rope)
             // b05: rising 0.26 (the clip's trail at f98-f106 climbs up-right along the beam's line past the dummy)
-            Vector3 trail = (level * 0.94f + right * 0.342f + Vector3.up * 0.26f).normalized;
+            // b07: rising 0.36 (the clip's puffs at f98-f115 climb up-right to ~3 dummy widths)
+            Vector3 trail = (level * 0.94f + right * 0.342f + Vector3.up * 0.36f).normalized;
             CelFx.Play(Dust, to, trail, to, seed + 2u);
         }
 
