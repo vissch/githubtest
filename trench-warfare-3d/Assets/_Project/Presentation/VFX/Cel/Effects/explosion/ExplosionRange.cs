@@ -17,12 +17,14 @@ namespace TW.Presentation.VFX.Cel
         // right, depth (m from the foot), seconds after the fire
         static readonly Vector3[] Sites =
         {
-            new Vector3(-12.8f, 5.7f, 0.95f),
-            new Vector3(-5.0f, -2.2f, 1.6f),
-            new Vector3(-16f, 33f, 2.3f),
-            new Vector3(11.5f, 27f, 2.32f),
-            new Vector3(-6.2f, 8.8f, 2.55f),
-            new Vector3(6.5f, 9f, 2.1f),
+            // b01: re-solved for the beach camera (each old place projected through the corridor camera and cast back
+            // onto the beach ground from the same screen point)
+            new Vector3(-15.0f, 5.6f, 0.95f),
+            new Vector3(-7.7f, -4.1f, 1.6f),
+            new Vector3(-11.0f, 20.5f, 2.3f),
+            new Vector3(9.4f, 19.25f, 2.32f),
+            new Vector3(-6.9f, 8.3f, 2.55f),
+            new Vector3(7.6f, 8.5f, 2.1f),
         };
         // smoke clouds: right, depth, seconds after the fire (the dummy's own cloud stands behind it)
         // r04: sites 2 and 3 are far across the field (SiteFar)
@@ -32,11 +34,14 @@ namespace TW.Presentation.VFX.Cel
         // r05: the clouds stand from 2.95 s (ref f90: no smoke wall before it), and an early one at the left edge
         static readonly Vector3[] Clouds =
         {
-            new Vector3(0f, 0.6f, 2.95f),
-            new Vector3(-8.2f, -2.0f, 2.95f),
-            new Vector3(-6.2f, 8.8f, 3.0f),
-            new Vector3(8.5f, 9.3f, 2.98f),
-            new Vector3(-11.5f, 6f, 1.15f),
+            // b01: the dummy's cloud stands further back (the dummy shows in front of it, as the ref's f105-f133), and
+            // the back row is two clouds wide on the left (ref back-left cloud ~430 px)
+            new Vector3(0f, 1.8f, 2.95f),
+            new Vector3(-14.5f, -3.6f, 2.95f),
+            new Vector3(-4.2f, 8.6f, 3.0f),
+            new Vector3(9.95f, 8.7f, 2.98f),
+            new Vector3(-13.45f, 5.85f, 1.15f),
+            new Vector3(-9.6f, 8.4f, 3.02f),
         };
 
         const float ClipFps = 24f;
@@ -56,8 +61,9 @@ namespace TW.Presentation.VFX.Cel
             Vector3 rh = Vector3.Cross(Vector3.up, fh).normalized;
             uint seed = (uint)s.Seed;
 
-            // the rounds come in flat from the left at the dummy's depth, a little under its chest
-            Vector3 from = s.Target - rh * 9f - Vector3.up * 0.7f;
+            // the rounds come in from the left frame edge (b01: through screen (0, ~500) on the beach camera, so from
+            // the left and a little toward the eye, under the chest)
+            Vector3 from = s.Target - rh * 12.5f - fh * 5f - Vector3.up * 0.6f;
             CelFx.Play(ExplosionRecipe.Hold, from, fh, s.Target, seed);
             ExplosionRecipe.PlayAt(ExplosionRecipe.Lead, from, fh, s.Target, seed + 3u, -0.2f);
             if (s.Lod == RangeLod.Far) { Update(s, 0f); return; }
@@ -73,7 +79,7 @@ namespace TW.Presentation.VFX.Cel
             for (int i = 0; i < Clouds.Length; i++)
             {
                 Vector3 g = GroundAt(s.Ground + rh * Clouds[i].x + fh * Clouds[i].y, s.Ground.y);
-                ExplosionRecipe.PlayAt(ExplosionRecipe.Cloud, g, fh, g + Vector3.up * 0.9f, seed + 211u * (uint)(i + 1), Clouds[i].z);
+                ExplosionRecipe.PlayAt(ExplosionRecipe.Cloud, g, fh, g + Vector3.up * 1.0f, seed + 211u * (uint)(i + 1), Clouds[i].z);
             }
             Update(s, 0f);
         }
