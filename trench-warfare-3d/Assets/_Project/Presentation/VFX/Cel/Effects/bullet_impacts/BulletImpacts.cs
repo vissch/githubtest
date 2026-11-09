@@ -119,8 +119,10 @@ namespace TW.Presentation.VFX.Cel.Effects
         public static readonly CelFxRecipe Tracer = new CelFxRecipe("bi_tracer", 0.3f,
             new CelLayer
             {
+                // d14: one a shot. d36: a comment had swallowed "Speed = 0f, Arrive = 1f, Spread = 0f" on the next line since
+                // d13/d14, so tracers flew at the default speed and stopped short of the dummy; restored
                 Name = "tracer", Kind = CelKinds.StreakName, Start = 0f, Duration = 0.03f, Life = Flight, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 1, Shape = CelShape.Box, ShapeSize = new Vector3(0.5f, 0.3f, 0f), Aim = CelAim.Target,   // d14: one a shot Speed = 0f, Arrive = 1f, Spread = 0f,
+                Close = 1, Mid = 1, Far = 1, Shape = CelShape.Box, ShapeSize = new Vector3(0.5f, 0.3f, 0f), Aim = CelAim.Target, Speed = 0f, Arrive = 1f, Spread = 0f,
                 Size = new CelCurve(0.06f, 0.045f), SizeJitter = 0.15f, Stretch = 0.22f, Erode = new CelCurve(0f, 0.15f, 2f),   // d13: 2x wide (0.03 m is under a pixel at 19 m)
                 Palette = "bi_tracer", Core = 4f, Extra = new Vector4(0.1f, 0.8f, 0.1f, 0f),
             });
