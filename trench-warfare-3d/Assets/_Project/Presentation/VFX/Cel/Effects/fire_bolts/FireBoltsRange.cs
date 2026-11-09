@@ -24,9 +24,10 @@ namespace TW.Presentation.VFX
         const float DummyUp = -1.3f;
         // b04: each bolt's extra launch height (m): about half the lanes start higher, so they cross the upper-left quarter
         // from near the horizon and arc down onto the dummy and the ground (b03: one low band)
-        static readonly float[] LaneUp = { 0f, 1.6f, 0.6f, 2.3f, 0.2f, 1.1f, 1.9f, 0.4f, 2.6f, 0.9f, 1.4f };
+        static readonly float[] LaneUp = { 0f, 2.6f, 0.8f, 3.8f, 0.3f, 1.7f, 3.1f, 0.5f, 4.4f, 1.2f, 2.2f };   // b05: wider (b04 up to 2.6 m: one band)
         static readonly Vector2[] DummyAt = { new Vector2(0f, 0f), new Vector2(0.05f, 0.3f), new Vector2(-0.1f, -0.1f), new Vector2(0.1f, 0.15f),
-            new Vector2(0f, 0.05f), new Vector2(-0.05f, 0.25f), new Vector2(0.08f, -0.05f), new Vector2(0f, 0.1f) };
+            new Vector2(0f, 0.05f), new Vector2(-0.05f, 0.25f), new Vector2(0.08f, -0.05f), new Vector2(0f, 0.1f),
+            new Vector2(-0.12f, 0.2f), new Vector2(0.12f, 0.35f), new Vector2(-0.08f, -0.15f) };
         // launch spots: (screen right m, up m, away m) from MuzzleHigh, staggered in height and depth so the volley's
         // paths cross at different angles instead of flying as a parallel row
         // b03: small per-bolt jitter of the launch spot (screen right m, up m, away m): the lanes stay parallel bands, never
@@ -99,9 +100,9 @@ namespace TW.Presentation.VFX
                 // b03: a smoke column on each ground hit, leaning up and along the shot (screen right)
                 if (FireBolts.OnGround[i] && s.Lod != RangeLod.Far)
                 {
-                    CelFx.Play(FireBolts.Smokes[i], target, Vector3.up + right * 0.3f, target, sd + 29u);
+                    CelFx.Play(FireBolts.Smokes[i], target, Vector3.up + right * 0.35f, target, sd + 29u);
                     // b04: a second, leaner column beside it on the near-dummy fires (Close only: Mid keeps one)
-                    if (s.Lod == RangeLod.Close && (gi & 1) == 0) CelFx.Play(FireBolts.Smokes[i], target + right * 0.35f, Vector3.up + right * 0.55f, target, sd + 31u);
+                    if (s.Lod == RangeLod.Close && (gi & 1) == 0) CelFx.Play(FireBolts.Smokes[i], target + right * 0.35f, Vector3.up + right * 0.6f, target, sd + 31u);
                 }
             }
         }

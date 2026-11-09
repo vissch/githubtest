@@ -162,16 +162,23 @@ Shader "TW/Cel/Comet"
                 else rField = (s > ribbonStart) ? saturate(1.0 - abs(y - yc) / max(rwid, 1e-4)) : 0.0;
                 float brk = CelValue2(float2(s / (wl * 0.5), seed * 91.0));   // pieces along the ribbon
                 float rCut = puffs > 0.5 ? 1.0 : step(i.more.y, brk * 0.9 + 0.1 * taper);
+                // b06: a strand stays one unbroken column; it erodes from its top (s = 0) down, late in its life
+                rCut = lerp(rCut, step(i.more.y, brk * 0.3 + 0.7 * (1.0 - taper)), strand);
+                // b06: a strand thins toward its top and narrows a little at the fire
+                rwid *= lerp(1.0, lerp(0.35, 1.0, saturate(s / max(len * 0.4, 1e-3))) * lerp(1.0, 0.75, saturate((s / max(len, 1e-3) - 0.8) * 5.0)), strand);
+                if (puffs < 0.5) rField = (s > ribbonStart) ? saturate(1.0 - abs(y - yc) / max(rwid, 1e-4)) : 0.0;
                 float rMask = CelAAStep(0.04, rField) * rCut;
                 // a puff is lit from above: light on its upper side, darker below
-                float rVal = lerp(lerp(0.62 + 0.38 * rField, 0.45 + 0.5 * rField, strand), saturate(0.6 + 0.4 * (y - yc) / max(rwid, 1e-4)) * lerp(0.75, 1.0, rField), puffs);
+                // b05: the strand is a smoke ribbon: a light band on its upper/left side, a mid-grey shade band, an ink edge
+                float sLit = saturate(0.5 + 0.5 * (y - yc) / max(rwid, 1e-4));
+                float rVal = lerp(lerp(0.62 + 0.38 * rField, 0.3 + 0.6 * sLit, strand), saturate(0.6 + 0.4 * (y - yc) / max(rwid, 1e-4)) * lerp(0.75, 1.0, rField), puffs);
                 half3 rCol = CelRamp(rVal, rowB, 1.0);
-                float rInk = CelInk(rField, 0.04, inkPx * puffs) * rMask;    // the strand has no ink (it read doubled)
+                float rInk = CelInk(rField, 0.04, inkPx * max(puffs, strand)) * rMask;    // b05: the strand is inked too
                 half3 col = lerp(rCol, CelPalInk(rowB).rgb, rInk) * rMask;
                 // the strand fades along its length and thins out at far zoom (the comet carries the read there)
                 float lodY = _CelLod.y > 0.0 ? _CelLod.y : 1.0;
                 float rFade = lerp(saturate(taper * 2.2) * saturate(lodY * 2.0 - 0.8), 1.0, puffs);
-                rFade = lerp(rFade, saturate(taper * 3.0) * saturate(lodY * 2.0 - 0.6), strand);
+                rFade = lerp(rFade, saturate(taper * 6.0) * saturate((1.0 - taper) * 3.5 + 0.2) * saturate(lodY * 2.0 - 0.6), strand);   // b05: fades near its base; b06: and at its top
                 float rOp = saturate(i.tone.z) * rFade;
                 col *= lerp(rFade, 1.0, rInk);
                 float a = rMask * lerp(rOp, 1.0, rInk);
@@ -183,11 +190,14 @@ Shader "TW/Cel/Comet"
                     float hd = length(float2(s, y));
                     float headF = 1.0 - hd / max(hr, 1e-4);
                     // b04: the body is a long thin flame streak, 6x the head's length, never wider than the head
-                    float bodyL = max(min(fl * 0.6, hr * 10.0), 1e-3);
+                    // b05: 7x the head's length (b04: 5x)
+                    float bodyL = max(min(fl * 0.85, hr * 14.0), 1e-3);
                     float sb = saturate(s / bodyL);
                     // a lick that travels down the body (the flame flickers, never a rigid capsule)
-                    float lick = hr * 0.08 * sin(s * 5.0 / max(hr * 4.0, 1e-3) + seed * 30.0 - i.misc.z * 14.0) * sb;
-                    float wBody = hr * (1.0 - 0.15 * smoothstep(0.0, 0.2, sb)) * pow(saturate(1.0 - sb), 0.6);   // b04: as wide as the head, tapering to a point
+                    float lick = hr * 0.12 * sin(s * 5.0 / max(hr * 4.0, 1e-3) + seed * 30.0 - i.misc.z * 14.0) * sb;
+                    // b05: the back half is ragged: its width flickers in tongues that travel down the body
+                    float rag = 1.0 - smoothstep(0.35, 1.0, sb) * (0.55 + 0.45 * sin(s * 9.0 / max(hr * 4.0, 1e-3) + seed * 21.0 - i.misc.z * 22.0));
+                    float wBody = hr * (1.0 - 0.15 * smoothstep(0.0, 0.2, sb)) * pow(saturate(1.0 - sb), 0.6) * rag;   // b04: as wide as the head, tapering to a point
                     float tailF = (s >= 0.0 && s <= bodyL) ? 1.0 - abs(y - lick) / max(wBody, 1e-4) : 0.0;
                     float streakF = 0.0, streakU = 1.0;
                     [unroll] for (int k5 = 0; k5 < 5; k5++)
@@ -206,7 +216,8 @@ Shader "TW/Cel/Comet"
                     // edge and toward its end; the streaks red to deep red
                     float vHead = headF > 0.0 ? 0.78 + 0.22 * saturate((headF - 0.35) * 2.0) : 0.0;   // b04: white-yellow   // yellow, white only at the middle (b03: a smaller white)
                     // b04: yellow just behind the head, orange, then red-orange down the streak (b03's yellow-white inner band read as a white rectangle)
-                    float vBody = tailF > 0.0 ? (0.24 + 0.36 * saturate(tailF * 1.5)) + 0.24 * saturate(1.0 - sb * 3.0) * saturate(tailF * 2.0) : 0.0;
+                    // b05: a white-yellow core band down the front two thirds, orange round it, red-orange at the edges
+                    float vBody = tailF > 0.0 ? (0.2 + 0.38 * saturate(tailF * 1.6)) + 0.3 * saturate(1.0 - sb * 1.5) * step(0.45, tailF) : 0.0;
                     float vStreak = streakF > 0.0 ? 0.08 + 0.3 * (1.0 - streakU) : 0.0;
                     float val = max(max(vHead, vBody), vStreak);
                     half3 fCol = CelRamp(saturate(val), rowA, i.tone.y);
