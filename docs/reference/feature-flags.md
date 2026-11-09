@@ -37,6 +37,7 @@ Both are read only when `StressUnits > 0`, so no other preset sees them.
 | `-twdev` | command-line arg | `Editor/BuildWindows.cs` | Arg to the batch Windows build: make a Development build. |
 | `-twgym` | command-line arg | `Editor/Gym.cs` | Editor arg with -executeMethod TW.Editor.Gym.CommandLine: the gym run's options ("tabs=clips,abilities filter=Fire max=20 bands=close out=<dir>"); the editor exits when the run ends (0 clean, 2 flagged, 1 could not run). |
 | `-twknob` | command-line arg | `Presentation/Core/Knobs.cs` | Player/editor arg, repeatable: -twknob name=value sets a run-time knob (`Presentation/Core/Knobs.cs`); wins over TW_KNOBS. |
+| `-twrange` | command-line arg | `Editor/RangeStage.cs` | Editor arg with -executeMethod TW.Editor.RangeStage.CommandLine: the Range capture options ("effect=old_shell out=<dir> lod=close\|mid\|far\|all seed=1917"); the editor exits when the run ends (0 done, 1 could not run). |
 | `-twstudy` | command-line arg | `Editor/MachineStudy.cs` | Editor batch arg: MachineStudy (`Editor/MachineStudy.cs`) writes its machine scores, jams and summary into this folder. |
 | `-twstudysec` | command-line arg | `Editor/MachineStudy.cs` | Editor batch arg: seconds of match time MachineStudy measures (default 150). |
 | `-twstudyseed` | command-line arg | `Editor/MachineStudy.cs` | Editor batch arg: the match seed MachineStudy plays (default 12648430, 0xC0FFEE). |
@@ -44,6 +45,7 @@ Both are read only when `StressUnits > 0`, so no other preset sees them.
 | `TW.Gym.Request` | SessionState | `Editor/Gym.cs` | SessionState key (editor): a gym run asked for before Play, carried over the domain reload; erased when the run starts. |
 | `tw.hud.toolkit` | PlayerPrefs | `Presentation/Core/HudBridge.cs` | PlayerPrefs int (registry, per machine): 1 = UI Toolkit HUD, 0 = IMGUI BattleHud. F9 flips it. Default 1. A machine where someone pressed F9 shows the other HUD. |
 | `tw.machinestudy` | SessionState | `Editor/MachineStudy.cs` | SessionState: the MachineStudy request carried into Play mode. |
+| `TW.Range.Request` | SessionState | `Editor/RangeStage.cs` | SessionState key (editor): a Range capture asked for before Play, carried over the domain reload; erased when the run starts. |
 | `tw.rig.stress` | SessionState | `Editor/CaptureRig.cs` | SessionState (this editor session only): CaptureRig stress request carried across a domain reload. |
 | `tw.rig.stress.restore` | SessionState | `Editor/CaptureRig.cs` | SessionState: the StressUnits value CaptureRig puts back afterwards. |
 | `TW_AUDIT_OUT` | environment variable | `Editor/AssetScaleAudit.cs` | Environment variable: where -executeMethod TW.Editor.AssetScaleAudit.Run writes the asset scale audit. Default docs/reference/asset-scale.md. |

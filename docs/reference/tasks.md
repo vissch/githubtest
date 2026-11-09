@@ -142,6 +142,18 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   Unattended, from batch mode (a knob's A/B, one launch a side): BenchRuns (`Tests/Stills`, explicit, run by name with
   a graphics device; `TW_BENCH_RUN` the bench string, its `out=` outside the checkout), then `Tools/perfcmp.py`.
 
+
+### The Range (the CelFx job: one fixed shot every cel effect is filmed in, 2026-11-09)
+- **Files (SHOW):** `Presentation/VFX/Range/CelRange.cs` (the registry an effect joins with `[CelRangeEffect("id")]`
+  or `CelRange.Register`, the shot clock, `RangeShot`: muzzle, high muzzle, target, ground, LOD tier, zoom, seed),
+  `Presentation/VFX/Range/TargetDummy.cs` (the wooden target dummy, a code mesh drawn with TW/Toon through
+  FrameBudget), `Editor/RangeStage.cs` (the stage in GreyboxCorridor at night, the camera solved to the reference
+  plate's dummy box, the 192-frame close film at 24 fps, the T1/O120/O240 stills with their draws, `old_shell` and
+  `old_bullets`; `-executeMethod TW.Editor.RangeStage.CommandLine -twrange "effect=<id> out=<dir> lod=all"`),
+  `VfxLab.Range`. The capture script and its README are outside the repo (`C:/Users/PC/Documents/celfx/tools/capture.ps1`).
+- **Tests:** none of its own (an instrument; its outputs go to the scorer and the critic).
+- **See it:** `Tools/tw eval 'return TW.Editor.VfxLab.Range("old_shell", "C:/abs/run", "close");'`, then the PNGs in
+  `C:/abs/run/frames`.
 ### Map generation and ground (sim side)
 - **Files:** `Sim/Terrain/BattlefieldGenerator.cs` (`BattlefieldParams` presets: `ShelledForest`, `WinterLine`, `Landing`),
   `Sim/Terrain/MapData.cs`, `Sim/Terrain/CraterStamp.cs`, `Sim/Terrain/Heightfield.cs`, `Sim/Terrain/WireBelt.cs`,
@@ -1100,10 +1112,10 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- gen:hooks -->
 | SceneHooks member | Set by | Read / called by |
 |---|---|---|
-| `CloseUp` | CaptureRig, PerfBench, TacticalCamera | Atmosphere, BattlefieldProps, CombatFx, CombatFx.Bursts, CombatFx.Chunks, CombatFx.Close, CombatFx.Grenades, CombatFx.Ground, NightLights, PropDestruction, SmallLife |
+| `CloseUp` | CaptureRig, PerfBench, RangeStage, TacticalCamera | Atmosphere, BattlefieldProps, CombatFx, CombatFx.Bursts, CombatFx.Chunks, CombatFx.Close, CombatFx.Grenades, CombatFx.Ground, NightLights, PropDestruction, SmallLife |
 | `IsWater` | WaterRings | CombatFx, CombatFx.Ambient, CombatFx.Chunks, CombatFx.Ground, CombatFx.Mines, NightLights, TankRenderer |
 | `AddRing` | WaterRings | CombatFx, CombatFx.Chunks, LandingCraftView, TankRenderer |
-| `Sparks` | CombatFx | CombatFx.Abilities, Flamethrower, NightLights, TankRenderer, TankRenderer.Fizzers |
+| `Sparks` | CombatFx | CombatFx.Abilities, Flamethrower, NightLights, RangeStage, TankRenderer, TankRenderer.Fizzers |
 | `AimPreview` | TestPanel | CombatFx.Abilities |
 | `SmokeSources` | NightLights | CombatFx.Ambient |
 | `TanksDrawn` | TankRenderer | CombatFx, CombatFx.Ground, VATRenderer |

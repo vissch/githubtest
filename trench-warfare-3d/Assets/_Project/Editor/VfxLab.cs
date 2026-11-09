@@ -120,6 +120,11 @@ namespace TW.Editor
             return "in " + seconds.ToString("0.#") + " s";
         }
 
+        /// <summary>The Range (RangeStage): the reference clips' shot recreated, the dummy, the camera solved to the plate,
+        /// `effect` (a CelRange id: none, old_shell, old_bullets, or a cel effect) fired at 0.8 s and filmed into `out`;
+        /// lod close|mid|far|all. From the editor's command line: Tools/tw eval, or capture.ps1 for a batch editor.</summary>
+        public static string Range(string effect, string outDir, string lod = "close") => RangeStage.Run("effect=" + effect + " out=" + outDir + " lod=" + lod);
+
         /// <summary>A whole staging by name at (x, z), the effect's centre.</summary>
         public static string Scene(string name, float x = 100f, float z = 120f)
         {

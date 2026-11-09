@@ -532,6 +532,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.InkLinesSetup.Install()` | Editor/InkLinesSetup.cs | (no summary: read the method) |
 | `TW.Editor.LookLab.Knob(name, value)` | Editor/LookLab.cs | A knob set in the game on the lab's next frame. |
 | `TW.Editor.LookLab.Clear()` | Editor/LookLab.cs | Every knob back to its default on the lab's next frame. |
+| `TW.Editor.RangeStage.Run(options)` | Editor/RangeStage.cs | (no summary: read the method) |
 | `TW.Editor.RiderLab.Setup(archetype, riders, x, z, team, yawDeg, climb)` | Editor/RiderLab.cs | A walker of `archetype` (6 Pincer .. |
 | `TW.Editor.RiderLab.Climbers(slot, n)` | Editor/RiderLab.cs | `n` riflemen of the machine's team spawn 12-15 m behind it, held, and run in and climb aboard (for a machine that is already standing: spawn it ... |
 | `TW.Editor.RiderLab.BoardMen(slot, men)` | Editor/RiderLab.cs | Real men take these riders' places: board from where they stand. |
@@ -574,6 +575,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.VfxLab.Flare()` | Editor/VfxLab.cs | A star shell now (night: it lights the field for about 16 s). |
 | `TW.Editor.VfxLab.Rain(amount)` | Editor/VfxLab.cs | Rain on the field, 0..1 (0 off). |
 | `TW.Editor.VfxLab.Later(seconds, act)` | Editor/VfxLab.cs | Something done `seconds` from now (real time in Play), its answer logged. |
+| `TW.Editor.VfxLab.Range(effect, outDir, lod)` | Editor/VfxLab.cs | The Range (RangeStage): the reference clips' shot recreated, the dummy, the camera solved to the plate, `effect` (a CelRange id: none, old_shell ... |
 | `TW.Editor.VfxLab.Scene(name, x, z)` | Editor/VfxLab.cs | A whole staging by name at (x, z), the effect's centre. |
 | `TW.Editor.WeightLab.Knob(name, value)` | Editor/WeightLab.cs | A knob set in the game on the lab's next frame (Knobs.Set from compiled code). |
 | `TW.Editor.WeightLab.Halt(slot)` | Editor/WeightLab.cs | The machine's drive taken away (its Speed to 0): with momentum it sheds its way at its Brake and runs on to a stop, as at a halt. |
