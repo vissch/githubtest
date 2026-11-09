@@ -6,6 +6,9 @@
 // most four draws (Streak, Lobe x2, ExpFx) however many blasts play.
 // r02: a white HDR heart and a soft bloom halo over orange-yellow lobes with thin red-orange ink; soft (unbanded) pools
 // and domes; white jagged arcs; a thick orange late fan with orange spark dots; tracers lead the fire.
+// r03: orange-yellow lobes with no white band (one white heart only), grey-tan puffs wrapping the fire from 0.7 s that
+// take it over, side sites as a dome then dark debris and a spark plume (no fireball), a peak wash at 2.05-3.1 s,
+// pale cream clouds with few specks and orange embers drifting to ~5.5 s.
 //
 // Recipes (all anchored at their target, effect frame = the eye's flat forward, so x is screen right and z is depth):
 //   Hold   the sustained blast at the hit: tracers stream in from `origin`, a boiling fireball, a spark stream, a
@@ -26,8 +29,16 @@ namespace TW.Presentation.VFX.Cel
             CelPalette.Add("exp_fire", CelPalette.Hex(0xF08A28), CelPalette.Hex(0xFFA030), CelPalette.Hex(0xFFC040), CelPalette.Hex(0xFFDC60), CelPalette.Hex(0xFFFFFF), 0.82f, 4, CelPalette.Hex(0xD05A18));
             CelPalette.Add("exp_dome", CelPalette.Hex(0xF0A050), CelPalette.Hex(0xC07030), CelPalette.Hex(0xFFD090), CelPalette.Hex(0xFFE8B0), CelPalette.Hex(0xFFFFFF), 0.5f, 4, CelPalette.Hex(0x000000));
             // the fireball's white heart and its bloom halo (soft ExpFx flashes: c1 edge, c3 middle, core above coreAt)
-            CelPalette.Add("exp_core", CelPalette.Hex(0xFF9A30), CelPalette.Hex(0xFF9A30), CelPalette.Hex(0xFFB850), CelPalette.Hex(0xFFC860), CelPalette.Hex(0xFFFFFF), 0.55f, 4, CelPalette.Hex(0x000000));
+            // r03: the heart adds little at its edge (so it does not blow the lobes round it to white) and is white only
+            // in its middle, one solid heart about 0.4x the fireball's width
+            CelPalette.Add("exp_core", CelPalette.Hex(0x602008), CelPalette.Hex(0x602008), CelPalette.Hex(0x904010), CelPalette.Hex(0xC06020), CelPalette.Hex(0xFFFFFF), 0.3f, 4, CelPalette.Hex(0x000000));
             CelPalette.Add("exp_bloom", CelPalette.Hex(0x401808), CelPalette.Hex(0x602808), CelPalette.Hex(0x904010), CelPalette.Hex(0xC06424), CelPalette.Hex(0xFFB060), 0.85f, 4, CelPalette.Hex(0x000000));
+            // r03: the fireball's lobes are orange to yellow with no white core band (the white is the heart's alone), and
+            // an orange ink, not a dark rim
+            CelPalette.Add("exp_ball", CelPalette.Hex(0xEE8226), CelPalette.Hex(0xFA9A2E), CelPalette.Hex(0xFFB83C), CelPalette.Hex(0xFFD052), CelPalette.Hex(0xFFD458), 0.97f, 4, CelPalette.Hex(0xC85A1C));
+            // the grey-tan puffs that wrap the fire from f40 on and take it over (warm-lit from the fire below)
+            CelPalette.Add("exp_wrap", CelPalette.Hex(0x8E7E70), CelPalette.Hex(0xA89684), CelPalette.Hex(0xBEAC96), CelPalette.Hex(0xD2C0A6), CelPalette.Hex(0xD2C0A6), 1.1f, 4, CelPalette.Hex(0x7A6656));
+            CelPalette.Add("exp_ember", CelPalette.Hex(0xC04010), CelPalette.Hex(0xF07020), CelPalette.Hex(0xFF9A30), CelPalette.Hex(0xFFB850), CelPalette.Hex(0xFFD080), 0.8f, 3, CelPalette.Hex(0x401004));
             CelPalette.Add("exp_arc", CelPalette.Hex(0xB8C8FF), CelPalette.Hex(0xD8E2FF), CelPalette.Hex(0xF0F4FF), CelPalette.Hex(0xFFFFFF), CelPalette.Hex(0xFFFFFF), 0.45f, 3, CelPalette.Hex(0x000000));
             CelPalette.Add("exp_spark", CelPalette.Hex(0xE08030), CelPalette.Hex(0xFFC070), CelPalette.Hex(0xFFE8B0), CelPalette.Hex(0xFFFFFF), CelPalette.Hex(0xFFFFFF), 0.6f, 3, CelPalette.Hex(0x401004));
             CelPalette.Add("exp_tracer", CelPalette.Hex(0xC04010), CelPalette.Hex(0xF07A20), CelPalette.Hex(0xFFB040), CelPalette.Hex(0xFFE090), CelPalette.Hex(0xFFF4D0), 0.75f, 3, CelPalette.Hex(0x401004));
@@ -35,7 +46,8 @@ namespace TW.Presentation.VFX.Cel
             CelPalette.Add("exp_pool", CelPalette.Hex(0x2A1A08), CelPalette.Hex(0x6A3C14), CelPalette.Hex(0x9A6A30), CelPalette.Hex(0xD09048), CelPalette.Hex(0xFFD890), 0.7f, 4, CelPalette.Hex(0x000000));
             // the warm light the blasts throw over the whole field (the clips' ground turns brown from 0.9 s to 4 s)
             CelPalette.Add("exp_wash", CelPalette.Hex(0x201008), CelPalette.Hex(0x301808), CelPalette.Hex(0x704020), CelPalette.Hex(0xA06030), CelPalette.Hex(0xA06030), 1.1f, 4, CelPalette.Hex(0x000000));
-            CelPalette.Add("exp_smoke", CelPalette.Hex(0x6E5E52), CelPalette.Hex(0x9A8878), CelPalette.Hex(0xBAA894), CelPalette.Hex(0xDAC8B0), CelPalette.Hex(0xDAC8B0), 1.1f, 3, CelPalette.Hex(0x3A2C26));
+            // r03: pale cream smoke (#c8b8a0 in the middle band) with a soft brown ink, as the ref's f105-f135
+            CelPalette.Add("exp_smoke", CelPalette.Hex(0x9C8C7C), CelPalette.Hex(0xB4A490), CelPalette.Hex(0xC8B8A0), CelPalette.Hex(0xDCCCB2), CelPalette.Hex(0xDCCCB2), 1.1f, 3, CelPalette.Hex(0x7A6656));
             CelPalette.Add("exp_dirt", CelPalette.Hex(0x1E1714), CelPalette.Hex(0x2E2420), CelPalette.Hex(0x44362E), CelPalette.Hex(0x5A463A), CelPalette.Hex(0x5A463A), 1.1f, 3, CelPalette.Hex(0x120C0A));
         }
 
@@ -56,50 +68,74 @@ namespace TW.Presentation.VFX.Cel
             {
                 // the first dome of light: soft, a little wider than the dummy is tall, gone in 8 frames
                 Name = "flash", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.3f, -2.2f), Start = 0f, Life = 0.34f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(1.5f, 1.7f, 0.5f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 1.5f),
-                Palette = "exp_dome", Core = 1.6f, Extra = new Vector4(ExpFxKind.Flash, 0.7f, 0f, 0f),
+                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(2.0f, 2.2f, 0.5f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 1.5f),
+                Palette = "exp_dome", Core = 1.6f, Extra = new Vector4(ExpFxKind.Flash, 0.7f, 1.23f, 0f),
             },
             new CelLayer
             {
                 // the blown white heart, in front of the lobes (toward the eye), re-born all through the hold
                 Name = "heart", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.55f, -1.6f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.12f, 0f, 0f),
                 Start = 0.05f, Duration = 2.75f, Life = 0.34f, LifeJitter = 0.2f,
-                Close = 9, Mid = 5, Far = 0, Size = new CelCurve(0.7f, 0.85f, 0.5f), SizeJitter = 0.12f, Erode = new CelCurve(0f, 1f, 2f),
-                Palette = "exp_core", Core = 2.2f, Opacity = 1f, Extra = new Vector4(ExpFxKind.Flash, 0.55f, 0f, 0f),
+                Close = 6, Mid = 3, Far = 0, Size = new CelCurve(0.68f, 0.8f, 0.5f), SizeJitter = 0.1f, Erode = new CelCurve(0f, 1f, 2f),
+                Palette = "exp_core", Core = 1.8f, Opacity = 1f, Extra = new Vector4(ExpFxKind.Flash, 1.0f, 0f, 0f),
             },
             new CelLayer
             {
-                // a soft warm bloom about 1.5x the fireball's radius
+                // a soft warm bloom about 1.5x the fireball's radius (faint: it must not blow the lobes to white)
                 Name = "bloom", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.55f, -1.8f), Start = 0f, Duration = 2.7f, Life = 0.6f, LifeJitter = 0.1f,
                 Close = 6, Mid = 3, Far = 0, Size = new CelCurve(2.0f, 2.3f, 0.5f), SizeJitter = 0.08f, Erode = new CelCurve(0f, 1f, 2f),
-                Palette = "exp_bloom", Core = 1f, Opacity = 0.7f, Extra = new Vector4(ExpFxKind.Flash, 2.0f, 0f, 0f),
+                Palette = "exp_bloom", Core = 1f, Opacity = 0.3f, Extra = new Vector4(ExpFxKind.Flash, 2.0f, 0f, 0f),
             },
             new CelLayer
             {
-                Name = "pool", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.93f, 0f), Start = 0f, Life = 3.0f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(4f, 5f, 0.3f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 4f),
+                Name = "pool", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.93f, 0f), Start = 0f, Life = 3.1f, LifeJitter = 0f,
+                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(4f, 5f, 0.3f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 6f),
                 Palette = "exp_pool", Core = 1f, Opacity = 1.2f, Extra = new Vector4(ExpFxKind.Pool, 1.2f, 0f, 0f),
             },
             new CelLayer
             {
-                Name = "wash", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.93f, -2f), Start = 0f, Life = 3.3f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(7f, 13f, 0.7f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 5f),
+                // the warm light over the field: full until ~2.9 s (the ref's ground is brown to f89), then gone by f95
+                Name = "wash", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.93f, -2f), Start = 0f, Life = 3.15f, LifeJitter = 0f,
+                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(8f, 13f, 0.7f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 9f),
                 Palette = "exp_wash", Core = 1f, Opacity = 1.4f, Extra = new Vector4(ExpFxKind.Pool, 0.7f, 0f, 0f),
             },
             new CelLayer
             {
-                Name = "fireball", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.1f, 0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.55f, 0f, 0f),
-                Start = 0f, Duration = 2.8f, Life = 0.5f, LifeJitter = 0.3f, Close = 110, Mid = 34, Far = 0,
-                Aim = CelAim.Radial, Speed = 1.8f, Drag = 2.5f, Buoyancy = 0.6f, Spin = 2.5f,
-                Size = new CelCurve(0.34f, 0.64f, 0.5f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.08f,
-                Palette = "exp_fire", CoolTo = "exp_smoke", CoolFrom = 0.6f, Core = 4f, Ink = 0.8f, Extra = new Vector4(1.4f, 0.18f, 0.3f, 0.6f),
+                // the peak (ref f72-f89): the side blasts and the closing burst light the whole near field
+                Name = "peak wash", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(-1.5f, -0.93f, -3f), Start = 2.25f, Life = 0.95f, LifeJitter = 0f,
+                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(11f, 18f, 0.6f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 8f),
+                Palette = "exp_wash", Core = 1f, Opacity = 1.4f, Extra = new Vector4(ExpFxKind.Pool, 0.6f, 0f, 0f),
             },
             new CelLayer
             {
-                Name = "first burst", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.7f, 0f, 0f),
+                Name = "fireball", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.1f, 0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0f, 0f),
+                Start = 0f, Duration = 2.75f, Life = 0.5f, LifeJitter = 0.3f, Close = 80, Mid = 26, Far = 0,
+                Aim = CelAim.Radial, Speed = 1.6f, Drag = 2.5f, Buoyancy = 0.3f, Spin = 2.0f,
+                Size = new CelCurve(0.38f, 0.66f, 0.5f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 3.5f), Feather = 0.08f,
+                Palette = "exp_ball", CoolTo = "exp_wrap", CoolFrom = 0.7f, Core = 1f, Ink = 0.6f, Extra = new Vector4(1.2f, 0.12f, 0.3f, 0.7f),
+            },
+            new CelLayer
+            {
+                Name = "first burst", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.6f, 0f, 0f),
                 Start = 0f, Duration = 0.06f, Life = 0.5f, Close = 10, Mid = 5, Far = 0, Aim = CelAim.Radial, Speed = 2.5f, Drag = 3f, Buoyancy = 0.5f, Spin = 2f,
-                Size = new CelCurve(0.4f, 0.75f, 0.4f), Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.08f,
-                Palette = "exp_fire", CoolTo = "exp_smoke", CoolFrom = 0.6f, Core = 5f, Ink = 0.8f, Extra = new Vector4(1.4f, 0.18f, 0.3f, 0.6f),
+                Size = new CelCurve(0.4f, 0.72f, 0.4f), Erode = new CelCurve(0f, 1f, 3.5f), Feather = 0.08f,
+                Palette = "exp_ball", CoolTo = "exp_wrap", CoolFrom = 0.6f, Core = 1f, Ink = 0.6f, Extra = new Vector4(1.2f, 0.12f, 0.3f, 0.6f),
+            },
+            new CelLayer
+            {
+                // grey-tan puffs in a slab just behind the fire: the fireball hides the middle ones, so they show round its
+                // outline from ~f40 and grow until the fire sinks into them (f96-f105)
+                Name = "wrap", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.05f, 0.75f), Shape = CelShape.Box, ShapeSize = new Vector3(2.7f, 1.5f, 0.4f),
+                Start = 0.7f, Duration = 1.1f, Life = 2.5f, LifeJitter = 0.1f, Close = 28, Mid = 10, Far = 0, Aim = CelAim.Radial, Speed = 0.5f, Drag = 1.5f, Buoyancy = 0.12f, Spin = 0.5f,
+                Size = new CelCurve(0.32f, 0.64f, 0.4f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 10f), Feather = 0.1f,
+                Palette = "exp_wrap", Core = 1f, Ink = 1.0f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0f),
+            },
+            new CelLayer
+            {
+                Name = "wrap late", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.3f, 0.6f), Shape = CelShape.Box, ShapeSize = new Vector3(3.0f, 1.6f, 0.5f),
+                Start = 1.75f, Duration = 1.3f, Life = 1.7f, LifeJitter = 0.1f, Close = 24, Mid = 9, Far = 0, Aim = CelAim.Radial, Speed = 0.6f, Drag = 1.5f, Buoyancy = 0.12f, Spin = 0.5f,
+                Size = new CelCurve(0.4f, 0.8f, 0.4f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 10f), Feather = 0.1f,
+                Palette = "exp_wrap", Core = 1f, Ink = 1.0f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0f),
             },
             new CelLayer
             {
@@ -133,16 +169,16 @@ namespace TW.Presentation.VFX.Cel
             },
             new CelLayer
             {
-                Name = "closing burst", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.0f, 0f, 0f),
-                Start = 2.65f, Duration = 0.1f, Life = 0.6f, Close = 14, Mid = 6, Far = 0, Aim = CelAim.Radial, Speed = 3f, Drag = 2.5f, Buoyancy = 0.6f, Spin = 2f,
-                Size = new CelCurve(0.45f, 0.85f, 0.4f), Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.08f,
-                Palette = "exp_fire", CoolTo = "exp_smoke", CoolFrom = 0.5f, Core = 5f, Ink = 0.8f, Extra = new Vector4(1.4f, 0.18f, 0.3f, 0.5f),
+                Name = "closing burst", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.7f, 0f, 0f),
+                Start = 2.65f, Duration = 0.1f, Life = 0.6f, Close = 8, Mid = 4, Far = 0, Aim = CelAim.Radial, Speed = 2.0f, Drag = 2.5f, Buoyancy = 0.2f, Spin = 2f,
+                Size = new CelCurve(0.42f, 0.75f, 0.4f), Erode = new CelCurve(0f, 1f, 3.5f), Feather = 0.08f,
+                Palette = "exp_ball", CoolTo = "exp_wrap", CoolFrom = 0.35f, Core = 1f, Ink = 0.6f, Extra = new Vector4(1.2f, 0.12f, 0.3f, 0.35f),
             },
             new CelLayer
             {
-                Name = "closing heart", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.55f, -1.8f), Start = 2.65f, Duration = 0.4f, Life = 0.3f,
-                Close = 3, Mid = 2, Far = 0, Size = new CelCurve(0.9f, 1.05f, 0.5f), Erode = new CelCurve(0f, 1f, 2f),
-                Palette = "exp_core", Core = 2.2f, Extra = new Vector4(ExpFxKind.Flash, 0.55f, 0f, 0f),
+                Name = "closing heart", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.5f, -1.8f), Start = 2.65f, Duration = 0.35f, Life = 0.3f,
+                Close = 2, Mid = 1, Far = 0, Size = new CelCurve(0.95f, 1.05f, 0.5f), Erode = new CelCurve(0f, 1f, 2f),
+                Palette = "exp_core", Core = 1.8f, Extra = new Vector4(ExpFxKind.Flash, 1.0f, 0f, 0f),
             },
             new CelLayer
             {
@@ -153,7 +189,7 @@ namespace TW.Presentation.VFX.Cel
             },
             new CelLayer
             {
-                Name = "light", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = 0f, Life = 2.9f,
+                Name = "light", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = 0f, Life = 3.0f,
                 Close = 1, Mid = 1, Far = 0, Palette = "exp_fire", Core = 6f, Extra = new Vector4(24f, 0f, 0f, 0f),
             });
 
@@ -173,7 +209,7 @@ namespace TW.Presentation.VFX.Cel
                 // a soft dome of white-yellow light, no wider than about twice the dummy's height, gone in 8 frames
                 Name = "dome", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.55f, -2f), Life = 0.34f, LifeJitter = 0f,
                 Close = 1, Mid = 1, Far = 1, Size = new CelCurve(1.4f, 1.65f, 0.4f), SizeJitter = 0.08f, Erode = new CelCurve(0f, 1f, 1.3f),
-                Palette = "exp_dome", Core = 1.6f, Extra = new Vector4(ExpFxKind.Flash, 0.7f, 0f, 0f),
+                Palette = "exp_dome", Core = 1.6f, Opacity = 1.6f, Extra = new Vector4(ExpFxKind.Flash, 0.7f, 0.55f, 0f),
             },
             new CelLayer
             {
@@ -183,10 +219,11 @@ namespace TW.Presentation.VFX.Cel
             },
             new CelLayer
             {
-                Name = "fire", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.7f, 0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.7f, 0f, 0f),
-                Duration = 0.15f, Life = 0.6f, Close = 7, Mid = 3, Far = 0, Aim = CelAim.Radial, Speed = 2.5f, Drag = 2.5f, Buoyancy = 1f, Spin = 2f,
-                Size = new CelCurve(0.32f, 0.6f, 0.4f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.08f,
-                Palette = "exp_fire", CoolTo = "exp_smoke", CoolFrom = 0.5f, Core = 4f, Ink = 0.8f, Extra = new Vector4(1.4f, 0.18f, 0.3f, 0.5f),
+                // r03: no fireball at a side site; after the dome, an orange spark plume thrown up out of the ground
+                Name = "plume", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.2f, 0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.4f, 0f, 0f),
+                Start = 0.05f, Duration = 0.35f, Life = 0.7f, LifeJitter = 0.3f, Close = 34, Mid = 10, Far = 0, Aim = CelAim.Up, Spread = 38f, Speed = 10f, SpeedJitter = 0.5f,
+                Gravity = 9f, Drag = 0.8f, Size = new CelCurve(0.075f, 0.04f), SizeJitter = 0.3f, Stretch = 0.07f, Erode = new CelCurve(0.05f, 0.5f),
+                Palette = "exp_tracer", Core = 3f, Extra = new Vector4(0f, 0.3f, 0.3f, 0f),
             },
             new CelLayer
             {
@@ -198,32 +235,34 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 Name = "debris", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.4f, 0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.4f, 0f, 0f),
-                Duration = 0.1f, Life = 1.1f, Close = 12, Mid = 4, Far = 0, Aim = CelAim.Radial, Speed = 7f, SpeedJitter = 0.5f, UpBias = 0.8f,
-                Gravity = 9.8f, Drag = 0.4f, Spin = 4f, Size = new CelCurve(0.12f, 0.08f), Stretch = 0.7f, Erode = new CelCurve(0f, 0.4f, 4f),
+                Start = 0.04f, Duration = 0.25f, Life = 1.1f, LifeJitter = 0.2f, Close = 26, Mid = 8, Far = 0, Aim = CelAim.Radial, Speed = 6f, SpeedJitter = 0.6f, UpBias = 0.8f,
+                Gravity = 9.8f, Drag = 0.5f, Spin = 4f, Size = new CelCurve(0.14f, 0.1f), SizeJitter = 0.35f, Stretch = 0.7f, Erode = new CelCurve(0f, 0.4f, 4f),
                 Palette = "exp_dirt", Core = 1f, Ink = 1.5f, Extra = new Vector4(2.5f, 0.35f, 0f, 0f),
             });
 
-        public static readonly CelFxRecipe Cloud = new CelFxRecipe("explosion_cloud", 2.2f,
+        public static readonly CelFxRecipe Cloud = new CelFxRecipe("explosion_cloud", 4.6f,
             new CelLayer
             {
-                Name = "smoke", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Shape = CelShape.Box, ShapeSize = new Vector3(3.0f, 1.2f, 1.0f),
-                Duration = 0.35f, Life = 2.1f, LifeJitter = 0.05f, Close = 34, Mid = 12, Far = 0, Aim = CelAim.Radial, Speed = 0.5f, Drag = 1.2f, Buoyancy = 0.1f, Spin = 0.4f,
-                Size = new CelCurve(0.3f, 0.62f, 0.35f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 9f), Feather = 0.1f,
-                Palette = "exp_smoke", Core = 1f, Ink = 2.5f, Extra = new Vector4(1.3f, 0.16f, 0.8f, 0f),
+                Name = "smoke", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Shape = CelShape.Box, ShapeSize = new Vector3(3.2f, 1.3f, 1.0f),
+                Duration = 0.35f, Life = 2.1f, LifeJitter = 0.05f, Close = 36, Mid = 12, Far = 0, Aim = CelAim.Radial, Speed = 0.5f, Drag = 1.2f, Buoyancy = 0.1f, Spin = 0.4f,
+                Size = new CelCurve(0.34f, 0.68f, 0.35f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 9f), Feather = 0.1f,
+                Palette = "exp_smoke", Core = 1f, Ink = 1.5f, Extra = new Vector4(1.3f, 0.16f, 0.8f, 0f),
             },
             new CelLayer
             {
-                Name = "dirt", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0f, -0.7f), Shape = CelShape.Box, ShapeSize = new Vector3(3.4f, 1.1f, 0.4f),
-                Duration = 0.3f, Life = 2.0f, LifeJitter = 0.05f, Close = 6, Mid = 2, Far = 0, Aim = CelAim.Radial, Speed = 0.3f, Drag = 1.5f, Spin = 0.5f,
-                Size = new CelCurve(0.15f, 0.28f, 0.4f), SizeJitter = 0.35f, Erode = new CelCurve(0f, 1f, 6f), Feather = 0.1f,
-                Palette = "exp_dirt", Core = 1f, Ink = 1f, Extra = new Vector4(1.8f, 0.25f, 0f, 0f),
+                // r03: a few small debris specks in the cloud, not black holes
+                Name = "dirt", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.2f, -0.8f), Shape = CelShape.Box, ShapeSize = new Vector3(2.6f, 1.0f, 0.3f),
+                Duration = 0.3f, Life = 1.6f, LifeJitter = 0.1f, Close = 4, Mid = 1, Far = 0, Aim = CelAim.Radial, Speed = 0.3f, Drag = 1.5f, Spin = 0.5f,
+                Size = new CelCurve(0.07f, 0.11f, 0.4f), SizeJitter = 0.35f, Erode = new CelCurve(0f, 1f, 6f), Feather = 0.1f,
+                Palette = "exp_dirt", Core = 1f, Ink = 0.8f, Extra = new Vector4(1.8f, 0.25f, 0f, 0f),
             },
             new CelLayer
             {
-                Name = "embers", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Shape = CelShape.Box, ShapeSize = new Vector3(5f, 2.5f, 2f),
-                Start = 0.1f, Duration = 1.6f, Life = 1.6f, Close = 26, Mid = 8, Far = 0, Aim = CelAim.Up, Spread = 40f, Speed = 0.6f, Buoyancy = 0.3f,
-                Size = new CelCurve(0.04f, 0.025f), Stretch = 0.05f, Erode = new CelCurve(0.05f, 0.6f, 2f),
-                Palette = "ember", Core = 3f, Extra = new Vector4(1f, 0.04f, 0.6f, 0f),
+                // orange embers drifting up through and past the cloud, to the clip's f152 and after
+                Name = "embers", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.3f, -0.6f), Shape = CelShape.Box, ShapeSize = new Vector3(5f, 2.2f, 1.5f),
+                Start = 0.1f, Duration = 2.6f, Life = 1.8f, LifeJitter = 0.4f, Close = 30, Mid = 10, Far = 0, Aim = CelAim.Up, Spread = 45f, Speed = 0.7f, SpeedJitter = 0.4f, Buoyancy = 0.35f,
+                Size = new CelCurve(0.075f, 0.05f), SizeJitter = 0.3f, Stretch = 0.05f, Erode = new CelCurve(0.05f, 0.5f, 2f),
+                Palette = "exp_ember", Core = 2.5f, Extra = new Vector4(1f, 0.04f, 0.3f, 0f),
             });
 
         public static readonly CelFxRecipe Fan = new CelFxRecipe("explosion_fan", 1.6f,

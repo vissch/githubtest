@@ -9,7 +9,10 @@
 //   size.w     arc: length (m) (x 0.45..1 by the record's seed)
 //   erode.xyz  glows: how far it has faded (0 full .. 1 gone) over the life; arc: the cross-section cut threshold
 //   tone       x palette, y HDR core, z opacity, w unused
-//   extra      x mode, y glows: falloff power (0: 1.5), z arc: kink size (x length), w unused
+//   extra      x mode, y glows: falloff power (0: 1.5), z arc: kink size (x length); flash: the ground cut (m below
+//              the centre; 0 none: a dome of light with a flat foot, as the clip's), w unused
+// A flash is drawn pulled toward the eye (same screen size, ExpPull of its distance), so a ruin or bank between it
+// and the eye does not hide a far dome; its fog is taken where it really is.
 // Palette use: glows blend c1 (edge) to c3 (middle) and to core x hdr above the core threshold; arcs use CelRamp.
 Shader "TW/Cel/ExpFx"
 {
@@ -44,6 +47,8 @@ Shader "TW/Cel/ExpFx"
             };
 
             // the arc's sideways offset at knot i of 4 sections (0 at the root and the tip), -1..1
+            #define ExpPull 0.55
+
             float ExpKnot(float i, float seed, float tick)
             {
                 if (i < 0.5 || i > 3.5) return 0.0;
@@ -64,13 +69,19 @@ Shader "TW/Cel/ExpFx"
                 float3 c = CelPosition(r, t);
                 float mode = r.extra.x;
                 float2 corner = v.uv * 2.0 - 1.0;
-                float3 w;
+                float3 w, wf;
                 float2 uv;
+                float cut = 1.0;
                 if (mode < 1.5)
                 {
                     float radius = CelCurve(r.size.xyz, k) * alive;
-                    if (mode < 0.5) w = c + float3(corner.x, 0.0, corner.y) * radius + float3(0.0, 0.03, 0.0);
-                    else w = CelBillboard(c, corner * radius);
+                    if (mode < 0.5) { w = c + float3(corner.x, 0.0, corner.y) * radius + float3(0.0, 0.03, 0.0); wf = w; }
+                    else
+                    {
+                        wf = CelBillboard(c, corner * radius);
+                        w = _WorldSpaceCameraPos + (wf - _WorldSpaceCameraPos) * ExpPull;
+                        cut = r.extra.z > 0.0 ? wf.y - (c.y - r.extra.z) : 1.0;
+                    }
                     uv = corner;
                 }
                 else
@@ -89,15 +100,16 @@ Shader "TW/Cel/ExpFx"
                     float zig = ExpZig(a, r.seed, tick) * r.extra.z * len;
                     float taper = lerp(1.0, 0.4, a);
                     w = c + dir * (a * len) + side * (zig + corner.y * width * 0.5 * taper);
+                    wf = w;
                     uv = float2(a, corner.y);
                 }
                 Varyings o;
-                o.positionWS = w;
+                o.positionWS = wf;
                 o.positionCS = TransformWorldToHClip(w);
                 o.uv = uv;
                 o.tone = float4(r.tone.x, r.tone.y, r.tone.z, CelCurve(r.erode.xyz, k));
                 o.shape = r.extra;
-                o.more = float4(ComputeFogFactor(o.positionCS.z), k, 0, 0);
+                o.more = float4(ComputeFogFactor(TransformWorldToHClip(wf).z), k, cut, 0);
                 return o;
             }
 
@@ -113,7 +125,7 @@ Shader "TW/Cel/ExpFx"
                     half4 core = CelPalCore(row);
                     col = lerp(CelPal(row, 1), CelPal(row, 3), (half)smoothstep(0.0, 0.45, field));
                     col = lerp(col, core.rgb * (half)max(i.tone.y, 0.0), (half)smoothstep(min(core.a, 0.99), 1.0, field));
-                    col *= (half)(env * i.tone.z * saturate(1.0 - i.tone.w));
+                    col *= (half)(env * i.tone.z * saturate(1.0 - i.tone.w) * saturate(i.more.z * 40.0));
                 }
                 else
                 {
