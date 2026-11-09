@@ -231,11 +231,11 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // r04: a soft bright cyan pool ~1.5 torso widths across (no bands, no hard rim), a LightningBeam dot on the ground
-                Name = "pool", Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0.05f, 0.02f, 0.05f), Start = 0.25f, Life = Hold + 0.1f, LifeJitter = 0f,
+                Name = "pool", Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0.05f, 0.02f, 0.05f), Start = 0.25f, Life = Hold, LifeJitter = 0f,   // d41: ends 0.1 s sooner (clip ring off at f106)
                 // b02: a soft pale-blue ellipse about 1.5x the dummy's width (1.2 m), softer and paler than b01's puddle
                 Close = 1, Mid = 1, Far = 0, Shape = CelShape.Point, Aim = CelAim.None, Speed = 0f, Size = new CelCurve(2.4f, 2.5f), SizeJitter = 0f, Stretch = -0.001f,
                 // b03: feathered (falloff 3.2: b02's 1.5 was a flat cone with a hard rim)
-                Erode = new CelCurve(0f, 0.1f), Feather = 0f, Palette = "blue_laser_pool", Core = 1f, Opacity = 0.85f, Extra = new Vector4(2f, 4.2f, 0f, 0f),   // b07: 2.4 m, falloff 4.2 (b06b read as a slab)   // b06: 2.9 m, falloff 3.2 (b05 read as a hard-edged disc)   // b05: 2.2 m, falloff 1.2 (a feathered halo)   // b04: wider, softer halo (1.5x the dummy)
+                Erode = new CelCurve(0f, 0.1f), Feather = 0f, Palette = "blue_laser_pool", Core = 1f, Opacity = 0.72f,   /* d41: between d27 0.85 (too blue) and d29 0.62 (critics: faint) */ Extra = new Vector4(2f, 4.2f, 0f, 0f),   // b07: 2.4 m, falloff 4.2 (b06b read as a slab)   // b06: 2.9 m, falloff 3.2 (b05 read as a hard-edged disc)   // b05: 2.2 m, falloff 1.2 (a feathered halo)   // b04: wider, softer halo (1.5x the dummy)
             },
             new CelLayer
             {
