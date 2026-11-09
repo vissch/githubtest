@@ -1,22 +1,29 @@
 // Phase: CelFx job (2026-11-09, lane/show/cel-green-laser) - GlBolt: the green laser's own primitive, one quad.
-// Four modes, picked per record by extra.x (one kind = one draw for all four; two passes):
-//   mode 0  dart (additive): a thin dart - a small pointed pale head, then a long saturated-green tail of a fixed
-//           length in metres trailing back along its velocity (never behind its birth), tapering to a point and
-//           broken into two or three ragged pieces at the back; a smooth bloom round it, no barbs, no ring.
-//   mode 1  wash (additive): a ground quad with a smooth radial falloff that reaches nothing well inside the quad's
-//           edge (no bands, no rings, no rim), faded in and out.
-//   mode 2  shade (multiply, second pass): a ground quad that darkens the dirt in a soft ring (kept, unused in r04).
+// Six modes, picked per record by extra.x (one kind = one draw for all six; two passes):
+//   mode 0  dart (additive): a pointed pale lozenge head, then a thinner saturated-green tail of a fixed length in
+//           metres trailing back along its velocity (never behind its birth), tapering to a point and broken into two
+//           or three ragged pieces; a faint bloom round the head. Capped on screen to ~1/10 of the frame.
+//   mode 1  wash (additive): a ground quad: a pale gaussian core plus a wide dim deep-green spill that fades to nothing
+//           at the quad's edge (no bands, no rings, no rim), faded in and out.
+//   mode 2  shade (multiply): a ground quad that darkens the dirt in a smooth disc (w small) or a soft ring.
 //   mode 3  wisp (both passes): an upright S-curling flame wisp facing the eye, tapering to a pointed tip, with a dark
-//           ink outline: the multiply pass blacks out the shape and its ink band, the additive pass then lays the
-//           flat cel bands on the shape (so it reads opaque). It thins away with its envelope (no alpha fade).
-//   size.xyz   mode 0: head half-width (m) at birth, at death, ease;  mode 1/2: radius (m);  mode 3: height (m)
-//   tone       x palette, y HDR core, z opacity (mode 2: darkness 0..1), w unused
+//           ink outline; translucent: the multiply pass darkens the inside by its opacity and blacks the ink band,
+//           the additive pass lays the flat cel bands times the opacity.
+//   mode 4  puff (both passes): a translucent lumpy cel smoke puff facing the eye with a dark ink outline and one inner
+//           curl stroke, lit from above in flat bands, eroding into holes as it fades.
+//   mode 5  star (both passes): an inked spiky starburst facing the eye: a small white core (about 1/4 of the burst),
+//           pale hub, green spikes of uneven length, dark ink round every spike.
+//   size.xyz   mode 0: head half-width (m) at birth, at death, ease;  mode 1/2: radius (m);  mode 3: height (m);
+//              mode 4/5: radius (m)
+//   tone       x palette, y HDR core, z opacity (mode 2: darkness 0..1; modes 3-5: opacity 0..1 of the inside)
 //   extra      mode 0: x 0, y tail length (m), z bloom (m), w head length / half-width (0: 4)
-//              mode 1: x 1, y fade-in (life 0..1), z fade-out start (life 0..1), w falloff (0: 3; higher = tighter)
-//              mode 2: x 2, y fade-in, z fade-out start, w ring centre (0..1 of the radius; 0: 0.7)
+//              mode 1: x 1, y fade-in (life 0..1), z fade-out start (life 0..1), w core falloff (0: 3; higher = tighter)
+//              mode 2: x 2, y fade-in, z fade-out start, w ring centre (0..1 of the radius; 0: 0.7; 0.01 = a disc)
 //              mode 3: x 3, y fade-in, z fade-out start, w curl amplitude (0..0.6 of the half-width; 0: 0.4)
-// Colours: mode 0/3 band the body with CelRamp of its palette (core above the row's threshold); the bloom and the
-// wash use the palette's c2/c3 times the opacity.
+//              mode 4: x 4, y fade-in, z fade-out start, w lump amplitude (0: 0.1)
+//              mode 5: x 5, y fade-in, z fade-out start, w spike count (0: 9)
+// Colours: modes 0/3/4/5 band the body with CelRamp of its palette (core above the row's threshold); the bloom and the
+// wash use the palette's c1..c3 times the opacity.
 Shader "TW/Cel/GlBolt"
 {
     Properties { }
@@ -32,36 +39,48 @@ Shader "TW/Cel/GlBolt"
         struct Varyings
         {
             float4 positionCS : SV_POSITION;
-            float2 st : TEXCOORD0;                          // mode 0: metres along (0 = head centre, - = tail), across; mode 1/2: -1..1; mode 3: x -1..1, y 0..1
+            float2 st : TEXCOORD0;                          // mode 0: metres along (0 = head centre, - = tail), across; mode 1/2/4/5: -1..1; mode 3: x -1..1, y 0..1
             nointerpolation float4 tone : TEXCOORD1;        // x palette, y hdr, z opacity, w mode
-            nointerpolation float4 dims : TEXCOORD2;        // mode 0: x head half-width, y tail length, z head length, w bloom; mode 1/2/3: x envelope, w falloff / ring / curl
+            nointerpolation float4 dims : TEXCOORD2;        // mode 0: x head half-width, y tail length, z head length, w bloom; else: x envelope, w falloff / ring / curl / lump / spikes
             float4 more : TEXCOORD3;                        // x fog, y seed
             float3 positionWS : TEXCOORD4;
         };
 
-        // darkPass: 1 for the multiply pass (modes 2 and 3 draw), 0 for the additive pass (modes 0, 1 and 3 draw)
+        // darkPass: 1 for the multiply pass (modes 2-5 draw), 0 for the additive pass (modes 0, 1, 3, 4, 5 draw)
         Varyings GlVert(Attributes v, uint instanceID, float darkPass)
         {
             CelRecord r = CelFetch(instanceID);
             float t = CelAge(r), k = CelLife01(r), alive = CelAlive(r);
             float mode = r.extra.x;
-            float isWisp = mode > 2.5 ? 1.0 : 0.0;
+            float isFace = mode > 2.5 ? 1.0 : 0.0;
             float isDark = (mode > 1.5 && mode < 2.5) ? 1.0 : 0.0;
-            alive *= (isWisp > 0.5 || isDark == darkPass) ? 1.0 : 0.0;
+            alive *= (isFace > 0.5 || isDark == darkPass) ? 1.0 : 0.0;
             float3 p = CelPosition(r, t);
             float size = CelCurve(r.size.xyz, k) * alive;
             Varyings o;
             float3 w;
             float fin = r.extra.y > 0.0 ? smoothstep(0.0, r.extra.y, k) : 1.0;
             float fout = 1.0 - smoothstep(saturate(r.extra.z), 1.0, k);
-            if (isWisp > 0.5)
+            if (isFace > 0.5)
             {
-                // upright quad facing the eye: x across (camera right), y up from the base
                 float3 right = UNITY_MATRIX_V[0].xyz;
                 float x = v.uv.x * 2.0 - 1.0;
-                w = p + right * (x * size * 0.5) + float3(0.0, v.uv.y * size, 0.0);
-                o.st = float2(x, v.uv.y);
-                o.dims = float4(fin * fout * alive, 0.0, 0.0, r.extra.w > 0.0 ? r.extra.w : 0.4);
+                if (mode < 3.5)
+                {
+                    // the wisp: upright quad facing the eye, x across (camera right), y up from the base
+                    w = p + right * (x * size * 0.5) + float3(0.0, v.uv.y * size, 0.0);
+                    o.st = float2(x, v.uv.y);
+                    o.dims = float4(fin * fout * alive, 0.0, 0.0, r.extra.w > 0.0 ? r.extra.w : 0.4);
+                }
+                else
+                {
+                    // puff / star: a centred quad facing the eye
+                    float y = v.uv.y * 2.0 - 1.0;
+                    w = p + right * (x * size) + UNITY_MATRIX_V[1].xyz * (y * size);
+                    o.st = float2(x, y);
+                    float def = mode < 4.5 ? 0.1 : 9.0;
+                    o.dims = float4(fin * fout * alive, fin, 0.0, r.extra.w > 0.0 ? r.extra.w : def);
+                }
             }
             else if (mode > 0.5)
             {
@@ -76,26 +95,28 @@ Shader "TW/Cel/GlBolt"
                 float3 vel = CelVelocity(r, t);
                 float speed = length(vel);
                 float3 dir = speed > 1e-3 ? vel / speed : float3(1, 0, 0);
-                // keep every dart about 1/8 of the frame wide on screen and at most ~1/7 as tall as long, however near
-                // the eye it flies: the tail is capped by the frame's width at the dart's distance (width = 2 d / P00)
+                // keep every dart about 1/10 of the frame wide on screen however near the eye it flies: the tail is
+                // capped by the frame's width at the dart's distance (width = 2 d / P00)
                 float dcam = distance(p, _WorldSpaceCameraPos);
-                float lenCap = min(r.extra.y, 0.25 * dcam / max(UNITY_MATRIX_P[0][0], 1e-3));
-                float hw = min(size, lenCap * 0.075);
+                float lenCap = min(r.extra.y, 0.24 * dcam / max(UNITY_MATRIX_P[0][0], 1e-3));
+                float hw = min(size, lenCap * 0.06);
                 float hl = hw * (r.extra.w > 0.0 ? r.extra.w : 4.0);
-                float bloom = min(max(r.extra.z, 0.0), hw * 2.5) * alive;
+                float bloom = min(max(r.extra.z, 0.0), hw * 1.5) * alive;
                 float len = min(max(lenCap, hl), distance(p, r.pos) + hl * 0.6);
                 float3 toEye = normalize(_WorldSpaceCameraPos - p);
                 float3 side = cross(dir, toEye);
                 float sl = dot(side, side);
                 side = sl > 1e-6 ? side * rsqrt(sl) : UNITY_MATRIX_V[0].xyz;
-                float along = lerp(-len - bloom, hl * 0.6 + bloom, v.uv.x);
-                float across = (v.uv.y * 2.0 - 1.0) * (hw * 1.3 + bloom);
+                float along = lerp(-len - bloom, hl + bloom, v.uv.x);
+                float across = (v.uv.y * 2.0 - 1.0) * (hw * 1.05 + bloom);
                 w = p + dir * along + side * across;
                 o.st = float2(along, across);
                 o.dims = float4(hw, len, hl, bloom);
             }
             o.positionWS = w;
             o.positionCS = TransformWorldToHClip(w);
+            // a record that does not draw in this pass is put outside the clip volume (no stray pixels)
+            if (alive <= 0.0 || size <= 0.0) o.positionCS = float4(2.0, 2.0, 2.0, 1.0);
             o.tone = float4(r.tone.x, r.tone.y, r.tone.z, mode);
             o.more = float4(ComputeFogFactor(o.positionCS.z), r.seed, 0, 0);
             return o;
@@ -116,6 +137,48 @@ Shader "TW/Cel/GlBolt"
             thickOut = thick;
             return dx - thick;
         }
+
+        // the puff's signed distance (quad units, negative inside), its band value, and the inner curl stroke's distance
+        float GlPuff(float2 st, float env, float grow, float lump, float seed, out float v, out float curlD)
+        {
+            float r = length(st);
+            float a = atan2(st.y, st.x);
+            float ph = CelHash11(seed * 13.0) * 6.2832;
+            float rr = 0.7 + lump * (sin(a * 3.0 + ph + _CelNow * 0.7) + 0.6 * sin(a * 5.0 - ph * 1.7 - _CelNow * 0.9) + 0.35 * sin(a * 8.0 + ph * 2.3));
+            rr *= lerp(0.55, 1.0, grow);
+            float d = r - rr;
+            // erode into holes as it fades (things vanish in steps, never by alpha)
+            float n = CelValue2(st * 2.4 + float2(seed * 37.0, seed * 11.0 + _CelNow * 0.3));
+            d = max(d, (1.0 - env) * 1.25 - n);
+            // lit from above: paler on top
+            v = saturate(0.35 + 0.55 * saturate(st.y * 0.6 + 0.45) + 0.15 * (1.0 - r));
+            // one curl stroke inside: an arc round a point below the centre, on the upper side only
+            float2 c0 = float2((CelHash11(seed * 7.0) - 0.5) * 0.4, -0.15);
+            float2 q = st - c0;
+            float arc = abs(length(q) - 0.32 * lerp(0.6, 1.0, grow));
+            curlD = (q.y > 0.02 && q.x * (CelHash11(seed * 3.0) > 0.5 ? 1.0 : -1.0) > -0.12) ? arc : 1e3;
+            return d;
+        }
+
+        // the star's signed distance (quad units, negative inside) and its band value
+        float GlStar(float2 st, float env, float grow, float n, float seed, out float v)
+        {
+            float r = length(st);
+            float a = atan2(st.y, st.x) + CelHash11(seed * 5.0) * 6.2832 + _CelNow * 0.6;
+            float sector = a / 6.2832 * n;
+            float idx = floor(sector);
+            float f = frac(sector) - 0.5;
+            float tip = lerp(0.55, 1.0, CelHash11(idx * 7.13 + seed * 31.0));
+            float hub = 0.3;
+            float g = lerp(0.35, 1.0, grow);
+            // the spikes thin away and the hub shrinks as it fades
+            float prof = pow(saturate(1.0 - abs(f) * 2.0), lerp(4.5, 2.2, env));
+            float rr = (hub * env + (tip - hub * env) * prof) * g;
+            float d = r - rr;
+            // white core only in the inner quarter; pale hub; green spikes
+            v = r < 0.23 * g ? lerp(1.0, 0.95, r / (0.23 * g)) : lerp(0.9, 0.2, saturate((r / g - 0.23) / 0.77));
+            return d;
+        }
         ENDHLSL
 
         Pass
@@ -130,24 +193,50 @@ Shader "TW/Cel/GlBolt"
             Varyings vertDark(Attributes v, uint instanceID : SV_InstanceID) { return GlVert(v, instanceID, 1.0); }
             half4 fragDark(Varyings i) : SV_Target
             {
-                if (i.tone.w > 2.5)
+                float mode = i.tone.w;
+                float op = saturate(i.tone.z);
+                if (mode > 2.5)
                 {
-                    // the wisp: black out the shape and an ink band round it (the additive pass colours the inside)
-                    float across, thick;
-                    float d = GlWisp(i.st, i.dims.x, i.dims.w, i.more.y, across, thick);
-                    float px = max(fwidth(d), 1e-5);
-                    // the ink band thins with the shape, so a wisp thinning away leaves no bare black line
-                    float ink = CelLodInk(3.5) * saturate(thick / max(px * 4.0, 1e-5));
-                    float a = (1.0 - smoothstep(ink - 0.5, ink + 0.5, d / px)) * (i.dims.x > 0.02 ? 1.0 : 0.0);
+                    float d, inkPx, inner = 0.0, extraInk = 0.0;
+                    float px;
+                    if (mode < 3.5)
+                    {
+                        float across, thick;
+                        d = GlWisp(i.st, i.dims.x, i.dims.w, i.more.y, across, thick);
+                        px = max(fwidth(d), 1e-5);
+                        // the ink band thins with the shape, so a wisp thinning away leaves no bare black line
+                        inkPx = CelLodInk(3.0) * saturate(thick / max(px * 4.0, 1e-5));
+                    }
+                    else if (mode < 4.5)
+                    {
+                        float v, curlD;
+                        d = GlPuff(i.st, i.dims.x, i.dims.y, i.dims.w, i.more.y, v, curlD);
+                        px = max(fwidth(d), 1e-5);
+                        inkPx = CelLodInk(2.5);
+                        float cpx = max(fwidth(curlD < 100.0 ? curlD : 0.0), 1e-5);
+                        extraInk = (d < 0.0 && curlD < 100.0) ? 1.0 - smoothstep(CelLodInk(1.2) - 0.5, CelLodInk(1.2) + 0.5, curlD / cpx) : 0.0;
+                    }
+                    else
+                    {
+                        float v;
+                        d = GlStar(i.st, i.dims.x, i.dims.y, i.dims.w, i.more.y, v);
+                        px = max(fwidth(d), 1e-5);
+                        inkPx = CelLodInk(2.5);
+                    }
+                    float on = i.dims.x > 0.02 ? 1.0 : 0.0;
+                    float inside = 1.0 - smoothstep(-0.5, 0.5, d / px);
+                    float band = (1.0 - smoothstep(inkPx - 0.5, inkPx + 0.5, d / px)) - inside;
+                    // ink black, the inside darkened by the opacity (the additive pass then adds colour x opacity)
+                    float a = saturate(max(band, extraInk) + inside * op) * on;
                     return half4(a, a, a, 1.0);
                 }
-                // a soft ring of shade round the glow: 0 = leave the dirt, 1 = black
+                // shade: a smooth darkening disc (centre near 0) or a soft ring: 0 = leave the dirt, 1 = black
                 float rr = length(i.st);
                 float c = i.dims.w;
                 float x = (rr - c) / max(1.0 - c, 0.05);
-                float field = exp(-x * x * 2.5) * (1.0 - smoothstep(0.85, 1.0, rr));
-                float inner = smoothstep(c * 0.45, c, rr);
-                float d2 = saturate(field * lerp(0.35, 1.0, inner) * i.dims.x * i.tone.z);
+                float field = exp(-x * x * 2.5) * (1.0 - smoothstep(0.75, 1.0, rr));
+                float inner2 = smoothstep(c * 0.45, c, rr);
+                float d2 = saturate(field * lerp(0.35, 1.0, inner2) * i.dims.x * i.tone.z);
                 return half4(d2, d2, d2, 1.0);
             }
             ENDHLSL
@@ -169,54 +258,66 @@ Shader "TW/Cel/GlBolt"
             {
                 uint row = CelRowA(i.tone.x);
                 half3 col;
-                if (i.tone.w > 2.5)
+                float mode = i.tone.w;
+                if (mode > 2.5)
                 {
-                    // the wisp's flat bands: pale core down the middle, green toward the rim (ink is the black left by the shade pass)
-                    float across, thick;
-                    float d = GlWisp(i.st, i.dims.x, i.dims.w, i.more.y, across, thick);
-                    float inside = CelAAStep(0.0, -d) * (i.dims.x > 0.02 ? 1.0 : 0.0);
-                    float v = 0.5 + 0.5 * across * lerp(1.0, 0.8, i.st.y);
-                    col = CelRamp(saturate(v), row, i.tone.y) * (inside * i.tone.z);
+                    float d, v;
+                    float on = i.dims.x > 0.02 ? 1.0 : 0.0;
+                    if (mode < 3.5)
+                    {
+                        float across, thick;
+                        d = GlWisp(i.st, i.dims.x, i.dims.w, i.more.y, across, thick);
+                        v = 0.5 + 0.5 * across * lerp(1.0, 0.8, i.st.y);
+                    }
+                    else if (mode < 4.5)
+                    {
+                        float curlD;
+                        d = GlPuff(i.st, i.dims.x, i.dims.y, i.dims.w, i.more.y, v, curlD);
+                    }
+                    else
+                    {
+                        d = GlStar(i.st, i.dims.x, i.dims.y, i.dims.w, i.more.y, v);
+                    }
+                    float inside = CelAAStep(0.0, -d) * on;
+                    col = CelRamp(saturate(v), row, i.tone.y) * (inside * saturate(i.tone.z));
                 }
-                else if (i.tone.w > 0.5)
+                else if (mode > 0.5)
                 {
-                    // the wash: a smooth gaussian that is already nothing at the radius: no band, no ring, no rim
+                    // the wash: a pale gaussian core plus a wide dim deep-green spill, both nothing at the quad's edge
                     float rr = length(i.st);
-                    float field = exp(-rr * rr * i.dims.w) * (1.0 - smoothstep(0.55, 1.0, rr));
-                    col = CelPal(row, 3) * (field * i.dims.x * i.tone.z);
+                    float edge = 1.0 - smoothstep(0.6, 1.0, rr);
+                    float core = exp(-rr * rr * i.dims.w);
+                    float spill = exp(-rr * rr * 2.2);
+                    col = (CelPal(row, 3) * core + CelPal(row, 1) * spill) * (edge * i.dims.x * i.tone.z);
                 }
                 else
                 {
                     float s = i.st.x, y = abs(i.st.y);
                     float hw = max(i.dims.x, 1e-4), len = max(i.dims.y, 1e-3), hl = max(i.dims.z, 1e-4), bloom = i.dims.w;
                     float seed = i.more.y;
-                    // the head: small and pointed in front (a long sharp tip), a short rounded back that runs into the tail
-                    float hh = hw * 0.7;
-                    float wHead = s >= 0.0 ? hh * pow(saturate(1.0 - s / (hl * 0.9)), 1.3) : hh * sqrt(saturate(1.0 - (s / (hl * 0.35)) * (s / (hl * 0.35))));
-                    float dHead = (s > hl * 0.9 || s < -hl * 0.35) ? 1e3 : y - wHead;
-                    // the tail: long, tapering to a point, ragged along its edge, broken into pieces only in its back half
-                    float u = saturate((-s - hl * 0.1) / max(len - hl * 0.1, 1e-3));
-                    float rag = CelValue2(float2(s * 7.0 / max(len, 0.2) * 1.5 - _CelNow * 9.0, seed * 91.0 + sign(i.st.y) * 3.1));
-                    float rT = hw * 0.85 * pow(1.0 - u, 1.4) * lerp(0.6, 1.2, rag);
+                    // the head: a pointed lozenge, widest a little behind its centre, sharp in front, short round back
+                    float wHead = s >= 0.0 ? hw * pow(saturate(1.0 - s / hl), 0.9) : hw * sqrt(saturate(1.0 - (s / (hl * 0.45)) * (s / (hl * 0.45))));
+                    float dHead = (s > hl || s < -hl * 0.45) ? 1e3 : y - wHead;
+                    // the tail: half the head's width where it leaves it, tapering to a point, ragged, broken into pieces
+                    float u = saturate((-s - hl * 0.2) / max(len - hl * 0.2, 1e-3));
+                    float rag = CelValue2(float2(s * 9.0 / max(len, 0.2) - _CelNow * 9.0, seed * 91.0 + sign(i.st.y) * 3.1));
+                    float rT = hw * 0.62 * pow(1.0 - u, 1.1) * lerp(0.5, 1.25, rag);
                     float j1 = CelHash11(seed * 37.0), j2 = CelHash11(seed * 53.0);
-                    float gap1 = (u > 0.55 + 0.08 * j1 && u < 0.63 + 0.08 * j1) ? 1.0 : 0.0;
-                    float gap2 = (j2 > 0.3 && u > 0.78 + 0.05 * j2 && u < 0.85 + 0.05 * j2) ? 1.0 : 0.0;
-                    float dTailC = (s <= 0.0 && s >= -len) ? y - rT : 1e3;
-                    float dTail = gap1 + gap2 < 0.5 ? dTailC : 1e3;
+                    float gap1 = (u > 0.36 + 0.08 * j1 && u < 0.44 + 0.08 * j1) ? 1.0 : 0.0;
+                    float gap2 = (u > 0.62 + 0.06 * j2 && u < 0.71 + 0.06 * j2) ? 1.0 : 0.0;
+                    float gap3 = (j2 > 0.45 && u > 0.84 && u < 0.89) ? 1.0 : 0.0;
+                    float dTail = (s <= 0.0 && s >= -len && gap1 + gap2 + gap3 < 0.5) ? y - rT : 1e3;
                     float d = min(dHead, dTail);
-                    // inside: pale white-green core in the head, saturated green tail, paler down its middle
-                    // only the head's middle reaches the white core (the palette's core band); its rim is pale green
-                    float vHead = dHead < 0.0 ? 0.68 + 0.35 * saturate(-dHead / hh) : 0.0;
-                    float vTail = dTail < 0.0 ? 0.42 + 0.4 * saturate(-dTail / max(rT, 1e-4)) * (1.0 - 0.5 * u) : 0.0;
+                    // the head is pale (#d7f39c), only its very middle reaches the core; the tail is saturated green
+                    float vHead = dHead < 0.0 ? 0.72 + 0.26 * saturate(-dHead / hw) : 0.0;
+                    float vTail = dTail < 0.0 ? 0.4 + 0.32 * saturate(-dTail / max(rT, 1e-4)) * (1.0 - u) : 0.0;
                     float v = max(vHead, vTail);
                     half3 body = CelRamp(saturate(v), row, i.tone.y);
                     float inside = CelAAStep(0.0, -d);
-                    // outside: a smooth bloom round the dart, strongest round the head (no ring, no rim at the quad's edge)
-                    // the bloom follows the unbroken tail, so the gaps never cut dark rungs across it
-                    float x = max(min(dHead, dTailC), 0.0) / max(bloom, 1e-4);
-                    float headNear = saturate(1.0 - (-s) / max(len * 0.6, 1e-3));
-                    float glow = exp(-3.5 * x) * (1.0 - smoothstep(0.6, 1.0, x)) * lerp(0.6, 1.0, headNear);
-                    col = lerp(CelPal(row, 2) * (glow * 0.85), body, inside) * i.tone.z;
+                    // outside: a faint bloom round the head only (the tail pieces stay crisp)
+                    float x = max(dHead, 0.0) / max(bloom, 1e-4);
+                    float glow = bloom > 0.0 ? exp(-3.0 * x) * (1.0 - smoothstep(0.5, 1.0, x)) : 0.0;
+                    col = lerp(CelPal(row, 2) * (glow * 0.5), body, inside) * i.tone.z;
                 }
                 return half4(CelAdditiveFog(col, i.positionWS, i.more.x), 1.0);
             }
