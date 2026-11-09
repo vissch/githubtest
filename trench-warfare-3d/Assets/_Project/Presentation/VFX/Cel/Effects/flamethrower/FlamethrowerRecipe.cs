@@ -62,7 +62,7 @@ namespace TW.Presentation.VFX.Cel
         public const float AimLift = 0.35f;
 
         // the flame reaches the target and holds for JetLife seconds (the clip: cut at 3.15-3.45 s after our fire)
-        const float JetLife = 4.25f;   // b07: 3.95 -> 4.25 (peak -8 f, end -7 f: the tail was cut short)
+        const float JetLife = 4.0f;   // d12: 4.25 -> 4.0 (the jet cuts ~f103, the fireball carries on; d06's 3.7 cost the peak timing)   // b07: 3.95 -> 4.25 (peak -8 f, end -7 f: the tail was cut short)
         // b05: grows from the trigger, 0.5 s longer (the clip's cut is at f84+)
 
         // Offsets of the target layers are from the aim point: the chest is 0.45 m below it, the foot 1.4 m.
@@ -91,7 +91,7 @@ namespace TW.Presentation.VFX.Cel
                 // tongue is its own short FlameJet record fired from the nozzle along a slightly spread direction: it shoots out
                 // in 0.12 s, holds a moment, then its tail leaves the nozzle and runs out at the dummy, so tongues flicker in and
                 // out over and under the main jet, of uneven length (LifeJitter) and direction (Spread). Same kind: no draws.
-                Name = "jet tongues", Kind = "FlameJet", Start = 0.6f, Duration = 2.8f, Life = 0.95f, LifeJitter = 0.3f, Offset = new Vector3(0f, 0.1f, 0.7f),
+                Name = "jet tongues", Kind = "FlameJet", Start = 0.6f, Duration = 2.55f,   /* d12: the tongues end with the cut */ Life = 0.95f, LifeJitter = 0.3f, Offset = new Vector3(0f, 0.1f, 0.7f),
                 Close = 96, Mid = 4, Far = 0, Shape = CelShape.Point, Aim = CelAim.Dir, Speed = 12f, SpeedJitter = 0.2f, Spread = 14f,   // d02: 16 -> 12 (at Close the 96 tongues ran 4 m past the dummy, off the frame)   // b08: 56 -> 72 tongues, spread 17 -> 14 (no detached tongue up-right), longer reach   // b07: 40 -> 56 separate tongues, wider spread (they carry the jet's width now)   // b06: 26 -> 40, wider spread, on past the dummy
                 // d03 (TECHNIQUE): the tongues are PATH RIBBONS (Extra.w < 0, the shader's Rib*; built in d01 but filmed at Mid
                 // there): a curved strip from the nozzle whose spine waves with flowing noise and lifts toward the target, a
@@ -132,9 +132,9 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // b02: the fireball swells late (the clip peaks at f84-f95 = 2.7-3.2 s after our fire): later, bigger, more
-                Name = "fire c", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.3f, -0.3f), Start = 2.45f, Duration = 0.9f, Life = 0.75f, LifeJitter = 0.2f,
-                Close = 12, Mid = 3, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.0f, 0f, 0f), Aim = CelAim.Dir, Speed = 3.0f, SpeedJitter = 0.4f, Spread = 60f, Drag = 1.0f, Buoyancy = 1.0f, Spin = 0.9f,
-                Size = new CelCurve(0.6f, 1.2f, 0.6f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.12f,
+                Name = "fire c", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.3f, -0.3f), Start = 2.6f, Duration = 1.3f, Life = 1.0f,   /* d12: the fireball swells on the dummy through the cut (d06) */ LifeJitter = 0.2f,
+                Close = 26, Mid = 3, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.0f, 0f, 0f), Aim = CelAim.Dir, Speed = 3.0f, SpeedJitter = 0.4f, Spread = 60f, Drag = 1.0f, Buoyancy = 1.0f, Spin = 0.9f,
+                Size = new CelCurve(0.8f, 1.7f, 0.6f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.12f,
                 Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.55f, Core = 2.5f, Ink = 2.4f, Extra = new Vector4(1.4f, 0.26f, 0f, 0.88f),
             },
             new CelLayer
