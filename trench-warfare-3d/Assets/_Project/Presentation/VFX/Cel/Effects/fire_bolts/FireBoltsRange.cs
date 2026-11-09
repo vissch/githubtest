@@ -12,9 +12,8 @@ namespace TW.Presentation.VFX
     static class FireBoltsRange
     {
         // ground hits: (screen right m, away from the eye m) from the dummy's foot; dummy hits: (right, up) from its chest
-        // (two or three fire spots a metre or two right of the dummy, the reference's bursts, so every bolt ends at its hit)
-        static readonly Vector2[] GroundAt = { new Vector2(1.6f, 2.6f), new Vector2(2.4f, 0.6f), new Vector2(1.3f, -0.6f), new Vector2(1.8f, 2.2f),
-            new Vector2(2.6f, 0.9f), new Vector2(1.2f, -0.3f), new Vector2(1.5f, 2.9f), new Vector2(2.2f, 0.4f) };
+        // (three fire spots about a metre right of and in front of the dummy, the reference's bursts, so every bolt ends at its hit)
+        static readonly Vector2[] GroundAt = { new Vector2(1.3f, -0.5f), new Vector2(2.0f, -1.0f), new Vector2(1.7f, 0.3f) };
         static readonly Vector2[] DummyAt = { new Vector2(0f, 0f), new Vector2(0.05f, 0.3f), new Vector2(-0.1f, -0.1f), new Vector2(0.1f, 0.15f),
             new Vector2(0f, 0.05f), new Vector2(-0.05f, 0.25f), new Vector2(0.08f, -0.05f), new Vector2(0f, 0.1f) };
         // launch spots: (screen right m, up m) from MuzzleHigh
@@ -22,7 +21,7 @@ namespace TW.Presentation.VFX
         static readonly Vector2[] FromAt = { new Vector2(0f, -0.1f), new Vector2(0.6f, 0.4f), new Vector2(-0.4f, -0.5f), new Vector2(0.3f, 0.1f),
             new Vector2(-0.2f, 0.5f), new Vector2(0.5f, -0.3f), new Vector2(0f, 0.3f), new Vector2(-0.5f, -0.2f) };
         // the opening bolts start further along their line (already on screen at the fire, as in the reference's f19)
-        static readonly float[] AlongAt = { 0.4f, 0.3f, 0.2f, 0.1f };
+        static readonly float[] AlongAt = { 0.6f, 0.5f, 0.4f, 0.3f, 0.2f };
 
         /// <summary>The point on the ground: the highest terrain within `radius` (a flat glow laid there is not
         /// buried by a bump), or the stage's ground height when no map is loaded.</summary>
@@ -59,12 +58,13 @@ namespace TW.Presentation.VFX
                 float lateBy = Mathf.Max(0f, s.T0 - s.T0 * Time.captureFramerate / 24f);
                 Debug.Log("fire_bolts: the shot clock stepped 1/" + Time.captureFramerate + " s; set to 1/24 and the volley starts " + lateBy.ToString("0.000") + " s late");
                 Time.captureFramerate = 24;
-                if (lateBy > 1e-3f) FireBolts.Shifted(lateBy, out volley, out pool);
+                // r04: no late start any more: the fire then lands on frame 16, nearer the reference's onset (f13)
+                // than frame 19, and the opening bolts start well along their line (AlongAt)
             }
 
             // warm light on the ground under the volley: one soft pool left of and a little in front of the dummy (the
             // reference's lit oval over the lower-left third)
-            Vector3 p0 = OnGround(s.Ground + right * -2.4f + away * -1.6f, 3.0f, s.Ground.y);
+            Vector3 p0 = OnGround(s.Ground + right * -1.6f + away * -0.5f, 2.5f, s.Ground.y);
             CelFx.Play(pool, p0, away, p0, seed);
 
             int gi = 0, di = 0;

@@ -32,13 +32,16 @@ namespace TW.Presentation.VFX.Cel
         static FireBolts()
         {
             // additive light on the dark field: c3 is what the pool adds at its middle (dull warm orange on the ground)
-            CelPalette.Add("fb_pool", CelPalette.Hex(0x2A1C14), CelPalette.Hex(0x4A3424), CelPalette.Hex(0x62442E), CelPalette.Hex(0xB27A36),
-                CelPalette.Hex(0xB27A36), 1.1f, 4, CelPalette.Hex(0x000000));
+            CelPalette.Add("fb_pool", CelPalette.Hex(0x2A1C14), CelPalette.Hex(0x4A3424), CelPalette.Hex(0x62442E), CelPalette.Hex(0xB8804A),
+                CelPalette.Hex(0xB8804A), 1.1f, 4, CelPalette.Hex(0x000000));
             // the comet: deep red at the tail's tip, red-orange, orange, yellow behind the head, a white-yellow core in the head
             CelPalette.Add("fb_comet", CelPalette.Hex(0x8E1A0C), CelPalette.Hex(0xD8441A), CelPalette.Hex(0xF5912A), CelPalette.Hex(0xFFD458),
-                CelPalette.Hex(0xFFF4D0), 0.84f, 4, CelPalette.Hex(0x1E0806));
+                CelPalette.Hex(0xFFFFF0), 0.84f, 4, CelPalette.Hex(0x1E0806));
             CelPalette.Add("fb_ribbon", CelPalette.Hex(0x4A4A50), CelPalette.Hex(0x8A8A90), CelPalette.Hex(0xB8B8BC), CelPalette.Hex(0xE0E0E0),
                 CelPalette.Hex(0xFFFFFF), 1.1f, 3, CelPalette.Hex(0x3A3438));
+            // hit sparks: yellow-orange, a pale yellow core (never white)
+            CelPalette.Add("fb_spark", CelPalette.Hex(0x9A3A10), CelPalette.Hex(0xE0681C), CelPalette.Hex(0xFFA02E), CelPalette.Hex(0xFFD04A),
+                CelPalette.Hex(0xFFE27A), 0.9f, 3, CelPalette.Hex(0x2A0C06));
             // grey cel smoke, lit from above (#726369 body), dark ink
             CelPalette.Add("fb_smoke", CelPalette.Hex(0x5A4E54), CelPalette.Hex(0x7E7276), CelPalette.Hex(0xA49A9C), CelPalette.Hex(0xC8C0BE),
                 CelPalette.Hex(0xC8C0BE), 1.1f, 3, CelPalette.Hex(0x1A1416));
@@ -63,7 +66,7 @@ namespace TW.Presentation.VFX.Cel
             pool = MakePool(dt);
         }
 
-        const float PoolLife = 4.4f, PoolRadius = 6.5f;
+        const float PoolLife = 5.0f, PoolRadius = 5.2f;
 
         static CelFxRecipe MakePool(float start)
         {
@@ -72,9 +75,9 @@ namespace TW.Presentation.VFX.Cel
                 {
                     Name = "warm ground light", Kind = CometKind.KindName, Start = start, Life = PoolLife, LifeJitter = 0f,
                     Close = 1, Mid = 1, Far = 1, Size = new CelCurve(0.8f * PoolRadius, PoolRadius, 0.5f), SizeJitter = 0f,
-                    Palette = "fb_pool", Core = 1f, Opacity = 1.2f,
-                    // pool mode, falloff power 1.4, peak at 2.9 s into its life, fade from 3.1 s
-                    Extra = new Vector4(-1f, 1.0f, 2.9f / PoolLife, 3.1f / PoolLife),
+                    Palette = "fb_pool", Core = 1f, Opacity = 1.15f,
+                    // pool mode, falloff power 1.3, peak at 2.95 s into its life (f90), fade from 3.16 s (f95) to f132
+                    Extra = new Vector4(-1f, 1.3f, 3.0f / PoolLife, 3.3f / PoolLife),
                 });
         }
 
@@ -87,9 +90,10 @@ namespace TW.Presentation.VFX.Cel
                 {
                     Name = "comet", Kind = CometKind.KindName, Start = t0, Life = Flight, LifeJitter = 0f,
                     Close = 1, Mid = 1, Far = 1, Aim = CelAim.Target, Speed = 0f, Spread = 0f, Spin = 3f,
-                    Size = new CelCurve(0.16f, 0.16f), SizeJitter = 0f, Stretch = 0.5f, Erode = new CelCurve(0f, 0f),
-                    Palette = "fb_comet", CoolTo = "fb_ribbon", Core = 1.8f, Opacity = 0.75f, Ink = 5f,
-                    Extra = new Vector4(0.15f, 1.3f, 0.06f, 3f),
+                    Size = new CelCurve(0.1f, 0.1f), SizeJitter = 0f, Stretch = 0.4f, Erode = new CelCurve(0f, 0f),
+                    Palette = "fb_comet", CoolTo = "fb_ribbon", Core = 2.6f, Opacity = 0.7f, Ink = 3f,
+                    // head 0.21 m, a streaky flame tail 3 m (about 7 head widths), a thin strand waving 0.04 m
+                    Extra = new Vector4(0.24f, 3.4f, 0.05f, 3f),
                 },
                 // ---------------------------------------------------------------- the hit
                 new CelLayer
@@ -103,7 +107,7 @@ namespace TW.Presentation.VFX.Cel
                     Name = "spark starburst", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit, Duration = 0.04f, Life = 0.26f, LifeJitter = 0.2f,
                     Close = 12, Mid = 5, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.05f, 0f, 0f), Aim = CelAim.Radial,
                     Speed = 7.5f, SpeedJitter = 0.35f, UpBias = 0.25f, Gravity = 4f, Drag = 3.5f,
-                    Size = new CelCurve(0.03f, 0.015f), Stretch = 0.11f, Erode = new CelCurve(0.02f, 0.5f), Palette = "spark", Core = 2.2f, Extra = new Vector4(0f, 0.15f, 0f, 0f),
+                    Size = new CelCurve(0.03f, 0.015f), Stretch = 0.11f, Erode = new CelCurve(0.02f, 0.5f), Palette = "fb_spark", Core = 1.3f, Extra = new Vector4(0f, 0.15f, 0f, 0f),
                 },
                 new CelLayer
                 {
@@ -113,18 +117,20 @@ namespace TW.Presentation.VFX.Cel
                 },
                 new CelLayer
                 {
-                    Name = "smoke puffs", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.1f, 0f), Start = hit + 0.12f, Duration = 0.25f, Life = 0.95f, LifeJitter = 0.1f,
-                    Close = ground ? 3 : 2, Mid = 1, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.2f, 0f, 0f), Aim = CelAim.Up, Spread = 12f, Speed = 2.9f, SpeedJitter = 0.15f, Drag = 0.45f, Buoyancy = 0.5f, Spin = 2.5f,
-                    Size = new CelCurve(0.5f, 0.32f), SizeJitter = 0.15f, Stretch = 1.2f, Erode = new CelCurve(0f, 0.95f, 1.6f),
-                    Palette = "fb_smoke", CoolTo = "fb_smoke", Core = 1f, Opacity = 0.92f, Ink = 3f, Extra = new Vector4(0f, 0f, 0.2f, 1.2f),
-                },
-                new CelLayer
-                {
                     Name = "light", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = hit, Life = 0.4f,
                     Close = 1, Mid = 1, Far = 0, Palette = "fire", Core = ground ? 0.6f : 0.12f, Extra = new Vector4(3f, 0f, 0f, 0f),
                 });
             if (ground)
             {
+                // grey cel smoke after each ground burst: round inked puffs that rise in curls, drift right along the
+                // shot, grow and break up (none over the dummy: its hits leave no column)
+                r.Layers.Add(new CelLayer
+                {
+                    Name = "smoke puffs", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.25f, 0f), Start = hit + 0.15f, Duration = 0.3f, Life = 1.25f, LifeJitter = 0.12f,
+                    Close = 2, Mid = 1, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.25f, 0f, 0f), Aim = CelAim.Up, Spread = 22f, Speed = 3.0f, SpeedJitter = 0.25f, Drag = 0.55f, Buoyancy = 0.7f, Spin = 2.5f,
+                    Size = new CelCurve(0.25f, 0.7f, 0.7f), SizeJitter = 0.2f, Stretch = 0.7f, Erode = new CelCurve(0f, 0.97f, 1.4f),
+                    Palette = "fb_smoke", CoolTo = "fb_smoke", Core = 1f, Opacity = 0.95f, Ink = 2f, Extra = new Vector4(0f, 0f, 0.13f, 1.8f),
+                });
                 r.Layers.Add(new CelLayer
                 {
                     Name = "ground flames", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit + 0.03f, Duration = 1.0f, Life = 0.34f, LifeJitter = 0.25f,
@@ -141,7 +147,7 @@ namespace TW.Presentation.VFX.Cel
                 {
                     Name = "fire glow", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Start = hit, Life = 1.2f, LifeJitter = 0f,
                     Close = 1, Mid = 1, Far = 0, Size = new CelCurve(1.3f, 1.1f), SizeJitter = 0.1f,
-                    Palette = "fb_pool", Core = 1f, Opacity = 0.55f, Extra = new Vector4(-1f, 1.6f, 0.08f, 0.35f),
+                    Palette = "fb_pool", Core = 1f, Opacity = 0.5f, Extra = new Vector4(-1f, 1.6f, 0.08f, 0.35f),
                 });
             }
             return r;
