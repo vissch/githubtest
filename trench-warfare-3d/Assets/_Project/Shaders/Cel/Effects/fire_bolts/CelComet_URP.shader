@@ -1,4 +1,4 @@
-// Phase: CelFx job (2026-11-09, lane/show/cel-fire-bolts; b03: flame body twice as wide, wider yellow band) - Comet: a fire bolt drawn as one camera-facing quad along
+// Phase: CelFx job (2026-11-09, lane/show/cel-fire-bolts; b04: a small round head tapering into a long thin red-orange flame streak; b03: flame body twice as wide, wider yellow band) - Comet: a fire bolt drawn as one camera-facing quad along
 // its velocity, an SDF in the fragment: a white-yellow head with a soft yellow bloom, a flame tail banded yellow to
 // orange to deep red that tapers smoothly to a point, a dark ink line on the screen-lower edge, and behind it a thin
 // wavy smoke ribbon with an ink edge that thins to a point and breaks up in steps. With no head and no flame it is a
@@ -182,11 +182,12 @@ Shader "TW/Cel/Comet"
                     float has = step(1e-5, fl + hr);
                     float hd = length(float2(s, y));
                     float headF = 1.0 - hd / max(hr, 1e-4);
-                    float bodyL = max(min(fl * 0.45, hr * 9.0), 1e-3);
+                    // b04: the body is a long thin flame streak, 6x the head's length, never wider than the head
+                    float bodyL = max(min(fl * 0.6, hr * 10.0), 1e-3);
                     float sb = saturate(s / bodyL);
                     // a lick that travels down the body (the flame flickers, never a rigid capsule)
-                    float lick = hr * 0.12 * sin(s * 5.0 / max(hr * 4.0, 1e-3) + seed * 30.0 - i.misc.z * 14.0) * sb;
-                    float wBody = hr * (1.15 + 0.75 * smoothstep(0.0, 0.25, sb)) * pow(saturate(1.0 - sb), 1.0);   // b03: about twice as wide
+                    float lick = hr * 0.08 * sin(s * 5.0 / max(hr * 4.0, 1e-3) + seed * 30.0 - i.misc.z * 14.0) * sb;
+                    float wBody = hr * (1.0 - 0.15 * smoothstep(0.0, 0.2, sb)) * pow(saturate(1.0 - sb), 0.6);   // b04: as wide as the head, tapering to a point
                     float tailF = (s >= 0.0 && s <= bodyL) ? 1.0 - abs(y - lick) / max(wBody, 1e-4) : 0.0;
                     float streakF = 0.0, streakU = 1.0;
                     [unroll] for (int k5 = 0; k5 < 5; k5++)
@@ -195,7 +196,7 @@ Shader "TW/Cel/Comet"
                         float Lk = fl * (k5 == 2 ? 1.0 : 0.35 + 0.5 * hk);
                         float uk = saturate(s / max(Lk, 1e-3));
                         float yk = hr * 0.3 * (k5 - 2) * (1.0 - 0.7 * uk) + hr * 0.1 * sin(s * 2.5 + hk * 20.0 - i.misc.z * 9.0) * uk;
-                        float wk = hr * (k5 == 2 ? 0.32 : 0.2) * pow(saturate(1.0 - uk), 0.8);   // b03: thicker streaks
+                        float wk = hr * (k5 == 2 ? 0.26 : 0.16) * pow(saturate(1.0 - uk), 0.8);   // b04: thinner
                         float fk = (s >= bodyL * 0.3 && s <= Lk) ? 1.0 - abs(y - yk) / max(wk, 1e-4) : 0.0;
                         if (fk > streakF) { streakF = fk; streakU = uk; }
                     }
@@ -203,8 +204,9 @@ Shader "TW/Cel/Comet"
                     float fMask = CelAAStep(0.03, f) * has;
                     // colour: the head white-hot to yellow; the body yellow in the middle, orange round it, red at its
                     // edge and toward its end; the streaks red to deep red
-                    float vHead = headF > 0.0 ? 0.72 + 0.28 * saturate((headF - 0.45) * 2.2) : 0.0;   // yellow, white only at the middle (b03: a smaller white)
-                    float vBody = tailF > 0.0 ? (0.32 + 0.58 * saturate(tailF * 1.7)) * (1.0 - 0.3 * sb) : 0.0;   // b03: a wide yellow inner band, never white
+                    float vHead = headF > 0.0 ? 0.78 + 0.22 * saturate((headF - 0.35) * 2.0) : 0.0;   // b04: white-yellow   // yellow, white only at the middle (b03: a smaller white)
+                    // b04: yellow just behind the head, orange, then red-orange down the streak (b03's yellow-white inner band read as a white rectangle)
+                    float vBody = tailF > 0.0 ? (0.24 + 0.36 * saturate(tailF * 1.5)) + 0.24 * saturate(1.0 - sb * 3.0) * saturate(tailF * 2.0) : 0.0;
                     float vStreak = streakF > 0.0 ? 0.08 + 0.3 * (1.0 - streakU) : 0.0;
                     float val = max(max(vHead, vBody), vStreak);
                     half3 fCol = CelRamp(saturate(val), rowA, i.tone.y);
