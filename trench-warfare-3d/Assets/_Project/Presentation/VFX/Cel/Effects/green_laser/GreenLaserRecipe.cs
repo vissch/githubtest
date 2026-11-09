@@ -192,7 +192,7 @@ namespace TW.Presentation.VFX.Cel
                 new CelLayer
                 {
                     Name = "wash haze", Kind = BoltKind, Anchor = CelAnchor.Origin, Offset = new Vector3(0f, 1.1f, 0.1f), Start = Hits[0], Life = 3.9f, LifeJitter = 0f,
-                    Close = 1, Mid = 1, Far = 1, Size = new CelCurve(4.2f, 4.4f, 0.5f), SizeJitter = 0f, Palette = "gl_haze", Core = 1f, Opacity = 0.95f, Extra = new Vector4(6f, 0.05f, 0.85f, 0.6f),
+                    Close = 1, Mid = 1, Far = 1, Size = new CelCurve(4.2f, 4.4f, 0.5f), SizeJitter = 0f, Palette = "gl_haze", Core = 1f, Opacity = 0.6f, Extra = new Vector4(6f, 0.05f, 0.85f, 0.6f),
                 },
                 // the dirt round the glow goes dark (the reference's night ground round the light), a smooth disc, no ring
                 new CelLayer
@@ -212,7 +212,7 @@ namespace TW.Presentation.VFX.Cel
                 l.Add(new CelLayer
                 {
                     Name = "mist pulse " + i, Kind = BoltKind, Anchor = CelAnchor.Origin, Offset = new Vector3(0f, 1.1f, 0.1f), Start = h, Life = 0.22f, LifeJitter = 0.1f,
-                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(4.0f * s, 4.6f * s, 0.5f), SizeJitter = 0.05f, Palette = "gl_haze", Core = 1f, Opacity = 0.6f, Extra = new Vector4(6f, 0.0f, 0.4f, 0.6f),
+                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(4.0f * s, 4.6f * s, 0.5f), SizeJitter = 0.05f, Palette = "gl_haze", Core = 1f, Opacity = 0.4f, Extra = new Vector4(6f, 0.0f, 0.4f, 0.6f),
                 });
             }
             for (int i = 0; i < Ground.Length; i++)
