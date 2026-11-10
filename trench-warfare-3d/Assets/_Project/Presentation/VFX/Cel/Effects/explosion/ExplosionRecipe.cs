@@ -58,7 +58,10 @@ namespace TW.Presentation.VFX.Cel
             CelPalette.Add("exp_ball_ink", CelPalette.Hex(0xD06A2A), CelPalette.Hex(0xF2B060), CelPalette.Hex(0xF9E3A5), CelPalette.Hex(0xFDEFC4), CelPalette.Hex(0xFFF6E0), 0.97f, 4, CelPalette.Hex(0x1C0A04));
             // the grey-tan puffs that wrap the fire from f40 on and take it over (warm-lit from the fire below)
             // b02: the fireball's pale heart lobes (ref #f9e3a5), drawn in front of the orange lobes
-            CelPalette.Add("exp_ball_hot", CelPalette.Hex(0xF0B060), CelPalette.Hex(0xF8D088), CelPalette.Hex(0xFBE2A4), CelPalette.Hex(0xFFF0C8), CelPalette.Hex(0xFFF8E8), 0.9f, 4, CelPalette.Hex(0x6A2A0A));
+            // d15: one merged white-hot heart (ref f60-f86 core #fcf9b9, L>90): orange then #f9ce71 edge bands, white middle, no inner ink
+            CelPalette.Add("exp_ball_hot", CelPalette.Hex(0xEC9448), CelPalette.Hex(0xF9CE71), CelPalette.Hex(0xFFF6DC), CelPalette.Hex(0xFFFBEC), CelPalette.Hex(0xFFFFF8), 0.9f, 4, CelPalette.Hex(0xEC9448));
+            // d15: the outer fireball lobes orange (ref f60-f86 L65-80 #e49d6f, L45-65 #b77248), a thin yellow top band, dark ink on the rim only
+            CelPalette.Add("exp_ball_out", CelPalette.Hex(0xB8602A), CelPalette.Hex(0xE4883E), CelPalette.Hex(0xF0A050), CelPalette.Hex(0xF9CE71), CelPalette.Hex(0xFCF0B0), 0.97f, 4, CelPalette.Hex(0x1C0A04));
             CelPalette.Add("exp_wrap", CelPalette.Hex(0x9A8C80), CelPalette.Hex(0xB4A694), CelPalette.Hex(0xC8BAA6), CelPalette.Hex(0xDACCB6), CelPalette.Hex(0xDACCB6), 1.1f, 4, CelPalette.Hex(0x22160E));
             // r04: the ragged white-yellow star over the fireball (additive: orange rim, yellow, white heart)
             CelPalette.Add("exp_star", CelPalette.Hex(0x702808), CelPalette.Hex(0xA04812), CelPalette.Hex(0xD08A30), CelPalette.Hex(0xFFC860), CelPalette.Hex(0xFFFFFF), 0.68f, 4, CelPalette.Hex(0x000000));
@@ -193,7 +196,7 @@ namespace TW.Presentation.VFX.Cel
                 Start = 0f, Duration = 1.75f, Life = 0.5f, LifeJitter = 0.3f, Close = 34, Mid = 12, Far = 0,
                 Aim = CelAim.Radial, Speed = 2.0f, Drag = 2.5f, Buoyancy = 0.22f, Spin = 2.0f,
                 Size = new CelCurve(0.45f, 0.85f, 0.5f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 3.5f), Feather = 0.08f,
-                Palette = "exp_ball_ink", CoolTo = "exp_wrap", CoolFrom = 0.8f, Core = 1f, Ink = 6.0f, Extra = new Vector4(1.6f, 0.24f, 0.3f, 0.7f),
+                Palette = "exp_ball_out", CoolTo = "exp_wrap", CoolFrom = 0.8f, Core = 1f, Ink = 6.0f, Extra = new Vector4(1.6f, 0.24f, 0.3f, 0.7f),
             },
             new CelLayer
             {
@@ -202,7 +205,7 @@ namespace TW.Presentation.VFX.Cel
                 Start = 1.1f, Duration = 1.65f, Life = 0.6f, LifeJitter = 0.3f, Close = 56, Mid = 18, Far = 0,
                 Aim = CelAim.Radial, Speed = 2.2f, Drag = 2.5f, Buoyancy = 0.2f, Spin = 2.0f,
                 Size = new CelCurve(0.65f, 1.15f, 0.5f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 3.5f), Feather = 0.08f,
-                Palette = "exp_ball_ink", CoolTo = "exp_wrap", CoolFrom = 0.6f, Core = 1f, Ink = 6.0f, Extra = new Vector4(1.6f, 0.24f, 0.3f, 0.7f),
+                Palette = "exp_ball_out", CoolTo = "exp_wrap", CoolFrom = 0.6f, Core = 1f, Ink = 6.0f, Extra = new Vector4(1.6f, 0.24f, 0.3f, 0.7f),
             },
             new CelLayer
             {
@@ -211,7 +214,7 @@ namespace TW.Presentation.VFX.Cel
                 Start = 0.4f, Duration = 2.35f, Life = 0.45f, LifeJitter = 0.3f, Close = 56, Mid = 14, Far = 0,
                 Aim = CelAim.Radial, Speed = 1.6f, Drag = 2.5f, Buoyancy = 0.3f, Spin = 2.0f,
                 Size = new CelCurve(0.55f, 1.0f, 0.5f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 3.0f), Feather = 0.08f,
-                Palette = "exp_ball_hot", Core = 1.15f, Ink = 3.0f, Extra = new Vector4(1.2f, 0.12f, 0.3f, 0f),
+                Palette = "exp_ball_hot", Core = 1.15f, Ink = 0.0f, Extra = new Vector4(1.2f, 0.12f, 0.3f, 0f),
             },
             new CelLayer
             {
