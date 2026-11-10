@@ -231,7 +231,7 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // r04: a soft bright cyan pool ~1.5 torso widths across (no bands, no hard rim), a LightningBeam dot on the ground
-                Name = "pool", Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0.05f, 0.02f, 0.05f), Start = 0.25f, Life = Hold, LifeJitter = 0f,   // d41: ends 0.1 s sooner (clip ring off at f106)
+                Name = "pool", Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0.05f, 0.02f, -0.8f),   /* d54: toward the shooter (clip ring band y460-520 px, ours y420-500) */ Start = 0.25f, Life = Hold, LifeJitter = 0f,   // d41: ends 0.1 s sooner (clip ring off at f106)
                 // b02: a soft pale-blue ellipse about 1.5x the dummy's width (1.2 m), softer and paler than b01's puddle
                 Close = 1, Mid = 1, Far = 0, Shape = CelShape.Point, Aim = CelAim.None, Speed = 0f, Size = new CelCurve(2.4f, 2.5f), SizeJitter = 0f, Stretch = -0.001f,
                 // b03: feathered (falloff 3.2: b02's 1.5 was a flat cone with a hard rim)
@@ -243,7 +243,7 @@ namespace TW.Presentation.VFX.Cel
                 Name = "foot halo", Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.5f, 0f), Start = 0.3f, Life = Hold, LifeJitter = 0f,
                 // b07: smaller, softer and raised (b06b: its bottom cut by the ground drew a hard-edged slab under the feet)
                 Close = 1, Mid = 1, Far = 0, Shape = CelShape.Point, Aim = CelAim.None, Speed = 0f, Size = new CelCurve(1.0f, 1.05f), SizeJitter = 0f, Stretch = -0.001f,
-                Erode = new CelCurve(0f, 0.1f), Feather = 0f, Palette = "blue_laser_pool", Core = 1f, Opacity = 0.3f, Extra = new Vector4(1f, 5f, 0f, 0f),
+                Erode = new CelCurve(0f, 0.1f), Feather = 0f, Palette = "blue_laser_pool", Core = 1f, Opacity = 0.15f, Extra = new Vector4(1f, 5f, 0f, 0f),   // d54: dimmer (clip: dark gap between the feet glow and the ring at y440-460 px)
             });
 
         /// <summary>The dust trail, played along the trail (see Play): four stretches born near to far, then the flecks.</summary>
