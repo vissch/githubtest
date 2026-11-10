@@ -421,8 +421,17 @@ Shader "TW/Cel/FlameJet"
                     RibOut rb = Rib(v.uv, instanceID);
                     o.positionWS = rb.positionWS;
                     o.positionCS = TransformWorldToHClip(rb.positionWS);
+                    // d52 (d49): depth from the jet's axis point beside the vertex, pulled to the eye by a per-tongue step: the
+                    // flat strips stack like cel cut-outs instead of cutting straight z-intersection lines through each other
+                    {
+                        float3 ja = _FlameAxisA.xyz, jd = _FlameAxisB.xyz - _FlameAxisA.xyz;
+                        float3 q = ja + jd * saturate(dot(rb.positionWS - ja, jd) / max(dot(jd, jd), 1e-4));
+                        q += normalize(_WorldSpaceCameraPos - q) * (0.4 * CelFetch(instanceID).seed - 0.2);
+                        float4 cq = TransformWorldToHClip(q);
+                        o.positionCS.z = cq.z / cq.w * o.positionCS.w;
+                    }
                     o.jet = float3(rb.u, rb.across, rb.a);
-                    o.fog = ComputeFogFactor(o.positionCS.z);
+                    o.fog = ComputeFogFactor(TransformWorldToHClip(rb.positionWS).z);
                     o.id = GetIndirectInstanceID_Base(instanceID);
                     return o;
                 }
