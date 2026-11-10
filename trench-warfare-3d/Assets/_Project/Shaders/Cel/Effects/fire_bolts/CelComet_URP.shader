@@ -258,7 +258,7 @@ Shader "TW/Cel/Comet"
                     float mask = CelAAStep(0.06, fm);
                     float lit = saturate(0.5 - 0.5 * (y - yc) / edge + 0.25 * (n2 - 0.5));   // screen-left side lit
                     lit = lerp(lit, puffLit, billow);   // d07: each puff lit on its upper side
-                    half3 c = CelRamp(saturate(0.25 + 0.7 * lit), rowA, 1.0);
+                    half3 c = CelRamp(lerp(0.5, 0.85, step(0.58, lit)), rowA, 1.0);   // d32: two flat tones only (many bands read as stripes)
                     float ink = CelInk(fm, 0.06, CelLodInk(i.tone.w)) * mask;
                     c = lerp(c, CelPalInk(rowA).rgb, ink * 0.8);
                     float op = saturate(i.tone.z) * (1.0 - smoothstep(0.75, 1.0, k));
