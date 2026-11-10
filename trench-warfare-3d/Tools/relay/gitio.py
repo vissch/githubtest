@@ -127,6 +127,20 @@ def snapshot_dirty(wt, folder):
     return rec
 
 
+def put_aside(wt, folder, label):
+    """A failed unit's leftover work off the checkout so the run goes on: saved beside the leg (snapshot_dirty), then
+    a named stash (untracked files too). Returns '' when the tree is clean after, else why not. 7-8 Nov: 15 of 79
+    runs stopped on a dirty checkout, each waiting for the loop to stash it and ten quiet minutes."""
+    if not dirty(wt):
+        return ""
+    if not snapshot_dirty(wt, folder):
+        return "the snapshot was not written"
+    r = git_raw(["stash", "push", "-u", "-q", "-m", "put aside by the relay: " + label], wt)
+    if r.returncode:
+        return "git stash refused: " + (r.stderr or r.stdout or b"").decode("utf-8", "replace")[:160]
+    return "" if not dirty(wt) else "the checkout is still dirty after the stash"
+
+
 def matches_snapshot(wt, rec):
     """The next leg may resume a dirty tree only if it is byte for byte the one that was saved."""
     return bool(rec) and head(wt) == rec["head"] and file_hashes(wt, dirty(wt)) == rec["files"]

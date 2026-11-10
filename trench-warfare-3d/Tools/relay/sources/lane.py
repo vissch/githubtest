@@ -68,13 +68,41 @@ def trusted(board, p):
     return tracked and not gitio.git(["status", "--porcelain", "--", rel], board)
 
 
+def queue_trust(board):
+    """trusted() for the whole queue folder in two git calls: (committed paths, changed paths), board-relative posix;
+    None for a plain folder (a test board). 11-10: trusted() per file was two git processes a file, ~1,300 for the
+    665 files of the main board, up to three times a pick."""
+    if not (Path(board) / ".git").exists():
+        return None
+    q = "relay/queue"
+    out = gitio.git_raw(["ls-files", "-z", "--", q], board).stdout.decode("utf-8", "replace")
+    tracked = {x for x in out.split("\0") if x}
+    raw = gitio.git_raw(["status", "--porcelain", "-z", "--untracked-files=all", "--", q], board).stdout.decode("utf-8", "replace")
+    changed, recs, i = set(), raw.split("\0"), 0
+    while i < len(recs):
+        r = recs[i]
+        if len(r) > 3:
+            changed.add(r[3:])
+            if r[0] in "RC" and i + 1 < len(recs):
+                changed.add(recs[i + 1])
+                i += 1
+        i += 1
+    return tracked, changed
+
+
 def files(board):
     """(the queue files the runner may take, in its order: priority, then name; the files it skips because nobody
     committed them). A file that cannot be read sorts as one with no priority: load() says what is wrong with it
     when its turn comes, as before."""
     root, ok, skipped, lim = Path(board) / "relay" / "queue", [], [], config.limits()
+    trust = queue_trust(board) if root.is_dir() else None
     for p in sorted(root.glob("*.json")) if root.is_dir() else []:
-        (ok if trusted(board, p) else skipped).append(p)    # asked first: a file nobody committed is not even read
+        if trust is None:
+            good = True
+        else:
+            rel = p.relative_to(board).as_posix()
+            good = rel in trust[0] and rel not in trust[1]
+        (ok if good else skipped).append(p)    # asked first: a file nobody committed is not even read
 
     def place(p):
         try:

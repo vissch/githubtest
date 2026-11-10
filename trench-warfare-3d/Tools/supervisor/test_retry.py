@@ -57,6 +57,12 @@ class Rule(unittest.TestCase):
         self.assertTrue(retry.decide(ts)['park'])
         self.assertFalse(retry.decide(ts, since='2026-10-20T02:00:00Z')['park'])
 
+    def test_a_pass_after_the_park_point_clears_it(self):
+        self.assertFalse(retry.decide([T('unit', run='a'), T('unit', run='b'), T('', 'PASS', run='c')])['park'])
+        d = retry.decide([T('unit', run='a'), T('unit', run='b'), T('', 'PASS', run='c'),
+                          T('unit', run='d'), T('unit', run='e')])
+        self.assertEqual((d['park'], d['run']), (True, 'e'))
+
     def test_cooling(self):
         self.assertTrue(retry.cooling({'x': 'FAIL', 'y': 'PASS'}, 'x'))
         self.assertFalse(retry.cooling({'x': 'FAIL', 'y': 'PASS'}, 'y'))

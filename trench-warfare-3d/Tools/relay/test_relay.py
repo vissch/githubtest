@@ -1355,10 +1355,15 @@ class Runs(Repo):
         self.queue("u1")
         self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": [{"file": "half.txt", "text": "half\n"}]})
         out, stop = self.go()
-        self.assertIn("left uncommitted work", stop["reason"])
-        self.assertEqual(stop["reason_kind"], "uncommitted")
+        # 2026-11-10: the unit fails, its work is saved and put aside, and the run goes on (it used to stop the run:
+        # 15 of 79 runs of 7-8 Nov ended there)
+        self.assertNotIn("left uncommitted work", stop["reason"])
+        self.assertEqual(stop["units"].get("u1"), "FAIL")
         self.assertIn(b"half.txt", (legdir.leg_path(stop["run"], 2) / "red.patch").read_bytes())
         self.assertFalse((self.board / "relay" / "done" / "u1.json").exists())
+        self.assertFalse((self.work / "half.txt").exists(), "the checkout is clean after the unit")
+        self.assertIn("put aside by the relay", subprocess.run(["git", "stash", "list"], cwd=str(self.work),
+                                                                capture_output=True, text=True).stdout)
 
     def test_a_compaction_trip_stops_the_run_and_saves_the_dirty_tree(self):
         self.queue("u1")

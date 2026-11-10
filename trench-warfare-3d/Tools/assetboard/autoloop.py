@@ -253,6 +253,8 @@ class World:
         return 'committed; the push was refused three times: it is pushed with the next one'
 
     def start(self, n, sources='lane', quiet_off=False):
+        if (self.home / 'autoloop.stop').exists():      # written mid-round (11-08: a relay started 8 min after the stop)
+            return 'not started: autoloop.stop is in its folder'
         ok, held = breaker_gate.allow()          # the machine is broken (Tools/supervisor/modules/breaker.py)
         if not ok:
             return 'not started: ' + held
@@ -1448,13 +1450,18 @@ def step(w, name, said=()):
         return [f'{label}: failed: ' + traceback.format_exc().strip().splitlines()[-1][:300]]
 
 
-def round_(w, skip=()):
-    """Every step in order. `skip`: the steps the supervisor runs now (supervised()), left out here."""
+def round_(w, skip=(), emit=None):
+    """Every step in order. `skip`: the steps the supervisor runs now (supervised()), left out here. `emit`: called
+    with each line as its step ends, so the log's time is the step's own, not the round's end (a round takes ~10 min)."""
     lines = []
     w.round_fw = _NO_FW
     for name, _ in STEPS:
         if name not in skip:
-            lines += step(w, name, lines)
+            new = step(w, name, lines)
+            lines += new
+            if emit:
+                for line in new:
+                    emit(line)
     return lines
 
 
@@ -1523,10 +1530,11 @@ def main(argv=None):
                 skip = supervised()
                 if skip:
                     say('left to the supervisor (its loop_* switch is on): ' + ', '.join(n for n, _ in STEPS if n in skip))
-                for line in round_(World(a.main, extras, home), skip=skip):
+                def emit(line):
                     say(line)
                     if a.once:
                         print(line)
+                round_(World(a.main, extras, home), skip=skip, emit=emit)
             save(home / 'beat.json', dict(at=time.time(), pid=os.getpid()))
             if load(home / 'lock.json', {}).get('pid') != os.getpid():
                 say('another loop has the lock: this one leaves')

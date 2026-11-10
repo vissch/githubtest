@@ -427,8 +427,38 @@ def session_env():
 
 # ---- the owner's brief -------------------------------------------------------------------------------------------------
 
+def fold_chains(rows, is_anc=None):
+    """The owner's rows with every chain folded into its tip: a lane whose name another waiting lane's name extends
+    (ability-fx-captures-r2-2 -> ...-r2-2-g1 -> ...-r2-2-g1-g2) and whose tip that lane holds is not listed on its
+    own; the tip row says how many it holds ('folded'). 11-10: 340 rows, 97 of them one family's links.
+    `is_anc(a, b)`: True when commit a is in b; None trusts the names alone."""
+    by = {r['lane']: r for r in rows}
+    holder = {}
+    for lane in sorted(by, key=len):
+        kids = [o for o in by if o != lane and o.startswith(lane + '-')]
+        for k in sorted(kids, key=len, reverse=True):          # the furthest link that holds it
+            if is_anc is None or is_anc(by[lane]['tip'], by[k]['tip']):
+                holder[lane] = k
+                break
+    out = []
+    for lane, r in by.items():
+        if lane in holder:
+            continue
+        n = sum(1 for l in holder if _tip_of(l, holder) == lane)
+        out.append(dict(r, folded=n) if n else r)
+    return sorted(out, key=lambda r: r['lane'])
+
+
+def _tip_of(lane, holder):
+    seen = set()
+    while lane in holder and lane not in seen:
+        seen.add(lane)
+        lane = holder[lane]
+    return lane
+
+
 def owner_text(rows, day):
-    """The list of lanes that wait on the owner, as the file the brief points to."""
+    """The list of lanes that wait on the owner, as the file the brief points to: one row a chain (fold_chains)."""
     wait = [r for r in rows if r['cls'] in OWNERS]
     out = [f'# Lanes that wait on you, {day}', '',
            'The relay finished these; they change what the game looks like or how it plays, the sim, or what checks a '
@@ -439,7 +469,8 @@ def owner_text(rows, day):
             out.append(f'## {c} ({len(rs)})')
             for r in rs:
                 pic = f'; picture: {r["pictures"][0]}' if r['pictures'] else ''
-                out.append(f'- {r["title"]} ({r["lane"]}, {r["n"]} files): {r["why"]}{pic}')
+                more = f'; holds {r["folded"]} earlier lanes of its chain' if r.get('folded') else ''
+                out.append(f'- {r["title"]} ({r["lane"]}, {r["n"]} files{more}): {r["why"]}{pic}')
             out.append('')
     return '\n'.join(out), len(wait)
 
@@ -676,7 +707,8 @@ def landing_wait(ctx, W, st, d):
 
 
 def brief(ctx, W, d, rows, day):
-    """Once a day, one brief for the lanes that wait on the owner; dry keeps only its text."""
+    """Once a day, one brief for the lanes that wait on the owner (one row a chain); dry keeps only its text."""
+    rows = fold_chains([r for r in rows if r['cls'] in OWNERS], W.is_anc) + [r for r in rows if r['cls'] not in OWNERS]
     text, n = owner_text(rows, day)
     if not n or d.get('brief'):
         return []

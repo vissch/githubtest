@@ -52,10 +52,23 @@ def order(shares, spent):
     return sorted(owed, key=lambda k: (owed[k], -have[k]))
 
 
+CAPPED = ("fix", "critique")              # kinds that may not borrow past their share of the day's cap
+
+
+def over_ceiling(kind, shares, spent, cap_usd):
+    """True when a capped kind has spent its share of the day's whole cap (not of what the day has spent so far).
+    The owner, 2026-11-10: on 7-8 Nov 54 of 70 passes were work the loop found for itself, because an empty kind
+    lent all its room; finish work lends freely, fix and critique never past share_fix / share_critique of the cap."""
+    if kind not in CAPPED or not cap_usd:
+        return False
+    return float(spent.get(kind) or 0) >= cap_usd * float(shares.get(kind) or 0) / 100.0
+
+
 def next_unit(names, ctx):
     """The next unit. With shares in ctx (limits.json share_*): of the kind of work that is furthest under its
     share today; a kind with nothing to do lends its room to the next, so the day's tokens are never left idle for
-    want of one kind. Without shares: the first source that has a unit, as before."""
+    want of one kind, except that fix and critique stop at their share of the day's cap (over_ceiling; ctx cap_usd).
+    Without shares: the first source that has a unit, as before."""
     shares = ctx.get("shares") or {}
     if not any(shares.get(k) for k in KINDS):
         for name in names:
@@ -63,7 +76,12 @@ def next_unit(names, ctx):
             if unit:
                 return unit
         return None
-    for kind in order(shares, ctx.get("spent_kinds") or {}):
+    spent = ctx.get("spent_kinds") or {}
+    for kind in order(shares, spent):
+        if over_ceiling(kind, shares, spent, ctx.get("cap_usd")):
+            print("note: no %s unit: it has spent its %g%% of the day's cap" % (kind, float(shares.get(kind) or 0)),
+                  flush=True)
+            continue
         for name in names:
             unit = load(name).next(ctx, kind=kind)
             if unit:

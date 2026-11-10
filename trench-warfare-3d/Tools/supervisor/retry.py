@@ -56,21 +56,25 @@ def tries_of(runs, legs):
 
 def decide(tries, since='', machine_counts=False, by_kind=True):
     """Park or not, from one unit's tries (oldest first) after `since`. A PASS starts the count over. The two flags
-    are today's rule for the replay's proofs: machine_counts=True, by_kind=False counts every FAIL/BLOCKED alike."""
-    counts = {}
+    are today's rule for the replay's proofs: machine_counts=True, by_kind=False counts every FAIL/BLOCKED alike.
+    The whole list is read before deciding: a PASS after the second fail clears the park (FAIL, FAIL, PASS = no park;
+    on 11-10 three units whose last try passed were marked due a park)."""
+    counts, hit = {}, None
     for i, t in enumerate(tries or []):
         if since and (t.get('at') or '') <= since:
             continue
         if t.get('verdict') == 'PASS':
-            counts = {}
+            counts, hit = {}, None
             continue
         k = t.get('kind') or 'unit'
         if is_machine(k) and not machine_counts:
             continue
         key = k if by_kind else 'any'
         counts[key] = counts.get(key, 0) + 1
-        if counts[key] >= TRIES:
-            return dict(park=True, kind=k, run=t.get('run'), at=t.get('at'), index=i, counts=counts)
+        if hit is None and counts[key] >= TRIES:
+            hit = dict(park=True, kind=k, run=t.get('run'), at=t.get('at'), index=i)
+    if hit:
+        return dict(hit, counts=counts)
     return dict(park=False, counts=counts)
 
 

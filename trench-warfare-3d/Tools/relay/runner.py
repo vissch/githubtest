@@ -173,6 +173,11 @@ class Run:
             self.ctx["spent_kinds"] = dict(ledger.spent(self.board, lim=self.lim).get("kinds") or {})
         except (SystemExit, Exception):                     # noqa: BLE001 - a day that cannot be read splits nothing
             self.ctx["spent_kinds"] = {}
+        try:                                                # the day's whole cap in dollars: fix and critique stop
+            b = self.day()                                  # at their share of it (sources.over_ceiling)
+            self.ctx["cap_usd"] = (b["left_usd"] + sum(float(v or 0) for v in self.ctx["spent_kinds"].values())) if b else None
+        except (SystemExit, Exception):                     # noqa: BLE001 - no cap read: no ceiling, as before
+            self.ctx["cap_usd"] = None
 
     def card_round(self):
         """Between units: what the owner's page needs of the board while a run is going. TW_BETWEEN_UNITS is a JSON
@@ -437,6 +442,13 @@ class Run:
         boardio.leg_record(self.board, self.station, leg, moved_on_origin=moved,
                            style_problems=config.report_problems(leg.get("report") or "", self.style))
         bad = ("broke a rule: " + "; ".join(broke[:4])) if broke else launch.ran_clean(leg)
+        if bad and phase == "retro" and not broke and not (leg["state"] == "STOPPED" and self.stop_file.exists()):
+            # A retrospective only reads and proposes: one that did not run clean is skipped, the run goes on
+            # (11-08: three runs ended at their first retro, its Haiku leg started in default mode).
+            print("retrospective: skipped, leg %02d %s" % (self.legs, bad), flush=True)
+            self.on, self.at = "", None
+            self.live()
+            return d, leg
         if bad:
             saved = "uncommitted work saved in %s" % d if gitio.snapshot_dirty(self.work, d) else ""
             if leg["state"] == "STOPPED" and self.stop_file.exists():
@@ -536,12 +548,19 @@ class Run:
             if outcome == "done" and not problems:
                 problems = self.critique(src, unit, body, plan)
         if gitio.dirty(self.work):
-            gitio.snapshot_dirty(self.work, d)
             src.keep_note(unit, self.ctx, legdir.desk(d), self.lim)
             problems.append("uncommitted work was left behind (saved beside leg %02d)" % self.legs)
+            left = gitio.put_aside(self.work, d, "%s %s" % (self.run, unit["id"]))
             self.finish(src, unit, problems, "failed")
-            raise Stop(Why("uncommitted", "unit %s left uncommitted work in the checkout" % unit["id"]),
-                       "patch: %s" % (d / "red.patch"))
+            if left:                                        # the tree could not be cleaned: the run cannot go on
+                raise Stop(Why("uncommitted", "unit %s left uncommitted work in the checkout (%s)" % (unit["id"], left)),
+                           "patch: %s" % (d / "red.patch"))
+            print("unit %s: FAIL, its leftover work put aside (%s) and the run goes on" % (unit["id"], d / "red.patch"),
+                  flush=True)
+            self.idle += 1
+            if self.idle >= self.lim["no_progress_units"]:
+                raise Stop(Why("no-result", "%d units in a row brought no result and no pushed code" % self.idle))
+            return
         src.keep_note(unit, self.ctx, legdir.desk(d), self.lim)
         verdict = self.finish(src, unit, problems, outcome)
         moved = gitio.code_changed(self.work, remote_before, gitio.remote_head(self.work, unit["lane"]))
