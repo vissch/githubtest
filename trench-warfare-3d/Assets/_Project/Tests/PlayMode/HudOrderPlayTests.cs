@@ -53,8 +53,11 @@ namespace TW.Tests
             Assert.That(rear, Is.Not.EqualTo(front), "[Z011.1] the playtest map gives seat 0 two fire trenches");
 
             // one deploy a tick: SlotCooldown rejects a second in the same tick
+            // Frames AND real time: with -nographics on an idle machine 600 frames pass in a fraction of a second,
+            // before the men have walked to the trench (canary gate of 2026-11-10: green only on a busy machine).
             int deployed = 0;
-            for (int f = 0; f < 600 && deployed < 5; f++)
+            float until = Time.realtimeSinceStartup + 30f;
+            for (int f = 0; (f < 600 || Time.realtimeSinceStartup < until) && deployed < 5; f++)
             {
                 host.Issue(SimCommand.Deploy(host.Local.World.Tick, 0, 0));
                 deployed = Alive(host.Local.World);
@@ -62,7 +65,8 @@ namespace TW.Tests
             }
             Assert.That(Alive(host.Local.World), Is.GreaterThanOrEqualTo(5), "[Z011.1] five riflemen must reach the field");
 
-            for (int f = 0; f < 600 && host.Local.Fields.Trenches[rear].GarrisonCount < 5; f++) yield return null;
+            until = Time.realtimeSinceStartup + 30f;
+            for (int f = 0; (f < 600 || Time.realtimeSinceStartup < until) && host.Local.Fields.Trenches[rear].GarrisonCount < 5; f++) yield return null;
             Assert.That(host.Local.Fields.Trenches[rear].GarrisonCount, Is.EqualTo(5), "[Z011.1] every reinforcement garrisons the rear trench");
             Assert.That(host.Local.Fields.Trenches[front].GarrisonCount, Is.EqualTo(0), "[Z011.1] the front trench holds nobody until a player orders an advance");
 

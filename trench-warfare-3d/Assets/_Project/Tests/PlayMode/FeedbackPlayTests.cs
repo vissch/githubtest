@@ -81,7 +81,10 @@ namespace TW.Tests
             yield return null;
             Assert.That(router.Host, Is.SameAs(host), "the test's rig: the router did not find the host");
             Assert.That(router.Clock, Is.Not.Null);
-            for (int i = 0; i < 600 && host.Local.World.AliveCount == 0; i++) yield return null;
+            // Frames AND real time: with -nographics on an idle machine 600 frames pass in 0.1 s, before the first
+            // wave is due (canary gate of 2026-11-10: green only while relays kept the machine busy).
+            float until = Time.realtimeSinceStartup + 30f;
+            for (int i = 0; (i < 600 || Time.realtimeSinceStartup < until) && host.Local.World.AliveCount == 0; i++) yield return null;
             Assert.That(host.Local.World.AliveCount, Is.GreaterThan(0), "the test's rig: nobody came onto the field, so a count of them would prove nothing");
             ready(host, router, shots);
         }
