@@ -192,8 +192,8 @@ namespace TW.Presentation.VFX.Cel
             {
                 Name = "flame wrap", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0.05f * b - 0.03f, 0.02f + 0.1f * b, 0.08f), Start = hit + 0.06f + 0.06f * b, Life = 0.6f + 0.8f * b, LifeJitter = 0.15f,
                 Close = 1, Mid = 1, Far = 0, Aim = CelAim.Up, Spread = 20f, Speed = 0.25f, SpeedJitter = 0.3f, Drag = 0.5f, Gravity = 0f, Buoyancy = 0.4f, Spin = 0f,
-                Size = new CelCurve(0.08f, 0.18f - 0.09f * b, 0.5f), SizeJitter = 0.2f, Stretch = 0f, Erode = new CelCurve(0f, 0.7f, 1.6f),
-                Palette = "fire", Core = 1.0f, Opacity = 0.85f, Ink = 2f, Extra = new Vector4(-3f, 1.3f, 2.2f, 0.85f),
+                Size = new CelCurve(0.14f, 0.36f - 0.24f * b, 0.5f), SizeJitter = 0.2f, Stretch = 0f, Erode = new CelCurve(0f, 0.75f, 1.3f),   // d42: a fan-shaped flame splash on the board (REF f96-f121), torn by noise
+                Palette = "fire", Core = 1.0f, Opacity = 0.8f, Ink = 2f, Extra = new Vector4(-3f, 2.1f, 2.8f, 1.3f),
             });
             if (ground)
             {
