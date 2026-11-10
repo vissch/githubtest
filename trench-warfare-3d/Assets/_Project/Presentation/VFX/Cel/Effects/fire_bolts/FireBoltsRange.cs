@@ -95,7 +95,7 @@ namespace TW.Presentation.VFX
                 // the comet is aimed above its hit by what its gravity drops over the flight: it arcs down onto it
                 Vector3 aim = target + Vector3.up * FireBolts.ArcLift(FireBolts.Flights[i]);
                 uint sd = seed * 7u + (uint)i * 101u;
-                CelFx.Play(FireBolts.Comets[i], from, aim - from, aim, sd);
+                CelFx.Play(s.Lod == RangeLod.Close ? FireBolts.Comets[i] : s.Lod == RangeLod.Mid ? FireBolts.CometsMid[i] : FireBolts.CometsFar[i], from, aim - from, aim, sd);
                 CelFx.Play(FireBolts.Hits[i], target, target - from, target, sd + 13u);
                 // b03: a smoke column on each ground hit, leaning up and along the shot (screen right)
                 // c01: one column on every other ground hit (1-2 per fire over the volley); dir = away, so the recipe's

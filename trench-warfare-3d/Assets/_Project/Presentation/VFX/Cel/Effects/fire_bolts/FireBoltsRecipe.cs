@@ -87,7 +87,7 @@ namespace TW.Presentation.VFX.Cel
             // d01: the path-ribbon wisp: pale white-grey lit side, the ref's #726369 grey shade, a dark grey ink
             CelPalette.Add("fb_wisp", CelPalette.Hex(0x5E565C), CelPalette.Hex(0x7A7076), CelPalette.Hex(0xA29BA0), CelPalette.Hex(0xCBC6C8),
                 CelPalette.Hex(0xE4E0E0), 1.1f, 3, CelPalette.Hex(0x2E282C));
-            Comets = new CelFxRecipe[Launch.Length];
+            Comets = new CelFxRecipe[Launch.Length]; CometsMid = new CelFxRecipe[Launch.Length]; CometsFar = new CelFxRecipe[Launch.Length];
             Hits = new CelFxRecipe[Launch.Length];
             Smokes = new CelFxRecipe[Launch.Length];
             SmokesMid = new CelFxRecipe[Launch.Length];
@@ -96,7 +96,7 @@ namespace TW.Presentation.VFX.Cel
             {
                 bool pre = i < AlongAt.Length;
                 Flights[i] = pre ? FlightOf[i] * (1f - AlongAt[i]) : FlightOf[i];
-                Comets[i] = MakeComet(Launch[i], Flights[i], pre);
+                Comets[i] = MakeComet(Launch[i], Flights[i], pre); CometsMid[i] = MakeComet(Launch[i], Flights[i], pre, 1.7f); CometsFar[i] = MakeComet(Launch[i], Flights[i], pre, 2.6f);   // d49: bigger bolts at Mid/Far (O120/O240 lost them)
                 Hits[i] = MakeHit(Launch[i] + Flights[i], OnGround[i], OnGround[i] && Launch[i] + Flights[i] > 1.15f && (gfires++ & 1) == 0);
                 Smokes[i] = MakeSmoke(Launch[i] + Flights[i], i);   // played on ground hits only (the film: the lobe chain)
                 SmokesMid[i] = MakeSmoke(Launch[i] + Flights[i], -1);   // c01: T1 plays the b05 strand (no Lobe draw added at T1)
@@ -110,7 +110,7 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>The soft pool under the whole volley: brightest ~2.95 s after the fire, gone by ~4.5 s.</summary>
         public static readonly CelFxRecipe Pool = MakePool(0f);
         /// <summary>The volley: bolt i's comet and its hit, shifted by Launch[i].</summary>
-        public static readonly CelFxRecipe[] Comets, Hits;
+        public static readonly CelFxRecipe[] Comets, Hits, CometsMid, CometsFar;
         /// <summary>b03: bolt i's smoke column (the Range plays it on ground hits only), with dir = up and a little
         /// screen-right, so the column leans along the shot.</summary>
         public static readonly CelFxRecipe[] Smokes, SmokesMid;
@@ -132,7 +132,7 @@ namespace TW.Presentation.VFX.Cel
                 });
         }
 
-        static CelFxRecipe MakeComet(float t0, float flight, bool preflown)
+        static CelFxRecipe MakeComet(float t0, float flight, bool preflown, float k = 1f)   // d49: k scales the bolt for the Mid/Far tiers
         {
             return new CelFxRecipe("fire_bolt_comet", t0 + flight,
                 new CelLayer
@@ -141,14 +141,14 @@ namespace TW.Presentation.VFX.Cel
                     Close = 1, Mid = 1, Far = 1, Aim = CelAim.Target, Speed = 0f, Spread = 0f, Spin = 3f, Gravity = ArcGravity,
                     // b01 (beach, 19 m camera): ribbon 0.2 m wide, 0.75 s of its speed long (a third to half the frame)
                     // b02: a negative Stretch draws the tail behind the birth (the opening bolts were in flight before the fire)
-                    Size = new CelCurve(0.12f, 0.26f), SizeJitter = 0.2f, Stretch = preflown ? -0.6f : 0.6f,   // d18: wider (mask diff) but unbroken and semi-transparent   // c05: a longer, thin grey trail (the ref's are lines)   // c03: the smoke ribbon ~1.5x the flame (0.75 ran to the frame edge)
+                    Size = new CelCurve(0.12f * k, 0.26f * k), SizeJitter = 0.2f, Stretch = preflown ? -0.6f : 0.6f,   // d18: wider (mask diff) but unbroken and semi-transparent   // c05: a longer, thin grey trail (the ref's are lines)   // c03: the smoke ribbon ~1.5x the flame (0.75 ran to the frame edge)
                       // c01: 0.2 -> 0.26-0.3 m (the smoke trail frays wider)
                     Erode = new CelCurve(0.06f, 0.2f),   // d18: stays whole (d17 dashes lost)   // c03: the ribbon breaks into pieces (was whole)
                     Palette = "fb_comet", CoolTo = "fb_ribbon", Core = 2.0f,   // b03: 2.6 -> 2.2 (the bodies read white-hot)
                     Opacity = 0.75f, Ink = 2f,   // d18: ribbon 75% (d16 opaque bands lost)
                     // b02: a round white-yellow head 0.2 m, a flame body that flares and tapers over 2.2 m, thin red
                     // streaks fading out to 5 m, a ribbon waving 0.08 m over 5.5 m
-                    Extra = new Vector4(0.4f, 3.8f, 0.05f, 3.0f),   // d34: head 0.28 -> 0.4 m (every paper: a dot head on a tube)   // d09: head 0.24 -> 0.28 m   // c05: head 0.3 -> 0.24 m (the teardrop flame is about half the old width), licks 3.6 m, trail wave 0.05 m over 3 m   // c03: ribbon wave 0.11 m over 2.2 m (wavy, not a straight line)   // c01: head 0.3 m, ribbon wave 0.04 m (it follows the flame's path)   // b04: head 0.26 m, the flame a long tapering streak (shader)   // b03: head 0.2 -> 0.27 m (the body is twice as wide in the shader)
+                    Extra = new Vector4(0.4f * k, 3.8f * k, 0.05f, 3.0f),   // d34: head 0.28 -> 0.4 m (every paper: a dot head on a tube)   // d09: head 0.24 -> 0.28 m   // c05: head 0.3 -> 0.24 m (the teardrop flame is about half the old width), licks 3.6 m, trail wave 0.05 m over 3 m   // c03: ribbon wave 0.11 m over 2.2 m (wavy, not a straight line)   // c01: head 0.3 m, ribbon wave 0.04 m (it follows the flame's path)   // b04: head 0.26 m, the flame a long tapering streak (shader)   // b03: head 0.2 -> 0.27 m (the body is twice as wide in the shader)
                 });
         }
 
