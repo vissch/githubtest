@@ -78,6 +78,10 @@ namespace TW.Presentation.VFX.Cel
             // r05: the thrown chunks, near black with a dark brown lit side (the ref's debris over the fire and the domes)
             CelPalette.Add("exp_chunk", CelPalette.Hex(0x120C0A), CelPalette.Hex(0x1A1210), CelPalette.Hex(0x261A14), CelPalette.Hex(0x3A2A20), CelPalette.Hex(0x3A2A20), 1.1f, 3, CelPalette.Hex(0x080504));
             // r05: the brown light over the near field (adds about #43200a at the middle: the plate's #282c37 to the ref's #6b4c41)
+            // d14: the early hazy spray round the body (ref f31-f49: cream-grey feathered wedges, additive over the ground)
+            CelPalette.Add("exp_spray", CelPalette.Hex(0x3A342C), CelPalette.Hex(0x9C9282), CelPalette.Hex(0x9A8C78), CelPalette.Hex(0x9C9282), CelPalette.Hex(0x000000), 0.3f, 4, CelPalette.Hex(0x000000));
+            // d14: the bright speck shower (opaque orange-yellow cut-out dots, no ink)
+            CelPalette.Add("exp_speck", CelPalette.Hex(0xFF9A30), CelPalette.Hex(0xFFB040), CelPalette.Hex(0xFFE090), CelPalette.Hex(0xFFF0C0), CelPalette.Hex(0xFFF0C0), 1.1f, 3, CelPalette.Hex(0xFFA040));
             CelPalette.Add("exp_brown", CelPalette.Hex(0x140A04), CelPalette.Hex(0x281408), CelPalette.Hex(0x3C2812), CelPalette.Hex(0x50381E), CelPalette.Hex(0x50381E), 1.1f, 4, CelPalette.Hex(0x000000));
         }
 
@@ -130,6 +134,23 @@ namespace TW.Presentation.VFX.Cel
                 Start = 0.05f, Duration = 2.75f, Life = 0.3f, LifeJitter = 0.2f,
                 Close = 12, Mid = 6, Far = 0, Size = new CelCurve(1.3f, 1.45f, 0.5f), SizeJitter = 0.12f, Erode = new CelCurve(0f, 0.7f, 2f),
                 Palette = "exp_star", Core = 1.1f, Opacity = 0.45f, Extra = new Vector4(ExpFxKind.Star, 0f, 0f, 10f),
+            },
+            new CelLayer
+            {
+                // d14: Close only - the early hazy spray: cream-grey wedge bursts BEHIND the body (the ball hides their middle),
+                // so only the feathered spikes show round it, ref f31-f49 (born 0.35-1.2 s = f27-f44)
+                Name = "spray haze", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.5f, 0.5f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0.0f, 0.0f),
+                Start = 0.35f, Duration = 0.85f, Life = 0.35f, LifeJitter = 0.2f,
+                Close = 12, Mid = 0, Far = 0, Size = new CelCurve(3.4f, 4.0f, 0.5f), SizeJitter = 0.15f, Erode = new CelCurve(0f, 0.7f, 2f),
+                Palette = "exp_spray", Core = 1.0f, Opacity = 0.6f, Extra = new Vector4(ExpFxKind.Star, 0f, 0f, 13f),
+            },
+            new CelLayer
+            {
+                // d14: Close only - a dense shower of small bright specks thrown out round the body f30-f50
+                Name = "speck shower", Kind = Chunk, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.5f, -1.6f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.6f, 0.0f, 0.0f),
+                Start = 0.3f, Duration = 0.9f, Life = 0.55f, LifeJitter = 0.3f, Close = 220, Mid = 0, Far = 0, Aim = CelAim.Radial, Speed = 9f, SpeedJitter = 0.6f, UpBias = 0.3f,
+                Gravity = 4f, Drag = 2f, Spin = 0f, Size = new CelCurve(0.08f, 0.05f), SizeJitter = 0.4f, Stretch = 1f,
+                Palette = "exp_speck", Core = 0.5f, Ink = 0f, Extra = new Vector4(4f, 2f, 0.3f, 0f),
             },
             new CelLayer
             {
