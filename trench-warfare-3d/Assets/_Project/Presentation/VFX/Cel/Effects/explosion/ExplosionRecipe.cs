@@ -94,6 +94,7 @@ namespace TW.Presentation.VFX.Cel
         const string Fx = ExpFxKind.KindName;
         const string Chunk = ExpChunkKind.KindName;
         const string Ribbon = ExpRibbonKind.KindName;
+        const string Puff = ExpPuffKind.KindName;
 
         public static readonly CelFxRecipe Hold = new CelFxRecipe("explosion_hold", 3.4f,
             new CelLayer
@@ -228,14 +229,14 @@ namespace TW.Presentation.VFX.Cel
             {
                 // grey-tan puffs in a slab just behind the fire: the fireball hides the middle ones, so they show round its
                 // outline from ~f40 and grow until the fire sinks into them (f96-f105)
-                Name = "wrap", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.075f, 0.8f), Shape = CelShape.Box, ShapeSize = new Vector3(4.6f, 2.0f, 0.6f),
+                Name = "wrap", Kind = Puff, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.075f, 0.8f), Shape = CelShape.Box, ShapeSize = new Vector3(4.6f, 2.0f, 0.6f),
                 Start = 1.5f, Duration = 1.35f, Life = 1.5f, LifeJitter = 0.1f, Close = 34, Mid = 8, Far = 0, Aim = CelAim.Radial, Speed = 0.75f, Drag = 1.5f, Buoyancy = 0.18f, Spin = 0.5f,
                 Size = new CelCurve(0.7f, 1.25f, 0.4f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 10f), Feather = 0.1f,
                 Palette = "exp_wrap", Core = 1f, Ink = 5.0f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0f),
             },
             new CelLayer
             {
-                Name = "wrap late", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, -0.35f, 1.6f), Shape = CelShape.Box, ShapeSize = new Vector3(5.0f, 0.9f, 0.6f),
+                Name = "wrap late", Kind = Puff, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, -0.35f, 1.6f), Shape = CelShape.Box, ShapeSize = new Vector3(5.0f, 0.9f, 0.6f),
                 Start = 2.75f, Duration = 0.4f, Life = 1.5f, LifeJitter = 0.1f, Close = 20, Mid = 6, Far = 0, Aim = CelAim.Radial, Speed = 0.6f, Drag = 1.5f, Buoyancy = 0.04f, Spin = 0.5f,
                 Size = new CelCurve(0.55f, 0.9f, 0.4f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 10f), Feather = 0.1f,
                 Palette = "exp_wrap", Core = 1f, Ink = 5.0f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0f),
@@ -450,7 +451,7 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // r05: grey puffs standing round the site after its dome
-                Name = "puffs", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.875f, 0.0f), Shape = CelShape.Box, ShapeSize = new Vector3(2.5f, 1.0f, 1.0f),
+                Name = "puffs", Kind = Puff, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.875f, 0.0f), Shape = CelShape.Box, ShapeSize = new Vector3(2.5f, 1.0f, 1.0f),
                 Start = 0.03f, Duration = 0.18f, Life = 1.4f, LifeJitter = 0.2f, Close = 13, Mid = 3, Far = 0, Aim = CelAim.Radial, Speed = 1.0f, Drag = 1.2f, Buoyancy = 0.188f, Spin = 0.4f,
                 Size = new CelCurve(0.35f, 1.2f, 0.35f), SizeJitter = 0.3f, Erode = new CelCurve(0.04f, 1f, 5f), Feather = 0.1f,
                 Palette = "exp_wrap", Core = 1f, Ink = 5.0f, Extra = new Vector4(1.6f, 0.24f, 0.6f, 0.0f),
@@ -513,7 +514,7 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // r05: grey puffs standing round the site after its dome
-                Name = "puffs", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.875f, 0.0f), Shape = CelShape.Box, ShapeSize = new Vector3(2.5f, 1.0f, 1.0f),
+                Name = "puffs", Kind = Puff, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.875f, 0.0f), Shape = CelShape.Box, ShapeSize = new Vector3(2.5f, 1.0f, 1.0f),
                 Start = 0.03f, Duration = 0.18f, Life = 1.4f, LifeJitter = 0.2f, Close = 11, Mid = 3, Far = 0, Aim = CelAim.Radial, Speed = 1.0f, Drag = 1.2f, Buoyancy = 0.188f, Spin = 0.4f,
                 Size = new CelCurve(0.28f, 0.75f, 0.35f), SizeJitter = 0.3f, Erode = new CelCurve(0.04f, 1f, 5f), Feather = 0.1f,
                 Palette = "exp_wrap", Core = 1f, Ink = 5.0f, Extra = new Vector4(1.6f, 0.24f, 0.6f, 0.0f),
@@ -575,7 +576,7 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // r05: grey puffs standing round the site after its dome
-                Name = "puffs", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.75f, 0.0f), Shape = CelShape.Box, ShapeSize = new Vector3(3.375f, 1.05f, 0.75f),
+                Name = "puffs", Kind = Puff, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.75f, 0.0f), Shape = CelShape.Box, ShapeSize = new Vector3(3.375f, 1.05f, 0.75f),
                 Start = 0.03f, Duration = 0.18f, Life = 1.4f, LifeJitter = 0.2f, Close = 13, Mid = 3, Far = 0, Aim = CelAim.Radial, Speed = 0.6f, Drag = 1.2f, Buoyancy = 0.112f, Spin = 0.4f,
                 Size = new CelCurve(0.45f, 1.45f, 0.35f), SizeJitter = 0.3f, Erode = new CelCurve(0.04f, 1f, 5f), Feather = 0.1f,
                 Palette = "exp_wrap", Core = 1f, Ink = 5.0f, Extra = new Vector4(1.6f, 0.24f, 0.6f, 0.0f),
@@ -584,7 +585,12 @@ namespace TW.Presentation.VFX.Cel
         public static readonly CelFxRecipe Cloud = new CelFxRecipe("explosion_cloud", 4.6f,
             new CelLayer
             {
-                Name = "smoke", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Shape = CelShape.Box, ShapeSize = new Vector3(5.4f, 1.3f, 1.4f),
+                // e02: the late bank joins the rest of the smoke wall on ExpPuff. e01 could not carry it, because
+                // there the many-puffs read had to be bought with gaps between the sub-balls and the bank lost
+                // mass (f98-f134 fell from .198/.164/.142/.120 to .148/.115/.096/.086, under the reference's
+                // .194/.191/.194/.180). With the sub-puff contours drawn as ink the union can stay full, so the
+                // detail no longer costs area.
+                Name = "smoke", Kind = Puff, Anchor = CelAnchor.Target, Shape = CelShape.Box, ShapeSize = new Vector3(5.4f, 1.3f, 1.4f),
                 Duration = 0.35f, Life = 1.8f, LifeJitter = 0.04f, Close = 34, Mid = 12, Far = 0, Aim = CelAim.Radial, Speed = 0.6f, Drag = 1.4f, Buoyancy = 0.04f, Spin = 0.4f,
                 Size = new CelCurve(0.5f, 0.88f, 0.35f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 40f), Feather = 0.1f,
                 Palette = "exp_smoke", Core = 1f, Ink = 5.0f, Extra = new Vector4(1.3f, 0.16f, 0.8f, 0f),

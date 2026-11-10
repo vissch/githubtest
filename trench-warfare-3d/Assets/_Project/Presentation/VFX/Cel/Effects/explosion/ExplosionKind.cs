@@ -47,4 +47,19 @@ namespace TW.Presentation.VFX.Cel
         public override int Capacity => 1024;
         public override int Order => 16;
     }
+
+    /// <summary>e01: a churning cel smoke puff (Shaders/Cel/Effects/explosion/CelExpPuff_URP.shader): one record is a
+    /// metaball of six gaussian sub-balls that spread, curl and lift over the life, so the puff changes shape instead
+    /// of being a sphere whose lumps are fixed at birth. Opaque, alpha-tested, one quad and one draw per record. A
+    /// drop-in for a kit Lobe layer: every record field keeps its Lobe meaning (size.w becomes the sub-ball spread).
+    /// Kept for a build by Resources/ShaderKeep/KeepCelExpPuff.mat.</summary>
+    public sealed class ExpPuffKind : CelKind
+    {
+        public const string KindName = "ExpPuff";
+        public override string Name => KindName;
+        public override Shader FindShader() => Shader.Find("TW/Cel/ExpPuff");
+        public override Mesh BuildMesh() => CelMeshes.Quad01("Cel ExpPuff");
+        public override int Capacity => 1024;
+        public override int Order => 11;
+    }
 }
