@@ -99,8 +99,29 @@ namespace TW.Presentation.VFX.Cel
             {
                 // the first dome of light: soft, a little wider than the dummy is tall, gone in 8 frames
                 Name = "flash", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.45f, -3.3f), Start = 0f, Life = 0.34f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(1.9f, 2.1f, 0.5f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 1.5f),
+                // d12: Mid/Far only; the Close film plays the onset dome below instead
+                Close = 0, Mid = 1, Far = 1, Size = new CelCurve(1.9f, 2.1f, 0.5f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 1.5f),
                 Palette = "exp_dome", Core = 1.2f, Opacity = 0.6f, Extra = new Vector4(ExpFxKind.Flash, 0.7f, 1.845f, 0f),
+            },
+            new CelLayer
+            {
+                // d12: the white-hot ground dome over the impact (ref f18-f26), Close only, on the fire's own frames
+                Name = "onset dome", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, -0.3f, -3.3f), Start = 0f, Life = 0.36f, LifeJitter = 0f,
+                Close = 1, Mid = 0, Far = 0, Size = new CelCurve(2.9f, 3.2f, 0.5f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 3.0f),
+                Palette = "exp_dome", Core = 1.6f, Opacity = 0.9f, Extra = new Vector4(ExpFxKind.Flash, 0.4f, 0.95f, 0f),
+            },
+            new CelLayer
+            {
+                Name = "onset core", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, -0.1f, -3.4f), Start = 0f, Life = 0.3f, LifeJitter = 0f,
+                Close = 1, Mid = 0, Far = 0, Size = new CelCurve(1.5f, 1.7f, 0.5f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 2.5f),
+                Palette = "exp_dome", Core = 2.0f, Opacity = 0.8f, Extra = new Vector4(ExpFxKind.Flash, 0.7f, 0f, 0f),
+            },
+            new CelLayer
+            {
+                // d12: a fainter afterglow holding the lit area through the f30-f44 sag, Close only
+                Name = "onset afterglow", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, -0.3f, -3.2f), Start = 0.25f, Life = 0.85f, LifeJitter = 0f,
+                Close = 1, Mid = 0, Far = 0, Size = new CelCurve(2.4f, 2.7f, 0.5f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 2.0f),
+                Palette = "exp_dome", Core = 1.0f, Opacity = 0.6f, Extra = new Vector4(ExpFxKind.Flash, 0.5f, 0.95f, 0f),
             },
             new CelLayer
             {
