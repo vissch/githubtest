@@ -93,6 +93,7 @@ namespace TW.Presentation.VFX.Cel
 
         const string Fx = ExpFxKind.KindName;
         const string Chunk = ExpChunkKind.KindName;
+        const string Ribbon = ExpRibbonKind.KindName;
 
         public static readonly CelFxRecipe Hold = new CelFxRecipe("explosion_hold", 3.4f,
             new CelLayer
@@ -249,18 +250,18 @@ namespace TW.Presentation.VFX.Cel
             },
             new CelLayer
             {
-                Name = "sparks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.3f, -2.6f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.45f, 0.0f, 0.0f),
-                Start = 0f, Duration = 2.8f, Life = 0.4f, Close = 100, Mid = 20, Far = 0, Aim = CelAim.Radial, Speed = 30.0f, SpeedJitter = 0.5f, UpBias = 0.7f,
-                Gravity = 6.0f, Drag = 1.5f, Size = new CelCurve(0.09f, 0.045f), Stretch = 0.09f, Erode = new CelCurve(0.05f, 0.5f),
-                Palette = "exp_spark", Core = 5f, Extra = new Vector4(0f, 0.3f, 0.5f, 0f),
+                Name = "sparks", Kind = Ribbon, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.3f, -2.6f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.45f, 0.0f, 0.0f),
+                Start = 0f, Duration = 2.8f, Life = 0.4f, Close = 100, Mid = 0, Far = 0, Aim = CelAim.Radial, Speed = 30.0f, SpeedJitter = 0.5f, UpBias = 0.7f,
+                Gravity = 6.0f, Drag = 1.5f, Size = new CelCurve(0.08f, 0.04f), Stretch = 0.09f, Erode = new CelCurve(0.05f, 0.5f),
+                Palette = "exp_spark", Core = 5f, Extra = new Vector4(0f, 1.3f, 0.5f, 0.5f),
             },
             new CelLayer
             {
                 // b02: ~30 white streaks alive at once spraying radially in front of the fire from ref f31 (orange tails)
-                Name = "white streaks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.4f, -2.9f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0.0f, 0.0f),
-                Start = 0.45f, Duration = 2.5f, Life = 0.3f, LifeJitter = 0.3f, Close = 160, Mid = 30, Far = 0, Aim = CelAim.Radial, Speed = 13.0f, SpeedJitter = 0.5f, UpBias = 0.3f,
-                Gravity = 3.0f, Drag = 1.0f, Size = new CelCurve(0.11f, 0.05f), SizeJitter = 0.3f, Stretch = 0.15f, Erode = new CelCurve(0.03f, 0.4f),
-                Palette = "exp_arc", Core = 5f, Extra = new Vector4(0f, 0.4f, 0.6f, 0f),
+                Name = "white streaks", Kind = Ribbon, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.4f, -2.9f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0.0f, 0.0f),
+                Start = 0.45f, Duration = 2.5f, Life = 0.3f, LifeJitter = 0.3f, Close = 160, Mid = 0, Far = 0, Aim = CelAim.Radial, Speed = 13.0f, SpeedJitter = 0.5f, UpBias = 0.3f,
+                Gravity = 3.0f, Drag = 1.0f, Size = new CelCurve(0.095f, 0.045f), SizeJitter = 0.3f, Stretch = 0.15f, Erode = new CelCurve(0.03f, 0.4f),
+                Palette = "exp_arc", Core = 5f, Extra = new Vector4(0f, 1.2f, 0.6f, 0.6f),
             },
             new CelLayer
             {
@@ -308,10 +309,10 @@ namespace TW.Presentation.VFX.Cel
             },
             new CelLayer
             {
-                Name = "closing sparks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.6f, 0.0f, 0.0f),
-                Start = 2.65f, Duration = 0.12f, Life = 0.5f, Close = 45, Mid = 20, Far = 0, Aim = CelAim.Radial, Speed = 33.0f, SpeedJitter = 0.5f, UpBias = 0.4f,
-                Gravity = 7.5f, Drag = 1.2f, Size = new CelCurve(0.105f, 0.053f), Stretch = 0.1f, Erode = new CelCurve(0.05f, 0.5f),
-                Palette = "exp_spark", Core = 5f, Extra = new Vector4(0f, 0.3f, 0.4f, 0f),
+                Name = "closing sparks", Kind = Ribbon, Anchor = CelAnchor.Target, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.6f, 0.0f, 0.0f),
+                Start = 2.65f, Duration = 0.12f, Life = 0.5f, Close = 45, Mid = 0, Far = 0, Aim = CelAim.Radial, Speed = 33.0f, SpeedJitter = 0.5f, UpBias = 0.4f,
+                Gravity = 7.5f, Drag = 1.2f, Size = new CelCurve(0.09f, 0.045f), Stretch = 0.1f, Erode = new CelCurve(0.05f, 0.5f),
+                Palette = "exp_spark", Core = 5f, Extra = new Vector4(0f, 1.4f, 0.4f, 0.3f),
             },
             new CelLayer
             {
@@ -358,6 +359,30 @@ namespace TW.Presentation.VFX.Cel
                 Start = 1.3f, Duration = 1.7f, Life = 1.8f, LifeJitter = 0.15f, Close = 0, Mid = 5, Far = 5, Aim = CelAim.Radial, Speed = 0.6f, Drag = 1.5f, Buoyancy = 0.15f, Spin = 0.4f,
                 Size = new CelCurve(1.0f, 1.9f, 0.4f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 10f), Feather = 0.1f,
                 Palette = "exp_wrap", Core = 1f, Ink = 3.0f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0f),
+            },
+            new CelLayer
+            {
+                // d20: Mid-only copy of the sparks as kit Streaks (the Close ones are ExpRibbons; appended so no seed re-rolls)
+                Name = "sparks mid", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.3f, -2.6f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.45f, 0.0f, 0.0f),
+                Start = 0f, Duration = 2.8f, Life = 0.4f, Close = 0, Mid = 20, Far = 0, Aim = CelAim.Radial, Speed = 30.0f, SpeedJitter = 0.5f, UpBias = 0.7f,
+                Gravity = 6.0f, Drag = 1.5f, Size = new CelCurve(0.09f, 0.045f), Stretch = 0.09f, Erode = new CelCurve(0.05f, 0.5f),
+                Palette = "exp_spark", Core = 5f, Extra = new Vector4(0f, 0.3f, 0.5f, 0f),
+            },
+            new CelLayer
+            {
+                // d20: Mid-only copy of the white streaks as kit Streaks
+                Name = "white streaks mid", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.4f, -2.9f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0.0f, 0.0f),
+                Start = 0.45f, Duration = 2.5f, Life = 0.3f, LifeJitter = 0.3f, Close = 0, Mid = 30, Far = 0, Aim = CelAim.Radial, Speed = 13.0f, SpeedJitter = 0.5f, UpBias = 0.3f,
+                Gravity = 3.0f, Drag = 1.0f, Size = new CelCurve(0.11f, 0.05f), SizeJitter = 0.3f, Stretch = 0.15f, Erode = new CelCurve(0.03f, 0.4f),
+                Palette = "exp_arc", Core = 5f, Extra = new Vector4(0f, 0.4f, 0.6f, 0f),
+            },
+            new CelLayer
+            {
+                // d20: Mid-only copy of the closing sparks as kit Streaks
+                Name = "closing sparks mid", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.6f, 0.0f, 0.0f),
+                Start = 2.65f, Duration = 0.12f, Life = 0.5f, Close = 0, Mid = 20, Far = 0, Aim = CelAim.Radial, Speed = 33.0f, SpeedJitter = 0.5f, UpBias = 0.4f,
+                Gravity = 7.5f, Drag = 1.2f, Size = new CelCurve(0.105f, 0.053f), Stretch = 0.1f, Erode = new CelCurve(0.05f, 0.5f),
+                Palette = "exp_spark", Core = 5f, Extra = new Vector4(0f, 0.3f, 0.4f, 0f),
             });
 
         /// <summary>Two tracers that arrive before the fire (the clips' first round is in the air at 0.6 s).</summary>

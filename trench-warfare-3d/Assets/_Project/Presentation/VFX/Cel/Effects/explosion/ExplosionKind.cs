@@ -31,3 +31,20 @@ namespace TW.Presentation.VFX.Cel
         public override int Order => 12;
     }
 }
+
+namespace TW.Presentation.VFX.Cel
+{
+    /// <summary>d20: a path-ribbon spark streak (Shaders/Cel/Effects/explosion/CelExpRibbon_URP.shader): a thin strip
+    /// following the record's own past path plus a seeded screen-plane bend, tapering head to tail, white core with a
+    /// faint warm edge, additive, one draw. A drop-in for a Streak layer. Kept for a build by
+    /// Resources/ShaderKeep/KeepCelExpRibbon.mat.</summary>
+    public sealed class ExpRibbonKind : CelKind
+    {
+        public const string KindName = "ExpRibbon";
+        public override string Name => KindName;
+        public override Shader FindShader() => Shader.Find("TW/Cel/ExpRibbon");
+        public override Mesh BuildMesh() => CelMeshes.Strip(16, "Cel ExpRibbon");
+        public override int Capacity => 1024;
+        public override int Order => 16;
+    }
+}
