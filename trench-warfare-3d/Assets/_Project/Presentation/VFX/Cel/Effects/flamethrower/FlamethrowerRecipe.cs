@@ -133,7 +133,7 @@ namespace TW.Presentation.VFX.Cel
             {
                 // b02: the fireball swells late (the clip peaks at f84-f95 = 2.7-3.2 s after our fire): later, bigger, more
                 Name = "fire c", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.3f, -0.3f), Start = 2.6f, Duration = 1.0f, Life = 0.8f,   /* d12: the fireball swells on the dummy through the cut (d06); d13: out by ~f118 (was still burning at f122) */ LifeJitter = 0.2f,
-                Close = 26, Mid = 3, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.0f, 0f, 0f), Aim = CelAim.Dir, Speed = 3.0f, SpeedJitter = 0.4f, Spread = 60f, Drag = 1.0f, Buoyancy = 1.0f, Spin = 0.9f,
+                Close = 0, Mid = 3, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.0f, 0f, 0f), Aim = CelAim.Dir, Speed = 3.0f, SpeedJitter = 0.4f, Spread = 60f, Drag = 1.0f, Buoyancy = 1.0f, Spin = 0.9f,
                 Size = new CelCurve(0.8f, 1.7f, 0.6f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.12f,
                 Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.4f, Core = 2.5f, Ink = 2.4f, Extra = new Vector4(1.4f, 0.26f, 0f, 0.88f),
             },
@@ -241,6 +241,17 @@ namespace TW.Presentation.VFX.Cel
                 Size = new CelCurve(2.4f, 3.6f, 0.5f), SizeJitter = 0.35f, Stretch = 0.4f, Buoyancy = 0.3f,
                 Erode = new CelCurve(0.35f, 0.3f, 1f), Feather = 0.45f,
                 Palette = Flame, Core = 3.5f, Ink = 1.0f, Extra = new Vector4(6f, 0.8f, 0.5f, -1.0f),
+            },
+            new CelLayer
+            {
+                // d47 (NEW PRIMITIVE, fracture 9): the fireball at the dummy as a few FIREBALL RING discs (CelFlameJet_URP
+                // BallField, extra.w -2): a round ring of curling inked tongues wrapping the dummy that opens a dark smoke
+                // hole late (REF f101-f111), in place of the Lobe kind's lumpy yellow chunks. Last in the list (no seed shift).
+                Name = "fireball ring", Kind = "FlameJet", Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.6f, -1.0f), Start = 2.6f, Duration = 0.4f, Life = 1.5f, LifeJitter = 0.15f,
+                Close = 3, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.15f, 0f, 0f), Aim = CelAim.None, Speed = 0f, Buoyancy = 0.3f,
+                Size = new CelCurve(1.4f, 2.1f, 0.5f), SizeJitter = 0.15f,
+                Erode = new CelCurve(0.45f, 0.45f, 1f),
+                Palette = Burn, CoolTo = SmokeInk, Core = 2.5f, Ink = 2.2f, Extra = new Vector4(0.9f, 4f, 0.8f, -2.0f),
             });
 
         /// <summary>Fire the flamethrower from `nozzle` onto `target` (a body's chest).</summary>
@@ -269,7 +280,7 @@ namespace TW.Presentation.VFX.Cel
                 var l = JsonUtility.FromJson<CelLayer>(JsonUtility.ToJson(s));
                 l.Start = l.Start * k + delay; l.Duration *= k; l.TimeJitter *= k; l.Life *= k;
                 l.Speed /= k; l.Gravity /= k2; l.Buoyancy /= k2; l.Drag /= k; l.Spin /= k;
-                if (l.Kind == "FlameJet") { l.Erode = new CelCurve(l.Erode.From * k, l.Erode.To * k, l.Erode.Pow); l.Extra.x /= k; }
+                if (l.Kind == "FlameJet" && l.Extra.w > -1.5f) { l.Erode = new CelCurve(l.Erode.From * k, l.Erode.To * k, l.Erode.Pow); l.Extra.x /= k; }
                 if (l.Kind == CelKinds.StreakName) l.Stretch *= k;
                 dst.Layers.Add(l);
             }

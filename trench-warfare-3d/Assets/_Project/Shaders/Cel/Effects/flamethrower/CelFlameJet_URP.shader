@@ -354,6 +354,31 @@ Shader "TW/Cel/FlameJet"
             float axisL = saturate(1.0 - (d + 0.12 * n2 * R) / max(axisW * R, 0.03)) * smoothstep(0.0, 0.06, s) * (1.0 - smoothstep(0.85, 1.1, s));
             return float3(h, streak, axisL);
         }
+        // d47 (NEW PRIMITIVE, fracture 9): FIREBALL RING - one camera-facing disc per record (extra.w <= -1.5) drawn on the
+        // same strip mesh as a quad. Polar field round its centre: a ring of flame tongues whose angle swirls with the
+        // radius (they curl round the middle), licking up more on top; late in the life a dark smoke hole opens inside
+        // (REF f101-f111: a round ring of curling inked flame wrapping the dummy, dark smoke in its middle). Bands from the
+        // distance into the ring, cooling into the smoke row (tone.x packed) from 70 % of the life.
+        //   size  x radius at birth, y at death, z ease; erode x = the hole's final share of the radius
+        //   extra x swirl (rad per radius), y tongue count, z spin (rad/s)
+        #define BALL_Q 1.45
+        float3 BallCentre(CelRecord r) { return CelPosition(r, max(CelAge(r), 0.0)); }
+        float BallR(CelRecord r) { return CelCurve(r.size.xyz, CelLife01(r)); }
+        // x the fire field (>0 inside the flame), y the hole field (>0 inside the smoke hole), z polar noise for the bands
+        float3 BallField(CelRecord r, float2 q)
+        {
+            float t = CelAge(r), k = CelLife01(r), sd = r.seed * 23.0;
+            float rho = length(q);
+            float th = atan2(q.y, q.x) + r.extra.x * rho - t * r.extra.z * (r.seed > 0.5 ? 1.0 : -1.0);
+            float n1 = CelSimplex3(float3(cos(th) * r.extra.y * 0.5, sin(th) * r.extra.y * 0.5, t * 0.9 + sd));
+            float n2 = CelSimplex3(float3(cos(th) * 2.0, sin(th) * 2.0, t * 1.7 + sd + 4.0));
+            float up = saturate(q.y / max(rho, 1e-3));
+            float outer = (0.74 + 0.22 * n1 + 0.08 * n2 + 0.22 * up * up) * (1.0 - 0.35 * smoothstep(0.75, 1.0, k));
+            float hole = r.erode.x * smoothstep(0.45, 1.0, k) * (0.8 + 0.3 * n2);
+            float fo = (outer - rho) / max(outer, 1e-3);
+            float fi = hole > 0.01 ? (rho - hole) / max(outer - hole, 0.05) : 1.0;
+            return float3(min(fo, fi), -fi, n1 * 0.5 + n2 * 0.5);
+        }
         ENDHLSL
 
         Pass
@@ -379,6 +404,18 @@ Shader "TW/Cel/FlameJet"
             Varyings vert(Attributes v, uint instanceID : SV_InstanceID)
             {
                 Varyings o;
+                if (CelFetch(instanceID).extra.w < -1.5)
+                {
+                    CelRecord rq = CelFetch(instanceID);
+                    float2 cq = (v.uv * 2.0 - 1.0) * BALL_Q;
+                    float3 pw = CelBillboard(BallCentre(rq), cq * BallR(rq) * CelAlive(rq));
+                    o.positionWS = pw;
+                    o.positionCS = TransformWorldToHClip(pw);
+                    o.jet = float3(cq, 0.0);
+                    o.fog = ComputeFogFactor(o.positionCS.z);
+                    o.id = GetIndirectInstanceID_Base(instanceID);
+                    return o;
+                }
                 if (CelFetch(instanceID).extra.w < 0.0)
                 {
                     RibOut rb = Rib(v.uv, instanceID);
@@ -403,6 +440,23 @@ Shader "TW/Cel/FlameJet"
                 CelRecord r = _CelRecords[i.id];
                 float streak;
                 g_jetSeam = 0.0;
+                if (r.extra.w < -1.5)
+                {
+                    float3 bf = BallField(r, i.jet.xy);
+                    float k = CelLife01(r);
+                    if (bf.y > 0.0)
+                    {
+                        // the smoke hole: dark smoke, ink at its rim
+                        half3 sc = CelRamp(saturate(0.15 + 0.2 * bf.z), CelRowB(r.tone.x), 1.0);
+                        return half4(MixFog(sc, i.fog), 1.0);
+                    }
+                    clip(bf.x);
+                    float bv = saturate(0.12 + 1.5 * bf.x + 0.25 * bf.z);
+                    half3 bc = CelRamp2(bv, r.tone.x, r.tone.y, k, 0.88);
+                    float bink = max(CelInk(bf.x, 0.0, CelLodInk(r.tone.w)), CelInk(-bf.y, 0.0, CelLodInk(r.tone.w)));
+                    bc = lerp(bc, CelInkColor(r.tone.x, k, 0.88), bink);
+                    return half4(MixFog(bc, i.fog), 1.0);
+                }
                 if (r.extra.w < 0.0)
                 {
                     float rf = RibField(r, i.jet.x, i.jet.y, i.jet.z, streak);
@@ -463,6 +517,7 @@ Shader "TW/Cel/FlameJet"
             {
                 JetOut j = Jet(v.uv, instanceID);
                 DepthVaryings o;
+                if (CelFetch(instanceID).extra.w < -1.5) { o.positionCS = float4(0.0, 0.0, -2.0, 1.0); o.positionWS = 0; o.id = 0; return o; }
                 o.positionCS = TransformWorldToHClip(j.positionWS);
                 o.positionWS = j.positionWS;
                 o.id = GetIndirectInstanceID_Base(instanceID);
