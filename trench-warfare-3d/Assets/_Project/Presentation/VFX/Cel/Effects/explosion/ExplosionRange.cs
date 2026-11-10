@@ -75,7 +75,7 @@ namespace TW.Presentation.VFX.Cel
             for (int i = 0; i < Sites.Length; i++)
             {
                 Vector3 g = GroundAt(s.Ground + rh * Sites[i].x + fh * Sites[i].y, s.Ground.y);
-                ExplosionRecipe.PlayAt(FarSite(i) ? ExplosionRecipe.SiteFar : ExplosionRecipe.Site, g, fh, g, seed + 101u * (uint)(i + 1), Sites[i].z);
+                ExplosionRecipe.PlayAt(FarSite(i) ? ExplosionRecipe.SiteFar : (i <= 1 ? ExplosionRecipe.SiteNear : ExplosionRecipe.Site), g, fh, g, seed + 101u * (uint)(i + 1), Sites[i].z);
             }
             // the late fan goes low to the lower left of the frame: left and toward the eye, a little down
             Vector3 fanDir = (-rh - 0.75f * fh - 0.22f * Vector3.up).normalized;

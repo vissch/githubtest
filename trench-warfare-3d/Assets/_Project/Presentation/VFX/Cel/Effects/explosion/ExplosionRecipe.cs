@@ -401,6 +401,69 @@ namespace TW.Presentation.VFX.Cel
                 Palette = "exp_wrap", Core = 1f, Ink = 5.0f, Extra = new Vector4(1.6f, 0.24f, 0.6f, 0.0f),
             });
 
+        // d17: sites 0/1 (the left smoke cluster, ref f59-f87): Site with smaller puffs only - same exp_wrap
+        // colour, life and layer order (so the seeds match Site)
+        public static readonly CelFxRecipe SiteNear = new CelFxRecipe("explosion_site_near", 1.2f,
+            new CelLayer
+            {
+                // a soft dome of white-yellow light, no wider than about twice the dummy's height, gone in 8 frames
+                Name = "dome", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.312f, -2.5f), Life = 0.24f, LifeJitter = 0f,
+                Close = 1, Mid = 1, Far = 1, Size = new CelCurve(2.25f, 2.5f, 0.4f), SizeJitter = 0.08f, Erode = new CelCurve(0f, 1f, 0.8f),
+                Palette = "exp_dome", Core = 1.4f, Opacity = 1.0f, Extra = new Vector4(ExpFxKind.Flash, 0.6f, 0.312f, 0f),
+            },
+            new CelLayer
+            {
+                Name = "pool", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.025f, 0.0f), Life = 0.9f, LifeJitter = 0f,
+                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(2.75f, 3.75f, 0.4f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 2f),
+                Palette = "exp_pool", Core = 1f, Extra = new Vector4(ExpFxKind.Pool, 1.7f, 0f, 0f),
+            },
+            new CelLayer
+            {
+                // r03: no fireball at a side site; after the dome, an orange spark plume thrown up out of the ground
+                Name = "plume", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.25f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0.0f, 0.0f),
+                Start = 0.05f, Duration = 0.45f, Life = 0.8f, LifeJitter = 0.3f, Close = 30, Mid = 10, Far = 0, Aim = CelAim.Up, Spread = 50f, Speed = 15.0f, SpeedJitter = 0.5f,
+                Gravity = 11.25f, Drag = 0.8f, Size = new CelCurve(0.15f, 0.075f), SizeJitter = 0.3f, Stretch = 0.08f, Erode = new CelCurve(0.05f, 0.5f),
+                Palette = "exp_tracer", Core = 3f, Extra = new Vector4(0f, 0.3f, 0.3f, 0f),
+            },
+            new CelLayer
+            {
+                Name = "sparks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.625f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.375f, 0.0f, 0.0f),
+                Duration = 0.3f, Life = 0.55f, Close = 40, Mid = 12, Far = 0, Aim = CelAim.Radial, Speed = 22.5f, SpeedJitter = 0.5f, UpBias = 0.6f,
+                Gravity = 7.5f, Drag = 1.2f, Size = new CelCurve(0.09f, 0.05f), Stretch = 0.07f, Erode = new CelCurve(0.05f, 0.5f),
+                Palette = "exp_spark", Core = 4f, Extra = new Vector4(0f, 0.3f, 0.4f, 0f),
+            },
+            new CelLayer
+            {
+                Name = "debris", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.5f, 0.0f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0.0f, 0.0f),
+                Start = 0.04f, Duration = 0.3f, Life = 1.3f, LifeJitter = 0.2f, Close = 20, Mid = 6, Far = 0, Aim = CelAim.Radial, Speed = 5.0f, SpeedJitter = 0.6f, UpBias = 0.45f,
+                Gravity = 14f, Drag = 0.5f, Spin = 4f, Size = new CelCurve(0.18f, 0.12f), SizeJitter = 0.4f, Stretch = 0.7f, Erode = new CelCurve(0f, 0.4f, 4f),
+                Palette = "exp_chunk", Core = 1f, Ink = 2.5f, Extra = new Vector4(4.5f, 0.75f, 0f, 0f),
+            },
+            new CelLayer
+            {
+                // r05: big chunks thrown high, a cluster against the fog (ref f59-f87)
+                Name = "big chunks", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.75f, -0.9f), Shape = CelShape.Sphere, ShapeSize = new Vector3(1.0f, 0.0f, 0.0f),
+                Start = 0.06f, Duration = 0.5f, Life = 1.4f, LifeJitter = 0.25f, Close = 15, Mid = 4, Far = 0, Aim = CelAim.Radial, Speed = 3.0f, SpeedJitter = 0.5f, UpBias = 0.2f,
+                Gravity = 14f, Drag = 0.6f, Spin = 3f, Size = new CelCurve(0.14f, 0.1f), SizeJitter = 0.4f, Stretch = 0.6f, Erode = new CelCurve(0f, 0.4f, 4f),
+                Palette = "exp_chunk", Core = 1f, Ink = 2.2f, Extra = new Vector4(4.5f, 0.75f, 0f, 0f),
+            },
+            new CelLayer
+            {
+                // d11: dense black angular chunks thrown up and out over the side blast, falling (ref f87-f91)
+                Name = "chunk burst", Kind = Chunk, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.55f, -1.4f), Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0.0f, 0.0f),
+                Start = 0.05f, Duration = 0.45f, Life = 1.3f, LifeJitter = 0.3f, Close = 105, Mid = 12, Far = 0, Aim = CelAim.Radial, Speed = 7.0f, SpeedJitter = 0.65f, UpBias = 0.55f,
+                Gravity = 12f, Drag = 0.6f, Spin = 7f, Size = new CelCurve(0.105f, 0.065f), SizeJitter = 0.55f, Stretch = 1.7f,
+                Palette = "exp_chunk", Core = 0.3f, Ink = 1.5f, Extra = new Vector4(4f, 3f, 0.5f, 0f),
+            },
+            new CelLayer
+            {
+                // r05: grey puffs standing round the site after its dome
+                Name = "puffs", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.875f, 0.0f), Shape = CelShape.Box, ShapeSize = new Vector3(2.5f, 1.0f, 1.0f),
+                Start = 0.03f, Duration = 0.18f, Life = 1.4f, LifeJitter = 0.2f, Close = 11, Mid = 3, Far = 0, Aim = CelAim.Radial, Speed = 1.0f, Drag = 1.2f, Buoyancy = 0.188f, Spin = 0.4f,
+                Size = new CelCurve(0.28f, 0.75f, 0.35f), SizeJitter = 0.3f, Erode = new CelCurve(0.04f, 1f, 5f), Feather = 0.1f,
+                Palette = "exp_wrap", Core = 1f, Ink = 5.0f, Extra = new Vector4(1.6f, 0.24f, 0.6f, 0.0f),
+            });
+
         // r04: a side blast far across the field (ref f77): the same pieces with a bigger, brighter dome
         public static readonly CelFxRecipe SiteFar = new CelFxRecipe("explosion_site_far", 1.2f,
             new CelLayer
