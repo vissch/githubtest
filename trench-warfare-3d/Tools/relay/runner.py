@@ -173,9 +173,9 @@ class Run:
             self.ctx["spent_kinds"] = dict(ledger.spent(self.board, lim=self.lim).get("kinds") or {})
         except (SystemExit, Exception):                     # noqa: BLE001 - a day that cannot be read splits nothing
             self.ctx["spent_kinds"] = {}
-        try:                                                # the day's whole cap in dollars: fix and critique stop
-            b = self.day()                                  # at their share of it (sources.over_ceiling)
-            self.ctx["cap_usd"] = (b["left_usd"] + sum(float(v or 0) for v in self.ctx["spent_kinds"].values())) if b else None
+        try:                                                # the day's whole cap in dollars of cost, as left_usd is
+            b = self.day()                                  # counted: fix and critique stop at their share of it
+            self.ctx["cap_usd"] = b["cap"] * b["usd_per"] if b else None        # (sources.over_ceiling)
         except (SystemExit, Exception):                     # noqa: BLE001 - no cap read: no ceiling, as before
             self.ctx["cap_usd"] = None
 
@@ -442,13 +442,16 @@ class Run:
         boardio.leg_record(self.board, self.station, leg, moved_on_origin=moved,
                            style_problems=config.report_problems(leg.get("report") or "", self.style))
         bad = ("broke a rule: " + "; ".join(broke[:4])) if broke else launch.ran_clean(leg)
-        if bad and phase == "retro" and not broke and not (leg["state"] == "STOPPED" and self.stop_file.exists()):
-            # A retrospective only reads and proposes: one that did not run clean is skipped, the run goes on
-            # (11-08: three runs ended at their first retro, its Haiku leg started in default mode).
+        if bad and phase == "retro" and not broke and leg["state"] not in launch.BAD_END and leg.get("hooked") \
+                and leg.get("guard_intact") and not leg.get("unguarded"):
+            # A retrospective only reads and proposes: one whose mode, exit or session end was wrong is skipped and
+            # nothing of it is taken (retro() sees "skipped"); the run goes on (11-08: three runs ended at their
+            # first retro, its Haiku leg started in default mode). A bad end (TIMEOUT, the owner's stop) or a guard
+            # that did not hold still stops the run below.
             print("retrospective: skipped, leg %02d %s" % (self.legs, bad), flush=True)
             self.on, self.at = "", None
             self.live()
-            return d, leg
+            return d, dict(leg, skipped=bad)
         if bad:
             saved = "uncommitted work saved in %s" % d if gitio.snapshot_dirty(self.work, d) else ""
             if leg["state"] == "STOPPED" and self.stop_file.exists():
@@ -656,6 +659,9 @@ class Run:
             "You may tune only: %s." % ", ".join(config.RETRO_TUNES)])
         d, leg = self.leg(unit, "retro", body, fill=fill)
         self.retro_at = self.legs
+        if leg.get("skipped"):                              # it did not run clean: nothing of it is taken
+            print("retrospective: nothing taken (the leg was skipped)", flush=True)
+            return
         f = legdir.desk(d) / self.ph["retro"]["output"]
         text = f.read_text(encoding="utf-8") if f.exists() else ""
         bad = papers.check_retro(text, self.lim["retro_max_bytes"]) if text else ["the leg wrote no retro.md"]

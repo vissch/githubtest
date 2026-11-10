@@ -1025,6 +1025,29 @@ class Runs(Repo):
         self.assertFalse((self.board / "relay" / "desktop" / "tuning.json").exists())
         self.assertEqual(stop["reason"], "nothing left to do")
 
+    def test_a_retrospective_in_default_mode_is_skipped_nothing_taken_and_the_run_goes_on(self):
+        # 2026-11-10: a headless Haiku start gets permissionMode default; three runs of 11-08 ended at their retro
+        self.queue("u1")
+        self.script(dict(self.GOOD, retro=[{"write": "retro.md", "text": RETRO}]))
+        real, real_leg = config.limits, launch.run_leg
+
+        def default_mode_retro(d, *a, **k):
+            leg = real_leg(d, *a, **k)
+            if json.loads((Path(d) / "leg.json").read_text(encoding="utf-8")).get("phase") == "retro":
+                leg = dict(leg, ran_mode="default")
+            return leg
+        config.limits = lambda *a, **k: dict(real(*a, **k), retro_every_legs=2)
+        launch.run_leg = default_mode_retro
+        try:
+            out, stop = self.go()
+        finally:
+            config.limits, launch.run_leg = real, real_leg
+        self.assertIn("retrospective: skipped", out)
+        self.assertIn("retrospective: nothing taken (the leg was skipped)", out)
+        self.assertEqual((stop["units"], stop["reason"]), ({"u1": "PASS"}, "nothing left to do"))
+        self.assertFalse((self.board / "relay" / "desktop" / "tuning.json").exists(), "a skipped retro tunes nothing")
+        self.assertEqual(list((self.board / "relay" / "proposals").glob("*.md")), [])
+
     def test_view_opens_one_tab_per_leg_through_a_command_file_and_never_where_no_window_can_open(self):
         stub, log = self.tmp / "wt_stub.py", self.tmp / "wt.log"
         stub.write_text("import json, sys\nopen(%r, 'a').write(json.dumps(sys.argv[1:]) + '\\n')\n" % str(log),

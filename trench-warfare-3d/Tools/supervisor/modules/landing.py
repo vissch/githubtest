@@ -708,6 +708,8 @@ def landing_wait(ctx, W, st, d):
 
 def brief(ctx, W, d, rows, day):
     """Once a day, one brief for the lanes that wait on the owner (one row a chain); dry keeps only its text."""
+    if d.get('brief') or ('brief_would' in d and ctx.dry):
+        return []                                    # filed (or its dry text kept) today: no fold again every look
     rows = fold_chains([r for r in rows if r['cls'] in OWNERS], W.is_anc) + [r for r in rows if r['cls'] not in OWNERS]
     text, n = owner_text(rows, day)
     if not n or d.get('brief'):

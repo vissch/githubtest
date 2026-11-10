@@ -1461,7 +1461,10 @@ def round_(w, skip=(), emit=None):
             lines += new
             if emit:
                 for line in new:
-                    emit(line)
+                    try:
+                        emit(line)
+                    except OSError:         # a log that cannot be written (locked, disk full) cuts no step
+                        pass
     return lines
 
 
