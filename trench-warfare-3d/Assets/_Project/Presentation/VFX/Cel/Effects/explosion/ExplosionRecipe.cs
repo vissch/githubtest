@@ -328,6 +328,36 @@ namespace TW.Presentation.VFX.Cel
             {
                 Name = "light peak", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = 2.2f, Life = 1.0f,
                 Close = 1, Mid = 0, Far = 0, Palette = "exp_fire", Core = 4.2f, Extra = new Vector4(26f, 0f, 0f, 0f),
+            },
+            // d18: Mid/Far readability only (Close = 0, appended at the END so every Close layer keeps its seed): at
+            // O120/O240 the Hold drew only the 0.34 s flash and the pool, a dot. A longer bright warm flash, a few big
+            // inked fire lobes with a hot core, and a few big grey puffs read as flash + fireball + puff at distance.
+            new CelLayer
+            {
+                Name = "far flash", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.6f, -3.3f), Start = 0f, Life = 0.7f, LifeJitter = 0f,
+                Close = 0, Mid = 1, Far = 1, Size = new CelCurve(3.6f, 4.2f, 0.5f), SizeJitter = 0f, Erode = new CelCurve(0f, 1f, 1.5f),
+                Palette = "exp_dome", Core = 2.0f, Opacity = 0.9f, Extra = new Vector4(ExpFxKind.Flash, 0.6f, 0f, 0f),
+            },
+            new CelLayer
+            {
+                Name = "far ball", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.5f, 0.0f), Shape = CelShape.Box, ShapeSize = new Vector3(1.2f, 0.45f, 0.6f),
+                Start = 0.15f, Duration = 2.5f, Life = 0.8f, LifeJitter = 0.25f, Close = 0, Mid = 6, Far = 6,
+                Aim = CelAim.Radial, Speed = 1.6f, Drag = 2.5f, Buoyancy = 0.2f, Spin = 1.5f,
+                Size = new CelCurve(1.1f, 1.7f, 0.5f), SizeJitter = 0.2f, Erode = new CelCurve(0f, 1f, 3.5f), Feather = 0.08f,
+                Palette = "exp_ball_out", CoolTo = "exp_wrap", CoolFrom = 0.7f, Core = 1f, Ink = 3.0f, Extra = new Vector4(1.6f, 0.24f, 0.3f, 0.7f),
+            },
+            new CelLayer
+            {
+                Name = "far core", Kind = Fx, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.7f, -3.0f), Start = 0.2f, Duration = 2.5f, Life = 0.6f, LifeJitter = 0.1f,
+                Close = 0, Mid = 4, Far = 4, Size = new CelCurve(1.8f, 2.1f, 0.5f), SizeJitter = 0.1f, Erode = new CelCurve(0f, 1f, 2f),
+                Palette = "exp_dome", Core = 2.0f, Opacity = 0.8f, Extra = new Vector4(ExpFxKind.Flash, 0.7f, 0f, 0f),
+            },
+            new CelLayer
+            {
+                Name = "far puff", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.0f, 0.6f, 0.9f), Shape = CelShape.Box, ShapeSize = new Vector3(3.6f, 1.2f, 0.6f),
+                Start = 1.3f, Duration = 1.7f, Life = 1.8f, LifeJitter = 0.15f, Close = 0, Mid = 5, Far = 5, Aim = CelAim.Radial, Speed = 0.6f, Drag = 1.5f, Buoyancy = 0.15f, Spin = 0.4f,
+                Size = new CelCurve(1.0f, 1.9f, 0.4f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 10f), Feather = 0.1f,
+                Palette = "exp_wrap", Core = 1f, Ink = 3.0f, Extra = new Vector4(1.3f, 0.16f, 0.6f, 0f),
             });
 
         /// <summary>Two tracers that arrive before the fire (the clips' first round is in the air at 0.6 s).</summary>
