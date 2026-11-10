@@ -92,13 +92,13 @@ namespace TW.Presentation.VFX.Cel
                 // in 0.12 s, holds a moment, then its tail leaves the nozzle and runs out at the dummy, so tongues flicker in and
                 // out over and under the main jet, of uneven length (LifeJitter) and direction (Spread). Same kind: no draws.
                 Name = "jet tongues", Kind = "FlameJet", Start = 0.6f, Duration = 2.55f,   /* d12: the tongues end with the cut */ Life = 0.95f, LifeJitter = 0.3f, Offset = new Vector3(0f, 0.1f, 0.7f),
-                Close = 96, Mid = 4, Far = 0, Shape = CelShape.Point, Aim = CelAim.Dir, Speed = 12f, SpeedJitter = 0.2f, Spread = 14f,   // d02: 16 -> 12 (at Close the 96 tongues ran 4 m past the dummy, off the frame)   // b08: 56 -> 72 tongues, spread 17 -> 14 (no detached tongue up-right), longer reach   // b07: 40 -> 56 separate tongues, wider spread (they carry the jet's width now)   // b06: 26 -> 40, wider spread, on past the dummy
+                Close = 64, Mid = 4, Far = 0, Shape = CelShape.Point, Aim = CelAim.Dir, Speed = 12f, SpeedJitter = 0.2f, Spread = 14f,   // d02: 16 -> 12 (at Close the 96 tongues ran 4 m past the dummy, off the frame)   // b08: 56 -> 72 tongues, spread 17 -> 14 (no detached tongue up-right), longer reach   // b07: 40 -> 56 separate tongues, wider spread (they carry the jet's width now)   // b06: 26 -> 40, wider spread, on past the dummy
                 // d03 (TECHNIQUE): the tongues are PATH RIBBONS (Extra.w < 0, the shader's Rib*; built in d01 but filmed at Mid
                 // there): a curved strip from the nozzle whose spine waves with flowing noise and lifts toward the target, a
                 // lens-shaped width (tapering tail, long pointed tip) and its own ink contour. Size: width 1.25 m at the end,
                 // 5.5 m long, bend 1.1 m; Stretch = tip curl 0.5 m; Buoyancy = lift 0.6 m at the end; the head out in 0.75 s;
                 // Extra: flow 6 m/s, bend frequency 0.8 /m. (Before: straight FlameJet wedges, Size 0.15/2.9/1.3, Extra 12/3.4/0.5/1.)
-                Size = new CelCurve(2.2f, 5.5f, 0.8f), SizeJitter = 0.45f, Stretch = 0.5f, Buoyancy = 0.6f,
+                Size = new CelCurve(1.8f, 5.5f, 0.8f), SizeJitter = 0.45f, Stretch = 0.5f, Buoyancy = 0.6f,
                 Erode = new CelCurve(0.75f, 0.3f, 1f), Feather = 0.45f,
                 Palette = Flame, Core = 3.5f, Ink = 1.0f, Extra = new Vector4(6f, 0.8f, 0.5f, -1.0f),
             },
