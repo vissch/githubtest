@@ -164,9 +164,9 @@ namespace TW.Presentation.VFX.Cel
             // steady glow and larger blooms with bigger white cores
             // b04: a wider, flatter glow (1.35 m, falloff 1.9) so the pale-blue light covers the whole torso (peak area 0.72)
             // b06: a larger white-blue ball about the torso wide (b05's white-yellow ray star was smaller than the clip's glow)
-            Dim(Dot("glow", "blue_laser_bloom", 1, 0.15f, 0f, Hold + 0.1f, 1, 1, new CelCurve(1.2f, 1.3f), 2.4f, 0f, 0.06f), 0.9f),   // d03: white core halved (hot 0.042 vs clip 0.025)   // b07: 1x torso (b06b: 2x the dummy)
+            Dim(Dot("glow", "blue_laser_bloom", 1, 0.15f, 0f, Hold + 0.1f, 1, 1, new CelCurve(1.2f, 1.3f), 2.4f, 0f, 0.06f), 0.75f),   // d55 (d51): 0.9 -> 0.75 so the board shows through   // d03: white core halved (hot 0.042 vs clip 0.025)   // b07: 1x torso (b06b: 2x the dummy)
             Dim(Dot("bloom", "blue_laser_bloom", 1, 0.15f, Hold, 0.13f, 30, 12, new CelCurve(0.6f, 0.66f, 0.6f), 2.6f, 0f, 0.1f), 0.75f),
-            Dim(Dot("glow late", "blue_laser_bloom", 1, 1.85f, 0f, Hold - 1.7f, 1, 0, new CelCurve(0.95f, 1.15f), 2.4f, 0f, 0.22f), 0.95f),   // d27: the clip keeps its white ball bright f81-f101 (15-17% px over lum 180; ours fell to 5-6% after f64)
+            Dim(Dot("glow late", "blue_laser_bloom", 1, 1.85f, 0f, Hold - 1.7f, 1, 0, new CelCurve(0.95f, 1.15f), 2.4f, 0f, 0.22f), 0.85f),   // d27: the clip keeps its white ball bright f81-f101 (15-17% px over lum 180; ours fell to 5-6% after f64)
             // b01: 6-10 thin white spike rays of uneven length out to 1-1.5 torso widths, re-drawn every 2-3 frames at a new turn
             // b03: a torso-wide white-core, blue-rim star on the chest: 10 rays, larger, plus a burst at the peak and a
             // faint crackle on the board after the beam
@@ -194,6 +194,14 @@ namespace TW.Presentation.VFX.Cel
                 Name = "sparks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.2f, 0f, -0.12f), Start = 0.2f, Duration = Hold - 0.1f, Life = 0.36f,   // d03: born outside the ball, bigger, longer: a visible spray
                 Close = 170, Mid = 22, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Radial, Speed = 6.0f, SpeedJitter = 0.5f, UpBias = 0.4f, Gravity = 3f, Drag = 1.6f,
                 Size = new CelCurve(0.06f, 0.03f), Stretch = 0.05f,   // d12: half the streak length Erode = new CelCurve(0.05f, 0.5f), Palette = "blue_laser_hit", Core = 1.8f, Extra = new Vector4(0.2f, 0.05f, 0.3f, 0f),
+            },
+            new CelLayer
+            {
+                // d42/d50/d55: a dense spray of tiny white spark ticks round the hit through the hold (clip f30-f89: dozens at
+                // once, within about one board width); with the glow thinner the board shows through as in the clip
+                Name = "spray", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Offset = new Vector3(0.2f, 0f, -0.2f), Start = 0.2f, Duration = Hold - 0.1f, TimeJitter = 0.02f, Life = 0.16f, LifeJitter = 0.4f,
+                Close = 1200, Mid = 0, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.35f, 0f, 0f), Aim = CelAim.Radial, Speed = 5f, SpeedJitter = 0.6f, UpBias = 0.1f, Gravity = 1f, Drag = 2f,
+                Size = new CelCurve(0.035f, 0.015f), Stretch = 0.05f, Erode = new CelCurve(0.05f, 0.5f), Palette = "white", Core = 2f, Extra = new Vector4(0.2f, 0.05f, 0.3f, 0f),
             },
             new CelLayer
             {
