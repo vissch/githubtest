@@ -237,24 +237,30 @@ class World:
         if not self.acting:
             return 'would commit: ' + message
         paths = list(paths)
+
+        def before(*a):                 # up to the commit a git that cannot start or hangs is a refusal (RuntimeError):
+            try:                        # the caller may put its files back, nothing is committed yet
+                return self.git(board, *a)
+            except (OSError, subprocess.SubprocessError) as e:
+                raise RuntimeError(f'git {a[0]} could not run: {e}') from e
         for i in range(0, len(paths), ADD_CHUNK):         # in chunks: 646 paths in one command line is over the
-            try:                                            # Windows limit (WinError 206, queue_gc 2026-11-10)
-                code, out = self.git(board, 'add', '--', *paths[i:i + ADD_CHUNK])
-            except OSError as e:
-                raise RuntimeError(f'git add could not start: {e}') from e
+            code, out = before('add', '--', *paths[i:i + ADD_CHUNK])    # Windows limit (WinError 206, 11-10)
             if code:
                 raise RuntimeError(f'git add refused: {out[:200]}')
-        if self.git(board, 'diff', '--cached', '--quiet')[0] == 0:
+        if before('diff', '--cached', '--quiet')[0] == 0:
             return ''
-        code, out = self.git(board, 'commit', '-q', '-m', message)
+        code, out = before('commit', '-q', '-m', message)
         if code:
             raise RuntimeError(f'git commit refused: {out[:200]}')
         if not push:
             return 'committed (kept local)'
-        for _ in range(3):
-            if self.git(board, 'push', '-q')[0] == 0:
-                return 'pushed'
-            self.pull(board)
+        try:                            # after the commit nothing is put back: a push that fails is pushed next time
+            for _ in range(3):
+                if self.git(board, 'push', '-q')[0] == 0:
+                    return 'pushed'
+                self.pull(board)
+        except (OSError, subprocess.SubprocessError) as e:
+            return f'committed; the push could not run ({str(e)[:80]}): it is pushed with the next one'
         return 'committed; the push was refused three times: it is pushed with the next one'
 
     def start(self, n, sources='lane', quiet_off=False):
@@ -902,7 +908,7 @@ def take_off(w, board, uids, push=False):
     paths = [f'relay/queue/{u}.json' for u in uids]
     try:
         return w.commit_push(board, paths, f'relay: {len(uids)} queue files of done units taken off', push=push)
-    except (RuntimeError, OSError) as e:    # e.g. another git holds the index: put the files back, so the board
+    except RuntimeError as e:       # before the commit only (commit_push): e.g. another git holds the index; put back
         for u, data in kept.items():    # is not left with deletions nobody committed (its next pull would refuse)
             files[u].write_bytes(data)
         for i in range(0, len(paths), ADD_CHUNK):

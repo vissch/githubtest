@@ -96,6 +96,53 @@ class TakeOff(unittest.TestCase):
             self.assertEqual(gitio.dirty(tmp), [])
 
 
+class AfterTheCommit(unittest.TestCase):
+    """Second read C3.2: a push that cannot start AFTER the commit must not put the deleted files back as untracked
+    copies (queue_gc would then fail on them every round)."""
+    def test_a_push_that_cannot_start_keeps_the_commit_and_puts_nothing_back(self):
+        import autoloop
+        with tempfile.TemporaryDirectory() as tmp:
+            repo(tmp)
+            q = Path(tmp) / 'relay' / 'queue'
+            q.mkdir(parents=True)
+            (q / 'u1.json').write_text('{}')
+            git(tmp, 'add', '-A')
+            git(tmp, 'commit', '-q', '-m', 'queue')
+            w = autoloop.World(main=tmp, extras=(), home=tmp, acting=True)
+            real = w.git
+
+            def no_push(board, *a):
+                if a and a[0] == 'push':
+                    raise OSError('git cannot start')
+                return real(board, *a)
+            w.git = no_push
+            w.pull = lambda board: (0, '')
+            said = autoloop.take_off(w, tmp, ['u1'], push=True)
+            self.assertIn('the push could not run', said)
+            self.assertFalse((q / 'u1.json').exists(), 'nothing is put back after the commit')
+            self.assertEqual(gitio.dirty(tmp), [])
+
+
+class QueueFix(unittest.TestCase):
+    """Second read C3.1: relay.py add that hangs or cannot start is a reason, never a raise."""
+    def test_a_timeout_is_a_reason(self):
+        import importlib.util
+        import subprocess as sp
+        spec = importlib.util.spec_from_file_location('tw_cg_qf', HERE.parent / 'supervisor' / 'modules' / 'critic_gate.py')
+        cg = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cg)
+        real = cg.subprocess.run
+
+        def hang(*a, **k):
+            raise sp.TimeoutExpired(a[0], 300)
+        cg.subprocess.run = hang
+        try:
+            why = cg.queue_fix('x-c1.json', board='nowhere')
+        finally:
+            cg.subprocess.run = real
+        self.assertIn('did not finish', why)
+
+
 class PutAside(unittest.TestCase):
     def test_leftover_work_is_saved_and_the_checkout_is_clean(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as leg:

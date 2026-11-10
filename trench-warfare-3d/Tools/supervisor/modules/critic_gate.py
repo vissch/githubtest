@@ -312,7 +312,7 @@ def score_mean(p, files, st, now, work, grok=False, scorer=None):
     if not ok:
         return got[0]
     low = min(ok, key=lambda r: r['score'])
-    mean = int(round(sum(r['score'] for r in ok) / len(ok)))
+    mean = int(sum(r['score'] for r in ok) / len(ok) + 0.5)        # half up (round() is half to even)
     why = '' if len(ok) == len(got) else 'only %d of %d critics gave a score' % (len(ok), len(got))
     return dict(score=mean, fixes=low['fixes'], by='+'.join(r['by'] for r in ok),
                 paper='\n\n===== next critic =====\n\n'.join(r['paper'] for r in ok), why=why,
@@ -324,9 +324,12 @@ def queue_fix(f, board=None):
     relay/queue only). Returns '' when queued, else why not. Before 2026-11-10 the file was written and nothing read
     it, so a held unit's fix never ran."""
     board = board or Path(gh()) / 'tw3d-board'
-    r = subprocess.run([sys.executable, str(TOOLS / 'relay' / 'relay.py'), 'add', '--unit', str(f)],
-                       cwd=str(TW_ROOT), capture_output=True, text=True, timeout=300,
-                       env=dict(os.environ, TW_BOARD=str(board)))
+    try:                        # a hung push or a python that cannot start is no queueing, said so: never a raise that
+        r = subprocess.run([sys.executable, str(TOOLS / 'relay' / 'relay.py'), 'add', '--unit', str(f)],  # loses the
+                           cwd=str(TW_ROOT), capture_output=True, text=True, timeout=300,         # turn's paid scores
+                           env=dict(os.environ, TW_BOARD=str(board)))
+    except (subprocess.SubprocessError, OSError) as e:
+        return 'relay.py add did not finish (%s)' % type(e).__name__
     if r.returncode == 0:
         return ''
     said = (r.stdout + r.stderr).strip().splitlines()
