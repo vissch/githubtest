@@ -17,7 +17,7 @@ namespace TW.Presentation.VFX.Cel
 {
     public static class FlamethrowerRecipe
     {
-        public const string Flame = "ft_flame", Burn = "ft_burn", SmokeInk = "ft_smoke", SmokeGrey = "ft_smoke_grey", Pool = "ft_pool";
+        public const string Flame = "ft_flame", Burn = "ft_burn", SmokeInk = "ft_smoke", SmokeGrey = "ft_smoke_grey", Pool = "ft_pool", SmokeCol = "ft_smoke_col";
 
         static FlamethrowerRecipe() { AddPalettes(); }
 
@@ -41,6 +41,17 @@ namespace TW.Presentation.VFX.Cel
                 CelPalette.Hex(0x8A5E3E),   // b06: black body (b05 read red-brown), the orange only on the lit crescent
    // b05: lighter lit crescents (the lobes read as solid dark-brown chunks)
                 1.1f, 4, CelPalette.Hex(0x0C0806));
+            // e04: the smoke COLUMN's own body palette, split off SmokeInk (which stays the cooling target of the fire
+            // layers and is not touched). Measured, not guessed: in the column band above the dummy's head the clip's
+            // median luminance is 42 and ours was 13, and sampling our own frames against the authored hex showed why -
+            // a lobe's bands land on screen at the LINEAR value of the colour the palette was authored in, so #2C221E
+            // (L 36) draws as RGB 6,4,3. Every smoke colour in this file has therefore been drawing ~5x darker than the
+            // frame it was picked off. These four are pre-compensated (author = sRGB-encode of the wanted pixel) so they
+            // land on the clip's own measured column bands: 40,20,11 / 58,30,20 / 82,40,24 / 112,60,38, with the lit
+            // underside crescent warm and the contour at 20,11,7 instead of near black (the clip's column has no black
+            // contour - its darkest 15 % is L 25). See kit_requests.md: this is a kit-wide gamma fault, not a repaint.
+            CelPalette.Add(SmokeCol, CelPalette.Hex(0x6E4F3B), CelPalette.Hex(0x83604F), CelPalette.Hex(0x9A6E56), CelPalette.Hex(0xB1856C),
+                CelPalette.Hex(0xBD987D), 1.1f, 4, CelPalette.Hex(0x4F3B2E));
             // the column thinning: a warm grey (r05: the cold blue-grey added a blue to the palette)
             CelPalette.Add(SmokeGrey, CelPalette.Hex(0x4C4B4F), CelPalette.Hex(0x626166), CelPalette.Hex(0x7C7B80), CelPalette.Hex(0x96949A),
                 CelPalette.Hex(0x96949A),   // b06: neutral grey (b05's warm grey read brown)
@@ -160,9 +171,9 @@ namespace TW.Presentation.VFX.Cel
                 // b03: more, separate lobes over a wider base (the clip's column billows from left of the dummy to far
                 // right), brown lit from below, grey sooner and gone by ~f143 (b02's was dense black at f153)
                 Name = "smoke column", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0.4f, 2.0f, 0.4f), Start = 1.4f, Duration = 2.4f, Life = 3.2f, LifeJitter = 0.2f,   // b07: 2.75 -> 3.2 (end -7 f: the tail was cut short)
-                Close = 30, Mid = 6, Far = 1, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.8f, 0f, 0f), Aim = CelAim.Dir, Speed = 1.1f, Spread = 35f, Drag = 0.5f, Buoyancy = 1.1f, Spin = 0.3f,
+                Close = 30, Mid = 6, Far = 1, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.8f, 0f, 0f), Aim = CelAim.Dir, Speed = 1.1f, Spread = 35f, Drag = 0.5f, Buoyancy = 1.1f, Spin = 0.3f,   // e04 try1 took this to 2.0 to chase the clip's 70 px centroid climb (ours 29) and MEASURED WORSE: buoyancy accelerates over the life, so it bought only 5 px early and threw the column off the frame top late (f120 mass 81k against the clip's 118k, centroid 116 against 149). The clip rises fast then spreads and stalls; constant buoyancy is the opposite shape. Left at 1.1 - the rise needs a velocity-at-birth or a drag curve, not this.
                 Size = new CelCurve(0.7f, 1.6f, 0.5f), SizeJitter = 0.35f, Erode = new CelCurve(0f, 1f, 1.5f), Feather = 0.12f,
-                Palette = SmokeInk, CoolTo = SmokeGrey, CoolFrom = 0.06f, Core = 1f, Ink = 1.5f, Extra = new Vector4(1.3f, 0.13f, -0.8f, 0.4f),   // b07: grey sooner; b08: Core/Ink/Extra had been swallowed by this comment since b07 (lit from below restored)
+                Palette = SmokeCol, CoolTo = SmokeGrey, CoolFrom = 0.06f, Core = 1f, Ink = 1.5f, Extra = new Vector4(1.3f, 0.13f, -0.8f, 0.4f),   // e04: SmokeInk -> SmokeCol (the column's body lifted to the clip's measured value); b07: grey sooner; b08: Core/Ink/Extra had been swallowed by this comment since b07 (lit from below restored)
             },
             new CelLayer
             {
