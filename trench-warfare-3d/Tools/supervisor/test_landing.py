@@ -309,7 +309,7 @@ class Turns(Repos):
         self.assertEqual(git(self.stage, 'rev-parse', 'HEAD'), g['sha'])
         self.assertEqual(gatelock.read()['who'], 'landing')
         self.assertEqual(len(self.W.briefs), 1)                                   # the look and the sim lane, in one brief
-        self.assertIn('2 finished lanes', ' '.join(self.W.briefs[0]))
+        self.assertIn('2 families of finished lanes', ' '.join(self.W.briefs[0]))
         # the gate ends with a green line for this tree, and its marker
         Path(g['log']).write_text(f'Gate green. Tested tree {g["tree"][:10]}: commit exactly this', encoding='utf-8')
         marker = git(self.stage, 'rev-parse', '--path-format=absolute', '--git-path', 'tw-gate-green')

@@ -449,6 +449,23 @@ def fold_chains(rows, is_anc=None):
     return sorted(out, key=lambda r: r['lane'])
 
 
+def by_family(rows):
+    """One row a goal family and class (spend.goal_root of the lane's name): its biggest lane stands for it, the
+    others are counted ('folded'). 11-10: fold_chains alone left 271 of 340 rows, because a family's links are
+    siblings more often than ancestors (ability-fx-captures-r2-2-g1-g1 and -g1-g2 both came from -g1)."""
+    import spend
+    groups = {}
+    for r in rows:
+        tail = r['lane'].split('/', 2)[-1]
+        groups.setdefault((r['cls'], spend.goal_root(tail)), []).append(r)
+    out = []
+    for (_, root), rs in sorted(groups.items()):
+        top = max(rs, key=lambda r: (r['n'], r['lane']))
+        n = sum(1 + (r.get('folded') or 0) for r in rs) - 1
+        out.append(dict(top, folded=n, family=root) if n else dict(top, family=root))
+    return out
+
+
 def _tip_of(lane, holder):
     seen = set()
     while lane in holder and lane not in seen:
@@ -469,7 +486,7 @@ def owner_text(rows, day):
             out.append(f'## {c} ({len(rs)})')
             for r in rs:
                 pic = f'; picture: {r["pictures"][0]}' if r['pictures'] else ''
-                more = f'; holds {r["folded"]} earlier lanes of its chain' if r.get('folded') else ''
+                more = f'; stands for {r["folded"]} more lanes of {r.get("family") or "its chain"}' if r.get('folded') else ''
                 out.append(f'- {r["title"]} ({r["lane"]}, {r["n"]} files{more}): {r["why"]}{pic}')
             out.append('')
     return '\n'.join(out), len(wait)
@@ -478,10 +495,10 @@ def owner_text(rows, day):
 def brief_args(rows, day, list_file):
     wait = [r for r in rows if r['cls'] in OWNERS]
     counts = ', '.join(f'{sum(1 for r in wait if r["cls"] == c)} {c}' for c in OWNERS if any(r['cls'] == c for r in wait))
-    first = '; '.join(r['title'] for r in wait[:2])
-    return ['--title', f'{len(wait)} finished lanes wait on you to land', '--for',
-            f'They change looks, play, the sim or the landing checks ({counts}), so they wait for you. First: {first}. '
-            f'The list: {list_file}',
+    # the brief tool takes at most 45 words here: 11-10 the old text was 55 and the brief was refused
+    return ['--title', f'{len(wait)} families of finished lanes wait on you to land', '--for',
+            f'They change looks, play, the sim or the checks ({counts}), so they wait for your look. The list, one row '
+            f'a family: {list_file}',
             '--option', 'Show them to me one at a time, looks first', '--option', 'Not now: they stay branches',
             '--why', 'Each one changes what a player sees or how a battle plays; one at a time keeps every look checked.',
             '--no-evidence', 'the lanes are listed in the file; their own cards show the pictures',
@@ -710,7 +727,8 @@ def brief(ctx, W, d, rows, day):
     """Once a day, one brief for the lanes that wait on the owner (one row a chain); dry keeps only its text."""
     if d.get('brief') or ('brief_would' in d and ctx.dry):
         return []                                    # filed (or its dry text kept) today: no fold again every look
-    rows = fold_chains([r for r in rows if r['cls'] in OWNERS], W.is_anc) + [r for r in rows if r['cls'] not in OWNERS]
+    rows = by_family(fold_chains([r for r in rows if r['cls'] in OWNERS], W.is_anc)) + \
+        [r for r in rows if r['cls'] not in OWNERS]
     text, n = owner_text(rows, day)
     if not n or d.get('brief'):
         return []
