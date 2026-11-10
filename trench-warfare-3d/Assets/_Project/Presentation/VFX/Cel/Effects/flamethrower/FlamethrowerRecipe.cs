@@ -230,6 +230,17 @@ namespace TW.Presentation.VFX.Cel
             {
                 Name = "light", Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -1.2f, -2.5f), Start = 0.5f, Life = 3.6f,
                 Close = 1, Mid = 1, Far = 1, Palette = Flame, Core = 2f, Extra = new Vector4(12f, 0f, 0f, 0f),   // b05: low and toward the nozzle (at the chest it lit the fog into a halo disc); b06: reach 12 (b05's was commented out)
+            },
+            new CelLayer
+            {
+                // d43 (d23/d29 again, on d40): REF is already a fat bright fan of tongues at f17-f27 while ours is a needle
+                // until the jet tongues start (0.6 s). Short path-ribbon tongues over the first 0.55 s fill the opening; width
+                // 1.8 -> 2.4 m because d37's build-up ramp draws early-born tongues at 0.7x. Last in the list (no seed shift).
+                Name = "onset tongues", Kind = "FlameJet", Start = 0.05f, Duration = 0.55f, Life = 0.7f, LifeJitter = 0.2f, Offset = new Vector3(0f, 0.1f, 0.7f),
+                Close = 16, Mid = 0, Far = 0, Shape = CelShape.Point, Aim = CelAim.Dir, Speed = 7f, SpeedJitter = 0.2f, Spread = 10f,
+                Size = new CelCurve(2.4f, 3.6f, 0.5f), SizeJitter = 0.35f, Stretch = 0.4f, Buoyancy = 0.3f,
+                Erode = new CelCurve(0.35f, 0.3f, 1f), Feather = 0.45f,
+                Palette = Flame, Core = 3.5f, Ink = 1.0f, Extra = new Vector4(6f, 0.8f, 0.5f, -1.0f),
             });
 
         /// <summary>Fire the flamethrower from `nozzle` onto `target` (a body's chest).</summary>
