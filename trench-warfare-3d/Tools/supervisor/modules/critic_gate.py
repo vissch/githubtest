@@ -299,6 +299,40 @@ def score_unit(p, files, st, now, work, grok=False):
     return dict(score=None, fixes=[], by='', paper='', why='; '.join(tried))
 
 
+CRITICS = 2                         # papers a score is the mean of: one critic moves 4-7 points on identical files
+
+
+def score_mean(p, files, st, now, work, grok=False, scorer=None):
+    """The unit's score: the mean of CRITICS papers (rounded), each from score_unit. The fixes are the lower paper's
+    (it saw most wrong). One paper with no score: the other alone stands, said so in `why`; none: no score.
+    The CelFx loops of 2026-11-09 showed one critic splitting ~58 / ~63 on the same files."""
+    scorer = scorer or score_unit
+    got = [scorer(p, files, st, now, work, grok=grok) for _ in range(CRITICS)]
+    ok = [r for r in got if r['score'] is not None]
+    if not ok:
+        return got[0]
+    low = min(ok, key=lambda r: r['score'])
+    mean = int(round(sum(r['score'] for r in ok) / len(ok)))
+    why = '' if len(ok) == len(got) else 'only %d of %d critics gave a score' % (len(ok), len(got))
+    return dict(score=mean, fixes=low['fixes'], by='+'.join(r['by'] for r in ok),
+                paper='\n\n===== next critic =====\n\n'.join(r['paper'] for r in ok), why=why,
+                scores=[r['score'] for r in ok])
+
+
+def queue_fix(f, board=None):
+    """Queue a fix unit file on the main board with the relay's own `add --unit` (safe while a run goes: it writes
+    relay/queue only). Returns '' when queued, else why not. Before 2026-11-10 the file was written and nothing read
+    it, so a held unit's fix never ran."""
+    board = board or Path(gh()) / 'tw3d-board'
+    r = subprocess.run([sys.executable, str(TOOLS / 'relay' / 'relay.py'), 'add', '--unit', str(f)],
+                       cwd=str(TW_ROOT), capture_output=True, text=True, timeout=300,
+                       env=dict(os.environ, TW_BOARD=str(board)))
+    if r.returncode == 0:
+        return ''
+    said = (r.stdout + r.stderr).strip().splitlines()
+    return said[-1][:200] if said else 'relay.py add exited %d' % r.returncode
+
+
 # ---------------------------------------------------------------- the verdict others read
 
 def verdict(score):
@@ -386,7 +420,7 @@ def run(ctx):
             lines.append('%s: its stills could not be read (%s): tried next turn' % (uid, type(e).__name__))
             continue
         if files:
-            r = score_unit(p, files, st, ctx.now, work, grok=switch(ctx.home, 'grok'))
+            r = score_mean(p, files, st, ctx.now, work, grok=switch(ctx.home, 'grok'), scorer=score_unit)
         else:
             r = dict(score=None, fixes=[], by='', paper='', why='no stills under docs/evidence/%s/' % uid, stills=False)
         if r.get('paper'):
@@ -430,8 +464,16 @@ def run(ctx):
                 if not f.exists():
                     f.parent.mkdir(parents=True, exist_ok=True)
                     f.write_text(json.dumps(fix_unit(p, rec), indent=1, sort_keys=True) + '\n', encoding='utf-8')
-                lines.append('%s HELD at critic %s (%s); its fix unit %s: queue it with relay.py add --unit on relay '
-                             '%s\'s board' % (uid, rec['score'], rec['by'], f.name, p['relay']))
+                queued = st.setdefault('queued', [])
+                if f.stem in queued:
+                    why = 'queued already'
+                else:
+                    why = queue_fix(f)
+                    if not why:
+                        queued.append(f.stem)
+                lines.append('%s HELD at critic %s (%s); its fix unit %s %s' % (
+                    uid, rec['score'], rec['by'], f.stem, 'is on the main queue' if not why or why == 'queued already'
+                    else 'was NOT queued (%s): queue it with relay.py add --unit %s' % (why, f)))
         ctx.save(st)                        # after each unit: a fault later in the turn loses no paid score
     if len(todo) > MAX_PER_TURN:
         lines.append('%d more wait for the next turn' % (len(todo) - MAX_PER_TURN))

@@ -78,6 +78,7 @@ NEEDS_RELAY = 'trench-warfare-3d/Tools/relay/relay.py'     # a unit that works o
 WAITS = 'relay-harness'     # what such a unit waits for: the relay line landing on integration
 QUIET = 690                 # the relay refuses a start for ten minutes after a checkout's index moves
 STALE = 900                 # a lock whose loop has not beaten for this long is taken over
+ADD_CHUNK = 100             # paths a git command is given at once (a Windows command line holds ~32,000 characters)
 STUB_AGE = 7200             # a Unity a unity.cmd stub started is ended after this long when its stub is gone or still waits
 PS_LIST = ("$all = @{}; Get-CimInstance Win32_Process | ForEach-Object { $all[[int]$_.ProcessId] = $_ }; "
            "$now = Get-Date; $all.Values | Where-Object { $_.Name -in 'Unity.exe','cmd.exe' } | ForEach-Object { "
@@ -235,8 +236,12 @@ class World:
         """'' when nothing was to commit, else what happened; raises when git refuses, so the step says so."""
         if not self.acting:
             return 'would commit: ' + message
-        for git_args in (('add', '--', *paths),):
-            code, out = self.git(board, *git_args)
+        paths = list(paths)
+        for i in range(0, len(paths), ADD_CHUNK):         # in chunks: 646 paths in one command line is over the
+            try:                                            # Windows limit (WinError 206, queue_gc 2026-11-10)
+                code, out = self.git(board, 'add', '--', *paths[i:i + ADD_CHUNK])
+            except OSError as e:
+                raise RuntimeError(f'git add could not start: {e}') from e
             if code:
                 raise RuntimeError(f'git add refused: {out[:200]}')
         if self.git(board, 'diff', '--cached', '--quiet')[0] == 0:
@@ -897,10 +902,11 @@ def take_off(w, board, uids, push=False):
     paths = [f'relay/queue/{u}.json' for u in uids]
     try:
         return w.commit_push(board, paths, f'relay: {len(uids)} queue files of done units taken off', push=push)
-    except RuntimeError as e:       # e.g. another git holds the index: put the files back as they were, so the board
+    except (RuntimeError, OSError) as e:    # e.g. another git holds the index: put the files back, so the board
         for u, data in kept.items():    # is not left with deletions nobody committed (its next pull would refuse)
             files[u].write_bytes(data)
-        w.git(board, 'reset', '-q', '--', *paths)
+        for i in range(0, len(paths), ADD_CHUNK):
+            w.git(board, 'reset', '-q', '--', *paths[i:i + ADD_CHUNK])
         return f'{str(e)[:120]}; the files are put back: tried next round'
 
 

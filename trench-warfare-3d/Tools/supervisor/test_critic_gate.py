@@ -44,7 +44,10 @@ class Gate(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.home = Path(self.tmp.name)
         self.saved = {k: getattr(cg, k) for k in ('find_passes', 'stills_of', 'export', 'score_unit', 'MAX_PER_TURN',
-                                                  '_ping_grok', '_run_grok', '_run_claude')}
+                                                  '_ping_grok', '_run_grok', '_run_claude', 'CRITICS', 'queue_fix')}
+        cg.CRITICS = 1                        # these cases count critic calls; score_mean has its own cases
+        self.queued = []
+        cg.queue_fix = lambda f, board=None: self.queued.append(Path(f).stem) or ''
         cg.find_passes = lambda since, until: list(PASSED)
         cg.stills_of = lambda p, repo=None: ('HEAD', [f'docs/evidence/{p["uid"]}/after.png'])
         cg.export = lambda rev, names, dst, repo=None: [Path(dst) / Path(n).name for n in names]
@@ -121,10 +124,12 @@ class Gate(unittest.TestCase):
         self.assertEqual(sorted(u), ['done_when', 'goal', 'id', 'lane', 'role'], 'the relay queue\'s shape')
         for f in FIXES:
             self.assertIn(f, u['goal'])
-        # a second turn does not write it again or score again
+        self.assertEqual(self.queued, [p['uid'] + '-c1'], 'the fix unit is queued, not only written (11-10)')
+        # a second turn does not write it again, queue it again or score again
         n = len(self.calls)
         self.turn(time.mktime((2026, 11, 3, 1, 0, 0, 0, 0, -1)))
         self.assertEqual(len(self.calls), n)
+        self.assertEqual(self.queued, [p['uid'] + '-c1'])
 
     def test_no_score_or_no_stills_is_held_not_passed(self):
         self.switch('on')
@@ -312,6 +317,33 @@ class Module(unittest.TestCase):
         m = {x.NAME: x for x in mods}['critic_gate']
         self.assertEqual((m.EVERY_S, m.DEFAULT_MODE), (600, 'dry'))
 
+
+
+class Mean(unittest.TestCase):
+    """The score is the mean of CRITICS papers (11-10: one critic moves 4-7 points on identical files)."""
+    def scorer(self, scores):
+        it = iter(scores)
+
+        def score(p, files, st, now, work, grok=False):
+            s = next(it)
+            return dict(score=s, fixes=['f%s' % s] * 3 if s is not None else [], by='stub', paper='paper %s' % s,
+                        why='' if s is not None else 'no line')
+        return score
+
+    def test_two_critics_are_averaged_and_the_lower_papers_fixes_kept(self):
+        r = cg.score_mean({}, ['a.png'], {}, 0, None, scorer=self.scorer([58, 64]))
+        self.assertEqual((r['score'], r['fixes'], r['scores']), (61, ['f58'] * 3, [58, 64]))
+        self.assertIn('paper 58', r['paper'])
+        self.assertIn('paper 64', r['paper'])
+
+    def test_one_paper_with_no_score_leaves_the_other_and_says_so(self):
+        r = cg.score_mean({}, ['a.png'], {}, 0, None, scorer=self.scorer([None, 72]))
+        self.assertEqual(r['score'], 72)
+        self.assertIn('only 1 of 2', r['why'])
+
+    def test_no_score_at_all_is_no_score(self):
+        r = cg.score_mean({}, ['a.png'], {}, 0, None, scorer=self.scorer([None, None]))
+        self.assertIsNone(r['score'])
 
 if __name__ == '__main__':
     unittest.main()

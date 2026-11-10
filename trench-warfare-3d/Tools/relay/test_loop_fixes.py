@@ -54,6 +54,48 @@ class StopFile(unittest.TestCase):
                     os.environ['TW_SUP_HOME'] = old
 
 
+class TakeOff(unittest.TestCase):
+    """queue_gc 2026-11-10: 646 paths in one `git add` = WinError 206; the files were deleted and never put back."""
+    def test_many_queue_files_come_off_in_one_commit(self):
+        import autoloop
+        with tempfile.TemporaryDirectory() as tmp:
+            repo(tmp)
+            q = Path(tmp) / 'relay' / 'queue'
+            q.mkdir(parents=True)
+            uids = ['a-very-long-unit-name-of-the-sort-the-loop-writes-%04d-20261110' % i for i in range(700)]
+            for u in uids:
+                (q / f'{u}.json').write_text('{}')
+            git(tmp, 'add', '-A')
+            git(tmp, 'commit', '-q', '-m', 'queue')
+            w = autoloop.World(main=tmp, extras=(), home=tmp, acting=True)
+            said = autoloop.take_off(w, tmp, uids, push=False)
+            self.assertEqual(said, 'committed (kept local)', said)
+            self.assertEqual(list(q.glob('*.json')), [])
+            self.assertEqual(gitio.dirty(tmp), [])
+
+    def test_a_git_that_cannot_start_puts_the_files_back(self):
+        import autoloop
+        with tempfile.TemporaryDirectory() as tmp:
+            repo(tmp)
+            q = Path(tmp) / 'relay' / 'queue'
+            q.mkdir(parents=True)
+            (q / 'u1.json').write_text('{"id": "u1"}')
+            git(tmp, 'add', '-A')
+            git(tmp, 'commit', '-q', '-m', 'queue')
+            w = autoloop.World(main=tmp, extras=(), home=tmp, acting=True)
+            real = w.git
+
+            def broken(board, *a):
+                if a and a[0] == 'add':
+                    raise FileNotFoundError(206, 'The filename or extension is too long')
+                return real(board, *a)
+            w.git = broken
+            said = autoloop.take_off(w, tmp, ['u1'], push=False)
+            self.assertIn('put back', said)
+            self.assertEqual((q / 'u1.json').read_text(), '{"id": "u1"}')
+            self.assertEqual(gitio.dirty(tmp), [])
+
+
 class PutAside(unittest.TestCase):
     def test_leftover_work_is_saved_and_the_checkout_is_clean(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as leg:

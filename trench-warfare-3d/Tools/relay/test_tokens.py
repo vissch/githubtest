@@ -184,7 +184,9 @@ class Tiers(unittest.TestCase):
     def test_haiku_reads_and_never_works(self):
         import tempfile
         ph = config.phases()
-        self.assertEqual((ph["retro"]["model"], ph["retro"]["mode"]), ("haiku", "read_only"))
+        # 2026-11-10: the retro moved haiku -> sonnet; a headless Haiku start gets permissionMode default (probe), so
+        # every retro stopped its run. Haiku stays allowed only for a phase that only reads (the checks below).
+        self.assertEqual((ph["retro"]["model"], ph["retro"]["mode"]), ("sonnet", "read_only"))
         for change, word in ((("execute", {"model": "haiku"}), "only for a phase that only reads"),
                              (("execute", {"by_grade": {"easy": "haiku"}}), "by_grade"),
                              (("execute", {"by_grade": {"simple": "sonnet"}}), "by_grade")):
