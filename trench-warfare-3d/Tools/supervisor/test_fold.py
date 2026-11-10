@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests of landing.fold_chains: the owner's brief lists one row a chain. Run: python Tools/supervisor/test_fold.py"""
 import importlib.util
+import sys
 import unittest
 from pathlib import Path
 
@@ -43,6 +44,28 @@ class Fold(unittest.TestCase):
         rows = [row('lane/show/x', 'a'), row('lane/show/x-g1', 'b')]
         out = landing.fold_chains(rows, lambda x, y: False)
         self.assertEqual(len(out), 2)
+
+
+class GateLaunch(unittest.TestCase):
+    """11-10: the first 'on' turn started gate.ps1 with DETACHED_PROCESS; it ran nothing, wrote an empty log and read
+    as red. This starts a stand-in gate.ps1 the way the module does and reads its Write-Host line from the log."""
+    @unittest.skipUnless(sys.platform == 'win32', 'the launch flags are Windows ones')
+    def test_the_gates_write_host_lines_reach_the_log(self):
+        import tempfile
+        import time
+        with tempfile.TemporaryDirectory() as tmp:
+            stage = Path(tmp) / "stage o'brien"            # a space and a quote in the path, as a guard
+            stage.mkdir()
+            (stage / 'gate.ps1').write_text('Write-Host "Gate green. Tested tree abc123"\nexit 0\n', encoding='utf-8')
+            log = Path(tmp) / 'gate.log'
+            w = landing.World(tmp, stage, tmp, tmp)
+            pid = w.popen(landing.gate_cmd(stage), stage, log)
+            for _ in range(120):
+                if not w.alive(pid):
+                    break
+                time.sleep(0.5)
+            text = log.read_bytes().decode('utf-8', 'replace')
+            self.assertIn('Gate green. Tested tree abc123', text)
 
 
 if __name__ == '__main__':

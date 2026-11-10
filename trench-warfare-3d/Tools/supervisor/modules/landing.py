@@ -210,10 +210,17 @@ class World:
     def popen(self, argv, cwd, log, env=None):
         """Start a process that outlives this turn, its output in `log`. Returns its pid."""
         Path(log).parent.mkdir(parents=True, exist_ok=True)
-        flags = 0x00000008 | 0x00000200 if os.name == 'nt' else 0      # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        # CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP (| CREATE_BREAKAWAY_FROM_JOB when the job allows it), as
+        # Tools/gate_bg.py starts its gate. Not DETACHED_PROCESS: a powershell with no console runs nothing; on
+        # 2026-11-10, the first turn this module was 'on', its stacked gate wrote an empty log and read as red.
+        flags = (0x08000000 | 0x00000200 | 0x01000000) if os.name == 'nt' else 0
         with open(log, 'ab') as f:
-            p = subprocess.Popen(argv, cwd=str(cwd), stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                                 env=env, creationflags=flags, close_fds=True)
+            try:
+                p = subprocess.Popen(argv, cwd=str(cwd), stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                                     env=env, creationflags=flags, close_fds=True)
+            except OSError:                             # a job that forbids breakaway
+                p = subprocess.Popen(argv, cwd=str(cwd), stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                                     env=env, creationflags=flags & ~0x01000000, close_fds=True)
         self.started.append(argv)
         return p.pid
 
@@ -368,7 +375,9 @@ def verdict(text, tree, alive, marker=(), started=0.0, now=None):
 
 
 def gate_cmd(stage):
-    return ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(Path(stage) / 'gate.ps1')]
+    """gate.ps1 with every stream (its Write-Host lines too) on stdout, which popen() writes to the log."""
+    gate = str(Path(stage) / 'gate.ps1').replace("'", "''")
+    return ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', f"& '{gate}' *>&1; exit $LASTEXITCODE"]
 
 
 # ---- the landing session -----------------------------------------------------------------------------------------------
