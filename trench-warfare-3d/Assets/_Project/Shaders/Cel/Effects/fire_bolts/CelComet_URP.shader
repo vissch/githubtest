@@ -261,7 +261,7 @@ Shader "TW/Cel/Comet"
                     half3 c = CelRamp(lerp(0.5, 0.85, step(0.58, lit)), rowA, 1.0);   // d32: two flat tones only (many bands read as stripes)
                     float ink = CelInk(fm, 0.06, CelLodInk(i.tone.w)) * mask;
                     c = lerp(c, CelPalInk(rowA).rgb, ink * 0.8);
-                    float op = saturate(i.tone.z) * (1.0 - smoothstep(0.75, 1.0, k));
+                    float op = saturate(i.tone.z) * (1.0 - smoothstep(0.55, 0.88, k));   // d37: the wisp is gone by ~f128 (REF clear at f131)
                     float a = mask * op;
                     float m = CelAdditiveFog(half3(1.0, 1.0, 1.0), i.positionWS, i.misc.x).r;
                     return half4(c * a * m, a * m);

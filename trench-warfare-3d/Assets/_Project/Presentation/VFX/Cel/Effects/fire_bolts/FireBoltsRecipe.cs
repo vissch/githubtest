@@ -220,6 +220,13 @@ namespace TW.Presentation.VFX.Cel
                     Speed = 0.8f, Size = new CelCurve(0.95f, 0.3f, 0.7f),   // d22: low wide dome-then-shreds (ref f87-f101 zoom), not tall tongues   // d21: compact crater fire of long-lived flame tongues (16-20 f each), Mid near Close (LOD trap)   // c03: low round flames ~0.5 dummy tall (c01: 3.7 m/s carrots in a column)   // c01: as tall as the torso (b05: 0.65 m, speed 3.0)   // b04: about the torso tall (b03: under half)
                     SizeJitter = 0.3f, Stretch = 0.1f, Erode = new CelCurve(0.1f, 0.6f), Palette = "fire", Core = 1.7f, Ink = 2f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
                 });
+                if (bigFire) r.Layers.Add(new CelLayer   // d38: a crater ember (cel blob, Comet mode -3): a low licking fire that outlives the burst and dies ~1.2 s after the hit (ref keeps a red ember in its smoke to ~f104)
+                {
+                    Name = "crater ember", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.12f, 0f), Start = hit + 0.2f, Life = 1.4f, LifeJitter = 0.15f,
+                    Close = 1, Mid = 1, Far = 0, Aim = CelAim.Up, Spread = 10f, Speed = 0.1f, SpeedJitter = 0.3f, Drag = 0.5f, Gravity = 0f, Buoyancy = 0.15f, Spin = 0f,
+                    Size = new CelCurve(0.55f, 0.25f, 0.8f), SizeJitter = 0.2f, Stretch = 0f, Erode = new CelCurve(0f, 0.6f, 1.4f),
+                    Palette = "fire", Core = 1.0f, Opacity = 0.9f, Ink = 2f, Extra = new Vector4(-3f, 1.6f, 2.6f, 0.9f),
+                });
                 r.Layers.Add(new CelLayer
                 {
                     Name = "fire core", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.15f, 0f), Start = hit, Life = 0.7f, LifeJitter = 0.15f,
