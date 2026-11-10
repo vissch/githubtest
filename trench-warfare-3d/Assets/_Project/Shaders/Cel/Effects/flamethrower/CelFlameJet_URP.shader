@@ -286,9 +286,15 @@ Shader "TW/Cel/FlameJet"
             float3 c = RibPoint(r, a, uv.x, t);
             float3 c2 = RibPoint(r, a + da, min(uv.x + 0.02, 1.0), t);
             float3 tang = c2 - c; tang *= rsqrt(max(dot(tang, tang), 1e-8));
-            float3 side = cross(tang, normalize(_WorldSpaceCameraPos - c));
+            // d40: one side vector per tongue (its straight span x the view to its middle), not per vertex: where the
+            // curved spine ran along the view ray the per-vertex side spun round and folded the strip into fans of
+            // slivers (the thin straight grey "seam lines"); the strip is now a flat, untwisted band facing the eye
+            float3 span = r.vel * r.life;
+            float3 mid = r.pos + span * 0.5;
+            float3 side = cross(span, normalize(_WorldSpaceCameraPos - mid));
             float sl = dot(side, side);
-            side = sl > 1e-6 ? side * rsqrt(sl) : UNITY_MATRIX_V[0].xyz;
+            side = sl > 1e-8 ? side * rsqrt(sl) : UNITY_MATRIX_V[0].xyz;
+            side = normalize(side - tang * dot(side, tang) * 0.0);
             // no per-vertex up-flip: on a curved spine it flipped the strip between vertices (plank facets)
             float hw = 0.5 * r.size.x * lerp(0.1, 1.0, sqrt(saturate(a))) * (1.0 + 1.2 * saturate(_CelLod.x));
             // a tongue shrinking into the target thins with its visible length (no wide stub at the end)
