@@ -351,17 +351,28 @@ Shader "TW/Cel/Comet"
                     float nz = CelValue2(float2(s / max(hr * 1.3, 1e-3) + i.misc.z * 9.0, seed * 41.0 + step(0.0, y - lick) * 7.0));
                     float nz2 = CelValue2(float2(s / max(hr * 0.6, 1e-3) + i.misc.z * 15.0, seed * 23.0 + 3.0));
                     float rag = lerp(1.0, 0.7 + 0.45 * nz + 0.2 * (nz2 - 0.5), smoothstep(0.25, 0.8, sb));
-                    float wBody = hr * 0.44 *   /* d34: head ~2x the tail */ (1.0 + 0.25 * smoothstep(0.0, 0.2, sb)) * pow(saturate(1.0 - sb), 0.7) * rag;   // ~1.4x narrower than the head just behind it
-                    float tailF = (s >= 0.0 && s <= bodyL) ? 1.0 - abs(y - lick) / max(wBody, 1e-4) : 0.0;
+                    // e04 (technique change, stall rule): the tail stops being one filled teardrop with three hair
+                    // licks behind it and becomes a BUNDLE of five scribbling strands leaving the head. REF f30-f99
+                    // (and the blind A/B on e02) read our tail as "thicker, smoother, a single gradient" against
+                    // REF's "thinner, scribbly, multi-strand, hand-painted". The solid body is kept only as a short
+                    // collar on the head (0.45 of the old width, 0.5 of the old length); the strands carry the rest
+                    // of the length, each with its own travelling sine so the bundle writhes instead of sliding.
+                    float collarL = bodyL * 0.5;
+                    float sc = saturate(s / collarL);
+                    float wBody = hr * 0.30 * (1.0 + 0.25 * smoothstep(0.0, 0.2, sc)) * pow(saturate(1.0 - sc), 0.55) * rag;
+                    float tailF = (s >= 0.0 && s <= collarL) ? 1.0 - abs(y - lick) / max(wBody, 1e-4) : 0.0;
                     float streakF = 0.0, streakU = 1.0;
-                    [unroll] for (int k5 = 0; k5 < 3; k5++)
+                    [unroll] for (int k5 = 0; k5 < 5; k5++)
                     {
                         float hk = CelHash21(float2(k5, seed * 57.0));
-                        float Lk = fl * (0.85 + 0.3 * hk);
+                        float Lk = fl * (0.80 + 0.45 * hk);
                         float uk = saturate(s / max(Lk, 1e-3));
-                        float yk = hr * 0.35 * (k5 - 1) * (1.0 - 0.6 * uk) + hr * 0.15 * sin(s * 2.5 + hk * 20.0 - i.misc.z * 9.0) * uk;
-                        float wk = hr * 0.12 * pow(saturate(1.0 - uk), 0.8);
-                        float fk = (s >= bodyL * 0.6 && s <= Lk) ? 1.0 - abs(y - yk) / max(wk, 1e-4) : 0.0;
+                        // each strand leaves the head on its own line, then scribbles: two sines of different rate
+                        float yk = hr * 0.50 * (k5 - 2) * 0.5 * (0.25 + 0.75 * uk)
+                                 + hr * 0.30 * sin(s * 2.1 / max(hr, 1e-3) + hk * 20.0 - i.misc.z * 9.0) * uk
+                                 + hr * 0.14 * sin(s * 4.7 / max(hr, 1e-3) + hk * 11.0 - i.misc.z * 15.0) * uk;
+                        float wk = hr * 0.17 * pow(saturate(1.0 - uk), 0.75) * (0.75 + 0.5 * hk);
+                        float fk = (s >= 0.0 && s <= Lk) ? 1.0 - abs(y - yk) / max(wk, 1e-4) : 0.0;
                         if (fk > streakF) { streakF = fk; streakU = uk; }
                     }
                     float f = max(max(headF, tailF), streakF);
@@ -370,7 +381,9 @@ Shader "TW/Cel/Comet"
                     float heat = saturate(1.0 - length(float2(max(s, 0.0) / (bodyL * 1.05), (y - lick * sb) / max(hr * 1.5, 1e-4))));
                     float vHead = headF > 0.0 ? 0.6 + 0.4 * saturate(headF * 1.4) : 0.0;
                     float vBody = tailF > 0.0 ? 0.08 + 0.84 * pow(heat, 0.5) : 0.0;
-                    float vStreak = streakF > 0.0 ? 0.05 + 0.2 * (1.0 - streakU) : 0.0;
+                    // e04: the strands ARE the tail now, so they take the body's heat ramp (hot orange leaving the
+                    // head, deep red at the tips) instead of the old near-black hair-lick value
+                    float vStreak = streakF > 0.0 ? 0.06 + 0.78 * pow(heat, 0.6) : 0.0;
                     float val = max(max(vHead, vBody), vStreak);
                     half3 fCol = CelRamp(saturate(val), rowA, i.tone.y);
                     // the dark ink edge on the tail and licks (never round the head)
