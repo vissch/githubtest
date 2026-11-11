@@ -13,7 +13,7 @@
 //   erode.xyz  glows: how far it has faded (0 full .. 1 gone) over the life; arc: the cross-section cut threshold
 //   tone       x palette, y HDR core, z opacity, w unused
 //   extra      x mode, y glows: falloff power (0: 1.5), z arc: kink size (x length); flash: the ground cut (m below
-//              the centre; 0 none: a dome of light with a flat foot, as the clip's), w flash: its own pull toward the
+//              the centre; 0 none: a dome of light whose foot fades out over 0.18 of its radius), w flash: its own pull toward the
 //              eye with fog taken at the drawn place (0: ExpPull, true fog); star: points
 // A flash is drawn pulled toward the eye (same screen size, ExpPull of its distance), so a ruin or bank between it
 // and the eye does not hide a far dome; its fog is taken where it really is.
@@ -86,7 +86,15 @@ Shader "TW/Cel/ExpFx"
                         // extra.w > 0 on a flash: its own pull, and fog taken where it is drawn (a far dome across the field)
                         float pull = (mode < 1.5 && r.extra.w > 0.0) ? r.extra.w : ExpPull;
                         w = _WorldSpaceCameraPos + (wf - _WorldSpaceCameraPos) * pull;
-                        cut = r.extra.z > 0.0 ? wf.y - (c.y - r.extra.z) : 1.0;
+                        // e03: the dome's foot. This used to be the raw height above the foot plane in metres,
+                        // and the fragment cut it with saturate(cut * 40), i.e. a hard step 2.5 cm above the
+                        // plane. Measured on the best take with a straight-step detector (and the same detector
+                        // on the reference clip as a control, which finds none): f24 row 586 steps 71 luminance
+                        // levels over a dead-straight 421 px run, f33 row 582 68 over 302 px, f59 row 666 58 over
+                        // 232 px, f77 row 360 109 over 229 px and row 383 134 over 156 px. That straight line is
+                        // what reads as a rectangle of light rather than a dome standing on the ground. It is now
+                        // measured as a share of the dome's own radius, so the fragment can feather it.
+                        cut = r.extra.z > 0.0 ? (wf.y - (c.y - r.extra.z)) / max(radius * 0.18, 1e-3) : 1.0;
                     }
                     uv = corner;
                 }
@@ -142,7 +150,7 @@ Shader "TW/Cel/ExpFx"
                     col = CelPal(row, 1) * (half)CelAAStep(edge, field);
                     col = lerp(col, CelPal(row, 3), (half)CelAAStep(0.22, field));
                     col = lerp(col, core.rgb * (half)max(i.tone.y, 0.0), (half)CelAAStep(min(core.a, 0.99), field));
-                    col *= (half)(i.tone.z * fade * saturate(i.more.z * 40.0));
+                    col *= (half)(i.tone.z * fade * smoothstep(0.0, 1.0, saturate(i.more.z)));
                 }
                 else if (i.shape.x < 1.5)
                 {
@@ -152,7 +160,7 @@ Shader "TW/Cel/ExpFx"
                     half4 core = CelPalCore(row);
                     col = lerp(CelPal(row, 1), CelPal(row, 3), (half)smoothstep(0.0, 0.45, field));
                     col = lerp(col, core.rgb * (half)max(i.tone.y, 0.0), (half)smoothstep(min(core.a, 0.99), 1.0, field));
-                    col *= (half)(env * i.tone.z * saturate(1.0 - i.tone.w) * saturate(i.more.z * 40.0));
+                    col *= (half)(env * i.tone.z * saturate(1.0 - i.tone.w) * smoothstep(0.0, 1.0, saturate(i.more.z)));
                 }
                 else
                 {
