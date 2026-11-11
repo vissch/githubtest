@@ -1,4 +1,4 @@
-# Where things are: task → files → tests → how to see it
+# Where things are: task â†’ files â†’ tests â†’ how to see it
 
 Read this second, after `CLAUDE.md`. Find the area your task touches, open the files it names, run the tests it
 names, and look at the result the way "See it" says. Paths are under `trench-warfare-3d/Assets/_Project/`, except
@@ -319,8 +319,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 
 ### Stubs: placeholders for planned phases, not wired
 `Sim/Match/MissionScript.cs` (the baked mission table; nothing steps it yet. `Sim/Units/SpecialAbilities.cs` is only
-the `UnitAbilityId` enum now, its stub system deleted 2026-09-28; the six unregistered systems that threw —
-Logistics, WaveAi, Grenades, Stance, the mission runner — deleted 2026-10-13, review U13),
+the `UnitAbilityId` enum now, its stub system deleted 2026-09-28; the six unregistered systems that threw â€”
+Logistics, WaveAi, Grenades, Stance, the mission runner â€” deleted 2026-10-13, review U13),
 `Net/HashExchange.cs`, `Net/Snapshot.cs`, `Presentation/Audio/EventAudioRouter.cs`, `Presentation/VFX/EventVfxRouter.cs`
 (each its assembly's only file). Building one out is a feature, and for the sim ones a hash change.
 Indirect fire solves the launch angle for range at fixed v0, schedules the impact tick and hands the terminal
@@ -443,9 +443,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   fallen man per frame, the shadow decision made every frame), DeathVarietyTests (VatPad char bits, the tumble's pitch),
   VatTintTests (the Tint layout, C# against the shader), FallenFlightTests (the gagged body's path),
   UnitOneSizeTests (every unit's drawn world height is the same at the closest, a middle and the farthest camera
-  zoom: infantry, a hero, a rider, one tank and one walker — the owner, 2026-10-13, overturning the readability
-  grow of the 2026-09-26 decisions.md row). ZoomScaleStills (`Tests/Stills`) photographs that same battle moment —
-  infantry, a rider, a tank and a walker in view — at three zooms, before and after, with the drawn height of each
+  zoom: infantry, a hero, a rider, one tank and one walker â€” the owner, 2026-10-13, overturning the readability
+  grow of the 2026-09-26 decisions.md row). ZoomScaleStills (`Tests/Stills`) photographs that same battle moment â€”
+  infantry, a rider, a tank and a walker in view â€” at three zooms, before and after, with the drawn height of each
   under every picture (`TW_STILLS_DIR`).
 - **Trap:** any clip/discard in `VAT_URP.shader` goes behind `_TW_LIMBCUT` (VatEarlyZTests). Index instance data
   with `GetIndirectInstanceID_Base`, not `GetIndirectInstanceID`. `VatInstance.Tint` is packed by `VatTint`: the team
@@ -495,7 +495,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 
 ### Tanks and walkers drawn
 - **Files:** `Presentation/Camera/MachineScale.cs` (a tank or walker's drawn root scale and hull height at a zoom,
-  one size at every zoom — the machines' twin of `Presentation/Core/FigureMetrics.cs`; read by `TankRenderer.Pose`
+  one size at every zoom â€” the machines' twin of `Presentation/Core/FigureMetrics.cs`; read by `TankRenderer.Pose`
   and `UnitOneSizeTests`), `Presentation/Camera/TankRenderer.cs` (`Machines`: every machine with an atlas of its own, the walkers and
   since 2026-09-28 the Skimmer and the Salvo, `Resources/Vehicles/Skimmer`, `/Salvo`; a row's Rockets draw its shot as a rack of rockets, `Presentation/Camera/TankRenderer.Salvo.cs`; a turret on a machine armed only
   with small arms follows `SimWorld.TargetSlot`; a part called Fan spins; `SideColourOn` names the parts that wear the side's
@@ -534,7 +534,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/CombatFx.Wrecks.cs` (a tracer to the wreck's side), and the shooter faces it (AnimationController). `Editor/WreckLab.cs` shells a point or reads the wreck
   nearest it, for staging one by hand.
 - **Tests:** GaitTests (plus the sim tests above), WreckModelTests (the carcass and the stages' masks), WalkerPivotTests (every walker's and the Cutter's part and socket
-  where crabsplit.py built it, at both LODs: `Editor/TankImport.cs` puts them there from `crabs.json`), WalkerJointTests (the joined legs hang together at both LODs), ModelCutTests (a walker cut to the standard, the Banner first: Hull on the origin, every leg Thigh > Shin > Foot named by side and numbered from the rear, every joint on its parent as cut, a toe socket on every sole, the legs the rules count, the part budget; walking, its body clear of the ground and a planted foot neither sliding nor turning with its shin), WalkerUnchangedTests (every walker that was not cut again walks exactly as it did before the leg code learned to hold a foot: the recorded sums of two walks each), BannerFrontLegsTests (the Banner's legs do not pass through each other, measured on the real meshes — vertex to triangle, both ways — over seven cases: straight, a turn on the spot, a stop, a slope, a rolling ground, a turning walk on it and the same at LOD1; also every pair of parts on the machine, a leg against itself and the turret skirt reported but not claimed; and that no front leg folds its own foot into its own thigh, 0.06 m of margin, which is what the owner saw as "clipping" on the day film), DriveStyleTests (no two machines ride alike), HullRideTests (the weight layer's maths: exact, stable on long frames, no chatter, shots weighed, kicks sized; PlainStyle is the old ride), MachineSocketTests (every walker finds its exhaust and fire), MachineLampTests (four lamps on the upper corners of all ten hulls, front at the front; the Maw's furnace), MachineLightPoolTests (forty burning machines never light more than the pool; a cook-off takes a fire's light, a furnace cannot; the lamps' colour and card size), TrackDustTests (a pivot throws dust where the hull-speed gate threw none), RiderSeatTests, DefinedMachineModelTests (the Skimmer's and Salvo's
+  where crabsplit.py built it, at both LODs: `Editor/TankImport.cs` puts them there from `crabs.json`), WalkerJointTests (the joined legs hang together at both LODs), ModelCutTests (a walker cut to the standard, the Banner first: Hull on the origin, every leg Thigh > Shin > Foot named by side and numbered from the rear, every joint on its parent as cut, a toe socket on every sole, the legs the rules count, the part budget; walking, its body clear of the ground and a planted foot neither sliding nor turning with its shin), WalkerUnchangedTests (every walker that was not cut again walks exactly as it did before the leg code learned to hold a foot: the recorded sums of two walks each), BannerFrontLegsTests (the Banner's legs do not pass through each other, measured on the real meshes â€” vertex to triangle, both ways â€” over seven cases: straight, a turn on the spot, a stop, a slope, a rolling ground, a turning walk on it and the same at LOD1; also every pair of parts on the machine, a leg against itself and the turret skirt reported but not claimed; and that no front leg folds its own foot into its own thigh, 0.06 m of margin, which is what the owner saw as "clipping" on the day film), DriveStyleTests (no two machines ride alike), HullRideTests (the weight layer's maths: exact, stable on long frames, no chatter, shots weighed, kicks sized; PlainStyle is the old ride), MachineSocketTests (every walker finds its exhaust and fire), MachineLampTests (four lamps on the upper corners of all ten hulls, front at the front; the Maw's furnace), MachineLightPoolTests (forty burning machines never light more than the pool; a cook-off takes a fire's light, a furnace cannot; the lamps' colour and card size), TrackDustTests (a pivot throws dust where the hull-speed gate threw none), RiderSeatTests, DefinedMachineModelTests (the Skimmer's and Salvo's
   models: both LODs, parts under the Hull, the barrel forward, drawn the size of their footprint), TankDiscRingTests (the
   side ring's teal band fades near the camera and stays unchanged at the standard view, so it no longer paints brighter than
   the machine it marks). WalkerStills (`Tests/Stills`) captures the walkers
@@ -673,8 +673,33 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   the PNG together, and check `books.Ready`.
 
 ### Cel effects kit (CelFx: procedural cel VFX, no flipbooks, 2026-11-09)
+- **Artillery lab effect:** `Presentation/VFX/Cel/Effects/artillery/ArtilleryRecipe.cs` (cooling cel bursts and projectiles),
+  `Presentation/VFX/Cel/Effects/artillery/ArtilleryKinds.cs` (procedural light and shape pools),
+  `Presentation/VFX/Cel/Effects/artillery/ArtilleryRange.cs` (eight shells at six ground sites, two volleys; no weapon hooks).
+  Shaders: `Shaders/Cel/Effects/artillery/CelArtilleryFx_URP.shader` and `CelArtilleryShape_URP.shader`, kept by
+  `Resources/ShaderKeep/KeepCelArtilleryFx.mat` and `KeepCelArtilleryShape.mat`. Range id `artillery`; close captures use
+  `t0=0.2` so the entering shells precede the first visible contact targeted at frame 18. Existing CelFxTests and
+  ShaderInclusionTests guard recipe LOD counts, GPU records and shader inclusion; visual match requires Range captures.
+  Artillery queues impacts through the delayed Play API so future light receivers cannot fire while a future GPU birth
+  clock is pinned. The timing table targets first visible contacts at f18,21,22,29,60,60,61,66 in salvo order.
+  The nominal values are one frame earlier, compensating the sampled start phase while preserving the 12-frame flight
+  and every layer envelope. The second far-left impact center is offscreen; f60 is an inferred midpoint of f59-61.
+  Native consecutive captures must verify these onsets and all Mid/Far phases before visual acceptance.
+  Close smoke uses `Presentation/VFX/Cel/Effects/artillery/ArtilleryBillowKind.cs`: a connected three-lobe skin
+  built once on the existing 642-vertex topology, with baked outward normals and concavity/convexity attributes.
+  `Shaders/Cel/Effects/artillery/CelArtilleryBillow_URP.shader` paints cavity shadows and broken connected hot faces;
+  `Resources/ShaderKeep/KeepCelArtilleryBillow.mat` keeps it in builds. The three Close smoke layers alone select it;
+  their records, curves and palettes are unchanged, and Mid/Far retain their original kinds. ArtilleryBillowTests
+  (`Tests/Cel/ArtilleryBillowTests.cs`) checks deterministic manifold geometry, bounded radius/normals, record identity,
+  outer-tier isolation and warmed GC.Alloc samples with positive/no-op controls. GPU and whole-frame budgets still
+  require measurement. Close ground response has one local amber fan mode with its own age fade; only the ground
+  layer's life, opacity and mode differ. The selected flash/spikes and all other records remain unchanged.
+  ArtilleryGroundFanTests (`Tests/Cel/ArtilleryGroundFanTests.cs`) verifies 64 actual records per recipe, 63 byte-identical,
+  and allows only Life/Tone.z/Extra.x in the ground record. Rear flat-plane terrain occlusion remains unproven.
+  Impact shape, smoke/target visibility, wakes and debris are separate work. Review includes native 24 fps footage;
+  successful movie decoding is not watched playback evidence.
 - **Files:** `Presentation/VFX/Cel/README.md` (the API in one page: recipes, adding a kind, LOD and budget rules),
-  `Presentation/VFX/Cel/CelFx.cs` (`CelFx.Play(recipe, origin, dir, target, seed)`, the zoom tier, chunk and light
+  `Presentation/VFX/Cel/CelFx.cs` (`CelFx.Play(recipe, origin, dir, target, seed, startDelay = 0)`, the zoom tier, chunk and light
   layers on their frame), `Presentation/VFX/Cel/CelFxRecipe.cs` (layers: kind, timeline, counts per tier, shape, aim,
   curves, palette), `Presentation/VFX/Cel/CelFxRenderer.cs` (a ring of 128-byte records per kind in one GPU buffer, one
   indirect draw per live kind through `FrameBudget`), `Presentation/VFX/Cel/CelKind.cs` (the extension point: a kind
@@ -682,8 +707,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/VFX/Cel/CelRecord.cs`, `Presentation/VFX/Cel/CelDemo.cs` (a recipe using every primitive),
   `Shaders/Cel/CelFx.hlsl` (bands, ink, erosion, camera-as-light, noise, SDFs) and `Shaders/Cel/Cel*_URP.shader`,
   keepers `Resources/ShaderKeep/KeepCel*.mat`, `Editor/Cel/CelFxStill.cs` (a contact sheet of a recipe in an empty scene).
-- **Tests:** CelFxTests (`Tests/Cel`: 0 B per spawn, frame and play; counts never rise going out; every TW/Cel shader
-  found and kept; draws through FrameBudget; statics put back).
+- **Tests:** CelFxTests (`Tests/Cel`: counts never rise going out; every TW/Cel shader found and kept; draws
+  through FrameBudget; statics put back). Its legacy `GC.GetAllocatedBytesForCurrentThread` checks are not allocation
+  evidence under Unity. CelDelayedPlayTests pins delayed light receiver times, default immediate semantics, independent
+  pending calls and unchanged GPU record fields; warmed Play/Pump allocations use the GC.Alloc recorder with positive
+  and no-op controls. These queue/receiver checks do not establish whole-frame allocation or GPU budgets.
 - **See it:** `Unity.exe -batchmode -projectPath trench-warfare-3d -executeMethod TW.Editor.CelFxStill.Batch -celOut <dir>`
   (with graphics) writes a sheet of eight moments, the peak frame and a json of the draws into that folder.
 
@@ -1096,6 +1124,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   - AnimationPinTests: the pin holds, replays a one-shot, lets go on a new generation, and loses to a death.
   - GymPlayTests: a pinned clip is drawn, and a barrage called through the gym is accepted.
   - GymExitCodeTests: a run that never entered Play exits the batch editor non-zero, not idle.
+  - GymRequestTests: ordinary Play ignores absent gym requests; default options are preserved and consumed once.
   - GymLessonsTests: a gym run inside a relay leg (TW_RELAY) leaves lessons.md on the board alone; outside a leg it still writes recurring flags.
 - **See it:** in Play in GreyboxCorridor, **TW > Gym** (Quiet, a tab, Play, a band button). Unattended:
   `Tools/tw eval 'return TW.Editor.Gym.Run("tabs=clips max=20");'`, or `-executeMethod TW.Editor.Gym.CommandLine -twgym
@@ -1149,10 +1178,10 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Cel:** CelFxTests
+- **Cel:** ArtilleryBillowTests, ArtilleryGroundFanTests, CelDelayedPlayTests, CelFxTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, ScriptedEnemySlotTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** AnimClockPlayTests, CaptureRigPlayTests, DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudMinimapPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
-- **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
+- **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, GymRequestTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
 - **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BannerFireFitTests, BannerFireInkTests, BannerFrontLegsTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BullfrogLegsTests, BurstRecipeTests, CameraCloseFitTests, CampaignProfileTests, CaptureRigMeasureTests, ColumnLightTests, ColumnPlayTests, ColumnWidthTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, EventPumpDispatchTests, FallenFlightTests, FarGrowTests, FigurePartsTests, FlipbookOrdinalTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GoreScaleTests, GrenadeLookTests, GunFxTests, GunMuzzleLookTests, GymCatalogueTests, HitMarkSizeTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, ImpactDustFeetTests, InfantryFiringTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineMuzzleTests, MachineSocketTests, ModelCutTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RealLampSetTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, SimHostCatchUpTests, StaticLifecycleTests, StormThunderTests, TacticalCameraSeatTests, TankDiscRingTests, TerrainChunkPassTests, TickAllocationTests, TracerGlowTests, TracerMuzzleTests, TracerSideBySideTests, TrackDustTests, TrenchSectionTests, UnitOneSizeTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatFallenReuseTests, VatTintTests, VehicleDeathTests, ViewEyeTests, ViewGroundTests, WalkerJointTests, WalkerUnchangedTests, WreckModelTests
 - **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, BurstOptionsTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DataBakerTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, LockstepFrameValidationTests, LockstepHashLabelTests, LockstepSteppedTickTests, MeleeTests, MineTests, OfficerTests, PerfMarkersTests, PlaytestMapTests, PropIndexTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, ReplayGuardTests, SapperTests, SectorControlTests, ShieldTests, SimHashTests, SimMathTests, SimStubTests, SlotHashBoundTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckDecayTests, WreckRecordTests
 - **Stills:** BenchRuns, DeathStills, EffectFilmStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills

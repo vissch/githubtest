@@ -19,6 +19,8 @@ namespace TW.Presentation.VFX.Cel
 
         // the live renderer (made on first use by Renderer; a destroyed one reads null and the next use makes another)
         static CelFxRenderer live;
+        // Awake must inspect the owner without re-entering lazy component creation.
+        internal static CelFxRenderer ExistingRenderer => live;
         /// <summary>A pinned clock for stills (NaN: Time.time). Records are born on it and the shader reads it.</summary>
         public static float Clock = float.NaN;
         /// <summary>A pinned zoom for stills and tests (NaN: the camera's, ViewEye.Zoom).</summary>
@@ -86,13 +88,15 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>
         /// Play an effect: origin is where it comes from (the muzzle, the burst), dir the way it faces (normalised here;
         /// zero = +z), target where it goes (the hit; origin + dir when it has none), seed its variety (the same seed
-        /// plays the same effect). Every layer is spawned now; nothing is left to do per frame. No allocation.
+        /// plays the same effect). startDelay offsets record births and receiver due times without advancing Now.
+        /// GPU records are submitted once; deferred receiver layers are dispatched by Pump. No allocation.
         /// </summary>
-        public static void Play(CelFxRecipe recipe, Vector3 origin, Vector3 dir, Vector3 target, uint seed)
+        public static void Play(CelFxRecipe recipe, Vector3 origin, Vector3 dir, Vector3 target, uint seed, float startDelay = 0f)
         {
             if (recipe == null) return;
             var r = Renderer;
-            float now = Now;
+            // Keep the running clock real so queuing a future light cannot drain pending receivers early.
+            float now = Now + startDelay;
             float lod = LodBlend(Zoom);
             float q = QualityShare(FxQuality.Tier);
             Frame(dir, out Vector3 fwd, out Vector3 right, out Vector3 up);

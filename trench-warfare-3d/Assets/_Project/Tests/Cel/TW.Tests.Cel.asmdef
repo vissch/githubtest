@@ -6,7 +6,8 @@
     "UnityEditor.TestRunner",
     "TW.Sim.Core",
     "TW.Presentation.Core",
-    "TW.Presentation.VFX"
+    "TW.Presentation.VFX",
+    "TW.Perf"
   ],
   "includePlatforms": [
     "Editor"
