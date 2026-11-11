@@ -687,6 +687,16 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **See it:** `Unity.exe -batchmode -projectPath trench-warfare-3d -executeMethod TW.Editor.CelFxStill.Batch -celOut <dir>`
   (with graphics) writes a sheet of eight moments, the peak frame and a json of the draws into that folder.
 
+### Orbital laser (lab only, 2026-11-09)
+- **Files:** `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalLaserRecipe.cs` (GPU records for the sweeping shaft,
+  smoke rings, sparks and persistent crescent), `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalLaserKind.cs`
+  (one indirect pool), `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalLaserRange.cs` (Range registration),
+  `Shaders/Cel/Effects/orbital_laser/CelOrbitalLaser_URP.shader`, `Resources/ShaderKeep/KeepCelOrbitalLaser.mat`.
+- **Tests:** OrbitalLaserTests (leftward arc, two far records, scorch after eight seconds, no allocation on play),
+  CelFxTests and ShaderInclusionTests (build retention and common renderer contracts).
+- **See it:** `VfxLab.Range("orbital_laser", outDir, "all")`; reference capture uses `effect=orbital_laser t0=0.625`
+  to include the broad arrival at frame 16. No sim handler or weapon uses this effect.
+
 ### Debris and destruction of props and houses
 - **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers,
   `ZoomShare`; a pool whose last piece has sunk is not drawn), `Presentation/Camera/DebrisRenderer.Parts.cs` (a man's
@@ -1096,6 +1106,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   - AnimationPinTests: the pin holds, replays a one-shot, lets go on a new generation, and loses to a death.
   - GymPlayTests: a pinned clip is drawn, and a barrage called through the gym is accepted.
   - GymExitCodeTests: a run that never entered Play exits the batch editor non-zero, not idle.
+  - GymRequestTests: ordinary Play ignores absent gym requests; default options are preserved and consumed once.
   - GymLessonsTests: a gym run inside a relay leg (TW_RELAY) leaves lessons.md on the board alone; outside a leg it still writes recurring flags.
 - **See it:** in Play in GreyboxCorridor, **TW > Gym** (Quiet, a tab, Play, a band button). Unattended:
   `Tools/tw eval 'return TW.Editor.Gym.Run("tabs=clips max=20");'`, or `-executeMethod TW.Editor.Gym.CommandLine -twgym
@@ -1140,7 +1151,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Deaths, CombatFx.Ground |
 | `Flash` | NightLights | CelFx, CombatFx.Chunks, TankRenderer, TankRenderer.Riders, TankRenderer.Salvo |
 | `FireLight` | NightLights | Flamethrower, TankRenderer |
-| `FirePool` | NightLights.Pools | NightLights, TankRenderer |
+| `FirePool` | NightLights.Pools | NightLights, OrbitalLaserRecipe, TankRenderer |
 | `CookOff` | CombatFx | PropDestruction |
 | `FootFall` | CombatFx | TankRenderer |
 | `MachineLight` | NightLights, NightLights.Machines | TankRenderer.Lights |
@@ -1149,10 +1160,10 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Cel:** CelFxTests
+- **Cel:** CelFxTests, OrbitalLaserTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, ScriptedEnemySlotTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** AnimClockPlayTests, CaptureRigPlayTests, DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudMinimapPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
-- **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
+- **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, GymRequestTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
 - **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BannerFireFitTests, BannerFireInkTests, BannerFrontLegsTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BullfrogLegsTests, BurstRecipeTests, CameraCloseFitTests, CampaignProfileTests, CaptureRigMeasureTests, ColumnLightTests, ColumnPlayTests, ColumnWidthTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, EventPumpDispatchTests, FallenFlightTests, FarGrowTests, FigurePartsTests, FlipbookOrdinalTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GoreScaleTests, GrenadeLookTests, GunFxTests, GunMuzzleLookTests, GymCatalogueTests, HitMarkSizeTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, ImpactDustFeetTests, InfantryFiringTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineMuzzleTests, MachineSocketTests, ModelCutTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RealLampSetTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, SimHostCatchUpTests, StaticLifecycleTests, StormThunderTests, TacticalCameraSeatTests, TankDiscRingTests, TerrainChunkPassTests, TickAllocationTests, TracerGlowTests, TracerMuzzleTests, TracerSideBySideTests, TrackDustTests, TrenchSectionTests, UnitOneSizeTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatFallenReuseTests, VatTintTests, VehicleDeathTests, ViewEyeTests, ViewGroundTests, WalkerJointTests, WalkerUnchangedTests, WreckModelTests
 - **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, BurstOptionsTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DataBakerTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, LockstepFrameValidationTests, LockstepHashLabelTests, LockstepSteppedTickTests, MeleeTests, MineTests, OfficerTests, PerfMarkersTests, PlaytestMapTests, PropIndexTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, ReplayGuardTests, SapperTests, SectorControlTests, ShieldTests, SimHashTests, SimMathTests, SimStubTests, SlotHashBoundTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckDecayTests, WreckRecordTests
 - **Stills:** BenchRuns, DeathStills, EffectFilmStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
