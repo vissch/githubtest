@@ -87,7 +87,27 @@ namespace TW.Presentation.VFX.Cel
                 new CelCurve(0.38f, 0.30f), 0f, 5f, 3f),
             Dot("impact bloom", "cyan_beam_hit", 1, BeamStart + 0.05f, 0f, BeamLife - 0.05f, 1, 1, 1,
                 new CelCurve(1.5f, 1.3f), 2f, 0f, 0.24f),
-            Dot("early target energy flash", "cyan_beam_pool", 3, BeamStart + 0.03f, 0f, 0.6f, 1, 1, 0,
+            // k02: narrow this flash in TIME without moving its centre or its peak. The shader's mode-3
+            // pulse is pow(sin(life01 * pi), 1.3) * saturate(age / 0.12) * saturate((1 - life01) * 6), so the
+            // flash's brightest instant is Start + Life/2. That centre is BeamStart + 0.33 = 0.58 s today and
+            // it stays BeamStart + 0.33 = 0.58 s after this edit (0.45 + 0.26/2): the peak frame, and with it
+            // peak_area_ratio, is untouched. Only the wings go. Life 0.60 -> 0.26 halves the window this
+            // radius-7 billboard is lit for, from f18.6-f28.7 to f20.3-f25.6 on the gate's own clock.
+            // Measured on the gate masks (k01 9302ef953, 150 active frames, ours dE thr 12.24):
+            //   frames 19-28 carry 1,931,149 px = 60.5% of ALL of our out-of-REF pixels (193,115 px/frame
+            //     there against a 21,281 px/frame mean over the 150 active frames)
+            //   band 1 (sky, y0-128) ours 4,928 vs ref 1,811 px/frame = 2.72x, and 97.8% of our band-1 mask
+            //     area is in those same ten frames (72,290 px/f there vs REF's 15,379)
+            //   ncomp >= 30px in that window: ours 1, REF 7-18 - this one billboard fuses the whole frame
+            //   area curve: REF ramps 0.280 (f18) -> 0.665 (f23) and falls to 0.434 (f24); ours steps to
+            //     0.600 by f19 and HOLDS 0.62-0.655 from f19 to f27. A 10-frame plateau against a 1-frame spike.
+            // That plateau is what the lag penalty is charging for: timing.soft_lag_frames 0.8721, and
+            // lagpen = exp(-soft_lag/10) is worth up to +2.0 composite (vfxmatch.py:204, v2.2).
+            // Modelling the shader's own pulse against the measured area curve, Life 0.26 gives
+            // soft_lag ~0.16, area_corr .9633 -> ~.983, s_tim .8790 -> ~.953 = +1.85 composite, par 0.9851
+            // unchanged. Shrinking the RADIUS instead was modelled and rejected: x0.70 drives
+            // peak_area_ratio to 0.785, outside the 1/1.15 deadband floor, for -1.3 composite.
+            Dot("early target energy flash", "cyan_beam_pool", 3, BeamStart + 0.20f, 0f, 0.26f, 1, 1, 0,
                 new CelCurve(6.7f, 7.0f), 1.5f, 1f, 0f),
             Dot("held target cyan atmosphere", "cyan_beam_pool", 3, BeamStart + 0.05f, 0f, BeamLife, 1, 1, 0,
                 new CelCurve(3.1f, 3.0f), 2.5f, 0f, 0f),
