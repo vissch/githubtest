@@ -137,8 +137,15 @@ namespace TW.Presentation.VFX.Cel
 
         static CelFxRecipe GroundRecipe()
         {
+            // j01: the near ground runs short. On the gate masks over 150 active frames the reference's mask
+            // area per row is flat across the bottom third (14815 px at y560 -> 11461 at y752) while ours decays
+            // monotonically (11376 -> 2725, ratio 0.77 -> 0.24): 69547 of our 116576 px/frame area shortfall sits
+            // in the bottom 208 rows. This is the dominant ground primitive (Opacity 1, the largest Size, Far = 0),
+            // so its radius is what carries the pool's near edge toward the camera. 5.1 -> 6.3 is +23.5% radius.
+            // Size and not Opacity because h01 measured that halving this layer's Opacity moves only 5699 px/frame
+            // of mask: the mask is driven by this disc's geometry, not its brightness.
             CelLayer endpoint = Dot("target ground pool", "cyan_beam_pool", 2, BeamStart + 0.06f, 0f, 5.95f, 1, 1, 0,
-                new CelCurve(5.1f, 4.3f), 1.5f, BeamStart + 0.06f, 0f);
+                new CelCurve(6.3f, 5.3f), 1.5f, BeamStart + 0.06f, 0f);
             return new CelFxRecipe("cyan_beam_ground", 6.3f, endpoint,
                 new CelLayer
                 {
