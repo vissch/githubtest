@@ -71,7 +71,7 @@ namespace TW.Presentation.VFX.Cel
                 Name = name, Kind = LightningBeamKind.KindName, Start = start, Duration = Hold - start, TimeJitter = 0.03f, Life = 0.12f, LifeJitter = 0.3f,
                 Close = close, Mid = mid, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(spread, 0f, 0f), Aim = CelAim.Target, Speed = 0f, Spread = 0f, Arrive = 1f,
                 Size = new CelCurve(width, width * 0.75f), SizeJitter = 0.25f, Stretch = window, Erode = new CelCurve(0.06f, 0.3f, 2f), Feather = jitter,
-                Palette = "blue_laser_beam", Core = 1.4f, Opacity = 0.95f, Ink = 1f, Extra = new Vector4(0.6f, 14f, head, head + 0.02f),
+                Palette = "blue_laser_beam", Core = 0.85f, Opacity = 0.95f, Ink = 1f, Extra = new Vector4(0.6f, 14f, head, head + 0.02f),
             };
         }
 
