@@ -149,10 +149,22 @@ namespace TW.Presentation.VFX.Cel
             return new CelFxRecipe("cyan_beam_ground", 6.3f, endpoint,
                 new CelLayer
                 {
+                    // k01: this - not the endpoint pool above - is the near-ground layer. Measured this turn on the
+                    // gate's own masks (h00 5b319275d vs j01 f9df11463, 150 active frames, ours dE thr 12.24): the
+                    // endpoint pool's radius step 5.1 -> 6.3 moved +7872 px/frame into band 5 (y512-640) but +0
+                    // px/frame below y704 and only +1049 into band 6 (y640-768) against a 48205 px/frame deficit
+                    // there, because that pool is anchored at the target, up-frame. Band 6 holds 49237 of our
+                    // 118793 px/frame of uncovered reference (41.4%) with only 1032 px/frame of ours outside it.
+                    // This layer is anchored at lightStart = Lerp(from, ground, 0.2), down-frame on the beam, so
+                    // its radius is what carries the wash into y640-768 and out along the bottom (REF reaches
+                    // x1103 there, we reach x853). 3.7 -> 7.4 is x2.0 radius, x4.0 disc area.
+                    // Size and not Opacity: the mode-2 glow is exp(-g*g*softness) * saturate(1-g) with
+                    // g = |surface-centre|.xz / radius, so the footprint is this disc's geometry; h01 measured that
+                    // halving a pool's Opacity moves only 5699 px/frame.
                     Name = "cyan light along ground", Kind = CyanBeamKind.KindName,
                     Start = BeamStart + 0.1f, Life = BeamLife + 0.15f, LifeJitter = 0f,
                     Close = 4, Mid = 3, Far = 0, Shape = CelShape.Line,
-                    Size = new CelCurve(3.7f, 3.5f), SizeJitter = 0f, Stretch = -0.001f,
+                    Size = new CelCurve(7.4f, 7.0f), SizeJitter = 0f, Stretch = -0.001f,
                     Erode = new CelCurve(0.05f, 1f, 12f), Palette = "cyan_beam_pool", Core = 1f, Opacity = 0.45f,
                     Extra = new Vector4(2f, 1.5f, BeamStart + 0.1f, 0f),
                 });
