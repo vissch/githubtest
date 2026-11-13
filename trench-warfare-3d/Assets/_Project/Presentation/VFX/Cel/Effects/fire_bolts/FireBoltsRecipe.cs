@@ -75,7 +75,7 @@ namespace TW.Presentation.VFX.Cel
             // the comet: deep red at the streaks' tips, red-orange, orange, yellow behind the head, a white-hot core
             CelPalette.Add("fb_comet", CelPalette.Hex(0xC58C78), CelPalette.Hex(0xFA8E7C), CelPalette.Hex(0xFBC69A), CelPalette.Hex(0xFFF1C2),   // p21b: pre-compensated for the kit's .linear store on a gamma project (wanted 853F2D / E14130 / E2874E / F9CF81)   // p21: the REF's own k-means colours (red, salmon, pale orange)   // p13: the saturated red-orange of the REF 4x crops   // d09: toward the ref #c16a42 / #f3cf86
                 CelPalette.Hex(0xFFFFD2), 0.84f, 4, CelPalette.Hex(0x1E0806));   // p21b: (wanted FDEA99)   // p21: a pale yellow head, not white
-            CelPalette.Add("fb_ribbon", CelPalette.Hex(0xB19A99), CelPalette.Hex(0xCBB1AE), CelPalette.Hex(0xE2CFCC), CelPalette.Hex(0xEDDCD6),   // p21b: pre-compensated (wanted 6A4E4C / 8E6A66 / B59590 / DCC8C0)   // p21: the REF's smear is a dusty pink-white line   // c05: soft grey (was near-white)
+            CelPalette.Add("fb_ribbon", CelPalette.Hex(0xB19A99), CelPalette.Hex(0xCBB1AE), CelPalette.Hex(0xD6C2BD), CelPalette.Hex(0xE4D1CC),   // p22b: a pinker, darker smear (wanted A08078 / B89890)   // p21b: pre-compensated (wanted 6A4E4C / 8E6A66 / B59590 / DCC8C0)   // p21: the REF's smear is a dusty pink-white line   // c05: soft grey (was near-white)
                
                 CelPalette.Hex(0xFFF9F3), 1.1f, 3, CelPalette.Hex(0x3A3438));
             // hit sparks: yellow-orange, a pale yellow core (never white)
@@ -141,11 +141,11 @@ namespace TW.Presentation.VFX.Cel
                     Close = 1, Mid = 1, Far = 1, Aim = CelAim.Target, Speed = 0f, Spread = 0f, Spin = 4.5f, Gravity = ArcGravity,   // p21: Spin = the swirl's rate (rad/s)
                     // b01 (beach, 19 m camera): ribbon 0.2 m wide, 0.75 s of its speed long (a third to half the frame)
                     // b02: a negative Stretch draws the tail behind the birth (the opening bolts were in flight before the fire)
-                    Size = new CelCurve(0.4f * k, 0.44f * k), SizeJitter = 0.2f, Stretch = preflown ? -0.45f : 0.45f,   // p21c: the REF's smear is shorter   // p21: head-wide at the head, a thin line behind (shader)   // p13: a wide fuzzy band (REF 4x)   // p09: as wide as the body (REF)   // p06: a soft wide pale smear   // p01: the smoke trail is a THIN pale line in REF, half the old width   // d18: wider (mask diff) but unbroken and semi-transparent   // c05: a longer, thin grey trail (the ref's are lines)   // c03: the smoke ribbon ~1.5x the flame (0.75 ran to the frame edge)
+                    Size = new CelCurve(0.55f * k, 0.6f * k), SizeJitter = 0.2f, Stretch = preflown ? -0.45f : 0.45f,   // p22b: a broad band (REF)   // p21c: the REF's smear is shorter   // p21: head-wide at the head, a thin line behind (shader)   // p13: a wide fuzzy band (REF 4x)   // p09: as wide as the body (REF)   // p06: a soft wide pale smear   // p01: the smoke trail is a THIN pale line in REF, half the old width   // d18: wider (mask diff) but unbroken and semi-transparent   // c05: a longer, thin grey trail (the ref's are lines)   // c03: the smoke ribbon ~1.5x the flame (0.75 ran to the frame edge)
                       // c01: 0.2 -> 0.26-0.3 m (the smoke trail frays wider)
                     Erode = new CelCurve(0.06f, 0.2f),   // d18: stays whole (d17 dashes lost)   // c03: the ribbon breaks into pieces (was whole)
                     Palette = "fb_comet", CoolTo = "fb_ribbon", Core = 1.0f,   // p21: a pale yellow head (REF), no white blaze   // p02: the head blazes   // b03: 2.6 -> 2.2 (the bodies read white-hot)
-                    Opacity = 0.38f, Ink = 0f,   // p01: translucent trail, NO ink on the bolt (REF has none)   // d18: ribbon 75% (d16 opaque bands lost)
+                    Opacity = 0.6f, Ink = 0f,   // p22: a denser smear   // p01: translucent trail, NO ink on the bolt (REF has none)   // d18: ribbon 75% (d16 opaque bands lost)
                     // b02: a round white-yellow head 0.2 m, a flame body that flares and tapers over 2.2 m, thin red
                     // streaks fading out to 5 m, a ribbon waving 0.08 m over 5.5 m
                     Extra = new Vector4(0.3f * k, 4.0f * k, 0.22f, 3.0f),   // p21c: a tighter head   // p21: bigger head, body 4 m, swirl 0.3 m (extra.z, vertex path)   // p13: tails run half the frame   // p04: smaller head, longer tail   // p03: a nearly straight trail   // p01: head 0.3 m (teardrop in the shader), trail wave 0.06 m over 2 m   // d34: head 0.28 -> 0.4 m (every paper: a dot head on a tube)   // d09: head 0.24 -> 0.28 m   // c05: head 0.3 -> 0.24 m (the teardrop flame is about half the old width), licks 3.6 m, trail wave 0.05 m over 3 m   // c03: ribbon wave 0.11 m over 2.2 m (wavy, not a straight line)   // c01: head 0.3 m, ribbon wave 0.04 m (it follows the flame's path)   // b04: head 0.26 m, the flame a long tapering streak (shader)   // b03: head 0.2 -> 0.27 m (the body is twice as wide in the shader)
@@ -160,12 +160,12 @@ namespace TW.Presentation.VFX.Cel
                 new CelLayer
                 {
                     Name = "spark starburst", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit, Duration = 0.05f, Life = 0.36f, LifeJitter = 0.3f,   // p21: linger
-                    Close = ground ? 48 : 70, Mid = 6,   // p16: dense short dashes on the dummy   // p04: REF's ground hits are spark starbursts   // d06 (from d04): denser sprays   // c03: a fuller radial spray / dummy spark fan
-                    Far = 0, Shape = CelShape.Shell, ShapeSize = new Vector3(ground ? 0.1f : 0.16f, 0f, 0f), Aim = CelAim.Radial,
-                    Speed = ground ? 11f : 6.5f, SpeedJitter = 0.55f, UpBias = ground ? 0.55f : 0.15f, Gravity = 3f, Drag = 1.4f,   // c01: born on a shell (no pile-up disc at the middle), ground sparks fan upward
+                    Close = ground ? 48 : 90, Mid = 6,   // p16: dense short dashes on the dummy   // p04: REF's ground hits are spark starbursts   // d06 (from d04): denser sprays   // c03: a fuller radial spray / dummy spark fan
+                    Far = 0, Shape = CelShape.Shell, ShapeSize = new Vector3(ground ? 0.1f : 0.16f, 0f, 0f), Aim = ground ? CelAim.Radial : CelAim.Back, Spread = 60f,   // p22c: off the board back toward the shooter (REF)
+                    Speed = ground ? 11f : 9f, SpeedJitter = 0.55f, UpBias = ground ? 0.55f : 0.15f, Gravity = 3f, Drag = 1.4f,   // c01: born on a shell (no pile-up disc at the middle), ground sparks fan upward
                     // b04: short orange dots and streaks over the torso's width (b03 lost its palette, erosion and core
                     // to a comment, so 28 default-white streaks piled up into a disc at the chest)
-                    Size = new CelCurve(0.045f, 0.02f), Stretch = ground ? 0.22f : 0.06f,   // p06: REF's dummy sparks are short bright dashes   // c01: thinner, longer streaks (b05: 0.05, 0.09)
+                    Size = new CelCurve(0.07f, 0.03f), Stretch = ground ? 0.22f : 0.2f,   // p22: bolder dashes   // p06: REF's dummy sparks are short bright dashes   // c01: thinner, longer streaks (b05: 0.05, 0.09)
                     Erode = new CelCurve(0.02f, 0.6f), Palette = "fb_spark", Core = 1.4f, Ink = 0f, Extra = new Vector4(0f, 0.08f, 0.3f, 0f),   // p10: no ink (REF's sparks are soft bright dashes)
                 },
                 new CelLayer
@@ -185,6 +185,12 @@ namespace TW.Presentation.VFX.Cel
                 Name = "hit flash", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Start = hit, Life = 0.22f, LifeJitter = 0.04f,   // p12: a smooth soft flash (Comet mode -4), no bands
                 Close = ground ? 0 : 1, Mid = ground ? 0 : 1, Far = 0, Size = new CelCurve(0.26f, 0.5f, 0.5f), SizeJitter = 0.2f,
                 Palette = "fb_spark", Core = 2.2f, Opacity = 1.0f, Extra = new Vector4(-4f, 0f, 0f, 0f),   // p20: the REF splash is small   // p11: round and soft (REF: a bright soft burst, the sparks are the lines)
+            });
+            for (int h = 0; h < 2; h++) r.Layers.Add(new CelLayer   // p22: a HARD ragged cel splash over the soft flash (Comet mode -4, extra.y = 1): the harsh half of a hit
+            {
+                Name = "hit splash hard", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0.06f * h - 0.03f, ground ? 0.15f : 0.04f * h, 0f), Start = hit + 0.04f * h, Life = ground ? 0.26f - 0.06f * h : 0.22f - 0.05f * h, LifeJitter = 0.1f,
+                Close = 1, Mid = 1, Far = 0, Size = ground ? new CelCurve(0.7f - 0.2f * h, 0.3f, 0.5f) : new CelCurve(0.7f - 0.2f * h, 0.3f, 0.5f), SizeJitter = 0.2f,   // p22c: a big splash on the board
+                Palette = ground ? "fire" : "fb_spark", Core = 1.3f, Opacity = 1f, Extra = new Vector4(-4f, 1f, 0f, 0f),
             });
             // d27 (stall fracture: dummy hit -> its lingering burn; new primitive, Comet mode extra.x = -3): an orange
             // cel-blob flame behind the hit star (d28: the star rays stay on top), then a small ember that burns to ~1.4 s
@@ -215,7 +221,7 @@ namespace TW.Presentation.VFX.Cel
                 {
                     Name = "ground burst", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit, Duration = 0.12f, Life = 0.32f, LifeJitter = 0.3f,
                     Close = 12, Mid = 8, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.25f, 0f, 0f), Aim = CelAim.Up, Spread = 75f, Speed = 2.8f, SpeedJitter = 0.45f,   // p11: a spray of thin flame spikes Buoyancy = 0.8f,
-                    Size = new CelCurve(0.22f, 0.06f, 0.6f),   // p12   // p04: small ragged tongues (REF: a spark pop with a small flame, not a yellow fan)   // c05: bigger round bursts (the ref's pop at the landing point)
+                    Size = new CelCurve(0.3f, 0.08f, 0.6f),   // p22: bolder spikes   // p12   // p04: small ragged tongues (REF: a spark pop with a small flame, not a yellow fan)   // c05: bigger round bursts (the ref's pop at the landing point)
                     SizeJitter = 0.4f, Stretch = 0.38f,   // p12: long spikes   // c03: round flicker flames on the ground (c01 shot carrots up into the air)   // b04: narrower fan, taller (about the torso)
                     Erode = new CelCurve(0.05f, 0.55f), Palette = "fire", Core = 1.6f, Ink = 0f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
                 });
