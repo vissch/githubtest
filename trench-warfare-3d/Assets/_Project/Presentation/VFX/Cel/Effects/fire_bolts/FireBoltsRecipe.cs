@@ -182,9 +182,9 @@ namespace TW.Presentation.VFX.Cel
                 });
             r.Layers.Add(new CelLayer
             {
-                Name = "hit flash", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Start = hit, Life = 0.12f, LifeJitter = 0.04f,   // c05: a flame flash on every hit
-                Close = ground ? 0 : 1, Mid = ground ? 0 : 1, Far = 0, Size = new CelCurve(0.6f, 1.1f, 0.5f), SizeJitter = 0.2f, Erode = new CelCurve(0.03f, 0.9f, 1.5f),
-                Palette = "fb_spark", Core = 2.0f, Spin = 2f, Extra = new Vector4(2f, 1.8f, 0f, 0f),   // p11: round and soft (REF: a bright soft burst, the sparks are the lines)
+                Name = "hit flash", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Start = hit, Life = 0.22f, LifeJitter = 0.04f,   // p12: a smooth soft flash (Comet mode -4), no bands
+                Close = ground ? 0 : 1, Mid = ground ? 0 : 1, Far = 0, Size = new CelCurve(0.4f, 0.8f, 0.5f), SizeJitter = 0.2f,
+                Palette = "fb_spark", Core = 2.2f, Opacity = 1.3f, Extra = new Vector4(-4f, 0f, 0f, 0f),   // p11: round and soft (REF: a bright soft burst, the sparks are the lines)
             });
             // d27 (stall fracture: dummy hit -> its lingering burn; new primitive, Comet mode extra.x = -3): an orange
             // cel-blob flame behind the hit star (d28: the star rays stay on top), then a small ember that burns to ~1.4 s
@@ -199,9 +199,9 @@ namespace TW.Presentation.VFX.Cel
             {
                 r.Layers.Add(new CelLayer
                 {
-                    Name = "hit star", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Start = hit, Life = 0.1f, LifeJitter = 0.04f,
-                    Close = 1, Mid = 1, Far = 1, Size = new CelCurve(0.35f, 0.65f, 0.5f), SizeJitter = 0.15f, Erode = new CelCurve(0.03f, 0.9f, 1.5f),
-                    Palette = "fire", Core = 2f, Spin = 2f, Extra = new Vector4(2f, 1.8f, 0f, 0f),   // p11: round and soft
+                    Name = "hit star", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.15f, 0f), Start = hit, Life = 0.18f, LifeJitter = 0.04f,
+                    Close = 1, Mid = 1, Far = 1, Size = new CelCurve(0.35f, 0.6f, 0.5f), SizeJitter = 0.15f,
+                    Palette = "fire", Core = 2.2f, Opacity = 1.3f, Extra = new Vector4(-4f, 0f, 0f, 0f),   // p12: soft flash   // p11: round and soft
                 });
                 // b03: a ragged burst of wide flame tongues about the dummy's torso tall, fanned out (b02's were thin
                 // upright slivers), then a smaller fire that flickers on and dies about 1 s after the hit
@@ -209,15 +209,15 @@ namespace TW.Presentation.VFX.Cel
                 {
                     Name = "ground burst", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit, Duration = 0.12f, Life = 0.32f, LifeJitter = 0.3f,
                     Close = 24, Mid = 14, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.25f, 0f, 0f), Aim = CelAim.Up, Spread = 75f, Speed = 2.6f, SpeedJitter = 0.45f,   // p11: a spray of thin flame spikes Buoyancy = 0.8f,
-                    Size = new CelCurve(0.14f, 0.05f, 0.6f),   // p11: thin   // p04: small ragged tongues (REF: a spark pop with a small flame, not a yellow fan)   // c05: bigger round bursts (the ref's pop at the landing point)
-                    SizeJitter = 0.4f, Stretch = 0.3f,   // p11: long spikes   // c03: round flicker flames on the ground (c01 shot carrots up into the air)   // b04: narrower fan, taller (about the torso)
+                    Size = new CelCurve(0.22f, 0.06f, 0.6f),   // p12   // p04: small ragged tongues (REF: a spark pop with a small flame, not a yellow fan)   // c05: bigger round bursts (the ref's pop at the landing point)
+                    SizeJitter = 0.4f, Stretch = 0.38f,   // p12: long spikes   // c03: round flicker flames on the ground (c01 shot carrots up into the air)   // b04: narrower fan, taller (about the torso)
                     Erode = new CelCurve(0.05f, 0.55f), Palette = "fire", Core = 1.6f, Ink = 0f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
                 });
                 if (bigFire) r.Layers.Add(new CelLayer   // d23: the lasting fire body on every other ground hit after ~f40 only (ref: 1-2 fires at once)
                 {
                     Name = "ground fire", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit + 0.12f, Duration = 0.75f, Life = 0.6f, LifeJitter = 0.3f,
                     Close = 9, Mid = 8, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Up, Spread = 50f, SpeedJitter = 0.35f, Buoyancy = 0.6f,
-                    Speed = 1.1f, Size = new CelCurve(0.3f, 0.08f, 0.7f),   // p11: thin licking tongues   // p04: smaller lasting fire   // d22: low wide dome-then-shreds (ref f87-f101 zoom), not tall tongues   // d21: compact crater fire of long-lived flame tongues (16-20 f each), Mid near Close (LOD trap)   // c03: low round flames ~0.5 dummy tall (c01: 3.7 m/s carrots in a column)   // c01: as tall as the torso (b05: 0.65 m, speed 3.0)   // b04: about the torso tall (b03: under half)
+                    Speed = 1.2f, Size = new CelCurve(0.42f, 0.1f, 0.7f),   // p12: thin licking tongues   // p04: smaller lasting fire   // d22: low wide dome-then-shreds (ref f87-f101 zoom), not tall tongues   // d21: compact crater fire of long-lived flame tongues (16-20 f each), Mid near Close (LOD trap)   // c03: low round flames ~0.5 dummy tall (c01: 3.7 m/s carrots in a column)   // c01: as tall as the torso (b05: 0.65 m, speed 3.0)   // b04: about the torso tall (b03: under half)
                     SizeJitter = 0.3f, Stretch = 0.25f, Erode = new CelCurve(0.1f, 0.6f), Palette = "fire", Core = 1.7f, Ink = 0f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
                 });
                 if (bigFire) r.Layers.Add(new CelLayer   // d38: a crater ember (cel blob, Comet mode -3): a low licking fire that outlives the burst and dies ~1.2 s after the hit (ref keeps a red ember in its smoke to ~f104)
@@ -229,10 +229,10 @@ namespace TW.Presentation.VFX.Cel
                 });
                 r.Layers.Add(new CelLayer
                 {
-                    Name = "fire core", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.15f, 0f), Start = hit, Life = 0.7f, LifeJitter = 0.15f,
-                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.75f, 0.3f, 0.6f), SizeJitter = 0.15f, Erode = new CelCurve(0.05f, 0.8f, 1.5f),
-                    Palette = "fire", Core = 2.4f,   // p11   // c01: a bigger white-hot base (0.5 m, 2.1)
-                    Extra = new Vector4(2f, 1.4f, 0f, 0f),   // b04: the flash mode b03 lost to a comment: a white-hot base
+                    Name = "fire core", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.2f, 0f), Start = hit, Life = 0.8f, LifeJitter = 0.15f,
+                    Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.55f, 0.3f, 0.6f), SizeJitter = 0.15f,
+                    Palette = "fire", Core = 2.2f, Opacity = 1.0f,
+                    Extra = new Vector4(-4f, 0f, 0f, 0f),   // p12: a smooth white-hot base   // b04: the flash mode b03 lost to a comment: a white-hot base
                 });
                 r.Layers.Add(new CelLayer
                 {

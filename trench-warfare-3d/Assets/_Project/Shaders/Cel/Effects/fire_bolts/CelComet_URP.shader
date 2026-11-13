@@ -6,6 +6,8 @@
 // nearly opaque colour, the ink darkens what is behind it, the ribbon is part covering, the bloom is additive.
 // Mode extra.y < 0 (no head): a thin curling smoke strand (the ribbon alone, no ink), widening toward its newest end
 // and breaking up in pieces over its life.
+// Mode extra.x = -4 (p12): a smooth camera-facing additive flash (a gaussian, no bands); size = radius curve,
+// tone.z = brightness, tone.y = the white-hot middle.
 // Mode extra.x < 0: a soft warm light pool lying on the ground (additive, a smooth radial gradient, no bands), whose
 // brightness rises to a peak and fades smoothly over the life.
 //   size.xyz   ribbon width (m) at birth, at death, ease        size.w  ribbon length in seconds of its speed
@@ -70,6 +72,21 @@ Shader "TW/Cel/Comet"
                 float t = CelAge(r), k = CelLife01(r), alive = CelAlive(r);
                 float3 p = CelPosition(r, t);
                 Varyings o;
+                if (r.extra.x < -3.5)
+                {
+                    // p12 soft flash: a camera-facing quad, a smooth radial glow in the fragment
+                    float R = CelCurve(r.size.xyz, k) * alive;
+                    float2 c = v.uv * 2.0 - 1.0;
+                    float3 w = CelBillboard(p, c * R);
+                    o.positionWS = w;
+                    o.positionCS = TransformWorldToHClip(w);
+                    o.local = c;
+                    o.dims = float4(k, 0.0, 0.0, 0.0);
+                    o.tone = r.tone;
+                    o.more = float4(R, 0.0, r.seed, 0.0);
+                    o.misc = float4(ComputeFogFactor(o.positionCS.z), 0.0, t, 4.0);
+                    return o;
+                }
                 if (r.extra.x < -2.5)
                 {
                     // d25 cel blob (mode extra.x = -3): a camera-facing quad holding a metaball SDF of five balls
@@ -178,6 +195,17 @@ Shader "TW/Cel/Comet"
                 uint rowA = CelRowA(i.tone.x), rowB = CelRowB(i.tone.x);
                 if (rowB == 0u) rowB = rowA;
 
+                if (i.misc.w > 3.5)
+                {
+                    // ---- p12 soft flash: a gaussian glow, white-hot in the middle, the palette's light colour outside,
+                    //      additive (alpha 0), a quick rise and a smooth fade over the life
+                    float rr = length(i.local), k = i.dims.x;
+                    float env = smoothstep(0.0, 0.12, k) * (1.0 - smoothstep(0.25, 1.0, k));
+                    float g = exp(-rr * rr * 4.0) * (1.0 - smoothstep(0.7, 1.0, rr));
+                    half3 c = lerp(CelPal(rowA, 3), CelPalCore(rowA).rgb * i.tone.y, g * g) * (g * saturate(i.tone.z) * env);
+                    float m = CelAdditiveFog(half3(1.0, 1.0, 1.0), i.positionWS, i.misc.x).r;
+                    return half4(c * m, 0.0);
+                }
                 if (i.misc.w > 2.5)
                 {
                     // ---- d25 cel blob: sum of five gaussian balls (units of the radius), outline displaced by two
