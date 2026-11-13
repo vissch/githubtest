@@ -103,7 +103,7 @@ Shader "TW/Cel/LightningBeam"
                 // c19 (clip: every frame is a different drawing): each bolt has its own window length (0.45..1.4x) and the
                 // window is re-cut every frame (0.6..1.2x), so bolt lengths differ per bolt and per frame
                 float tickV = floor(_CelNow * 24.0);
-                float winK = thread ? 1.0 : lerp(0.45, 1.4, CelHash21(float2(r.seed * 7.3, 1.0))) * lerp(0.6, 1.2, CelHash21(float2(r.seed * 3.7, tickV)));
+                float winK = thread ? 1.0 : lerp(0.6, 1.2, CelHash21(float2(r.seed * 7.3, 1.0))) * lerp(0.75, 1.1, CelHash21(float2(r.seed * 3.7, tickV)));   // c33: never the whole corridor (c32's longest spanned it)   // c32: less spread (the clip's bolts are all long)
                 float winLen = r.size.w * winK;
                 float s0 = max(head - winLen, 0.0);
                 float s1 = min(head, r.tone.w > 0.0 ? r.tone.w : 1.0);
@@ -237,6 +237,7 @@ Shader "TW/Cel/LightningBeam"
                     float edge = max(i.shape.y, 0.01);
                     float aP = smoothstep(thrS, thrS + edge, fieldP) * saturate(i.tone.z);
                     half3 cp = lerp(CelPal(row, 2), CelPal(row, 3), saturate(fieldP * 1.6));
+                    cp *= lerp(0.8, 1.16, saturate(q.y * 0.7 + 0.5));   // c30: lit on top, shaded below (the clip's cloud has shaded lobes)
                     cp = MixFog(cp, i.more.x);
                     return half4(cp * aP, aP);
                 }
@@ -258,8 +259,8 @@ Shader "TW/Cel/LightningBeam"
                 float salt = i.shape.z * 97.0 + tick * 13.7;
                 // c19: per bolt per frame, the bolt blinks off in some frames and its brightness jumps (the clip's bolts flicker)
                 float blinkH = CelHash21(float2(salt, 0.33));
-                if (i.more.z < 0.5 && blinkH < 0.26) discard;   // c20: more gap frames
-                float flick = lerp(0.6, 1.35, CelHash21(float2(salt, 0.77)));
+                if (i.more.z < 0.5 && blinkH < 0.08) discard;   // c30: the clip's bolts persist frame to frame in flight; only a rare gap
+                float flick = lerp(0.8, 1.2, CelHash21(float2(salt, 0.77)));   // c30: narrower
                 // c01 (by eye against the clip, 2026-11-13): each bolt is a COMET, not a spindle. A small round white-hot
                 // head (a = 1), a thin pale body behind it and a wider, fainter, softer tail; the brightness falls from
                 // the head to the tail so the ramp's white core sits at the head and the tail stays in the dim cyan bands.
@@ -271,43 +272,54 @@ Shader "TW/Cel/LightningBeam"
                 float tipT = saturate(tail * 16.0);
                 float tip = sqrt(saturate(1.0 - (1.0 - tipT) * (1.0 - tipT)));
                 // c19: a bright white comet head again (the clip's bolts mostly have one) on a thin beaded strand
-                float bead = 0.78 + 0.32 * Zig(u, 0.35 * cs, salt + 31.0);
-                float w = (0.5 + 0.2 * pow(tail, 1.4) + 0.55 * headB) * bead * tip * sqrt(saturate(a * 5.0));
-                float glow = min(lerp(0.5, 1.0, a * a) * (i.more.z > 0.5 ? 1.0 : flick), 1.05) + 0.9 * headB;   // c25: a little brighter body   // c24: the body never saturates to solid white; only the head does
+                float bead = 0.82 + 0.25 * Zig(u, 0.35 * cs, salt + 31.0);
+                // c30: a SPINDLE (the clip's f19-f22: each bolt is a long stripe, thick in the middle, pointed at both ends,
+                // its white core along the thick middle, cyan at the thin ends); no comet bulb at the head
+                float spin = pow(sin(3.14159 * a), 0.9);
+                float w = (0.3 + 1.25 * spin) * bead * tip * sqrt(saturate(a * 5.0));
+                float longW = step(1.5, i.shape.w);
+                // c31: a cyan body with the white core only along the thick middle (c30 was a white rod); the short
+                // clinging scribbles on the board are white-hot all through
+                float glow = min((0.42 + 0.5 * spin + 0.55 * (1.0 - longW)) * (i.more.z > 0.5 ? 1.0 : flick), 1.1) + 0.2 * headB;   // c33: the scribbles whiter
                 if (i.more.z > 0.5) { w = 0.6; glow = 1.0; }   // the far thread stays an even line
                 float prof = w;
                 // the centre line carries one gentle long wave and a smaller one (the clip's bolts are smooth, not braided)
                 // c08: three scales of crooked lightning kinks (the clip's strands are thin and crooked, not smooth)
                 // c11: the fine kinks come and go along the strand (an amplitude on its own slow zig-zag), so the edge is irregular, not a sawtooth
                 float fineA = saturate(0.5 + 0.7 * Zig(u, 1.1 * cs, salt + 13.0));
-                float zig = (0.5 * Zig(u, 2.0 * cs, salt) + 0.35 * Zig(u, 0.6 * cs, salt + 5.1) + 0.3 * fineA * Zig(u, 0.2 * cs, salt + 9.7)) * i.shape.x;
+                float zig = (0.65 * Zig(u, 2.6 * cs, salt) + 0.35 * Zig(u, 0.6 * cs, salt + 5.1) + 0.3 * fineA * Zig(u, 0.2 * cs, salt + 9.7)) * i.shape.x;   // c31: a bigger slow wobble
                 float dy = abs(y - zig);
                 float field = saturate(1.0 - dy / max(w, 1e-3)) * glow;
                 // c12: two more thin strands twist round the main one, spread apart toward the tail and meeting at the head
                 // (the clip's near stretch is a frayed bundle, its head a single hot point); dimmer than the main strand
                 // c13: only on a long window (a short board arc with a bundle and an aura read as a cyan blob)
-                float longW = step(1.5, i.shape.w);
-                // c14: the bundle lives on the near third of the beam only (the clip: a frayed bundle at the corner, a crisp hair at the dummy)
                 float nearF = saturate(i.near.x) * longW;
-                if (i.more.z < 0.5 && nearF > 0.01)
+                // b06: half-width in screen px, so hairs and sparks keep a minimum size down the beam
+                float hwPx = i.beam.w / max(PixelMetres(i.positionWS), 1e-6);
+                float onePx = 1.0 / max(hwPx, 0.5);
+                if (i.more.z < 0.5 && longW > 0.5 && i.shape.x > 0.15)
                 {
-                    float spreadT = pow(saturate(1.0 - a), 1.2) * 1.6 * nearF * step(0.15, i.shape.x);
-                    float z1 = zig * 0.5 + (0.6 * Zig(u, 1.4 * cs, salt + 101.0) + 0.3 * Zig(u, 0.35 * cs, salt + 103.0)) * i.shape.x + spreadT;
-                    float z2 = zig * 0.5 + (0.6 * Zig(u, 1.7 * cs, salt + 107.0) + 0.3 * Zig(u, 0.3 * cs, salt + 109.0)) * i.shape.x - spreadT;
-                    float wS = w * 0.4;
-                    float f1 = saturate(1.0 - abs(y - z1) / max(wS, 1e-3)) * glow * 0.75 * nearF;
-                    float f2 = saturate(1.0 - abs(y - z2) / max(wS, 1e-3)) * glow * 0.65 * nearF;
+                    // c30: two thin strands wind round the main spindle over PART of its length, each on its own slow wave
+                    // that crosses the centre line (the clip's f27: a second strand twists across the main one and leaves
+                    // it again); which part, and how far they stray, is re-cut every frame
+                    float h1 = CelHash21(float2(salt, 0.41)), h2 = CelHash21(float2(salt, 0.43));
+                    float a1 = h1 * 0.55, a2 = h2 * 0.55;
+                    float g1 = smoothstep(a1, a1 + 0.08, a) * (1.0 - smoothstep(a1 + 0.4, a1 + 0.55, a));   // c31: longer, further out
+                    float g2 = smoothstep(a2, a2 + 0.08, a) * (1.0 - smoothstep(a2 + 0.3, a2 + 0.45, a));
+                    float amp = saturate(i.shape.x);
+                    float z1 = zig * 0.4 + (3.6 * Zig(u, 2.2 * cs, salt + 101.0) + 0.6 * Zig(u, 0.45 * cs, salt + 103.0)) * amp;
+                    float z2 = zig * 0.4 + (3.0 * Zig(u, 1.8 * cs, salt + 107.0) + 0.6 * Zig(u, 0.4 * cs, salt + 109.0)) * amp;
+                    float wS = max(0.5, 1.3 * onePx);
+                    float f1 = saturate(1.0 - abs(y - z1) / wS) * glow * 0.85 * g1;
+                    float f2 = saturate(1.0 - abs(y - z2) / wS) * glow * 0.75 * g2;
                     field = max(field, max(f1, f2));
-                    dy = min(dy, min(abs(y - z1), abs(y - z2)));
+                    dy = min(dy, min(abs(y - z1) + 2.0 * (1.0 - g1), abs(y - z2) + 2.0 * (1.0 - g2)));
                 }
                 // a thin crackle hair weaving about the TAIL only (the clip's tails fray into a fine electric wisp)
                 float wz = (Zig(u, 0.25 * cs, salt + 17.0) + 0.6 * Zig(u, 0.08 * cs, salt + 23.0)) * 2.0 + zig;
                 float wisp = saturate(1.0 - abs(y - wz) / 0.3) * (1.0 - smoothstep(0.2, 0.5, a)) * 0.32 * step(0.15, i.shape.x) * step(0.05, prof);
                 wisp *= step(0.7, CelHash21(float2(floor(u / (0.9 * cs)), salt + 61.0)));
                 field = max(field, wisp);
-                // b06: half-width in screen px, so hairs and sparks keep a minimum size down the beam
-                float hwPx = i.beam.w / max(PixelMetres(i.positionWS), 1e-6);
-                float onePx = 1.0 / max(hwPx, 0.5);
                 // branch arcs: in some cells along the beam a thin crooked arc leaves the core and runs out to one side
                 float br = 0.0;
                 if (i.shape.y > 0.0)
@@ -320,7 +332,7 @@ Shader "TW/Cel/LightningBeam"
                         float h = CelHash21(float2(id, salt + 31.0));
                         // b04: a share of the cells (y x 0.05: b03's y x cell saturated, every cell had an arc, but each was a
                         // ~1.5 px inked hair that read as nothing)
-                        if (h > saturate(i.shape.y * 0.05)) continue;
+                        if (h > saturate(i.shape.y * 0.05 * (0.4 + 1.2 * spin))) continue;   // c30: most forks leave the thick middle
                         float x0 = id * cell + CelHash21(float2(id, salt + 2.0)) * cell * 0.5;
                         float lenA = cell * (0.35 + 0.5 * CelHash21(float2(id, salt + 3.0)));
                         float t = (u - x0) / lenA;
@@ -334,7 +346,7 @@ Shader "TW/Cel/LightningBeam"
                         // b04: wider and white at the root (b03's 0.5-half-width arcs were all ink), and forked: a second,
                         // flatter arm leaves the arc at 0.35-0.6 of its length
                         // b06: hair-thin forks (~1.5-2 px), never under ~1.2 px
-                        float bw = max(0.5 * (1.0 - t * 0.5), 1.2 * onePx);
+                        float bw = max(0.75 * (1.0 - t * 0.6), 1.2 * onePx);   // c30: a little wider at the root
                         float bf = saturate(1.0 - abs(y - yb) / bw) * lerp(1.0, 0.7, t);
                         float tf = 0.35 + 0.25 * CelHash21(float2(id, salt + 8.0));
                         if (t > tf)
@@ -382,11 +394,11 @@ Shader "TW/Cel/LightningBeam"
                 // c03: a gaussian fringe that dies well inside the quad (BEAM_PAD), so it never shows a cut edge
                 float hd = max(dy - w, 0.0) / max(2.0 * prof + 0.6, 1e-3);   // c24: tight
                 float halo = exp(-hd * hd * 2.0) * step(0.05, prof) * (1.0 - mask) * saturate((BEAM_PAD - 1.5 - dy) * 0.5) * saturate(a * 7.0) * tip;   // c23: fades with the tail and the tip (c22: the quad's start edge cut it square)
-                halo *= lerp(0.4, 1.0, saturate(glow)) * (1.0 + 0.2 * nearF) * (i.more.z > 0.5 ? 1.0 : flick);   // c24: faint
+                halo *= lerp(0.4, 1.0, saturate(glow)) * (1.0 + 0.2 * nearF) * (i.more.z > 0.5 ? 1.0 : flick) * lerp(0.25, 1.0, longW);   // c32: short board arcs barely glow (a dozen halos summed into a cyan blob)   // c24: faint
                 // c26: a second, wide and faint airbrush glow (the clip's bolts have presence at full frame without a fat core)
                 float hd2 = max(dy - w, 0.0) / max(5.0 * prof + 2.0, 1e-3);
                 float halo2 = exp(-hd2 * hd2) * step(0.05, prof) * (1.0 - mask) * saturate((BEAM_PAD - 1.0 - dy) * 0.7) * saturate(a * 7.0) * tip * lerp(0.5, 1.0, saturate(glow)) * (i.more.z > 0.5 ? 0.0 : flick);
-                half3 add = CelPal(row, 0) * (halo * 0.6 + halo2 * 0.32) * i.tone.z * (1.0 - i.more.z);
+                half3 add = CelPal(row, 0) * (halo * 0.5 + halo2 * 0.2 * longW) * i.tone.z * (1.0 - i.more.z);   // c33: less (two bolts overlapping at the corner summed into a glowing rope)
                 // the far thread is all light: no cover, it adds
                 if (i.more.z > 0.5) { add += body * mask * i.tone.z; cover = 0.0; straight = 0; }
                 add = AddFog(add, i.positionWS, i.more.x, i.more.y);
