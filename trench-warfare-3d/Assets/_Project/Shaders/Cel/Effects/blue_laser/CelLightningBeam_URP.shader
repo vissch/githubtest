@@ -240,7 +240,7 @@ Shader "TW/Cel/LightningBeam"
                     float reach = 1.0 - i.shape.z * (0.5 + 0.5 * lump) - rag * (n2 - 0.5);
                     float fieldP = saturate(1.0 - rr / max(reach, 0.2)) * (1.0 - rag * 0.8 * (n2 - 0.5));
                     float edge = max(i.shape.y, 0.01);
-                    float aP = smoothstep(thrS, thrS + edge, fieldP) * saturate(i.tone.z) * (1.0 - 0.6 * thrS * saturate(rag * 4.0));
+                    float aP = smoothstep(thrS, thrS + edge, fieldP) * saturate(i.tone.z) * (1.0 - 0.9 * thrS * saturate(rag * 4.0));   // c51: fades out harder (with less erosion in the recipe)
                     half3 cp = lerp(CelPal(row, 2), CelPal(row, 3), saturate(fieldP * 1.6));
                     cp *= lerp(0.6, 1.28, saturate(q.y * 0.9 + 0.5)) * lerp(0.8, 1.1, saturate(fieldP * 2.0)) * lerp(1.0 - 0.3 * rag, 1.0 + 0.3 * rag, n2);   // c43: mottled   // c38: each lobe lit on top, dark underneath (a cartoon cloud)   // c35/c30
                     cp = MixFog(cp, i.more.x);

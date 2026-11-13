@@ -330,10 +330,10 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // loose separate black flecks: small hard-edged puff dots spread wider than the dust, drifting with it
-                Name = "flecks", Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.1f, 3.4f), Start = DustAt + 0.05f, Duration = 0.7f, Life = 1.3f, LifeJitter = 0.35f,   // c34: shorter
+                Name = "flecks", Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.3f, 3.4f), Start = DustAt + 0.05f, Duration = 0.7f, Life = 1.1f, LifeJitter = 0.3f,   // c51: gone before the cloud thins (owner: "speckles that just stay there")   // c34: shorter
                 // b02: dense specks (clip ink_peak 0.053 vs b01 0.015): twice as many, larger
-                Close = 60, Mid = 10, Far = 0, Shape = CelShape.Box, ShapeSize = new Vector3(2.6f, 1.3f, 6.5f),   // c45: fewer (c44's were a denser pepper than the clip's)   // c41: more (the clip has black bits of every size all through the cloud)   // c30: many more (the clip has dozens of black chunks of every size)   // c17: more flecks over the whole cloud (clip f101-f120)   // d23: black flecks 64 -> 24 (every A/B: heavy black chunks, clip has few)   // d05: x2.5 dark specks (ink 0.009 vs clip 0.053) Aim = CelAim.Dir, Speed = 1.0f, SpeedJitter = 0.5f, Spread = 35f, Drag = 0.8f, Gravity = 0.4f,
-                Size = new CelCurve(0.034f, 0.02f), SizeJitter = 0.8f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.6f, 3f), Feather = 0f,   // c43: smaller bits   // c41: sizes vary more
+                Close = 50, Mid = 8, Far = 0, Shape = CelShape.Box, ShapeSize = new Vector3(2.4f, 1.5f, 6.0f), Aim = CelAim.Dir, Speed = 0.6f, SpeedJitter = 0.5f, Spread = 25f, Drag = 0f, Gravity = 0.3f,   // c52: spread through the whole cloud (c51 sat in a band through its middle)   // c51: they RIDE the cloud (drift with the lobes at 0.6 m/s, sink a little) and spawn inside it; the motion fields had been swallowed by d05's comment since, so the bits sat still in the air while the cloud drifted past   // c45: fewer   // c41: more   // c30: many more   // c17: more flecks over the whole cloud   // d23: 64 -> 24   // d05: x2.5 dark specks
+                Size = new CelCurve(0.034f, 0.016f), SizeJitter = 0.8f, Stretch = -0.001f, Erode = new CelCurve(0f, 1.0f, 1.5f), Feather = 0f,   // c51: shrink away steadily (3-pow kept them whole until the last frames)   // c43: smaller bits   // c41: sizes vary more
                 Palette = "blue_laser_fleck", Core = 1f, Opacity = 1f, Extra = new Vector4(3f, 0.04f, 0.3f, 0f),   // c43: rounder bits (0.5 still drew triangles)   // c42: lump 0.5 (0.8 drew little black arrowheads)
             });
 
@@ -358,7 +358,7 @@ namespace TW.Presentation.VFX.Cel
             {
                 Name = name, Kind = LightningBeamKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.3f, along), Start = start, Duration = 0.22f, TimeJitter = 0.05f, Life = life, LifeJitter = 0.1f,
                 Close = close, Mid = mid, Far = 0, Shape = CelShape.Box, ShapeSize = new Vector3(1.8f, 1.0f, length), Aim = CelAim.Dir, Speed = 0.6f,   // c38: a tighter mass   // c18: a broad cloud, not a rope   // d09/d12: scattered up/down and sideways SpeedJitter = 0.4f, Spread = 20f, Drag = 1f, Buoyancy = 0.05f,
-                Size = size, SizeJitter = 0.45f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.95f, 1.5f), Feather = 0f,   // c43: sizes vary more   // c34: thins sooner
+                Size = size, SizeJitter = 0.45f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.8f, 1.5f), Feather = 0f,   // c51: erodes less, fades more (the shader thins harder): the late cloud stays one mass instead of breaking into separate shrinking puffs   // c43: sizes vary more   // c34: thins sooner
                 Palette = "blue_laser_dust", Core = 1f, Opacity = 0.72f, Extra = new Vector4(3f, 0.35f, 0.55f, 0.3f),   // c44: a little denser   // c43: thinner, a softer ragged rim (w 0.3), dissolves   // c39: a little thinner   // c38: solid lobes with a firm edge   // c34: a touch thinner   // c31: translucent again   // c30: opaque, crisper lobed edge (the clip's cloud is a solid billowing mass)   // c16: thinner, softer edge   // b06: alpha 0.6, lumpier
             };
         }
