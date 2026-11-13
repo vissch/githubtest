@@ -391,12 +391,13 @@ Shader "TW/Cel/Comet"
                     float back = saturate(s / max(hr, 1e-4) + 0.4);
                     float tips = CelValue2(float2(ang * 3.0 + seed * 9.0, t * 9.0 + seed * 3.0)) + 0.5 * CelValue2(float2(ang * 7.0 - seed * 5.0, t * 14.0));
                     float hrad = 1.0 + (tips / 1.5 - 0.5) * 0.9 * back;
-                    float ax = s > 0.0 ? hr * 1.9 : hr * 1.0;
-                    float headD = length(float2(s / max(ax, 1e-4), y / max(hr * 0.95, 1e-4))) / max(hrad, 0.3);
+                    float ax = s > 0.0 ? hr * 1.5 : hr * 0.85;   // p14: a smaller head, the body is as wide
+                    float headD = length(float2(s / max(ax, 1e-4), y / max(hr * 0.8, 1e-4))) / max(hrad, 0.3);
                     float headF = 1.0 - headD;
-                    float2 cq = float2(s - hr * 0.15, y);
-                    float ringD = abs(length(cq) - hr * 0.42) / max(hr * 0.13, 1e-4);
-                    float mark = saturate(1.0 - ringD) * saturate(0.3 + s / max(hr * 0.5, 1e-4)) * saturate(headF * 6.0);
+                    float2 cq = float2(s - hr * 0.1, y);
+                    float mR = hr * (0.3 + 0.18 * CelValue2(float2(ang * 2.0 + seed * 11.0, t * 6.0)));   // p14: an irregular squiggle, not a C
+                    float ringD = abs(length(cq) - mR) / max(hr * 0.09, 1e-4);
+                    float mark = saturate(1.0 - ringD) * saturate(0.2 + s / max(hr * 0.4, 1e-4)) * saturate(headF * 6.0) * (0.5 + 0.5 * CelValue2(float2(ang * 4.0 - t * 8.0, seed * 23.0)));
                     // BODY
                     float bodyL = max(min(fl * 0.55, hr * 14.0), 1e-3);
                     float sb = saturate(s / bodyL);
@@ -415,19 +416,19 @@ Shader "TW/Cel/Comet"
                         float uk = saturate(s / max(Lk, 1e-3));
                         float yk = hr * 0.85 * ((k7 - 3.0) / 3.0) * (0.3 + 0.7 * uk)
                                  + hr * 0.07 * sin(s * 0.9 / max(hr, 1e-3) + hk * 20.0 - t * 5.0) * uk;
-                        float wk = hr * (0.12 + 0.16 * hk2) * (1.0 - 0.5 * uk);
+                        float wk = hr * (0.08 + 0.12 * hk2) * (1.0 - 0.5 * uk);
                         float fk = (s >= 0.0 && s <= Lk) ? saturate(1.0 - abs(y - yk) / max(wk, 1e-4)) : 0.0;
                         fk = smoothstep(0.0, 0.6, fk) * pow(saturate(1.0 - uk), 0.6);
-                        float hot = 1.0 - abs(k7 - 3.0) / 3.2;
+                        float hot = 0.45 + 0.55 * (1.0 - abs(k7 - 3.0) / 3.2);
                         if (fk > streak) { streak = fk; streakHeat = fk * hot; streakU = uk; }
                     }
                     float headA = saturate(headF * 4.0);
-                    float tailA = max(streak * 0.9, haze);
+                    float tailA = max(streak * 0.55, haze);
                     float alphaF = saturate(max(headA, tailA) * (0.75 + 0.35 * grain)) * has;
                     float bodyHeat = step(1e-4, haze) * (0.3 + 0.65 * pow(1.0 - sb, 1.3)) * (0.55 + 0.5 * across);
-                    float heat = max(saturate(headF * 1.2 + 0.5) * step(0.0, headF),
-                                     max(streakHeat * (0.75 - 0.35 * streakU) + 0.1 * step(1e-4, streak), bodyHeat));
-                    heat = saturate(heat + 0.18 * (grain - 0.5) - 0.45 * mark);
+                    float heat = max(saturate(headF * 0.9 + 0.5) * step(0.0, headF),
+                                     max(streakHeat * (0.85 - 0.45 * streakU) + 0.1 * step(1e-4, streak), bodyHeat));
+                    heat = saturate(heat + 0.18 * (grain - 0.5) - 0.28 * mark);
                     half3 c0 = CelPal(rowA, 0), c1 = CelPal(rowA, 1), c2 = CelPal(rowA, 2), c3 = CelPal(rowA, 3);
                     half3 cc = CelPalCore(rowA).rgb * i.tone.y;
                     half3 fCol = heat < 0.25 ? lerp(c0, c1, heat / 0.25)
