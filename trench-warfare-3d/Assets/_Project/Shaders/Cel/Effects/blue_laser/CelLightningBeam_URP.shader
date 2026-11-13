@@ -237,7 +237,7 @@ Shader "TW/Cel/LightningBeam"
                     float edge = max(i.shape.y, 0.01);
                     float aP = smoothstep(thrS, thrS + edge, fieldP) * saturate(i.tone.z);
                     half3 cp = lerp(CelPal(row, 2), CelPal(row, 3), saturate(fieldP * 1.6));
-                    cp *= lerp(0.72, 1.18, saturate(q.y * 0.8 + 0.5)) * lerp(0.85, 1.1, saturate(fieldP * 2.0));   // c35: stronger shading (lit tops, dark undersides, lighter middles)   // c30: lit on top, shaded below
+                    cp *= lerp(0.6, 1.28, saturate(q.y * 0.9 + 0.5)) * lerp(0.8, 1.1, saturate(fieldP * 2.0));   // c38: each lobe lit on top, dark underneath (a cartoon cloud)   // c35/c30
                     cp = MixFog(cp, i.more.x);
                     return half4(cp * aP, aP);
                 }
@@ -275,12 +275,15 @@ Shader "TW/Cel/LightningBeam"
                 float bead = 0.82 + 0.25 * Zig(u, 0.35 * cs, salt + 31.0);
                 // c30: a SPINDLE (the clip's f19-f22: each bolt is a long stripe, thick in the middle, pointed at both ends,
                 // its white core along the thick middle, cyan at the thin ends); no comet bulb at the head
-                float spin = pow(sin(3.14159 * a), 0.9);
-                float w = (0.3 + 1.25 * spin) * bead * tip * sqrt(saturate(a * 5.0));
+                // c38: PROJECTILES - the thickest point sits at 0.7 of the length (a short pointed front, a long thinner
+                // tail) and the front quarter is white-hot (the clip's bolts carry a bright head: f60/f76/f84)
+                float spin = pow(sin(3.14159 * pow(a, 1.6)), 0.9);   // c39: the weight at 0.65 (c38's 0.7 left a hair-thin tail)
+                float headW = exp(-(a - 0.8) * (a - 0.8) * 60.0);
+                float w = (0.45 + 1.2 * spin) * bead * tip * sqrt(saturate(a * 5.0));   // c39: a fuller tail
                 float longW = step(1.5, i.shape.w);
                 // c31: a cyan body with the white core only along the thick middle (c30 was a white rod); the short
                 // clinging scribbles on the board are white-hot all through
-                float glow = min((0.42 + 0.5 * spin + 0.55 * (1.0 - longW)) * (i.more.z > 0.5 ? 1.0 : flick), 1.1) + 0.2 * headB;   // c33: the scribbles whiter
+                float glow = min((0.4 + 0.45 * spin + 0.5 * headW + 0.55 * (1.0 - longW)) * (i.more.z > 0.5 ? 1.0 : flick), 1.15) + 0.2 * headB;   // c38: a white head   // c33: the scribbles whiter
                 if (i.more.z > 0.5) { w = 0.6; glow = 1.0; }   // the far thread stays an even line
                 float prof = w;
                 // the centre line carries one gentle long wave and a smaller one (the clip's bolts are smooth, not braided)
