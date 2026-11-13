@@ -358,9 +358,11 @@ Shader "TW/Cel/Comet"
                     float headF = 1.0 - headD;
                     float bodyL = max(min(fl, hr * 14.0), 1e-3);
                     float sb = saturate(s / bodyL);
-                    float wHaze = hr * (1.1 - 0.7 * sb);
+                    // p07: the BODY - as wide as the head for the first third, then tapering; nearly opaque near the
+                    //      head, thinning out toward the end (REF f42/f60: a fat bright bar, not hair lines)
+                    float wHaze = hr * lerp(0.95, 0.18, pow(sb, 0.8)) * (0.85 + 0.3 * CelValue2(float2(s / max(hr * 0.9, 1e-3) + t * 7.0, seed * 41.0 + step(0.0, y) * 5.0)));
                     float haze = (s >= 0.0) ? saturate(1.0 - abs(y) / max(wHaze, 1e-4)) : 0.0;
-                    haze = haze * haze * (1.0 - sb) * (1.0 - sb);
+                    haze = pow(haze, 0.6) * (1.0 - sb * sb) * (0.92 - 0.5 * sb);
                     float streak = 0.0, streakHeat = 0.0;
                     [unroll] for (int k7 = 0; k7 < 7; k7++)
                     {
@@ -378,9 +380,10 @@ Shader "TW/Cel/Comet"
                         streak = max(streak, fk);
                     }
                     float headA = saturate(headF * 2.2);
-                    float tailA = max(streak, haze * 0.55);
+                    float tailA = max(streak * 0.85, haze);
                     float alphaF = max(headA, tailA) * has;
-                    float heat = max(saturate(headF * 1.3 + 0.35) * step(0.0, headF), max(streakHeat * (1.0 - 0.5 * sb), haze * 0.45));
+                    float bodyHeat = haze * (0.3 + 0.55 * (1.0 - sb)) * (0.75 + 0.35 * saturate(1.0 - abs(y) / max(wHaze * 0.5, 1e-4)));
+                    float heat = max(saturate(headF * 1.3 + 0.35) * step(0.0, headF), max(streakHeat * (0.9 - 0.4 * sb), bodyHeat));
                     half3 c0 = CelPal(rowA, 0), c1 = CelPal(rowA, 1), c2 = CelPal(rowA, 2), c3 = CelPal(rowA, 3);
                     half3 cc = CelPalCore(rowA).rgb * i.tone.y;
                     half3 fCol = heat < 0.25 ? lerp(c0, c1, heat / 0.25)
