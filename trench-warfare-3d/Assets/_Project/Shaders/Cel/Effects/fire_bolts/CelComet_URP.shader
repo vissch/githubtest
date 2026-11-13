@@ -441,7 +441,7 @@ Shader "TW/Cel/Comet"
                 {
                     rField = (s > ribbonStart) ? saturate(1.0 - abs(y - yc) / max(rwid, 1e-4)) : 0.0;
                     float rg = CelValue2(float2(s / max(rwid * 2.5, 1e-3) - i.misc.z * 2.0, (y - yc) / max(rwid * 0.3, 1e-4) + seed * 5.0));   // p13: streaky, blurred
-                    rField = pow(rField, lerp(1.4, 2.2, step(1e-5, hr))) * (0.4 + 0.9 * rg);   // p29c: diffuse, ragged (REF)
+                    rField = pow(rField, lerp(1.4, 2.5, step(1e-5, hr)))   /* p30: 15 px edges (REF) */ * (0.4 + 0.9 * rg);   // p29c: diffuse, ragged (REF)
                 }
                 float brk = CelValue2(float2(s / (wl * 0.5), seed * 91.0));   // pieces along the ribbon
                 float rCut = (puffs > 0.5 || hr > 1e-5) ? 1.0 : step(i.more.y, brk * 0.9 + 0.1 * taper);   // p29: a bolt's contrail is one continuous ribbon (REF), no pieces
@@ -499,7 +499,7 @@ Shader "TW/Cel/Comet"
                     float mark = saturate(1.0 - ringD) * saturate(0.2 + s / max(hr * 0.4, 1e-4)) * saturate((1.0 - headD) * 6.0) * (0.5 + 0.5 * CelValue2(float2(ang * 4.0 - t * 8.0, seed * 23.0)));
                     // q: 0 on the axis, 1 at the silhouette's edge
                     float qBody = (s > 0.0 && sb < 1.0) ? abs(yy) / max(halfW, 1e-4) : 10.0;
-                    float q = min(qBody, headD) + 0.2 * (grain - 0.5);   // p23c: streaky
+                    float q = min(qBody, headD) + lerp(0.45, 0.2, fireMode) * (grain - 0.5);   // p30c: the edge is soft AND ragged along the motion, like dry brush (REF: streaks bite 3-6 px in)   // p23c: streaky
                     q *= lerp(1.0, 0.65 + 0.7 * CelValue2(float2(yy / max(hr * 0.45, 1e-4) + seed * 5.0, s / max(hr * 0.7, 1e-3) - t * 9.0)), fireMode);   // p23g: a standing flame is torn into tongues (multiplicative: the axis stays opaque)
                     float capF = lerp(0.5, 1.0, smoothstep(-hr * 0.8, hr * 1.2, s));   // p25: the cap's heat blends into the body's over 2 hr (no line at s = 0)
                     float qc = min(qBody, max(headD, abs(yy) / max(hr * 0.95 * brB, 1e-4))) * capF + 0.3 * (grain - 0.5);   // p25: continuous   // p24c: the cap's edge stays yellow-orange   // p23b: colour by the cigar's thickness
@@ -516,23 +516,24 @@ Shader "TW/Cel/Comet"
                         float yk = sway + side * hr * ((k3 == 0 ? 1.0 : k3 == 1 ? 1.3 : k3 == 2 ? 0.9 : 1.6) + (k3 == 0 ? 1.4 : k3 == 1 ? 1.8 : k3 == 2 ? 0.9 : 1.4) * uk)   // p28: they diverge from the body's rear edges (REF)
                                  + hr * 0.05 * uk * sin(s * 0.6 / max(hr, 1e-3) + hk * 20.0 - t * 6.0)   // p27k: straight (REF: motion streaks)   // p26c: straighter (REF)
                                  + hr * 0.02 * uk * sin(s * 2.4 / max(hr, 1e-3) - t * 11.0 + hk2 * 9.0);
-                        float wk = hr * (0.2 + 0.08 * hk2) * (1.0 - 0.2 * uk);   // p27k: 3 px (REF)   // p26c: thinner (REF 1-2 px cores)   // p25c: the blur's width
+                        float wk = min(hr * 0.2, 0.025) * (1.0 + 0.4 * hk2) * (1.0 - 0.2 * uk);   // p30: 3-5 px on every lane (REF)   // p27k: 3 px (REF)   // p26c: thinner (REF 1-2 px cores)   // p25c: the blur's width
                         float dk = (y - yk) / max(wk, 1e-4);
                         float ek = (1.0 - smoothstep(0.7, 1.0, uk)) * smoothstep(hr * 3.5, hr * 7.0, s) * (k3 == 3 ? 0.0 : k3 == 1 ? 0.5 : 1.0)   // p28: they emerge from under the body's rear (REF ~6 hr)
                                  * (0.55 + 0.45 * CelValue2(float2(s / max(hr * 5.0, 1e-3) - t * 3.0, hk * 40.0 + seed * 9.0)));   // p25: soft ends, long soft dashes (motion blur)
-                        float fk = exp(-dk * dk) * ek;   // p25: gaussian across
+                        float fk = exp(-dk * dk * 0.5) * ek * 0.6;   // p30: a faint wider fringe   // p25: gaussian across
                         streak = max(streak, fk);
-                        streakC = max(streakC, exp(-dk * dk * 5.0) * ek);   // p25c: a 1-2 px bright core (p25b's was under a pixel: invisible)   // p25b: REF: cream hair lines in a red blur
+                        streakC = max(streakC, saturate(2.5 - 2.5 * abs(dk)) * ek);   // p30: a HARD core, 1-3 px edges (REF)   // p25c: a 1-2 px bright core (p25b's was under a pixel: invisible)   // p25b: REF: cream hair lines in a red blur
                     }
                     // the opaque silhouette (anti-aliased), the lines, a softer edge on a standing flame
                     float rear = lerp(1.0 - smoothstep(max(len - hr * 8.0, len * 0.5), len, s), 1.0, fireMode);   // p23e: never on a standing flame (it faded the ground fires)   // p23c: the body fades out before the quad's rear (no cut at the birth)
-                    float cov = (1.0 - smoothstep(lerp(0.9, 0.85, fireMode), lerp(1.15, 1.25, fireMode), q)) * rear;   // p28: a 4 px feathered edge on a bolt (REF)   // p27: the red edge shows   // p23c: a soft blurred edge (REF), the dark halo outside
+                    float eq = min(0.35 * hr / max(halfW, 1e-4), 0.45) * (yy < 0.0 ? 1.6 : 1.0);   // p30b: clamped (unclamped it spanned the whole quad where the body tapers to nothing: a striped red box)   // p30: the edge's softness in head radii (5-11 px, softer below: REF), whatever the lane
+                    float cov = (1.0 - smoothstep(lerp(1.0 - eq, 0.85, fireMode), lerp(1.0 + 0.5 * eq, 1.25, fireMode), q)) * rear;   // p30   // p28: a 4 px feathered edge on a bolt (REF)   // p27: the red edge shows   // p23c: a soft blurred edge (REF), the dark halo outside
                     float strandN = CelValue2(float2(yy / max(hr * 0.35, 1e-4) + seed * 3.0, s / max(hr * 7.0, 1e-3) - t * 2.5));   // p26: strands across the tail
                     float fray = smoothstep(lerp(0.75, 0.55, fireMode), 1.0, sb);   // p28: the teardrop stays whole longer   // p26b: the body stays whole for ~1.5 m (REF ~180 px), then frays
                     cov *= lerp(1.0, 0.05 + 0.95 * smoothstep(0.45, 0.65, strandN), fray);   // p26: the tail frays into parallel strands (REF)
                     float capD = length(float2(min(s, 0.0) / max(ax * 1.25, 1e-4) + max(s, 0.0) / max(ax * 0.55, 1e-4), yy / max(hr * 1.15 * brB, 1e-4)));   // p25: long ahead, short behind, no step
                     cov = max(cov, 1.0 - smoothstep(0.5, 1.7, capD));   // p24c: the ball's own long soft edge (REF: a 20 px orange glow ahead)
-                    float lineCov = saturate(streak * 0.7 + streakC * 0.5) * rear;   // p25d: the blur 80%, the core opaque   // p25: no AA step: the line IS its blur
+                    float lineCov = saturate(streak * 0.5 + streakC * 0.8) * rear;   // p30   // p25d: the blur 80%, the core opaque   // p25: no AA step: the line IS its blur
                     float coreR = streakC / max(streak, 1e-4);   // p25d: 1 on the line's axis, 0 in its blur, whatever the line's strength
                     float alphaF = max(cov, lineCov);
                     alphaF = lerp(alphaF, 1.0 - smoothstep(0.85, 1.2, q), fireMode) * has * fireEnv;   // p23g: a firm ragged flame
@@ -543,7 +544,7 @@ Shader "TW/Cel/Comet"
                     heat -= lerp(0.12, 0.3, fireMode) * (grain - 0.5) * step(qe, 0.9);   // p28: the REF's cream is smooth   // p23d: the streak texture shows in the colour, not just the edge
                     heat = lerp(heat, 0.1 + 0.9 * coreR, saturate(lineCov * 3.0) * (1.0 - cov));   // p25d: the colour switches fully to the line's wherever there is one (the alpha carries the blur; p25b/c diluted the heat twice and the core never showed)   // p25b: a cream core on a red blur
                     heat = saturate(heat + 0.25 * smoothstep(0.5, 0.75, strandN) * fray * cov);   // p26: the strands are bright hair lines (REF)
-                    heat = saturate(heat - 0.5 * mark * (1.0 - fireMode) + 0.05 * fireMode);   // p24b: the loop is a red line, not a bite   // p23g: no loop mark on a fire, bright
+                    heat = saturate(heat - 0.2 * mark * (1.0 - fireMode) + 0.05 * fireMode);   // p30c: a faint squiggle (0.5 drew a crisp ring round the head)   // p24b: the loop is a red line, not a bite   // p23g: no loop mark on a fire, bright
                     half3 c0 = CelPal(rowA, 0), c1 = CelPal(rowA, 1), c2 = CelPal(rowA, 2), c3 = CelPal(rowA, 3);
                     half3 cc = CelPalCore(rowA).rgb * i.tone.y;
                     half3 fCol = heat < 0.25 ? lerp(c0, c1, heat / 0.25)
