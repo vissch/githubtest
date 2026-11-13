@@ -92,7 +92,7 @@ namespace TW.Presentation.VFX
                 if (s.Lod == RangeLod.Far && (i & 1) == 1) continue;
                 Vector3 target; float lane;
                 if (FireBolts.OnGround[i]) { int g0 = gi++ % GroundAt.Length; var g = GroundAt[g0]; lane = GroundUp[g0]; target = OnGround(s.Ground + right * g.x + away * g.y, 0f, s.Ground.y); }
-                else { var d = DummyAt[di++ % DummyAt.Length]; lane = DummyUp + d.y; target = s.Target + right * (d.x - 0.16f) + Vector3.up * (d.y + 0.05f) - away * 0.3f; }   // p27j: the strike edge (REF: the ball sits on the board's left edge)   // b01: on the board's front, so its sparks are not hidden behind it
+                else { var d = DummyAt[di++ % DummyAt.Length]; lane = DummyUp + d.y; target = s.Target + right * (d.x * 0.4f - 0.38f) + Vector3.up * (d.y * 0.5f + 0.4f) - away * 0.3f; }   // p28d: 0.22 lifted it 9 px of the REF's 35   // p28c: REF's ball is 27 px left and 35 px above the rings' centre (0.22 moved it 12 px)   // p28b: all of them on the strike edge (REF)   // p27j: the strike edge (REF: the ball sits on the board's left edge)   // b01: on the board's front, so its sparks are not hidden behind it
                 var f = FromAt[i % FromAt.Length];
                 // b02: 0.4 m above MuzzleHigh (b01 was 1.1 m below; the reference's bolts come in from the upper left
                 // about 2.5 m above the chest and arc down onto it)
