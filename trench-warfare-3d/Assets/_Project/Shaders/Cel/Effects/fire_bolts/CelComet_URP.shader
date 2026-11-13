@@ -447,7 +447,7 @@ Shader "TW/Cel/Comet"
                     float wob = 0.7 + 0.45 * CelValue2(float2(s / max(hr * 2.5, 1e-3) - t * 5.0, seed * 3.0 + step(0.0, yy) * 2.0))   // p23d: bigger bulges
                               + 0.15 * CelValue2(float2(s / max(hr * 0.6, 1e-3) + t * 17.0, seed * 7.0 + step(0.0, yy) * 11.0));
                     float u = s / max(hr, 1e-4);
-                    float neck = 1.0 - 0.42 * exp(-pow((u - 1.6) / 1.3, 2.0));   // p24: the tail pinches just behind the ball
+                    float neck = 1.0 - 0.52 * exp(-pow((u - 1.9) / 1.4, 2.0));   // p24d: a tighter pinch just behind the ball
                     float bulge = 1.0 + 0.18 * exp(-pow((u - 6.0) / 3.2, 2.0));  // p24: then swells
                     float halfW = hr * 0.95 * neck * bulge * (1.0 - pow(sb, 2.5)) * wob * lerp(1.0, 1.5, fireMode);   // p24: ball, neck, bulge, taper (owner)
                     // HEAD
@@ -456,8 +456,8 @@ Shader "TW/Cel/Comet"
                     float tips = CelValue2(float2(ang * 2.2 + seed * 9.0, t * 14.0 + seed * 3.0)) + 0.6 * CelValue2(float2(ang * 6.0 - seed * 5.0, t * 22.0));
                     float hrad = 1.0 + pow(saturate(tips / 1.5), 1.6) * 0.5 * back;   // p24: shorter tongues, the neck shows
                     float brA = 0.9 + 0.2 * CelValue2(float2(t * 9.0, seed * 13.0)), brB = 0.9 + 0.2 * CelValue2(float2(t * 11.0 + 3.0, seed * 29.0));
-                    float ax = hr * 1.05 * brA;   // p24: a round ball
-                    float headD = length(float2(s / max(ax, 1e-4), yy / max(hr * 1.05 * brB, 1e-4))) / max(hrad, 0.3);
+                    float ax = hr * 1.15 * brA;   // p24d: the ball a little bigger than the body
+                    float headD = length(float2(s / max(ax, 1e-4), yy / max(hr * 1.15 * brB, 1e-4))) / max(hrad, 0.3);
                     float2 cq = float2(s - hr * 0.05, yy);
                     float mR = hr * (0.5 + 0.2 * CelValue2(float2(ang * 2.0 + seed * 11.0, t * 6.0)));   // p23e: the REF's loop is half the head
                     float ringD = abs(length(cq) - mR) / max(hr * 0.2, 1e-4);
