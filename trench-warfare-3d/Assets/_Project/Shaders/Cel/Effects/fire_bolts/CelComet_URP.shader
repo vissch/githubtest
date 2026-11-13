@@ -263,8 +263,8 @@ Shader "TW/Cel/Comet"
                     float mott = CelValue2(float2(sm / (wid * 0.9 + 0.04) + t * 0.5, y * 1.3 + seed * 71.0));
                     float hole = CelValue2(float2(sm / (wid * 0.55 + 0.03) - t * 0.7, y * 2.2 + seed * 13.0));
                     fm *= smoothstep(0.22, 0.5, hole + 0.25 * (1.0 - k));   // p04: holes open as it ages
-                    lit = saturate(lit * 0.85 - 0.1 + 0.9 * (mott - 0.5));
-                    half3 c = lerp(CelPal(rowA, 0), CelPal(rowA, 3), smoothstep(0.15, 0.85, lit));   // p03: cream lit side, dark grey shade
+                    lit = saturate(lit * 0.9 + 0.08 + 0.7 * (mott - 0.5));
+                    half3 c = lerp(CelPal(rowA, 1), CelPalCore(rowA).rgb, smoothstep(0.2, 0.8, lit));   // p05: pale cream lit side, mid-grey shade   // p03: cream lit side, dark grey shade
                     mask = saturate((fm - 0.04) / 0.16);
                     float ink = CelInk(fm, 0.06, CelLodInk(i.tone.w)) * mask;
                     c = lerp(c, CelPalInk(rowA).rgb, ink * 0.35);

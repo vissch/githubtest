@@ -144,7 +144,7 @@ namespace TW.Presentation.VFX.Cel
                     Size = new CelCurve(0.05f * k, 0.10f * k), SizeJitter = 0.2f, Stretch = preflown ? -0.7f : 0.7f,   // p01: the smoke trail is a THIN pale line in REF, half the old width   // d18: wider (mask diff) but unbroken and semi-transparent   // c05: a longer, thin grey trail (the ref's are lines)   // c03: the smoke ribbon ~1.5x the flame (0.75 ran to the frame edge)
                       // c01: 0.2 -> 0.26-0.3 m (the smoke trail frays wider)
                     Erode = new CelCurve(0.06f, 0.2f),   // d18: stays whole (d17 dashes lost)   // c03: the ribbon breaks into pieces (was whole)
-                    Palette = "fb_comet", CoolTo = "fb_ribbon", Core = 2.2f,   // p02: the head blazes   // b03: 2.6 -> 2.2 (the bodies read white-hot)
+                    Palette = "fb_comet", CoolTo = "fb_ribbon", Core = 1.9f,   // p02: the head blazes   // b03: 2.6 -> 2.2 (the bodies read white-hot)
                     Opacity = 0.26f, Ink = 0f,   // p01: translucent trail, NO ink on the bolt (REF has none)   // d18: ribbon 75% (d16 opaque bands lost)
                     // b02: a round white-yellow head 0.2 m, a flame body that flares and tapers over 2.2 m, thin red
                     // streaks fading out to 5 m, a ribbon waving 0.08 m over 5.5 m
@@ -170,10 +170,10 @@ namespace TW.Presentation.VFX.Cel
                 },
                 new CelLayer
                 {
-                    Name = "flame tongues", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit, Duration = 0.15f, Life = 0.3f, LifeJitter = 0.3f,
+                    Name = "flame tongues", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit, Duration = 0.15f, Life = 0.22f, LifeJitter = 0.3f,
                     Close = ground ? 6 : 1, Mid = ground ? 3 : 1, Far = 0,   // c01: one tongue on the dummy (three lit a disc on the chest)
-                    Shape = CelShape.Sphere, ShapeSize = new Vector3(0.12f, 0f, 0f), Aim = CelAim.Up, Spread = 60f, Speed = 1.9f, SpeedJitter = 0.3f, Buoyancy = 1f,
-                    Size = new CelCurve(0.12f, 0.03f, 0.8f), SizeJitter = 0.2f, Stretch = 0.16f, Erode = new CelCurve(0.05f, 0.5f), Palette = ground ? "fire" : "fb_spark", Core = ground ? 1.8f : 1f, Ink = 2f, Extra = new Vector4(0f, 0.12f, 0.35f, 0f),
+                    Shape = CelShape.Sphere, ShapeSize = new Vector3(0.12f, 0f, 0f), Aim = CelAim.Up, Spread = 60f, Speed = 1.1f, SpeedJitter = 0.3f, Buoyancy = 0.6f,
+                    Size = new CelCurve(0.07f, 0.02f, 0.8f),   // p05: no floating orange leaves SizeJitter = 0.2f, Stretch = 0.16f, Erode = new CelCurve(0.05f, 0.5f), Palette = ground ? "fire" : "fb_spark", Core = ground ? 1.8f : 1f, Ink = 2f, Extra = new Vector4(0f, 0.12f, 0.35f, 0f),
                 },
                 new CelLayer
                 {
@@ -280,7 +280,7 @@ namespace TW.Presentation.VFX.Cel
                     Close = 1, Mid = 1, Far = 0, Aim = CelAim.None, Speed = 0f, Gravity = 0f, Drag = 0f, Buoyancy = 0f, Spin = 1.1f + 0.3f * k,
                     Size = new CelCurve(0.16f, 2.2f - 0.3f * k, 1.2f), SizeJitter = 0.15f, Stretch = 4.0f - 0.6f * k,   // p02: bigger, taller puffs
                     Erode = new CelCurve(0.02f, 0.7f, 2.6f),
-                    Palette = "fb_wisp", Core = 1f, Opacity = 0.55f, Ink = 0.5f,   // p01: softer, less inked smoke
+                    Palette = "fb_wisp", Core = 1f, Opacity = 0.48f, Ink = 0.4f,   // p01: softer, less inked smoke
                     Extra = new Vector4(-2f, 0.13f, 0.7f, 1.5f + 0.4f * k),   // d32: one broad leaning curl, not a tight corkscrew   // d07: gentler S, more lean (the wider puffs fold on tight curls)
                 });
             }
