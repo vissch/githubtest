@@ -261,7 +261,9 @@ Shader "TW/Cel/Comet"
                     // p01 (by eye): REF's smoke is a soft mottled grey, not two flat stripes: a smooth shade between
                     // the palette's dark and light greys, broken by slow travelling noise, a faint ink, a soft edge
                     float mott = CelValue2(float2(sm / (wid * 0.9 + 0.04) + t * 0.5, y * 1.3 + seed * 71.0));
-                    lit = saturate(lit + 0.5 * (mott - 0.5));
+                    float hole = CelValue2(float2(sm / (wid * 0.55 + 0.03) - t * 0.7, y * 2.2 + seed * 13.0));
+                    fm *= smoothstep(0.22, 0.5, hole + 0.25 * (1.0 - k));   // p04: holes open as it ages
+                    lit = saturate(lit * 0.85 - 0.1 + 0.9 * (mott - 0.5));
                     half3 c = lerp(CelPal(rowA, 0), CelPal(rowA, 3), smoothstep(0.15, 0.85, lit));   // p03: cream lit side, dark grey shade
                     mask = saturate((fm - 0.04) / 0.16);
                     float ink = CelInk(fm, 0.06, CelLodInk(i.tone.w)) * mask;
@@ -354,7 +356,7 @@ Shader "TW/Cel/Comet"
                     float lick = hr * 0.06 * sin(s * 1.6 / max(hr, 1e-3) + seed * 30.0 - i.misc.z * 14.0) * sb;
                     float nz = CelValue2(float2(s / max(hr * 1.1, 1e-3) + i.misc.z * 9.0, seed * 41.0 + step(0.0, y - lick) * 7.0));
                     float rag = lerp(1.0, 0.35 + 1.0 * nz, smoothstep(0.1, 0.6, sb));
-                    float wBody = hr * 0.50 * pow(saturate(1.0 - sb), 0.5) * rag;
+                    float wBody = hr * 0.85 * pow(saturate(1.0 - sb), 0.6) * rag;   // p04: the body leaves the head at the head's own width
                     float tailF = (s >= 0.0 && s <= bodyL) ? 1.0 - abs(y - lick) / max(wBody, 1e-4) : 0.0;
                     float streakF = 0.0, streakU = 1.0, streakHot = 0.0;
                     [unroll] for (int k4 = 0; k4 < 5; k4++)
@@ -363,10 +365,10 @@ Shader "TW/Cel/Comet"
                         float Lk = fl * (0.80 + 0.50 * hk);
                         float uk = saturate(s / max(Lk, 1e-3));
                         // each streak leaves the body on its own line, nearly straight: a slow drift and a faint wave
-                        float yk = hr * 0.60 * ((k4 - 2.0) / 2.0) * (0.3 + 0.7 * uk)
+                        float yk = hr * 0.95 * ((k4 - 2.0) / 2.0) * (0.25 + 0.75 * uk)
                                  + hr * 0.10 * sin(s * 1.3 / max(hr, 1e-3) + hk * 20.0 - i.misc.z * 7.0) * uk
                                  + hr * 0.04 * sin(s * 3.1 / max(hr, 1e-3) + hk * 11.0 - i.misc.z * 12.0) * uk;
-                        float wk = hr * 0.17 * pow(saturate(1.0 - uk), 0.5) * (0.7 + 0.6 * hk);
+                        float wk = hr * 0.24 * pow(saturate(1.0 - uk), 0.5) * (0.7 + 0.6 * hk);
                         float fk = (s >= 0.0 && s <= Lk) ? 1.0 - abs(y - yk) / max(wk, 1e-4) : 0.0;
                         if (fk > streakF) { streakF = fk; streakU = uk; streakHot = (k4 == 2) ? 0.22 : 0.0; }
                     }
@@ -376,7 +378,7 @@ Shader "TW/Cel/Comet"
                     float heat = saturate(1.0 - length(float2(max(s, 0.0) / (bodyL * 1.0), (y - lick * sb) / max(hr * 1.1, 1e-4))));
                     float vHead = headF > 0.0 ? 0.72 + 0.28 * saturate(headF * 1.6) : 0.0;
                     float vBody = tailF > 0.0 ? 0.30 + 0.65 * pow(heat, 0.6) : 0.0;
-                    float vStreak = streakF > 0.0 ? 0.08 + 0.60 * pow(saturate(1.0 - streakU), 0.8) + 0.25 * heat + streakHot : 0.0;   // p03: orange along the streak, deep red at the tip
+                    float vStreak = streakF > 0.0 ? 0.12 + 0.62 * pow(saturate(1.0 - streakU), 0.7) + 0.25 * heat + streakHot : 0.0;   // p03: orange along the streak, deep red at the tip
                     float val = max(max(vHead, vBody), vStreak);
                     half3 fCol = CelRamp(saturate(val), rowA, i.tone.y);
                     float fInk = CelInk(max(tailF, streakF), 0.03, inkPx) * step(headF, 0.0) * has;
@@ -386,7 +388,7 @@ Shader "TW/Cel/Comet"
                     col = lerp(col, fCol, fMask * fOp);
                     a = lerp(a, lerp(0.92, 1.0, fInk), fMask * fOp);
                     // the glow: a soft, wide, dim additive wash round the head and the body (no ring)
-                    float sg = s >= 0.0 ? s / max(bodyL * 0.9, 1e-3) : -s / max(hr * 2.4, 1e-4);   // p03: p01/p02 clamped s at 0 ahead of the head, so the wash ran to the quad's front edge (a visible box)
+                    float sg = s >= 0.0 ? s / max(bodyL * 1.6, 1e-3) : -s / max(hr * 2.4, 1e-4);   // p03: p01/p02 clamped s at 0 ahead of the head, so the wash ran to the quad's front edge (a visible box)
                     float bl = saturate(1.0 - length(float2(sg, y / max(hr * 3.2, 1e-4))));
                     bl = max(bl, saturate(1.0 - hd / max(hr * 2.4, 1e-4)));
                     bl = bl * bl;
