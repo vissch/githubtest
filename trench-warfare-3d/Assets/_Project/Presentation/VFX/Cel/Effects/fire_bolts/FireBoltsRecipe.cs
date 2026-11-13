@@ -166,14 +166,14 @@ namespace TW.Presentation.VFX.Cel
                     // b04: short orange dots and streaks over the torso's width (b03 lost its palette, erosion and core
                     // to a comment, so 28 default-white streaks piled up into a disc at the chest)
                     Size = new CelCurve(0.05f, 0.02f), Stretch = ground ? 0.22f : 0.09f,   // p06: REF's dummy sparks are short bright dashes   // c01: thinner, longer streaks (b05: 0.05, 0.09)
-                    Erode = new CelCurve(0.02f, 0.6f), Palette = "fb_spark", Core = 1.15f, Extra = new Vector4(0f, 0.08f, 0.3f, 0f),
+                    Erode = new CelCurve(0.02f, 0.6f), Palette = "fb_spark", Core = 1.4f, Ink = 0f, Extra = new Vector4(0f, 0.08f, 0.3f, 0f),   // p10: no ink (REF's sparks are soft bright dashes)
                 },
                 new CelLayer
                 {
                     Name = "flame tongues", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit, Duration = 0.15f, Life = 0.22f, LifeJitter = 0.3f,
                     Close = ground ? 6 : 1, Mid = ground ? 3 : 1, Far = 0,   // c01: one tongue on the dummy (three lit a disc on the chest)
                     Shape = CelShape.Sphere, ShapeSize = new Vector3(0.12f, 0f, 0f), Aim = CelAim.Up, Spread = 60f, Speed = 1.1f, SpeedJitter = 0.3f, Buoyancy = 0.6f,
-                    Size = new CelCurve(0.07f, 0.02f, 0.8f),   // p05: no floating orange leaves SizeJitter = 0.2f, Stretch = 0.16f, Erode = new CelCurve(0.05f, 0.5f), Palette = ground ? "fire" : "fb_spark", Core = ground ? 1.8f : 1f, Ink = 2f, Extra = new Vector4(0f, 0.12f, 0.35f, 0f),
+                    Size = new CelCurve(0.07f, 0.02f, 0.8f),   // p05: no floating orange leaves SizeJitter = 0.2f, Stretch = 0.16f, Erode = new CelCurve(0.05f, 0.5f), Palette = ground ? "fire" : "fb_spark", Core = ground ? 1.8f : 1f, Ink = 0f, Extra = new Vector4(0f, 0.12f, 0.35f, 0f),
                 },
                 new CelLayer
                 {
@@ -193,7 +193,7 @@ namespace TW.Presentation.VFX.Cel
                 Name = "flame wrap", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0.05f * b - 0.03f, 0.02f + 0.1f * b, 0.08f), Start = hit + 0.06f + 0.06f * b, Life = 0.45f + 0.35f * b, LifeJitter = 0.15f,   // p01: REF's dummy is clean ~0.5 s after its last hit
                 Close = 1, Mid = 1, Far = 0, Aim = CelAim.Up, Spread = 20f, Speed = 0.25f, SpeedJitter = 0.3f, Drag = 0.5f, Gravity = 0f, Buoyancy = 0.4f, Spin = 0f,
                 Size = new CelCurve(0.14f, 0.36f - 0.24f * b, 0.5f), SizeJitter = 0.2f, Stretch = 0f, Erode = new CelCurve(0f, 0.75f, 1.3f),   // d42: a fan-shaped flame splash on the board (REF f96-f121), torn by noise
-                Palette = "fire", Core = 1.6f, Opacity = 0.8f, Ink = 1f, Extra = new Vector4(-3f, 2.1f, 2.8f, 1.3f),   // p04: a yellow-white flash on the board
+                Palette = "fire", Core = 1.6f, Opacity = 0.65f, Ink = 0f, Extra = new Vector4(-3f, 2.1f, 2.8f, 1.3f),   // p04: a yellow-white flash on the board
             });
             if (ground)
             {
@@ -211,19 +211,19 @@ namespace TW.Presentation.VFX.Cel
                     Close = 12, Mid = 10, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Up, Spread = 70f, Speed = 1.9f, SpeedJitter = 0.35f, Buoyancy = 0.8f,
                     Size = new CelCurve(0.62f, 0.2f, 0.6f),   // p09: a little bigger   // p04: small ragged tongues (REF: a spark pop with a small flame, not a yellow fan)   // c05: bigger round bursts (the ref's pop at the landing point)
                     SizeJitter = 0.3f, Stretch = 0.2f,   // c03: round flicker flames on the ground (c01 shot carrots up into the air)   // b04: narrower fan, taller (about the torso)
-                    Erode = new CelCurve(0.05f, 0.55f), Palette = "fire", Core = 1.6f, Ink = 0.5f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
+                    Erode = new CelCurve(0.05f, 0.55f), Palette = "fire", Core = 1.6f, Ink = 0f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
                 });
                 if (bigFire) r.Layers.Add(new CelLayer   // d23: the lasting fire body on every other ground hit after ~f40 only (ref: 1-2 fires at once)
                 {
                     Name = "ground fire", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit + 0.12f, Duration = 0.75f, Life = 0.6f, LifeJitter = 0.3f,
                     Close = 9, Mid = 8, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Up, Spread = 50f, SpeedJitter = 0.35f, Buoyancy = 0.6f,
                     Speed = 0.8f, Size = new CelCurve(0.65f, 0.25f, 0.7f),   // p04: smaller lasting fire   // d22: low wide dome-then-shreds (ref f87-f101 zoom), not tall tongues   // d21: compact crater fire of long-lived flame tongues (16-20 f each), Mid near Close (LOD trap)   // c03: low round flames ~0.5 dummy tall (c01: 3.7 m/s carrots in a column)   // c01: as tall as the torso (b05: 0.65 m, speed 3.0)   // b04: about the torso tall (b03: under half)
-                    SizeJitter = 0.3f, Stretch = 0.1f, Erode = new CelCurve(0.1f, 0.6f), Palette = "fire", Core = 1.7f, Ink = 2f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
+                    SizeJitter = 0.3f, Stretch = 0.1f, Erode = new CelCurve(0.1f, 0.6f), Palette = "fire", Core = 1.7f, Ink = 0f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
                 });
                 if (bigFire) r.Layers.Add(new CelLayer   // d38: a crater ember (cel blob, Comet mode -3): a low licking fire that outlives the burst and dies ~1.2 s after the hit (ref keeps a red ember in its smoke to ~f104)
                 {
                     Name = "crater ember", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.12f, 0f), Start = hit + 0.2f, Life = 1.4f, LifeJitter = 0.15f,
-                    Close = 1, Mid = 1, Far = 0, Aim = CelAim.Up, Spread = 10f, Speed = 0.1f, SpeedJitter = 0.3f, Drag = 0.5f, Gravity = 0f, Buoyancy = 0.15f, Spin = 0f,
+                    Close = 0, Mid = 0, Far = 0,   // p10: off - it read as a flat orange leaf floating beside the fire Aim = CelAim.Up, Spread = 10f, Speed = 0.1f, SpeedJitter = 0.3f, Drag = 0.5f, Gravity = 0f, Buoyancy = 0.15f, Spin = 0f,
                     Size = new CelCurve(0.55f, 0.25f, 0.8f), SizeJitter = 0.2f, Stretch = 0f, Erode = new CelCurve(0f, 0.6f, 1.4f),
                     Palette = "fire", Core = 1.0f, Opacity = 0.9f, Ink = 2f, Extra = new Vector4(-3f, 1.6f, 2.6f, 0.9f),
                 });
