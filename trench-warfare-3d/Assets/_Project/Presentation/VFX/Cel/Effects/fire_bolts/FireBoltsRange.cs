@@ -98,6 +98,7 @@ namespace TW.Presentation.VFX
                 // about 2.5 m above the chest and arc down onto it)
                 Vector3 from = s.MuzzleHigh + right * f.x + Vector3.up * (f.y + lane + LaneUp[(i * 5) % LaneUp.Length]) + away * f.z;   // b03: low lanes   // b02: 0.4 m above MuzzleHigh (a 1.4-2.2x spread scored worse) (the ref's bolts never share one line)
                 if (i < FireBolts.AlongAt.Length) from = Vector3.Lerp(from, target, FireBolts.AlongAt[i]);
+                else from -= (target - from).normalized * 2.5f;   // p23d: born off screen, no cut at the birth; hits ~4 frames later (REF f29-31)
                 // the comet is aimed above its hit by what its gravity drops over the flight: it arcs down onto it
                 Vector3 aim = target + Vector3.up * FireBolts.ArcLift(FireBolts.Flights[i]);
                 uint sd = seed * 7u + (uint)i * 101u;
