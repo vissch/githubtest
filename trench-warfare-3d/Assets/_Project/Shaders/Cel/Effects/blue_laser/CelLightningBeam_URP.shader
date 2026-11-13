@@ -58,6 +58,7 @@ Shader "TW/Cel/LightningBeam"
                 nointerpolation float4 shape : TEXCOORD2;        // x zig amp, y branches per m, z seed, w window length (m) | dot: z points, w sharpness
                 float4 more : TEXCOORD3;                         // x fog, y far (0..1: how much the fog is skipped)
                 float3 positionWS : TEXCOORD4;
+                float2 near : TEXCOORD5;                         // c14: x = how near the muzzle this point is (1 at the muzzle, 0 past a third of the beam)
             };
 
             // metres per screen pixel at a world point (perspective)
@@ -90,6 +91,7 @@ Shader "TW/Cel/LightningBeam"
                     o.tone = float4(r.tone.x, r.tone.y, r.tone.z * (mode < 0.5 ? 1.0 + 1.5 * far : 1.0), CelCurve(r.erode.xyz, k));
                     o.shape = float4(mode, r.extra.y, r.extra.z, r.extra.w);
                     o.more = float4(ComputeFogFactor(o.positionCS.z), far, 0, 0);
+                    o.near = float2(0.0, 0.0);
                     return o;
                 }
                 float3 span = r.vel * r.life;                     // start -> target
@@ -112,8 +114,10 @@ Shader "TW/Cel/LightningBeam"
                 float halfW = width * 0.5;
                 // r03: size.x is the width AT THE TARGET; nearer the eye the spindle is thinner in metres (painted
                 // dashes keep a readable screen width down the beam: about 2.5x the target's at 10x nearer)
-                float scaleW = thread ? 1.0 : clamp(pow(PixelMetres(p) / max(PixelMetres(r.pos + span), 1e-6), 0.1), 0.15, 2.0);   // c02: the clip's near stretch is ~2x wider on screen than at the dummy
+                float scaleW = thread ? 1.0 : clamp(pow(PixelMetres(p) / max(PixelMetres(r.pos + span), 1e-6), 0.0), 0.15, 2.0);   // c09: a constant width in metres, so the near stretch is ~2x wider on screen   // c02: the clip's near stretch is ~2x wider on screen than at the dummy
                 halfW *= scaleW;
+                // c10: wider toward the muzzle (the clip's near stretch is a fat frayed bundle, its far half a hair)
+                if (!thread) halfW *= lerp(2.0, 1.0, saturate(s * 1.4));
                 // going out the line keeps at least ~1.3 px of half-width (2.5 px wide at Far)
                 halfW = max(halfW, 1.3 * saturate(_CelLod.x * 0.5) * PixelMetres(p) * alive * open);
                 float3 w = p + side * across * halfW * BEAM_PAD;
@@ -128,6 +132,7 @@ Shader "TW/Cel/LightningBeam"
                 o.tone = float4(r.tone.x, r.tone.y, op, CelCurve(r.erode.xyz, k));
                 o.shape = float4(r.extra.x, r.extra.y * saturate(1.0 - _CelLod.x), r.seed, full * lenB);
                 o.more = float4(ComputeFogFactor(o.positionCS.z), far, thread ? 1.0 : 0.0, scaleW);
+                o.near = float2(saturate(1.0 - s * 2.5), 0.0);
                 return o;
             }
 
@@ -231,14 +236,34 @@ Shader "TW/Cel/LightningBeam"
                 // c03: a round tip (a quarter circle over the last 1/12 of the window), not a chevron
                 float tipT = saturate(tail * 16.0);
                 float tip = sqrt(saturate(1.0 - (1.0 - tipT) * (1.0 - tipT)));
-                float w = (0.34 + 0.22 * pow(tail, 1.4) + 0.55 * headB) * tip * sqrt(saturate(a * 5.0));   // c04: a smaller head bulb; c05: a thinner tail
-                float glow = lerp(0.26, 1.0, a * a) * (1.0 + 0.6 * headB);   // c05: the tail fades more
+                float w = (0.5 + 0.2 * pow(tail, 1.4) + 0.3 * headB) * tip * sqrt(saturate(a * 5.0));   // c08: an even thin strand, a point head (c07 was a fat tube with a bulb)
+                float glow = lerp(0.42, 1.0, a * a) * (1.0 + 0.6 * headB);   // c15: the body keeps its white core longer (clip)
                 if (i.more.z > 0.5) { w = 0.6; glow = 1.0; }   // the far thread stays an even line
                 float prof = w;
                 // the centre line carries one gentle long wave and a smaller one (the clip's bolts are smooth, not braided)
-                float zig = (0.5 * Zig(u, 3.0 * cs, salt) + 0.25 * Zig(u, 1.1 * cs, salt + 5.1)) * i.shape.x;
+                // c08: three scales of crooked lightning kinks (the clip's strands are thin and crooked, not smooth)
+                // c11: the fine kinks come and go along the strand (an amplitude on its own slow zig-zag), so the edge is irregular, not a sawtooth
+                float fineA = saturate(0.5 + 0.7 * Zig(u, 1.1 * cs, salt + 13.0));
+                float zig = (0.5 * Zig(u, 2.0 * cs, salt) + 0.35 * Zig(u, 0.6 * cs, salt + 5.1) + 0.3 * fineA * Zig(u, 0.2 * cs, salt + 9.7)) * i.shape.x;
                 float dy = abs(y - zig);
                 float field = saturate(1.0 - dy / max(w, 1e-3)) * glow;
+                // c12: two more thin strands twist round the main one, spread apart toward the tail and meeting at the head
+                // (the clip's near stretch is a frayed bundle, its head a single hot point); dimmer than the main strand
+                // c13: only on a long window (a short board arc with a bundle and an aura read as a cyan blob)
+                float longW = step(1.5, i.shape.w);
+                // c14: the bundle lives on the near third of the beam only (the clip: a frayed bundle at the corner, a crisp hair at the dummy)
+                float nearF = saturate(i.near.x) * longW;
+                if (i.more.z < 0.5 && nearF > 0.01)
+                {
+                    float spreadT = pow(saturate(1.0 - a), 1.2) * 2.4 * nearF * step(0.15, i.shape.x);
+                    float z1 = zig * 0.5 + (0.6 * Zig(u, 1.4 * cs, salt + 101.0) + 0.3 * Zig(u, 0.35 * cs, salt + 103.0)) * i.shape.x + spreadT;
+                    float z2 = zig * 0.5 + (0.6 * Zig(u, 1.7 * cs, salt + 107.0) + 0.3 * Zig(u, 0.3 * cs, salt + 109.0)) * i.shape.x - spreadT;
+                    float wS = w * 0.55;
+                    float f1 = saturate(1.0 - abs(y - z1) / max(wS, 1e-3)) * glow * 0.75 * nearF;
+                    float f2 = saturate(1.0 - abs(y - z2) / max(wS, 1e-3)) * glow * 0.65 * nearF;
+                    field = max(field, max(f1, f2));
+                    dy = min(dy, min(abs(y - z1), abs(y - z2)));
+                }
                 // a thin crackle hair weaving about the TAIL only (the clip's tails fray into a fine electric wisp)
                 float wz = (Zig(u, 0.25 * cs, salt + 17.0) + 0.6 * Zig(u, 0.08 * cs, salt + 23.0)) * 2.0 + zig;
                 float wisp = saturate(1.0 - abs(y - wz) / 0.3) * (1.0 - smoothstep(0.2, 0.5, a)) * 0.32 * step(0.15, i.shape.x) * step(0.05, prof);
@@ -304,7 +329,7 @@ Shader "TW/Cel/LightningBeam"
                 float thr = max(i.tone.w, 0.02);
                 // c01: a crisp cel edge at the head, a soft airbrushed edge down the tail (the clip's tails feather out)
                 float maskHard = CelAAStep(thr, field);
-                float maskSoft = smoothstep(thr, thr + 0.3, field);
+                float maskSoft = smoothstep(thr, thr + 0.12, field);   // c14: crisper (the clip's tails are dim, not blurred)
                 float mask = lerp(maskSoft, maskHard, smoothstep(0.35, 0.75, a));
                 // the ink: only at the head's half (thinner going out; none on the far thread); the palette's ink is pale
                 float inkPx = CelLodInk(0.7) * (1.0 - i.more.z);
@@ -319,9 +344,9 @@ Shader "TW/Cel/LightningBeam"
                 // b07: a tight rim (2 half-widths, was 4: the wide halo made the bolt 20-30 px fat)
                 // c01: a wide soft pale-cyan bloom (no bands), fuller round the head, that fades with the tail
                 // c03: a gaussian fringe that dies well inside the quad (BEAM_PAD), so it never shows a cut edge
-                float hd = max(dy - w, 0.0) / max(3.2 * prof + 0.8, 1e-3);   // c05: a wider fringe round a thinner core
+                float hd = max(dy - w, 0.0) / max(3.0 * prof + 1.0, 1e-3);   // c09: a faint aura (c08's wide bright haze read as a glowing rod)
                 float halo = exp(-hd * hd * 2.0) * step(0.05, prof) * (1.0 - mask) * saturate((BEAM_PAD - 0.5 - dy) * 2.0);
-                halo *= lerp(0.4, 1.0, saturate(glow));
+                halo *= lerp(0.4, 1.0, saturate(glow)) * (1.0 + 0.8 * nearF);   // c14: fuller round the near bundle only
                 half3 add = CelPal(row, 0) * halo * 0.85 * i.tone.z * (1.0 - i.more.z);
                 // the far thread is all light: no cover, it adds
                 if (i.more.z > 0.5) { add += body * mask * i.tone.z; cover = 0.0; straight = 0; }
