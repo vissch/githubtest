@@ -190,7 +190,7 @@ Shader "TW/Cel/Comet"
                 float len = max(speed * abs(r.size.w), flameL);
                 if (r.size.w >= 0.0) len = min(len, distance(p, r.pos));   // no ribbon behind its birth (b02: a negative
                                                                            // size.w is a bolt already in flight: whole tail)
-                float front = max(headR * 3.5, rw) * alive;
+                float front = max(headR * 5.0, rw) * alive;   // p24b: more room ahead of the ball
                 len *= alive;
                 float3 toEye = normalize(_WorldSpaceCameraPos - p);
                 float3 side = cross(dir, toEye);
@@ -446,15 +446,18 @@ Shader "TW/Cel/Comet"
                     float yy = y - sway;
                     float wob = 0.7 + 0.45 * CelValue2(float2(s / max(hr * 2.5, 1e-3) - t * 5.0, seed * 3.0 + step(0.0, yy) * 2.0))   // p23d: bigger bulges
                               + 0.15 * CelValue2(float2(s / max(hr * 0.6, 1e-3) + t * 17.0, seed * 7.0 + step(0.0, yy) * 11.0));
-                    float halfW = hr * lerp(1.1, 0.8, pow(sb, 1.5)) * (1.0 - pow(sb, 8.0)) * wob * lerp(1.0, 1.5, fireMode);   // p23h: a wide fire, inside its quad   // p23c: thicker (REF: 26 px of cream+yellow at 1344)
+                    float u = s / max(hr, 1e-4);
+                    float neck = 1.0 - 0.42 * exp(-pow((u - 1.6) / 1.3, 2.0));   // p24: the tail pinches just behind the ball
+                    float bulge = 1.0 + 0.18 * exp(-pow((u - 6.0) / 3.2, 2.0));  // p24: then swells
+                    float halfW = hr * 0.95 * neck * bulge * (1.0 - pow(sb, 2.5)) * wob * lerp(1.0, 1.5, fireMode);   // p24: ball, neck, bulge, taper (owner)
                     // HEAD
                     float ang = atan2(yy, s);
                     float back = saturate(s / max(hr, 1e-4) + 0.3);
                     float tips = CelValue2(float2(ang * 2.2 + seed * 9.0, t * 14.0 + seed * 3.0)) + 0.6 * CelValue2(float2(ang * 6.0 - seed * 5.0, t * 22.0));
-                    float hrad = 1.0 + pow(saturate(tips / 1.5), 1.6) * 0.9 * back;
+                    float hrad = 1.0 + pow(saturate(tips / 1.5), 1.6) * 0.5 * back;   // p24: shorter tongues, the neck shows
                     float brA = 0.9 + 0.2 * CelValue2(float2(t * 9.0, seed * 13.0)), brB = 0.9 + 0.2 * CelValue2(float2(t * 11.0 + 3.0, seed * 29.0));
-                    float ax = (s > 0.0 ? hr * 1.0 : hr * 0.8) * brA;
-                    float headD = length(float2(s / max(ax, 1e-4), yy / max(hr * 0.95 * brB, 1e-4))) / max(hrad, 0.3);
+                    float ax = hr * 1.05 * brA;   // p24: a round ball
+                    float headD = length(float2(s / max(ax, 1e-4), yy / max(hr * 1.05 * brB, 1e-4))) / max(hrad, 0.3);
                     float2 cq = float2(s - hr * 0.05, yy);
                     float mR = hr * (0.5 + 0.2 * CelValue2(float2(ang * 2.0 + seed * 11.0, t * 6.0)));   // p23e: the REF's loop is half the head
                     float ringD = abs(length(cq) - mR) / max(hr * 0.2, 1e-4);
@@ -463,7 +466,7 @@ Shader "TW/Cel/Comet"
                     float qBody = (s > 0.0 && sb < 1.0) ? abs(yy) / max(halfW, 1e-4) : 10.0;
                     float q = min(qBody, headD) + 0.2 * (grain - 0.5);   // p23c: streaky
                     q *= lerp(1.0, 0.65 + 0.7 * CelValue2(float2(yy / max(hr * 0.45, 1e-4) + seed * 5.0, s / max(hr * 0.7, 1e-3) - t * 9.0)), fireMode);   // p23g: a standing flame is torn into tongues (multiplicative: the axis stays opaque)
-                    float qc = (s > 0.0 ? min(qBody, max(headD, abs(yy) / max(hr * 0.95 * brB, 1e-4))) : headD * 0.7) + 0.3 * (grain - 0.5);   // p23e: a bright front cap   // p23c: fine parallel streaks through the core   // p23b: colour by the cigar's thickness, the cap only in front
+                    float qc = (s > 0.0 ? min(qBody, max(headD, abs(yy) / max(hr * 0.95 * brB, 1e-4))) : headD * 0.5) + 0.3 * (grain - 0.5);   // p24c: the cap's edge stays yellow-orange   // p23e: a bright front cap   // p23c: fine parallel streaks through the core   // p23b: colour by the cigar's thickness, the cap only in front
                     float qe = qc + 0.3 * pow(sb, 2.0);   // p23b: cools slowly   // the tail cools: the core narrows, the edges redden
                     // LINES: three thin red lines running on behind the body, braiding
                     float streak = 0.0;
@@ -484,6 +487,7 @@ Shader "TW/Cel/Comet"
                     // the opaque silhouette (anti-aliased), the lines, a softer edge on a standing flame
                     float rear = lerp(1.0 - smoothstep(max(len - hr * 8.0, len * 0.5), len, s), 1.0, fireMode);   // p23e: never on a standing flame (it faded the ground fires)   // p23c: the body fades out before the quad's rear (no cut at the birth)
                     float cov = (1.0 - smoothstep(0.8, 1.12, q)) * rear;   // p23c: a soft blurred edge (REF), the dark halo outside
+                    cov = max(cov, (1.0 - smoothstep(0.5, 1.7, headD)) * step(s, hr * 0.5));   // p24c: the ball's own long soft edge (REF: a 20 px orange glow ahead)
                     float lineCov = CelAAStep(0.3, streak) * rear;
                     float alphaF = max(cov, lineCov);
                     alphaF = lerp(alphaF, 1.0 - smoothstep(0.85, 1.2, q), fireMode) * has * fireEnv;   // p23g: a firm ragged flame
@@ -491,7 +495,7 @@ Shader "TW/Cel/Comet"
                     float heat = qe < 0.45 ? 1.0 - 0.15 * (qe / 0.45) : lerp(0.85, 0.0, saturate((qe - 0.45) / 0.55));
                     heat -= 0.3 * (grain - 0.5) * step(qe, 0.9);   // p23d: the streak texture shows in the colour, not just the edge
                     heat = lerp(heat, 0.22, lineCov * (1.0 - cov));
-                    heat = saturate(heat - 0.7 * mark * (1.0 - fireMode) + 0.05 * fireMode);   // p23g: no loop mark on a fire, bright
+                    heat = saturate(heat - 0.5 * mark * (1.0 - fireMode) + 0.05 * fireMode);   // p24b: the loop is a red line, not a bite   // p23g: no loop mark on a fire, bright
                     half3 c0 = CelPal(rowA, 0), c1 = CelPal(rowA, 1), c2 = CelPal(rowA, 2), c3 = CelPal(rowA, 3);
                     half3 cc = CelPalCore(rowA).rgb * i.tone.y;
                     half3 fCol = heat < 0.25 ? lerp(c0, c1, heat / 0.25)
@@ -500,7 +504,7 @@ Shader "TW/Cel/Comet"
                                : lerp(c3, cc, (heat - 0.8) / 0.2);
                     // the DARK halo: translucent red-brown, wider below and behind, under the body
                     float yq = yy + hr * 0.35;
-                    float qH = min((s > -hr * 0.5) ? abs(yq) / max(halfW * 2.0 + hr * 0.4, 1e-4) : 10.0, length(float2(s / max(ax * 2.0, 1e-4), yq / max(hr * 2.0, 1e-4))) / max(hrad, 0.3));
+                    float qH = min(abs(yq) / max(halfW * 2.0 + hr * 0.4, 1e-4) + max(-s, 0.0) / max(hr * 1.5, 1e-4), length(float2(s / max(ax * 2.0, 1e-4), yq / max(hr * 2.0, 1e-4))) / max(hrad, 0.3));   // p24: rounds off ahead of the head (no cut)
                     qH += 0.15 * (grain - 0.5);
                     float haloA = (1.0 - smoothstep(0.45, 1.0, qH)) * 0.85 * (1.0 - 0.4 * sb) * has * fireEnv * (1.0 - fireMode) * rear;   // p23h: no dark halo on a standing flame (it filled the quad: a red box)
                     col = lerp(col, c0, haloA);
@@ -508,9 +512,9 @@ Shader "TW/Cel/Comet"
                     col = lerp(col, fCol, alphaF);
                     a = lerp(a, 1.0, alphaF);
                     // a faint warm bloom around the head
-                    float bl = saturate(1.0 - length(float2(s / max(hr * 2.2, 1e-4), yy / max(hr * 2.2, 1e-4))));
+                    float bl = saturate(1.0 - length(float2(s / max(hr * 3.5, 1e-4), yy / max(hr * 3.2, 1e-4))));
                     bl *= bl;
-                    col += lerp(c2, c3, bl) * (bl * 0.25 * has * fireEnv);
+                    col += lerp(c2, c3, bl) * (bl * 0.7 * has * fireEnv);   // p24c: a wide orange glow around the ball
                 }
 
                 half3 fogged = CelAdditiveFog(half3(1.0, 1.0, 1.0), i.positionWS, i.misc.x);
