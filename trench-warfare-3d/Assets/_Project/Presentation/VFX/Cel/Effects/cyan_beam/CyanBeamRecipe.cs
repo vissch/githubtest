@@ -108,7 +108,28 @@ namespace TW.Presentation.VFX.Cel
         public static readonly CelFxRecipe TravelingCharge = TravelingChargeRecipe();
 
         public static readonly CelFxRecipe Beam = new CelFxRecipe("cyan_beam_main", 7f,
-            BeamLayer("held cyan beam", "cyan_beam_shaft", BeamStart, BeamLife, 0.76f, 1f),
+            // n01: widen the ONE layer that draws the beam shaft, 0.76 -> 1.14 (x1.50). The v2.7 part
+            // "core" (L 90-100, primary/main) is the plan's NEXT with 3.35 reachable points and its
+            // scorer is "soft": count, size, speed and peak carry ZERO weight there (term_weights look
+            // .300, amount .175, place .140, colour .140, presence .105, mass .070, bright .070), so the
+            // only reachable, non-held terms are amount and mass. Both say UP:
+            //   parts.core.raw amount_ours_over_ref 0.706, mass 56,868.8 vs 70,219.3, size 11 vs 14 px
+            // Measured on the gate's own cut (spec\_parts_cache\cyan_beam_ref_labels.npz vs k03's
+            // match\parts_labels.npz): REF carries 2,575 core px per active frame, we carry 1,932
+            // (0.750x) - we need +33% to reach parity, +17% for half the gap. At f71 only 27% of our
+            // core sits within 200 px of the impact star; the rest is the shaft centreline and the pool
+            // core, so the shaft is the lever. The shader's shaft branch builds all three bands from one
+            // halfWidth (CelCyanBeam_URP.shader:262-266: outer x1.16, cyan x1.00, core x0.52), so Size
+            // scales the core band linearly: x1.50 on roughly 40% of our core mass = about +20% core px,
+            // half the measured gap.
+            // Why Size and not value: "put the white back in the beam" via the palette or the clip is
+            // BLOCKED by the 08f2fee1e hold (STATE.md). This edit changes no palette byte, no clip and
+            // no film parameter - the same geometry-only lever k01 used on "cyan light along ground".
+            // Collateral: body and rim also widen, and both are BELOW the reference on amount (.896,
+            // .900) so they move toward it; rim's mass is already 1.057x the reference and its mass term
+            // weighs .070, at most ~0.7 part points. peak_area_ratio .9637 rises about 6% to ~1.02,
+            // still far inside the flat [0.8696, 1.15] deadband (STATE.md boundary fact 1).
+            BeamLayer("held cyan beam", "cyan_beam_shaft", BeamStart, BeamLife, 1.14f, 1f),
             Dot("impact core", "cyan_beam_hit", 0, BeamStart, 0f, BeamLife, 1, 1, 1,
                 new CelCurve(0.38f, 0.30f), 0f, 5f, 3f),
             Dot("impact bloom", "cyan_beam_hit", 1, BeamStart + 0.05f, 0f, BeamLife - 0.05f, 1, 1, 1,
