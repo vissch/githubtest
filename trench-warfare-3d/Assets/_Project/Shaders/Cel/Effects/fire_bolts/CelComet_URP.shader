@@ -185,8 +185,9 @@ Shader "TW/Cel/Comet"
                 o.local = float2(-along, across);
                 o.dims = float4(len, headR, flameL, amp);
                 o.tone = r.tone;
-                o.more = float4(rw, CelCurve(r.erode.xyz, k), r.seed, max(r.extra.w, 0.05));
-                o.misc = float4(ComputeFogFactor(o.positionCS.z), r.motion.z, t, (r.extra.y < 0.0 && headR <= 0.0) ? -1.0 : 0.0);
+                o.more = float4(rw, CelCurve(r.erode.xyz, k), r.seed, max(abs(r.extra.w), 0.05));
+                // p16: extra.w < 0 = a standing flame (a ground fire): misc.w = 0.25 + 0.5 k so the fragment can fade it
+                o.misc = float4(ComputeFogFactor(o.positionCS.z), r.motion.z, t, r.extra.w < 0.0 ? 0.25 + 0.5 * k : ((r.extra.y < 0.0 && headR <= 0.0) ? -1.0 : 0.0));
                 return o;
             }
 
@@ -293,7 +294,7 @@ Shader "TW/Cel/Comet"
                     fm *= smoothstep(0.22, 0.5, hole + 0.25 * (1.0 - k));   // p04: holes open as it ages
                     lit = saturate(lit * 0.9 + 0.08 + 0.7 * (mott - 0.5));
                     half3 c = lerp(CelPal(rowA, 1), CelPalCore(rowA).rgb, smoothstep(0.2, 0.8, lit));   // p05: pale cream lit side, mid-grey shade   // p03: cream lit side, dark grey shade
-                    mask = saturate((fm - 0.03) / 0.4);   // p06: a soft, airy edge
+                    mask = saturate((fm - 0.03) / 0.22);   // p16: lumpy but defined (REF's late clouds have real silhouettes)
                     float ink = CelInk(fm, 0.06, CelLodInk(i.tone.w)) * mask;
                     c = lerp(c, CelPalInk(rowA).rgb, ink * 0.35);
                     float op = saturate(i.tone.z) * (1.0 - smoothstep(0.55, 0.88, k));   // d37: the wisp is gone by ~f128 (REF clear at f131)
@@ -322,6 +323,9 @@ Shader "TW/Cel/Comet"
                 float seed = i.more.z, wl = i.more.w;
                 float inkPx = CelLodInk(i.tone.w);
                 float strand = step(i.misc.w, -0.5);                  // a smoke strand: the ribbon alone
+                float fireMode = step(0.2, i.misc.w);                 // p16: a standing flame
+                float fireK = saturate((i.misc.w - 0.25) / 0.5);
+                float fireEnv = lerp(1.0, smoothstep(0.0, 0.1, fireK) * (1.0 - smoothstep(0.45, 1.0, fireK)), fireMode);
                 float puffs = step(fl + hr, 1e-5) * (1.0 - strand);   // a wisp: a chain of round puffs
 
                 // ---- the smoke ribbon: a thin wavy strand behind the flame that fades and thins to nothing
@@ -424,7 +428,7 @@ Shader "TW/Cel/Comet"
                     }
                     float headA = saturate(headF * 4.0);
                     float tailA = max(streak * 0.55, haze);
-                    float alphaF = saturate(max(headA, tailA) * (0.75 + 0.35 * grain)) * has;
+                    float alphaF = saturate(max(headA, tailA) * (0.75 + 0.35 * grain)) * has * fireEnv;   // p16: a standing flame fades in and out
                     float bodyHeat = step(1e-4, haze) * (0.3 + 0.7 * pow(1.0 - sb, 1.3)) * (0.5 + 0.6 * pow(across, 1.5));   // p15: hotter down the middle
                     float heat = max(saturate(headF * 0.9 + 0.5) * step(0.0, headF),
                                      max(streakHeat * (0.95 - 0.6 * streakU) + 0.08 * step(1e-4, streak), bodyHeat));
@@ -442,7 +446,7 @@ Shader "TW/Cel/Comet"
                     float bl = saturate(1.0 - length(float2(sg, y / max(hr * 3.4, 1e-4))));
                     bl = max(bl, saturate(1.0 - hd / max(hr * 3.0, 1e-4)));
                     bl *= bl;
-                    col += lerp(c2, c3, bl) * (bl * 0.55 * has);
+                    col += lerp(c2, c3, bl) * (bl * 0.55 * has * fireEnv);
                 }
 
                 half3 fogged = CelAdditiveFog(half3(1.0, 1.0, 1.0), i.positionWS, i.misc.x);
