@@ -292,7 +292,7 @@ namespace TW.Presentation.VFX.Cel
                 {
                     Name = "smoke wisp", Kind = CometKind.KindName, Anchor = CelAnchor.Origin, Offset = new Vector3(0.12f * k - 0.05f, 0.05f, 0.1f * k), Start = hit + 0.06f + 0.18f * k, Life = 2.45f - 0.3f * k, LifeJitter = 0.1f,
                     Close = 1, Mid = 1, Far = 0, Aim = CelAim.None, Speed = 0f, Gravity = 0f, Drag = 0f, Buoyancy = 0f, Spin = 1.1f + 0.3f * k,
-                    Size = new CelCurve(0.12f, 3.4f - 0.3f * k, 1.6f), SizeJitter = 0.15f,   // p18: REF's late clouds are wider than tall Stretch = 4.0f - 0.6f * k,   // p09: a thin strand for the first half of its life   // p06: a thin strand first (REF f60), a cloud late   // p02: bigger, taller puffs
+                    Size = new CelCurve(0.12f, 3.4f - 0.3f * k, 1.6f), SizeJitter = 0.15f, Stretch = 4.0f - 0.6f * k,   // p19: p18's comment swallowed Stretch (no smoke)   // p18: wider   // p09: a thin strand for the first half of its life   // p06: a thin strand first (REF f60), a cloud late   // p02: bigger, taller puffs
                     Erode = new CelCurve(0.02f, 0.7f, 2.6f),
                     Palette = "fb_wisp", Core = 1f, Opacity = 0.65f, Ink = 0f,   // p01: softer, less inked smoke
                     Extra = new Vector4(-2f, 0.13f, 0.7f, 1.5f + 0.4f * k),   // d32: one broad leaning curl, not a tight corkscrew   // d07: gentler S, more lean (the wider puffs fold on tight curls)

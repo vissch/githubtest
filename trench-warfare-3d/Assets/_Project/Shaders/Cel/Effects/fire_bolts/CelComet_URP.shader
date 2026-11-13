@@ -202,7 +202,10 @@ Shader "TW/Cel/Comet"
                     //      additive (alpha 0), a quick rise and a smooth fade over the life
                     float rr = length(i.local), k = i.dims.x;
                     float env = smoothstep(0.0, 0.12, k) * (1.0 - smoothstep(0.25, 1.0, k));
-                    float g = exp(-rr * rr * 4.0) * (1.0 - smoothstep(0.7, 1.0, rr));
+                    float fa = atan2(i.local.y, i.local.x);
+                    float fn = CelValue2(float2(fa * 1.6 + i.more.z * 7.0, i.misc.z * 9.0)) + 0.5 * CelValue2(float2(fa * 4.0 - i.more.z * 3.0, i.misc.z * 14.0));   // p19: a ragged splash, not a disc
+                    float rq = rr / (0.75 + 0.45 * fn);
+                    float g = exp(-rq * rq * 3.0) * (1.0 - smoothstep(0.6, 1.0, rq));
                     half3 c = lerp(CelPal(rowA, 3), CelPalCore(rowA).rgb * i.tone.y, g * g) * (g * saturate(i.tone.z) * env);
                     float m = CelAdditiveFog(half3(1.0, 1.0, 1.0), i.positionWS, i.misc.x).r;
                     return half4(c * m, 0.0);
