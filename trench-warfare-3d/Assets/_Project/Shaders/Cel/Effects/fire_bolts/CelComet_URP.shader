@@ -375,7 +375,7 @@ Shader "TW/Cel/Comet"
                 float fireMode = step(i.misc.w, -1.5);                // p16: a standing flame (misc.w = -2 - k)
                 float fireK = saturate(-(i.misc.w + 2.0));
                 float strand = step(i.misc.w, -0.5) * (1.0 - fireMode);   // a smoke strand: the ribbon alone
-                float fireEnv = lerp(1.0, smoothstep(0.0, 0.1, fireK) * (1.0 - smoothstep(0.45, 1.0, fireK)), fireMode);
+                float fireEnv = lerp(1.0, smoothstep(0.0, 0.1, fireK) * (1.0 - smoothstep(0.6, 1.0, fireK)), fireMode);   // p23f: full for longer
                 float puffs = step(fl + hr, 1e-5) * (1.0 - strand);   // a wisp: a chain of round puffs
 
                 // ---- the smoke ribbon: a thin wavy strand behind the flame that fades and thins to nothing
@@ -462,6 +462,7 @@ Shader "TW/Cel/Comet"
                     // q: 0 on the axis, 1 at the silhouette's edge
                     float qBody = (s > 0.0 && sb < 1.0) ? abs(yy) / max(halfW, 1e-4) : 10.0;
                     float q = min(qBody, headD) + 0.2 * (grain - 0.5);   // p23c: streaky
+                    q += fireMode * 0.6 * CelValue2(float2(yy / max(hr * 0.45, 1e-4) + seed * 5.0, s / max(hr * 0.7, 1e-3) - t * 9.0));   // p23f: a standing flame is torn into tongues
                     float qc = (s > 0.0 ? min(qBody, max(headD, abs(yy) / max(hr * 0.95 * brB, 1e-4))) : headD * 0.7) + 0.3 * (grain - 0.5);   // p23e: a bright front cap   // p23c: fine parallel streaks through the core   // p23b: colour by the cigar's thickness, the cap only in front
                     float qe = qc + 0.3 * pow(sb, 2.0);   // p23b: cools slowly   // the tail cools: the core narrows, the edges redden
                     // LINES: three thin red lines running on behind the body, braiding
@@ -485,12 +486,12 @@ Shader "TW/Cel/Comet"
                     float cov = (1.0 - smoothstep(0.8, 1.12, q)) * rear;   // p23c: a soft blurred edge (REF), the dark halo outside
                     float lineCov = CelAAStep(0.3, streak) * rear;
                     float alphaF = max(cov, lineCov);
-                    alphaF = lerp(alphaF, max(0.8 * alphaF, saturate(1.3 - q)), fireMode) * has * fireEnv;
+                    alphaF = lerp(alphaF, 1.0 - smoothstep(0.6, 1.0, q), fireMode) * has * fireEnv;   // p23f: a firm ragged flame
                     // heat by q: core to 0.45, yellow to 0.65, orange to 0.85, red to 1.0
                     float heat = qe < 0.45 ? 1.0 - 0.15 * (qe / 0.45) : lerp(0.85, 0.0, saturate((qe - 0.45) / 0.55));
                     heat -= 0.3 * (grain - 0.5) * step(qe, 0.9);   // p23d: the streak texture shows in the colour, not just the edge
                     heat = lerp(heat, 0.22, lineCov * (1.0 - cov));
-                    heat = saturate(heat - 0.7 * mark - 0.22 * fireMode);
+                    heat = saturate(heat - 0.7 * mark * (1.0 - fireMode) - 0.12 * fireMode);   // p23f: no loop mark on a fire, brighter
                     half3 c0 = CelPal(rowA, 0), c1 = CelPal(rowA, 1), c2 = CelPal(rowA, 2), c3 = CelPal(rowA, 3);
                     half3 cc = CelPalCore(rowA).rgb * i.tone.y;
                     half3 fCol = heat < 0.25 ? lerp(c0, c1, heat / 0.25)
