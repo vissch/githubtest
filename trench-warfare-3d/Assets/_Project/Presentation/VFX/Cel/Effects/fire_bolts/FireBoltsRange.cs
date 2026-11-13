@@ -30,7 +30,7 @@ namespace TW.Presentation.VFX
         // reference, y128-256 holds 21283 px/f and is 73.2% outside; deleting everything above y192 pays iou +0.0093,
         // and every rigid translation of the whole picture loses in both x and y. So the four lanes whose arc apex
         // clears y192 are rotated down about their landing points (-2.0 m = -144 px of apex on the highest).
-        static readonly float[] LaneUp = { 0f, 1.4f, 0.7f, 1.4f, 0.3f, 1.4f, 1.4f, 0.5f, 1.4f, 1.0f, 1.4f };   // c01: flatter lanes (the ref's bolts cross the left half nearly level)   // b05: wider (b04 up to 2.6 m: one band)
+        static readonly float[] LaneUp = { 0f, 1.8f, 0.7f, 2.4f, 0.3f, 1.2f, 1.6f, 0.5f, 2.8f, 1.0f, 1.4f };   // p01 (by eye): REF's bolts come in at several angles, some arcing from high upper-left   // c01: flatter lanes (the ref's bolts cross the left half nearly level)   // b05: wider (b04 up to 2.6 m: one band)
         static readonly Vector2[] DummyAt = { new Vector2(0f, 0f), new Vector2(0.05f, 0.3f), new Vector2(-0.1f, -0.1f), new Vector2(0.1f, 0.15f),
             new Vector2(0f, 0.05f), new Vector2(-0.05f, 0.25f), new Vector2(0.08f, -0.05f), new Vector2(0f, 0.1f),
             new Vector2(-0.12f, 0.2f), new Vector2(0.12f, 0.35f), new Vector2(-0.08f, -0.15f) };
