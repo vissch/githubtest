@@ -436,7 +436,7 @@ Shader "TW/Cel/Comet"
                     float bodyHeat = step(1e-4, haze) * (0.3 + 0.7 * pow(1.0 - sb, 1.3)) * (0.5 + 0.6 * pow(across, 1.5));   // p15: hotter down the middle
                     float heat = max(saturate(headF * 0.9 + 0.5) * step(0.0, headF),
                                      max(streakHeat * (0.95 - 0.6 * streakU) + 0.08 * step(1e-4, streak), bodyHeat));
-                    heat = saturate(heat + 0.26 * (grain - 0.5) - 0.28 * mark);   // p15: stronger streak grain
+                    heat = saturate(heat + 0.26 * (grain - 0.5) - 0.28 * mark - 0.14 * fireMode);   // p20: a standing flame runs more orange
                     half3 c0 = CelPal(rowA, 0), c1 = CelPal(rowA, 1), c2 = CelPal(rowA, 2), c3 = CelPal(rowA, 3);
                     half3 cc = CelPalCore(rowA).rgb * i.tone.y;
                     half3 fCol = heat < 0.25 ? lerp(c0, c1, heat / 0.25)
