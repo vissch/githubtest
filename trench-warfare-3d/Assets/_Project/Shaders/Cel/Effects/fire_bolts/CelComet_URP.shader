@@ -188,9 +188,10 @@ Shader "TW/Cel/Comet"
                 float speed = length(vel);
                 float3 dir = speed > 1e-3 ? vel / speed : float3(0, 1, 0);
                 float rw = CelCurve(r.size.xyz, k);
-                float adv = max(t - tHit, 0.0) * speed;   // p27j: metres of tail already swallowed by the hit
+                float adv = 0.0;   // p32b: the strip FREEZES at the hit (REF: the smoke stays put, thins and fades; the body vanishes into the splash). p27j's streaming slid the whole strip backwards (debug film p32dbg)
+                float held = max(t - tHit, 0.0);   // p32b: seconds since the hit
                 float swirlA = (headR > 0.0 && r.extra.w >= 0.0 && speed > 1.0) ? amp : 0.0;   // p21: a bolt's extra.z is its swirl amplitude
-                if (headR > 0.0) amp = 0.1;   // p29c   // p29b: a 0.14 m S-wave on every bolt's contrail (REF 15-30 px)   // p29: the wave scales with the bolt (0.08 at a 0.2 m head)   // p22: the smear waves a little
+                if (headR > 0.0) amp = 0.05;   // p32d: +-4 px over 300 px (REF centreline); 0.1 bent +-8   // p29c   // p29b: a 0.14 m S-wave on every bolt's contrail (REF 15-30 px)   // p29: the wave scales with the bolt (0.08 at a 0.2 m head)   // p22: the smear waves a little
                 float halfW = max(max(headR * 3.5, amp * 1.2 + rw), 0.01) * alive;   // c01: room for the 3.4x bloom
                 float len = max(speed * abs(r.size.w), flameL);
                 if (r.size.w >= 0.0) len = min(len, distance(p, r.pos));   // no ribbon behind its birth (b02: a negative
@@ -226,9 +227,9 @@ Shader "TW/Cel/Comet"
                 o.local = float2(-along + adv, across);   // p27j: the fragment shades the tail by its distance behind the (frozen) head
                 o.dims = float4(len, headR, flameL, amp);
                 o.tone = r.tone;
-                o.more = float4(rw, CelCurve(r.erode.xyz, k), r.seed, max(abs(r.extra.w), 0.05));
+                o.more = float4(rw, headR > 0.0 ? held : CelCurve(r.erode.xyz, k), r.seed, max(abs(r.extra.w), 0.05));   // p32b: a bolt's more.y = seconds since its hit (the contrail thins and fades, the flame vanishes)
                 // p16: extra.w < 0 = a standing flame (a ground fire): misc.w = 0.25 + 0.5 k so the fragment can fade it
-                o.misc = float4(ComputeFogFactor(o.positionCS.z), r.motion.z, t, r.extra.w < 0.0 ? -2.0 - k : ((r.extra.y < 0.0 && headR <= 0.0) ? -1.0 : 0.0));   // p17: -2..-3 (p16's 0.25+0.5k fell into the pool branch past half life: a tan box)
+                o.misc = float4(ComputeFogFactor(o.positionCS.z), headR > 0.0 ? 6.2832 * speed / max(abs(r.extra.w), 0.05) : r.motion.z, t, r.extra.w < 0.0 ? -2.0 - k : ((r.extra.y < 0.0 && headR <= 0.0) ? -1.0 : 0.0));   // p17: -2..-3 (p16's 0.25+0.5k fell into the pool branch past half life: a tan box)
                 return o;
             }
 
@@ -415,8 +416,8 @@ Shader "TW/Cel/Comet"
                 float ribbonStart = (strand > 0.5 || puffs > 0.5) ? fl * 0.55 : hr * 9.0;   /* p29b: the contrail begins where the fire ends (REF) */   // p23   // p13: the smear begins just behind the head   // c01: the bolt's smoke starts inside its flame (it frays out of it)
                 float grow = saturate((s - ribbonStart) / max(wl * 0.6, 1e-3));
                 float yc = amp * grow * sin(6.2832 * s / wl + seed * 40.0 - i.misc.z * i.misc.y)
-                         + amp * 0.05 * grow * sin(6.2832 * s / (wl * 0.45) + seed * 17.0 - i.misc.z * i.misc.y * 1.7);   // p29c: one slow bend (REF), the second harmonic nearly off
-                yc += step(1e-5, hr) * hr * lerp(0.9, 0.6, smoothstep(hr * 8.0, hr * 24.0, s));   // p29b: on the path, a little above (REF)   // p29: stays above the tail all the way (REF: parallel contrails)   // p27l: rides the top edge near the head, settles onto the axis far back (REF)   // p27: higher (REF)   // p23c: the REF's smear rides on the tail's upper edge
+                         + amp * 0.05 * grow * sin(6.2832 * s / (wl * 0.45) + seed * 17.0 - i.misc.z * i.misc.y / 0.45);   // p32: both harmonics pinned in space (misc.y = 2 pi speed / wl on a bolt)   // p29c: one slow bend (REF), the second harmonic nearly off
+                yc += step(1e-5, hr) * hr * 0.2;   // p32: the band continues the body's own line (REF 4x: centred, not above)   // p29b: on the path, a little above (REF)   // p29: stays above the tail all the way (REF: parallel contrails)   // p27l: rides the top edge near the head, settles onto the axis far back (REF)   // p27: higher (REF)   // p23c: the REF's smear rides on the tail's upper edge
                 float taper = saturate(1.0 - s / max(len, 1e-3));
                 float rwid = i.more.x * 0.5 * lerp(lerp(lerp(1.4, 0.8, taper), 0.35 + 0.65 * taper, strand), 1.0, puffs)   /* p29c: a bolt's contrail widens toward its far end (REF) */ * saturate((s - ribbonStart) / max(wl * 0.25, 1e-3) + lerp(0.15, 0.7, step(1e-5, hr)));   // p27l: a bolt's smear stays broad far back and starts wide (the ramp from a point drew a grey dart)   // p21: head-wide, then a thin line (REF)
                 float rField = 0.0;
@@ -439,22 +440,19 @@ Shader "TW/Cel/Comet"
                 }
                 else if (hr > 1e-5)
                 {
-                    // p31 (REF 3x, f41-66): a bolt's smoke trail is a BUNDLE of 2-4 thin pale strands (6-12 px) braided round
-                    //      the path with dark gaps between them, fibrous along their length, twisting, spreading apart and
-                    //      thickening further back, running to the frame's edge. One smooth band read as motion blur.
-                    float spread = 0.5 + 0.9 * saturate((s - ribbonStart) / max(wl * 2.0, 1e-3));
-                    rField = 0.0;
-                    [unroll] for (int js = 0; js < 3; js++)   // p31b: three strands (four thin ones read as hair)
-                    {
-                        float hs = CelHash21(float2(js, seed * 71.0)), hs2 = CelHash21(float2(js + 17.0, seed * 29.0));
-                        float off = rwid * spread * (0.8 * (js - 1.0) + 0.18 * sin(6.2832 * s / (wl * (0.6 + 0.4 * hs)) + hs * 40.0 + i.misc.z * (1.0 + hs2)));   // p31b: a slight twist, nearly straight (REF)
-                        float ws = rwid * (0.3 + 0.2 * hs2) * (0.8 + 0.8 * saturate(s / max(wl * 2.0, 1e-3)));   // p31b: 8-15 px strands, thickening back (REF)
-                        float dy = y - yc - off;
-                        float fs = saturate(1.0 - abs(dy) / max(ws, 1e-4));
-                        float fib = CelValue2(float2(s / max(ws * 4.0, 1e-3) - i.misc.z * 1.5 + hs * 9.0, dy / max(ws * 0.5, 1e-4) + seed * 3.0));
-                        fs = pow(fs, 1.3) * (0.55 + 0.6 * fib) * (0.35 + 0.65 * hs);   // p31c: one strand bright, the others fainter (REF)   // p31b: softer, less fibrous
-                        rField = max(rField, (s > ribbonStart) ? fs : 0.0);
-                    }
+                    // p32 (REF 4x, the dummy bolt f28-43 in fixed boxes, cross-section profiles): a bolt's smoke trail is ONE
+                    //      smooth pale band continuing the body's line: 7-12 px at half height (grey 140 on a 42 background,
+                    //      saturation ~8), full right behind the body, steady while the bolt flies, twice as wide and half as
+                    //      bright at its oldest end where it forks in two; after the hit it thins to 2-3 px and is gone in
+                    //      6 frames. It never swims. (p31's "bundle of strands" was several bolts' bands in parallel lanes.)
+                    float age = saturate((s - ribbonStart) / max(len - ribbonStart, 1e-3));
+                    float held = i.more.y;
+                    float bw = i.more.x * 0.5 * (1.0 + 0.5 * age) * (1.0 - 0.5 * saturate(held / 0.25));   // p32e: 1.5x at the oldest end (2.2x turned the near bolts' bands to fog)   // p32b: thins to half over 6 frames after the hit (REF)
+                    float dy = y - yc;
+                    float g = exp(-dy * dy / max(bw * bw, 1e-6));
+                    float fork = 1.0 - 0.4 * smoothstep(0.55, 1.0, age) * exp(-dy * dy / max(bw * bw * 0.12, 1e-6));
+                    float aln = 0.85 + 0.15 * CelValue2(float2(s / max(wl * 0.3, 1e-3) + seed * 9.0, seed * 3.0));
+                    rField = (s > ribbonStart) ? g * fork * aln : 0.0;
                 }
                 else
                 {
@@ -464,19 +462,21 @@ Shader "TW/Cel/Comet"
                 }
                 float brk = CelValue2(float2(s / (wl * 0.5), seed * 91.0));   // pieces along the ribbon
                 float rCut = (puffs > 0.5 || hr > 1e-5) ? 1.0 : step(i.more.y, brk * 0.9 + 0.1 * taper);   // p29: a bolt's contrail is one continuous ribbon (REF), no pieces
-                float rMask = lerp(pow(rField, 0.85), CelAAStep(0.04, rField), max(puffs, strand)) * rCut * lerp(1.0, smoothstep(ribbonStart, ribbonStart + wl * 0.6, s), step(1e-5, hr));   // p27l: fades in by opacity, not width   // p27e: nearly opaque (REF smear A58872 at the edge, F2D6BB core)   // p06: the bolt's trail is a soft smear
+                float rMask = lerp(pow(rField, lerp(0.85, 1.0, step(1e-5, hr))), CelAAStep(0.04, rField), max(puffs, strand)) * rCut * lerp(1.0, smoothstep(ribbonStart, ribbonStart + 0.5, s), step(1e-5, hr));   // p32: a bolt's band is full 0.5 m behind the body (REF), its gaussian profile untouched   // p27l: fades in by opacity, not width   // p27e: nearly opaque (REF smear A58872 at the edge, F2D6BB core)   // p06: the bolt's trail is a soft smear
                 // a puff is lit from above: light on its upper side, darker below
                 // b05: the strand is a smoke ribbon: a light band on its upper/left side, a mid-grey shade band, an ink edge
                 float sLit = saturate(0.5 + 0.5 * (y - yc) / max(rwid, 1e-4));
-                float rVal = lerp(lerp(0.40 + 0.35 * rField, 0.3 + 0.6 * sLit, strand), saturate(0.6 + 0.4 * (y - yc) / max(rwid, 1e-4)) * lerp(0.75, 1.0, rField), puffs);
-                half3 rCol = lerp(CelRamp(rVal, rowB, 1.0), lerp(CelPal(rowB, 1), CelPal(rowB, 3), saturate(rField * 1.6)), 1.0 - max(puffs, strand));
+                float rVal = lerp(lerp(lerp(0.40 + 0.35 * rField, 0.55, step(1e-5, hr)), 0.3 + 0.6 * sLit, strand),   /* p32: one flat pale grey on a bolt's band, the softness is in its alpha */ saturate(0.6 + 0.4 * (y - yc) / max(rwid, 1e-4)) * lerp(0.75, 1.0, rField), puffs);
+                half3 rCol = lerp(CelRamp(rVal, rowB, 1.0), lerp(CelPal(rowB, 1), lerp(CelPal(rowB, 3), CelPal(rowB, 2), step(1e-5, hr)), lerp(saturate(rField * 1.6), sLit, step(1e-5, hr))), 1.0 - max(puffs, strand));   // p32f: a bolt's band is a touch lighter along its top edge (REF 4x)   // p32b: a bolt's band is one flat pale grey (REF 140 on 42)
                 float rInk = CelInk(rField, 0.04, inkPx * max(puffs, strand)) * rMask;    // b05: the strand is inked too
                 half3 col = lerp(rCol, CelPalInk(rowB).rgb, rInk) * rMask;
                 // the strand fades along its length and thins out at far zoom (the comet carries the read there)
                 float lodY = _CelLod.y > 0.0 ? _CelLod.y : 1.0;
                 float rFade = lerp(saturate(taper * lerp(2.2, 5.0, step(1e-5, hr))) * saturate(lodY * 4.0 - 2.0), 1.0, puffs);   // p27l: a bolt's smear holds to the last fifth of the quad (REF: past the body's end)   // p27k: full at lod <= 1 (0.7 at the close film read as a grey cloud), gone at lod 2
                 rFade = lerp(rFade, saturate(taper * 6.0) * saturate(lodY * 2.0 - 0.6), strand);   // b05: fades only near its base
-                float rOp = saturate(i.tone.z) * rFade * lerp(1.0, 0.55 + 0.45 * taper, step(1e-5, hr));   // p31: the strands stay visible far back (REF)   // p29c: a bolt's contrail fades toward its far end (REF)
+                float boltOp = (0.4 + 0.6 * taper) * (1.0 - smoothstep(0.0, 0.3, i.more.y));   // p32e: 0.4 at the oldest end (REF +46 on 42)   // p32b: gone 7 frames after the hit (REF)
+                float rOp = saturate(i.tone.z) * rFade * lerp(1.0, boltOp, step(1e-5, hr));
+                col *= lerp(1.0, saturate(i.tone.z) * boltOp, step(1e-5, hr));   // p32b: a bolt's band is alpha-blended, not added (it blew out to 231 on the REF's 140)   // p32: half at the oldest end, fading out after the hit (REF)   // p31: the strands stay visible far back (REF)   // p29c: a bolt's contrail fades toward its far end (REF)
                 col *= lerp(rFade, 1.0, rInk);
                 float a = rMask * lerp(rOp, 1.0, rInk);
 
@@ -487,7 +487,7 @@ Shader "TW/Cel/Comet"
                 //      1-2 hr wide lies below and behind; the pink smear rides ABOVE the tail; 3 thin red lines
                 //      run on behind. The outline wobbles slowly and boils; the inner shapes change every frame.
                 {
-                    float has = step(1e-5, fl + hr);
+                    float has = step(1e-5, fl + hr) * (1.0 - smoothstep(0.0, 0.08, i.more.y * step(1e-5, hr)));   // p32b: a bolt's flame vanishes into the splash within 2 frames of its hit (REF)
                     float t = i.misc.z;
                     float grain = 0.5 * CelValue2(float2(s / max(hr * 3.0, 1e-3) - t * 4.0, y / max(hr * 0.2, 1e-4) + seed * 7.0))
                                 + 0.5 * CelValue2(float2(s / max(hr * 1.2, 1e-3) + t * 7.0, y / max(hr * 0.45, 1e-4) + seed * 3.0));   // p23d: long streaks 4-9 px apart
@@ -577,7 +577,7 @@ Shader "TW/Cel/Comet"
                     qH += 0.15 * (grain - 0.5);
                     float haloA = exp(-pow(qH, 3.0) * 1.2) * (1.0 - 0.25 * sb)   // p27c: fuller to +-0.85 of the width, then off (REF: dark right up to the rim)
                                   * has * fireEnv * (1.0 - fireMode) * rear;   // p27b: a soft gradient cloud, no plateau (the plateau read as a flat bar)   // p27: stays dark down the tail   // p23h: no dark halo on a standing flame (it filled the quad: a red box)
-                    haloA *= (1.0 - saturate(a)) * (1.0 - smoothstep(hr * 2.6, hr * 3.4, abs(yy)));   // p27k: none under the smear, none at the quad's edge (a box over the board)   // p27d: the smear stays on top of the dark cloud (it went grey-brown under it)
+                    haloA *= (1.0 - saturate(a)) * (1.0 - smoothstep(hr * 2.6, hr * 3.4, abs(yy))) * (1.0 - smoothstep(hr * 18.0, hr * 28.0, s));   // p32d: the red fringe ends past the body (REF: the band behind it is pure grey)   // p27k: none under the smear, none at the quad's edge (a box over the board)   // p27d: the smear stays on top of the dark cloud (it went grey-brown under it)
                     col = lerp(col, c0, haloA);
                     a = lerp(a, 1.0, haloA);
                     col = lerp(col, fCol, alphaF);
