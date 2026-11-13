@@ -22,9 +22,35 @@ namespace TW.Presentation.VFX.Cel
         public static readonly int ChargeRow = CelPalette.Add("cyan_beam_charge",
             CelPalette.Hex(0x178A2A), CelPalette.Hex(0x4DFF7B), CelPalette.Hex(0x8AFFAF), CelPalette.Hex(0xCBFFDC),
             CelPalette.Hex(0xF8FFF0), 0.38f, 4, CelPalette.Hex(0x103C17));
+        // k03: the ground family's cyan is ~14 deg too GREEN and ~10% too saturated against the reference.
+        // This row paints every pool-family layer ("target ground pool", "cyan light along ground", "held
+        // target cyan atmosphere", "early target energy flash") and therefore almost all of the mask below
+        // y450. Each band is rotated +14 deg toward blue in HSV and its saturation scaled x0.90; the value
+        // (and so the luminance, and so the dE-threshold mask) of every band is held, which is why this is a
+        // colour move and not an area move. Measured this turn on the gate's own masks (k02 84c0316f3, 150
+        // active frames, ours dE thr 12.24, plate runs/_stage/beach_none/frames), by applying exactly this
+        // rotation to the wash pixels of the filmed frames and re-running cellib.palette / cellib.hists and
+        // cellib.plate_and_masks on the result:
+        //   colour.hue_hist_sim  .6193 -> .8293  (ref 1.000; 55% of the whole remaining gap, +0.063 of s_col)
+        //   colour.palette_dE2000 7.478 -> 7.027, colour.L_hist_sim .8899 -> .9002
+        //   subscores.colour     .7168 -> .7896 = +1.82 composite
+        //   REMASKED: iou .7093 -> .7129, peak_area_ratio .9737 -> .9743 - peak area is ADDED, not removed,
+        //            and stays far inside the [1/1.15, 1.15] deadband. mask threshold 12.24 -> 10.90.
+        //   The plateau is broad: +10 deg gives +1.21, +12 +1.50, +14 +1.79, +16 +1.41, so a 2-3 deg error
+        //   in the palette-to-pixel mapping still pays over a point. Past +20 deg it turns over (+0.73).
+        // Why colour now, when STATE.md ranks it LAST: perceptual and timing were measured out first this
+        // turn. perceptual samples only frames [11,25,38,52,65,79,92,106,119,133,146,160] and 10 of those 12
+        // are tail frames; 40 image-space probes on them showed every direction a layer knob can push
+        // (brighter, dimmer, wider, narrower, softer glow, harder glow, extra halo, extra filaments, veil
+        // removal, thin-detail removal) is worth <= +0.27 composite, and the only direction worth more is a
+        // global spatial spread of the whole render (+1.05 ceiling) that no layer parameter exposes. Making
+        // our entire tail shutdown match the reference's is worth +0.2 of timing. Colour is what is left,
+        // and it is the largest reachable gap on the board.
+        // Shaft and hit rows are deliberately NOT rotated: ours #1959d0 is already near the reference's
+        // #3770de, and rotating the upper half as well measured +1.35 against the ground's +1.98.
         public static readonly int PoolRow = CelPalette.Add("cyan_beam_pool",
-            CelPalette.Hex(0x065F78), CelPalette.Hex(0x158B9C), CelPalette.Hex(0x22B9C5), CelPalette.Hex(0x55DFDF),
-            CelPalette.Hex(0xBCFFFF), 0.95f, 4, CelPalette.Hex(0x000000));
+            CelPalette.Hex(0x114A78), CelPalette.Hex(0x23709C), CelPalette.Hex(0x3298C5), CelPalette.Hex(0x63C2DF),
+            CelPalette.Hex(0xC3F1FF), 0.95f, 4, CelPalette.Hex(0x000000));
 
         static CelLayer BeamLayer(string name, string palette, float start, float life, float width, float arcs)
         {
