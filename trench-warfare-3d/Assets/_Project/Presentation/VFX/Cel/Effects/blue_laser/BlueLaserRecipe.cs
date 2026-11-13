@@ -158,10 +158,10 @@ namespace TW.Presentation.VFX.Cel
                 Palette = "blue_laser_beam", Core = 0.85f, Opacity = 0.95f, Ink = 1f, Extra = new Vector4(0.3f, 0f, 0.55f, 0.57f),
             }, 0.7f),
             // b05: the last volley as two wide bolts with a gap (clip f101: one from the corner, one into the dummy)
-            VolleyBolt("volley a", 0.45f, 0.5f, 3, 0.15f),
-            VolleyBolt("volley b", 0.97f, 0.45f, 3, 0.14f),   // c26: fatter (the clip's f101 volley is the biggest event)
+            VolleyBolt("volley a", 0.45f, 0.36f, 2, 0.11f),
+            VolleyBolt("volley b", 0.97f, 0.3f, 2, 0.1f),   // c29: shorter, fewer (c28 read as one rope corner -> board)   // c28: the clip's f100 volley bolt is bright but still thin   // c26: fatter (the clip's f101 volley is the biggest event)
             // c26: the volley's own white flash on the board (clip f101-f103)
-            Dim(Dot("volley flash", "blue_laser_bloom", 1, Volley + 0.22f, 0f, 0.12f, 1, 1, new CelCurve(1.1f, 1.25f), 2.6f, 0f, 0.3f), 0.8f),
+            Dim(Dot("volley flash", "blue_laser_bloom", 1, Volley + 0.22f, 0f, 0.12f, 1, 1, new CelCurve(0.8f, 0.9f), 2.6f, 0f, 0.2f), 0.7f),   // c28: smaller (f104 read as a plain white disc)
             new CelLayer
             {
                 // a dash that carries on past the dummy, up-right along the beam (clip f89-f101)
