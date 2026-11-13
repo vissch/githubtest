@@ -41,7 +41,7 @@ namespace TW.Presentation.VFX.Cel
         // 2.6 s, so 3+ are on screen in the first frame and 5+ by the reference's f25; no ground hits launched after
         // 2.25 s (their fires and smoke must be gone by f120)
         const int Count = 20, Opening = 6;   // p01 (by eye): REF has 2-4 bolts in flight at once, never a band of 8   // d10: 42 (two late dummy hits ~f108-f120, the ref still bursts on the dummy there)   // b05: 40 bolts, 12 already in flight at the fire
-        static float LaunchAt(int i) { return i < Opening ? i * 0.03f : 0.2f + (i - Opening) * 0.185f + ((i * 7) % 5 - 2) * 0.02f; }   // p01: one every ~0.185 s to 2.6 s (3-4 in flight)   // c01: to 3.1 s (bolts arrive to the ref's f100; the stage fires at 0.5 s)
+        static float LaunchAt(int i) { return i < Opening ? i * 0.03f : 0.2f + (i - Opening) * 0.23f + ((i * 7) % 5 - 2) * 0.02f; }   // p01: one every ~0.185 s to 2.6 s (3-4 in flight)   // c01: to 3.1 s (bolts arrive to the ref's f100; the stage fires at 0.5 s)
         static float[] MakeLaunch()
         {
             var a = new float[Count];
@@ -141,11 +141,11 @@ namespace TW.Presentation.VFX.Cel
                     Close = 1, Mid = 1, Far = 1, Aim = CelAim.Target, Speed = 0f, Spread = 0f, Spin = 3f, Gravity = ArcGravity,
                     // b01 (beach, 19 m camera): ribbon 0.2 m wide, 0.75 s of its speed long (a third to half the frame)
                     // b02: a negative Stretch draws the tail behind the birth (the opening bolts were in flight before the fire)
-                    Size = new CelCurve(0.06f * k, 0.13f * k), SizeJitter = 0.2f, Stretch = preflown ? -0.7f : 0.7f,   // p01: the smoke trail is a THIN pale line in REF, half the old width   // d18: wider (mask diff) but unbroken and semi-transparent   // c05: a longer, thin grey trail (the ref's are lines)   // c03: the smoke ribbon ~1.5x the flame (0.75 ran to the frame edge)
+                    Size = new CelCurve(0.05f * k, 0.10f * k), SizeJitter = 0.2f, Stretch = preflown ? -0.7f : 0.7f,   // p01: the smoke trail is a THIN pale line in REF, half the old width   // d18: wider (mask diff) but unbroken and semi-transparent   // c05: a longer, thin grey trail (the ref's are lines)   // c03: the smoke ribbon ~1.5x the flame (0.75 ran to the frame edge)
                       // c01: 0.2 -> 0.26-0.3 m (the smoke trail frays wider)
                     Erode = new CelCurve(0.06f, 0.2f),   // d18: stays whole (d17 dashes lost)   // c03: the ribbon breaks into pieces (was whole)
-                    Palette = "fb_comet", CoolTo = "fb_ribbon", Core = 2.0f,   // b03: 2.6 -> 2.2 (the bodies read white-hot)
-                    Opacity = 0.38f, Ink = 0f,   // p01: translucent trail, NO ink on the bolt (REF has none)   // d18: ribbon 75% (d16 opaque bands lost)
+                    Palette = "fb_comet", CoolTo = "fb_ribbon", Core = 2.6f,   // p02: the head blazes   // b03: 2.6 -> 2.2 (the bodies read white-hot)
+                    Opacity = 0.26f, Ink = 0f,   // p01: translucent trail, NO ink on the bolt (REF has none)   // d18: ribbon 75% (d16 opaque bands lost)
                     // b02: a round white-yellow head 0.2 m, a flame body that flares and tapers over 2.2 m, thin red
                     // streaks fading out to 5 m, a ribbon waving 0.08 m over 5.5 m
                     Extra = new Vector4(0.3f * k, 3.8f * k, 0.06f, 2.0f),   // p01: head 0.3 m (teardrop in the shader), trail wave 0.06 m over 2 m   // d34: head 0.28 -> 0.4 m (every paper: a dot head on a tube)   // d09: head 0.24 -> 0.28 m   // c05: head 0.3 -> 0.24 m (the teardrop flame is about half the old width), licks 3.6 m, trail wave 0.05 m over 3 m   // c03: ribbon wave 0.11 m over 2.2 m (wavy, not a straight line)   // c01: head 0.3 m, ribbon wave 0.04 m (it follows the flame's path)   // b04: head 0.26 m, the flame a long tapering streak (shader)   // b03: head 0.2 -> 0.27 m (the body is twice as wide in the shader)
@@ -208,7 +208,7 @@ namespace TW.Presentation.VFX.Cel
                 r.Layers.Add(new CelLayer
                 {
                     Name = "ground burst", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit, Duration = 0.12f, Life = 0.32f, LifeJitter = 0.3f,
-                    Close = 14, Mid = 12, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.4f, 0f, 0f), Aim = CelAim.Up, Spread = 70f, Speed = 1.5f,   // p01: sparser (REF's ground pops are small) SpeedJitter = 0.35f, Buoyancy = 0.8f,
+                    Close = 18, Mid = 12, Far = 0, Shape = CelShape.Disc, ShapeSize = new Vector3(0.4f, 0f, 0f), Aim = CelAim.Up, Spread = 70f, Speed = 1.5f,   // p01: sparser (REF's ground pops are small) SpeedJitter = 0.35f, Buoyancy = 0.8f,
                     Size = new CelCurve(0.85f, 0.28f, 0.6f),   // c05: bigger round bursts (the ref's pop at the landing point)
                     SizeJitter = 0.3f, Stretch = 0.12f,   // c03: round flicker flames on the ground (c01 shot carrots up into the air)   // b04: narrower fan, taller (about the torso)
                     Erode = new CelCurve(0.05f, 0.55f), Palette = "fire", Core = 1.7f, Ink = 2f, Extra = new Vector4(0f, 0.15f, 0.4f, 0f),
@@ -278,9 +278,9 @@ namespace TW.Presentation.VFX.Cel
                 {
                     Name = "smoke wisp", Kind = CometKind.KindName, Anchor = CelAnchor.Origin, Offset = new Vector3(0.12f * k - 0.05f, 0.05f, 0.1f * k), Start = hit + 0.06f + 0.18f * k, Life = 2.45f - 0.3f * k, LifeJitter = 0.1f,
                     Close = 1, Mid = 1, Far = 0, Aim = CelAim.None, Speed = 0f, Gravity = 0f, Drag = 0f, Buoyancy = 0f, Spin = 1.1f + 0.3f * k,
-                    Size = new CelCurve(0.12f, 1.4f - 0.3f * k, 1.3f), SizeJitter = 0.15f, Stretch = 3.4f - 0.6f * k,
+                    Size = new CelCurve(0.14f, 1.7f - 0.3f * k, 1.2f), SizeJitter = 0.15f, Stretch = 3.8f - 0.6f * k,   // p02: bigger, taller puffs
                     Erode = new CelCurve(0.02f, 0.7f, 2.6f),
-                    Palette = "fb_wisp", Core = 1f, Opacity = 0.62f, Ink = 0.8f,   // p01: softer, less inked smoke
+                    Palette = "fb_wisp", Core = 1f, Opacity = 0.5f, Ink = 0.6f,   // p01: softer, less inked smoke
                     Extra = new Vector4(-2f, 0.13f, 0.7f, 1.5f + 0.4f * k),   // d32: one broad leaning curl, not a tight corkscrew   // d07: gentler S, more lean (the wider puffs fold on tight curls)
                 });
             }
