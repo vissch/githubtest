@@ -103,7 +103,7 @@ Shader "TW/Cel/LightningBeam"
                 // c19 (clip: every frame is a different drawing): each bolt has its own window length (0.45..1.4x) and the
                 // window is re-cut every frame (0.6..1.2x), so bolt lengths differ per bolt and per frame
                 float tickV = floor(_CelNow * 24.0);
-                float winK = thread ? 1.0 : lerp(0.6, 1.2, CelHash21(float2(r.seed * 7.3, 1.0))) * lerp(0.75, 1.1, CelHash21(float2(r.seed * 3.7, tickV)));   // c33: never the whole corridor (c32's longest spanned it)   // c32: less spread (the clip's bolts are all long)
+                float winK = thread ? 1.0 : lerp(0.7, 1.1, CelHash21(float2(r.seed * 7.3, 1.0))) * lerp(0.85, 1.1, CelHash21(float2(r.seed * 3.7, tickV)));   // c35: all about the same length (the clip's are)   // c33: never the whole corridor (c32's longest spanned it)   // c32: less spread (the clip's bolts are all long)
                 float winLen = r.size.w * winK;
                 float s0 = max(head - winLen, 0.0);
                 float s1 = min(head, r.tone.w > 0.0 ? r.tone.w : 1.0);
@@ -237,7 +237,7 @@ Shader "TW/Cel/LightningBeam"
                     float edge = max(i.shape.y, 0.01);
                     float aP = smoothstep(thrS, thrS + edge, fieldP) * saturate(i.tone.z);
                     half3 cp = lerp(CelPal(row, 2), CelPal(row, 3), saturate(fieldP * 1.6));
-                    cp *= lerp(0.8, 1.16, saturate(q.y * 0.7 + 0.5));   // c30: lit on top, shaded below (the clip's cloud has shaded lobes)
+                    cp *= lerp(0.72, 1.18, saturate(q.y * 0.8 + 0.5)) * lerp(0.85, 1.1, saturate(fieldP * 2.0));   // c35: stronger shading (lit tops, dark undersides, lighter middles)   // c30: lit on top, shaded below
                     cp = MixFog(cp, i.more.x);
                     return half4(cp * aP, aP);
                 }
@@ -398,7 +398,7 @@ Shader "TW/Cel/LightningBeam"
                 // c26: a second, wide and faint airbrush glow (the clip's bolts have presence at full frame without a fat core)
                 float hd2 = max(dy - w, 0.0) / max(5.0 * prof + 2.0, 1e-3);
                 float halo2 = exp(-hd2 * hd2) * step(0.05, prof) * (1.0 - mask) * saturate((BEAM_PAD - 1.0 - dy) * 0.7) * saturate(a * 7.0) * tip * lerp(0.5, 1.0, saturate(glow)) * (i.more.z > 0.5 ? 0.0 : flick);
-                half3 add = CelPal(row, 0) * (halo * 0.5 + halo2 * 0.2 * longW) * i.tone.z * (1.0 - i.more.z);   // c33: less (two bolts overlapping at the corner summed into a glowing rope)
+                half3 add = CelPal(row, 0) * (halo * 0.36 + halo2 * 0.12 * longW) * i.tone.z * (1.0 - i.more.z);   // c36: less again (two bolts converging on the board still summed into a glowing rope)
                 // the far thread is all light: no cover, it adds
                 if (i.more.z > 0.5) { add += body * mask * i.tone.z; cover = 0.0; straight = 0; }
                 add = AddFog(add, i.positionWS, i.more.x, i.more.y);
