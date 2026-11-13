@@ -69,10 +69,11 @@ Shader "TW/Cel/Comet"
             // p21: a bolt's path: its ballistic arc plus a swirl across it (amplitude A m, rate motion.z rad/s, phase from
             // its seed) that is zero at the launch and at the hit, so it still lands where it is aimed. The strip's
             // vertices sit on this path at the time the head passed them, so the tail bends with it.
+            #define BOLT_HOLD 0.3   // p27j: a bolt lives BOLT_HOLD s past its hit (FireBoltsRecipe.Hold), its head frozen there while the tail streams in
             float3 BoltPath(CelRecord r, float t, float A)
             {
                 float3 q = t >= 0.0 ? CelPosition(r, t) : r.pos + r.vel * t;   // p26: straight back before the birth (CelPosition clamps at 0: the rear columns collapsed into a hard end)
-                float k = t / max(r.life, 1e-3);
+                float k = t / max(r.life - BOLT_HOLD, 1e-3);   // p27j: the swirl is zero at the hit, not at the end of the hold
                 float env = saturate(4.0 * k * (1.0 - k));
                 float3 v = t >= 0.0 ? CelVelocity(r, t) : r.vel;   // p26
                 float vl = dot(v, v);
@@ -179,11 +180,15 @@ Shader "TW/Cel/Comet"
                     o.misc = float4(ComputeFogFactor(o.positionCS.z), 0.0, t, 1.0);
                     return o;
                 }
-                float3 vel = CelVelocity(r, t);
+                float headR = max(r.extra.x, 0.0), flameL = max(r.extra.y, 0.0), amp = abs(r.extra.z);
+                float tHit = (headR > 0.0 && r.extra.w >= 0.0) ? r.life - BOLT_HOLD : 1e9;   // p27j: a bolt's head stops at its hit
+                float tc = min(t, tHit);
+                p = CelPosition(r, tc);
+                float3 vel = CelVelocity(r, tc);
                 float speed = length(vel);
                 float3 dir = speed > 1e-3 ? vel / speed : float3(0, 1, 0);
                 float rw = CelCurve(r.size.xyz, k);
-                float headR = max(r.extra.x, 0.0), flameL = max(r.extra.y, 0.0), amp = abs(r.extra.z);
+                float adv = max(t - tHit, 0.0) * speed;   // p27j: metres of tail already swallowed by the hit
                 float swirlA = (headR > 0.0 && r.extra.w >= 0.0 && speed > 1.0) ? amp : 0.0;   // p21: a bolt's extra.z is its swirl amplitude
                 if (headR > 0.0) amp = 0.08;   // p22: the smear waves a little
                 float halfW = max(max(headR * 3.5, amp * 1.2 + rw), 0.01) * alive;   // c01: room for the 3.4x bloom
@@ -204,9 +209,9 @@ Shader "TW/Cel/Comet"
                 if (swirlA > 0.0)
                 {
                     // p21: on the bolt's own path, at the time its head was `along` metres back
-                    float ta = t + along / speed;
+                    float ta = min(tc + (along - adv) / speed, tHit);   // p27j: past the hit the strip shows the tail that is still arriving
                     pa = BoltPath(r, ta, swirlA);
-                    float3 pb = BoltPath(r, ta + 0.02, swirlA);
+                    float3 pb = BoltPath(r, min(ta + 0.02, tHit), swirlA);
                     float3 tg = pb - pa;
                     dir = dot(tg, tg) > 1e-10 ? normalize(tg) : dir;
                     toEye = normalize(_WorldSpaceCameraPos - pa);
@@ -218,7 +223,7 @@ Shader "TW/Cel/Comet"
                 float3 w = pa + side * across;
                 o.positionWS = w;
                 o.positionCS = TransformWorldToHClip(w);
-                o.local = float2(-along, across);
+                o.local = float2(-along + adv, across);   // p27j: the fragment shades the tail by its distance behind the (frozen) head
                 o.dims = float4(len, headR, flameL, amp);
                 o.tone = r.tone;
                 o.more = float4(rw, CelCurve(r.erode.xyz, k), r.seed, max(abs(r.extra.w), 0.05));
@@ -244,16 +249,24 @@ Shader "TW/Cel/Comet"
                     {
                         // p26 fireball (was p22's spiky cel star): a lumpy soft-edged ball, cream in the middle, yellow,
                         // orange, a red rim; pops in over 2 frames, holds, fades over the last 45% of its life (REF f29-36)
-                        float fn2 = CelValue2(float2(fa * 3.0 + i.more.z * 5.0, i.misc.z * 12.0)) + 0.6 * CelValue2(float2(fa * 7.0 - i.more.z * 2.0, i.misc.z * 20.0));
-                        float rh = rr / (0.45 + 0.4 * fn2);
-                        float env2 = smoothstep(0.0, 0.08, k) * (1.0 - smoothstep(0.55, 1.0, k));
-                        float cov = (1.0 - smoothstep(0.72, 1.1, rh)) * env2;
+                        float fn2 = CelValue2(float2(fa * 3.0 + i.more.z * 5.0, i.misc.z * 12.0)) + 0.6 * CelValue2(float2(fa * 7.0 - i.more.z * 2.0, i.misc.z * 20.0));   // p27n: back to p27l (p27m's low-frequency noise never peaked: a mushy blob)
+                        float fn3 = CelValue2(float2(fa * 9.0 + i.more.z * 3.0, i.misc.z * 25.0));
+                        float lb = saturate(-i.local.x / max(rr, 1e-4)), rb = saturate(i.local.x / max(rr, 1e-4));
+                        float ph = fa * 3.5 + i.more.z * 6.0 + i.misc.z * 2.5;
+                        float spk = pow(0.5 + 0.5 * sin(ph), 8.0) * (0.25 + 0.75 * CelHash11(floor(ph / 6.2832 + 0.25) + i.more.z * 13.0)) * (0.45 + 0.55 * lb);   // p27o: seven uneven spikes, longer toward the shooter (REF)   // p27n: explicit spikes, not noise
+                        float rh = rr / ((0.36 + 0.22 * fn2 + 0.2 * pow(fn3, 3.0) + 1.0 * spk) * (1.0 + 0.3 * lb - 0.2 * rb));   // p27n: spikes to ~2x the ball's radius, fine rays kept small   // p27k: smaller, stays inside the quad   // p27j: thrown back toward the shooter, flat against the board   // p27: lumps plus sharper rays (REF: a ragged starburst)
+                        float env2 = smoothstep(0.0, 0.03, k) * (1.0 - smoothstep(0.55, 1.0, k));   // p27: at once (a gap showed between the flash and the ball)
+                        float ef = 1.0 - smoothstep(0.78, 0.98, max(abs(i.local.x), abs(i.local.y)));   // p27k: nothing reaches the quad's edge (it clipped square)
+                        float cov = (1.0 - smoothstep(0.72, 1.02, rh)) * env2 * ef;   // p27n: crisper edge (REF's spikes are sharp)
                         float hh = saturate(1.0 - rh);
                         half3 ch = hh > 0.35 ? lerp(CelPal(rowA, 3), CelPalCore(rowA).rgb * i.tone.y, (hh - 0.35) / 0.3)
                                  : hh > 0.2 ? lerp(CelPal(rowA, 2), CelPal(rowA, 3), (hh - 0.2) / 0.15)
                                  : lerp(CelPal(rowA, 1), CelPal(rowA, 2), hh / 0.2);   // p26c: cream nearly to the rim (REF: near-white)
                         float m2 = CelAdditiveFog(half3(1.0, 1.0, 1.0), i.positionWS, i.misc.x).r;
-                        return half4(ch * (cov * m2), cov * m2);
+                        float fn4 = CelValue2(float2(fa * 17.0 + i.more.z * 11.0, rr * 8.0 + i.misc.z * 5.0)) * 0.6 + CelValue2(float2(fa * 5.0 - i.more.z * 7.0, rr * 3.0 - i.misc.z * 3.0)) * 0.6;   // p27k: two scales (one read as a grid)
+                        float fleck = smoothstep(0.95, 1.1, rh) * (1.0 - smoothstep(1.2, 1.5, rh)) * step(0.66, fn4) * env2 * ef * 0.45;   // p27k: sparse   // p27j: dark red-brown flecks round the ball (REF)
+                        float aa = saturate(cov + fleck * (1.0 - cov)) * m2;
+                        return half4(lerp(CelPal(rowA, 0), ch, cov / max(cov + fleck * (1.0 - cov), 1e-4)) * aa, aa);
                     }
                     float rq = rr / (0.75 + 0.45 * fn);
                     float g = exp(-rq * rq * 3.0) * (1.0 - smoothstep(0.6, 1.0, rq));
@@ -388,9 +401,9 @@ Shader "TW/Cel/Comet"
                 float grow = saturate((s - ribbonStart) / max(wl * 0.6, 1e-3));
                 float yc = amp * grow * sin(6.2832 * s / wl + seed * 40.0 - i.misc.z * i.misc.y)
                          + amp * 0.15 * grow * sin(6.2832 * s / (wl * 0.45) + seed * 17.0 - i.misc.z * i.misc.y * 1.7);
-                yc += step(1e-5, hr) * hr * 1.0;   // p23c: the REF's smear rides on the tail's upper edge
+                yc += step(1e-5, hr) * hr * lerp(1.6, 0.2, smoothstep(hr * 8.0, hr * 24.0, s));   // p27l: rides the top edge near the head, settles onto the axis far back (REF)   // p27: higher (REF)   // p23c: the REF's smear rides on the tail's upper edge
                 float taper = saturate(1.0 - s / max(len, 1e-3));
-                float rwid = i.more.x * 0.5 * lerp(lerp(lerp(0.4, 1.0, pow(taper, 1.5)), 0.35 + 0.65 * taper, strand), 1.0, puffs) * saturate((s - ribbonStart) / max(wl * 0.25, 1e-3) + 0.15);   // p21: head-wide, then a thin line (REF)
+                float rwid = i.more.x * 0.5 * lerp(lerp(lerp(0.8, 1.0, pow(taper, 1.5)), 0.35 + 0.65 * taper, strand), 1.0, puffs) * saturate((s - ribbonStart) / max(wl * 0.25, 1e-3) + lerp(0.15, 0.7, step(1e-5, hr)));   // p27l: a bolt's smear stays broad far back and starts wide (the ramp from a point drew a grey dart)   // p21: head-wide, then a thin line (REF)
                 float rField = 0.0;
                 if (puffs > 0.5)
                 {
@@ -417,17 +430,17 @@ Shader "TW/Cel/Comet"
                 }
                 float brk = CelValue2(float2(s / (wl * 0.5), seed * 91.0));   // pieces along the ribbon
                 float rCut = puffs > 0.5 ? 1.0 : step(i.more.y, brk * 0.9 + 0.1 * taper);
-                float rMask = lerp(rField * rField, CelAAStep(0.04, rField), max(puffs, strand)) * rCut;   // p06: the bolt's trail is a soft smear
+                float rMask = lerp(pow(rField, 0.6), CelAAStep(0.04, rField), max(puffs, strand)) * rCut * lerp(1.0, smoothstep(ribbonStart, ribbonStart + wl * 0.6, s), step(1e-5, hr));   // p27l: fades in by opacity, not width   // p27e: nearly opaque (REF smear A58872 at the edge, F2D6BB core)   // p06: the bolt's trail is a soft smear
                 // a puff is lit from above: light on its upper side, darker below
                 // b05: the strand is a smoke ribbon: a light band on its upper/left side, a mid-grey shade band, an ink edge
                 float sLit = saturate(0.5 + 0.5 * (y - yc) / max(rwid, 1e-4));
                 float rVal = lerp(lerp(0.40 + 0.35 * rField, 0.3 + 0.6 * sLit, strand), saturate(0.6 + 0.4 * (y - yc) / max(rwid, 1e-4)) * lerp(0.75, 1.0, rField), puffs);
-                half3 rCol = lerp(CelRamp(rVal, rowB, 1.0), lerp(CelPal(rowB, 1), CelPal(rowB, 3), rField), 1.0 - max(puffs, strand));
+                half3 rCol = lerp(CelRamp(rVal, rowB, 1.0), lerp(CelPal(rowB, 1), CelPal(rowB, 3), saturate(rField * 1.6)), 1.0 - max(puffs, strand));
                 float rInk = CelInk(rField, 0.04, inkPx * max(puffs, strand)) * rMask;    // b05: the strand is inked too
                 half3 col = lerp(rCol, CelPalInk(rowB).rgb, rInk) * rMask;
                 // the strand fades along its length and thins out at far zoom (the comet carries the read there)
                 float lodY = _CelLod.y > 0.0 ? _CelLod.y : 1.0;
-                float rFade = lerp(saturate(taper * 2.2) * saturate(lodY * 2.0 - 0.8), 1.0, puffs);
+                float rFade = lerp(saturate(taper * lerp(2.2, 5.0, step(1e-5, hr))) * saturate(lodY * 4.0 - 2.0), 1.0, puffs);   // p27l: a bolt's smear holds to the last fifth of the quad (REF: past the body's end)   // p27k: full at lod <= 1 (0.7 at the close film read as a grey cloud), gone at lod 2
                 rFade = lerp(rFade, saturate(taper * 6.0) * saturate(lodY * 2.0 - 0.6), strand);   // b05: fades only near its base
                 float rOp = saturate(i.tone.z) * rFade;
                 col *= lerp(rFade, 1.0, rInk);
@@ -444,7 +457,7 @@ Shader "TW/Cel/Comet"
                     float t = i.misc.z;
                     float grain = 0.5 * CelValue2(float2(s / max(hr * 3.0, 1e-3) - t * 4.0, y / max(hr * 0.2, 1e-4) + seed * 7.0))
                                 + 0.5 * CelValue2(float2(s / max(hr * 1.2, 1e-3) + t * 7.0, y / max(hr * 0.45, 1e-4) + seed * 3.0));   // p23d: long streaks 4-9 px apart
-                    float bodyL = max(min(fl * 0.55, hr * 14.0), 1e-3);
+                    float bodyL = max(min(fl * 0.55, hr * 12.0), 1e-3);   // p27b: 12 hr (REF ~13 hr)
                     float sb = saturate(s / bodyL);
                     float sway = fireMode * hr * 0.35 * sin(t * 6.0 + seed * 9.0) * sb;   // p18: a standing flame leans and flickers
                     float yy = y - sway;
@@ -452,9 +465,9 @@ Shader "TW/Cel/Comet"
                               + 0.3 * CelValue2(float2(s / max(hr * 0.7, 1e-3) + t * 21.0, seed * 7.0 + step(0.0, yy) * 11.0))   // p26: a stronger, faster boil
                               + 0.35 * pow(CelValue2(float2(s / max(hr * 1.5, 1e-3) - t * 13.0, seed * 13.0 + step(0.0, yy) * 5.0)), 3.0);   // p26: flares that come and go
                     float u = s / max(hr, 1e-4);
-                    float neck = 1.0 - (0.48 + 0.1 * sin(t * 9.0 + seed * 4.0)) * exp(-pow((u - 1.9 - 0.3 * sin(t * 6.0 + seed * 8.0)) / 1.4, 2.0));   // p26: the pinch breathes and drifts   // p24d: a tighter pinch just behind the ball
+                    float neck = 1.0 - (0.28 + 0.08 * sin(t * 9.0 + seed * 4.0)) * exp(-pow((u - 1.9 - 0.3 * sin(t * 6.0 + seed * 8.0)) / 1.4, 2.0));   // p26: the pinch breathes and drifts   // p24d: a tighter pinch just behind the ball
                     float bulge = 1.0 + (0.18 + 0.08 * sin(t * 5.0 + seed * 3.0)) * exp(-pow((u - 6.0 - 1.5 * sin(t * 7.0 + seed * 9.0)) / 3.2, 2.0));  // p26: the swell drifts along the tail   // p24: then swells
-                    float halfW = hr * 0.95 * neck * bulge * (1.0 - pow(sb, 2.5)) * wob * lerp(1.0, 1.5, fireMode);   // p24: ball, neck, bulge, taper (owner)
+                    float halfW = hr * 1.15 * neck * bulge * (1.0 - pow(sb, 2.0)) * wob * lerp(1.0, 1.5, fireMode);   // p27: 1.15 hr (REF 35 px = 2.7 hr wide for 100 px)   // p24: ball, neck, bulge, taper (owner)
                     // HEAD
                     float ang = atan2(yy, s);
                     float back = saturate(s / max(hr, 1e-4) + 0.3);
@@ -480,14 +493,14 @@ Shader "TW/Cel/Comet"
                     {
                         float hk = CelHash21(float2(k3, seed * 57.0));
                         float hk2 = CelHash21(float2(k3 + 31.0, seed * 19.0));
-                        float Lk = fl * (0.4 + 0.7 * hk) * (0.85 + 0.2 * sin(t * 6.0 + hk * 31.0)) * lerp(1.0, 0.45, fireMode);
+                        float Lk = fl * (0.85 + 0.5 * hk) * (0.9 + 0.1 * sin(t * 6.0 + hk * 31.0)) * lerp(1.0, 0.45, fireMode);   // p27k: the tail's whole length
                         float uk = saturate(s / max(Lk, 1e-3));
                         float yk = sway + hr * ((k3 - 1.5) * 0.75) * (0.9 + 0.3 * uk)   // p26b: four lines at -1.1, -0.4, 0.4, 1.1 hr   // p26: five lines, the inner ones emerge where the tail frays   // p23c: from the body's edges
-                                 + hr * 0.12 * uk * sin(s * 1.0 / max(hr, 1e-3) + hk * 20.0 - t * 6.0)   // p26c: straighter (REF)
-                                 + hr * 0.05 * uk * sin(s * 2.4 / max(hr, 1e-3) - t * 11.0 + hk2 * 9.0);
-                        float wk = hr * (0.14 + 0.08 * hk2) * (1.0 - 0.3 * uk);   // p26c: thinner (REF 1-2 px cores)   // p25c: the blur's width
+                                 + hr * 0.05 * uk * sin(s * 0.6 / max(hr, 1e-3) + hk * 20.0 - t * 6.0)   // p27k: straight (REF: motion streaks)   // p26c: straighter (REF)
+                                 + hr * 0.02 * uk * sin(s * 2.4 / max(hr, 1e-3) - t * 11.0 + hk2 * 9.0);
+                        float wk = hr * (0.2 + 0.08 * hk2) * (1.0 - 0.2 * uk);   // p27k: 3 px (REF)   // p26c: thinner (REF 1-2 px cores)   // p25c: the blur's width
                         float dk = (y - yk) / max(wk, 1e-4);
-                        float ek = (1.0 - smoothstep(0.6, 1.0, uk)) * smoothstep(hr * 3.0, hr * 9.0, s)
+                        float ek = (1.0 - smoothstep(0.7, 1.0, uk)) * smoothstep(hr * 2.0, hr * 6.0, s)
                                  * (0.55 + 0.45 * CelValue2(float2(s / max(hr * 5.0, 1e-3) - t * 3.0, hk * 40.0 + seed * 9.0)));   // p25: soft ends, long soft dashes (motion blur)
                         float fk = exp(-dk * dk) * ek;   // p25: gaussian across
                         streak = max(streak, fk);
@@ -495,7 +508,7 @@ Shader "TW/Cel/Comet"
                     }
                     // the opaque silhouette (anti-aliased), the lines, a softer edge on a standing flame
                     float rear = lerp(1.0 - smoothstep(max(len - hr * 8.0, len * 0.5), len, s), 1.0, fireMode);   // p23e: never on a standing flame (it faded the ground fires)   // p23c: the body fades out before the quad's rear (no cut at the birth)
-                    float cov = (1.0 - smoothstep(0.8, 1.12, q)) * rear;   // p23c: a soft blurred edge (REF), the dark halo outside
+                    float cov = (1.0 - smoothstep(0.85, 1.25, q)) * rear;   // p27: the red edge shows   // p23c: a soft blurred edge (REF), the dark halo outside
                     float strandN = CelValue2(float2(yy / max(hr * 0.35, 1e-4) + seed * 3.0, s / max(hr * 7.0, 1e-3) - t * 2.5));   // p26: strands across the tail
                     float fray = smoothstep(0.55, 1.0, sb);   // p26b: the body stays whole for ~1.5 m (REF ~180 px), then frays
                     cov *= lerp(1.0, 0.05 + 0.95 * smoothstep(0.45, 0.65, strandN), fray);   // p26: the tail frays into parallel strands (REF)
@@ -506,30 +519,33 @@ Shader "TW/Cel/Comet"
                     float alphaF = max(cov, lineCov);
                     alphaF = lerp(alphaF, 1.0 - smoothstep(0.85, 1.2, q), fireMode) * has * fireEnv;   // p23g: a firm ragged flame
                     // heat by q: core to 0.45, yellow to 0.65, orange to 0.85, red to 1.0
-                    float heat = qe < 0.45 ? 1.0 - 0.15 * (qe / 0.45) : lerp(0.85, 0.0, saturate((qe - 0.45) / 0.55));
+                    float heat = qe < 0.45 ? 1.0 - 0.15 * (qe / 0.45) : qe < 0.7 ? lerp(0.85, 0.25, (qe - 0.45) / 0.25) : lerp(0.25, 0.0, saturate((qe - 0.7) / 0.5));   // p27: a wide red edge (REF 7-17 px)
                     heat -= 0.3 * (grain - 0.5) * step(qe, 0.9);   // p23d: the streak texture shows in the colour, not just the edge
-                    heat = lerp(heat, 0.15 + 0.75 * coreR, saturate(lineCov * 3.0) * (1.0 - cov));   // p25d: the colour switches fully to the line's wherever there is one (the alpha carries the blur; p25b/c diluted the heat twice and the core never showed)   // p25b: a cream core on a red blur
+                    heat = lerp(heat, 0.1 + 0.9 * coreR, saturate(lineCov * 3.0) * (1.0 - cov));   // p25d: the colour switches fully to the line's wherever there is one (the alpha carries the blur; p25b/c diluted the heat twice and the core never showed)   // p25b: a cream core on a red blur
                     heat = saturate(heat + 0.25 * smoothstep(0.5, 0.75, strandN) * fray * cov);   // p26: the strands are bright hair lines (REF)
                     heat = saturate(heat - 0.5 * mark * (1.0 - fireMode) + 0.05 * fireMode);   // p24b: the loop is a red line, not a bite   // p23g: no loop mark on a fire, bright
                     half3 c0 = CelPal(rowA, 0), c1 = CelPal(rowA, 1), c2 = CelPal(rowA, 2), c3 = CelPal(rowA, 3);
                     half3 cc = CelPalCore(rowA).rgb * i.tone.y;
                     half3 fCol = heat < 0.25 ? lerp(c0, c1, heat / 0.25)
-                               : heat < 0.5 ? lerp(c1, c2, (heat - 0.25) / 0.25)
-                               : heat < 0.8 ? lerp(c2, c3, (heat - 0.5) / 0.3)
+                               : heat < 0.4 ? lerp(c1, c2, (heat - 0.25) / 0.15)
+                               : heat < 0.8 ? lerp(c2, c3, (heat - 0.4) / 0.4)   // p27b: a thinner orange band (REF)
                                : lerp(c3, cc, (heat - 0.8) / 0.2);
                     // the DARK halo: translucent red-brown, wider below and behind, under the body
-                    float yq = yy + hr * 0.35;
-                    float qH = min(abs(yq) / max(halfW * 2.0 + hr * 0.4, 1e-4) + max(-s, 0.0) / max(hr * 1.5, 1e-4), length(float2(s / max(ax * 2.0, 1e-4), yq / max(hr * 2.0, 1e-4))) / max(hrad, 0.3));   // p24: rounds off ahead of the head (no cut)
+                    float yq = yy + hr * 0.5;   // p27: the REF's halo sits lower
+                    float haloHalf = hr * (2.8 - 2.4 * saturate(s / max(hr * 20.0, 1e-3)));   // p27c: narrows faster   // p27b: the gaussian's 1-sigma: dark to +-1.9 hr at the head (REF 56 px), +-1.1 hr at 250 px (REF 27)
+                    float qH = min(abs(yq) / max(haloHalf, 1e-4) + max(-s, 0.0) / max(hr * 1.5, 1e-4), length(float2(s / max(ax * 2.2, 1e-4), yq / max(hr * 2.4, 1e-4))) / max(hrad, 0.3));   // p27: a broad soft cloud, not a band   // p24: rounds off ahead of the head (no cut)
                     qH += 0.15 * (grain - 0.5);
-                    float haloA = (1.0 - smoothstep(0.45, 1.0, qH)) * 0.85 * (1.0 - 0.4 * sb) * has * fireEnv * (1.0 - fireMode) * rear;   // p23h: no dark halo on a standing flame (it filled the quad: a red box)
+                    float haloA = exp(-pow(qH, 3.0) * 1.2) * (1.0 - 0.25 * sb)   // p27c: fuller to +-0.85 of the width, then off (REF: dark right up to the rim)
+                                  * has * fireEnv * (1.0 - fireMode) * rear;   // p27b: a soft gradient cloud, no plateau (the plateau read as a flat bar)   // p27: stays dark down the tail   // p23h: no dark halo on a standing flame (it filled the quad: a red box)
+                    haloA *= (1.0 - saturate(a)) * (1.0 - smoothstep(hr * 2.6, hr * 3.4, abs(yy)));   // p27k: none under the smear, none at the quad's edge (a box over the board)   // p27d: the smear stays on top of the dark cloud (it went grey-brown under it)
                     col = lerp(col, c0, haloA);
                     a = lerp(a, 1.0, haloA);
                     col = lerp(col, fCol, alphaF);
                     a = lerp(a, 1.0, alphaF);
                     // a faint warm bloom around the head
-                    float bl = saturate(1.0 - length(float2(s / max(hr * 3.0, 1e-4), yy / max(hr * 2.8, 1e-4))));   // p26c: a little tighter
+                    float bl = saturate(1.0 - length(float2(s / max(hr * 2.4, 1e-4), yy / max(hr * 2.2, 1e-4))));   // p27b: tighter still (REF: dark up to the rim)
                     bl *= bl;
-                    col += lerp(c2, c3, bl) * (bl * 0.5 * has * fireEnv);   // p26c: 0.5   // p24c: a wide orange glow around the ball
+                    col += lerp(c2, c3, bl) * (bl * 0.25 * has * fireEnv);   // p27b: 0.25   // p26c: 0.5   // p24c: a wide orange glow around the ball
                 }
 
                 half3 fogged = CelAdditiveFog(half3(1.0, 1.0, 1.0), i.positionWS, i.misc.x);

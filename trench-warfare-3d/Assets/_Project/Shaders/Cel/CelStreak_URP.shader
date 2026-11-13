@@ -3,6 +3,7 @@
 // is now, its tail trails back along its velocity (length = speed x size.w seconds, never further back than where it
 // was born, so a tracer does not start behind the muzzle).
 //   size.xyz   width (m) at birth, at death, ease          size.w  trail length in seconds of its speed (0: a dot)
+//   extra.w    tip taper: 0 = a rounded head (default), 1 = the head end narrows to a point (a wedge wide at its birth)
 //   erode.xyz  the threshold the cross-section is cut at, rising over the life (thins it out in steps, no alpha fade)
 //   tone       x palette, y HDR core, z opacity, w unused (streaks have no ink)
 //   extra      x tail taper (0 pointed, 1 square), y min length (m), z flicker (0..1), w unused
@@ -58,7 +59,7 @@ Shader "TW/Cel/Streak"
                 o.positionCS = TransformWorldToHClip(w);
                 o.uv = float2(v.uv.x, v.uv.y * 2.0 - 1.0);
                 o.tone = float4(r.tone.x, r.tone.y, r.tone.z, CelCurve(r.erode.xyz, k));
-                o.shape = float4(r.extra.x, k, r.extra.z, ComputeFogFactor(o.positionCS.z));
+                o.shape = float4(r.extra.x, r.extra.w, r.extra.z, ComputeFogFactor(o.positionCS.z));   // p27j: y = tip taper (extra.w), was the unused life
                 return o;
             }
 
@@ -66,7 +67,7 @@ Shader "TW/Cel/Streak"
             {
                 // the cross-section narrows to the tail; the head is rounded by the last stretch of the quad
                 float a = i.uv.x;
-                float halfW = lerp(saturate(i.shape.x), 1.0, a);
+                float halfW = lerp(saturate(i.shape.x), 1.0, a) * (1.0 - saturate(i.shape.y) * a);   // p27j: extra.w > 0 = a wedge pointed at its head
                 float across = 1.0 - abs(i.uv.y) / max(halfW, 1e-3);
                 float head = saturate((1.0 - a) * 6.0 + 0.0);                 // the head end tapers over its last sixth
                 float field = saturate(across) * lerp(0.55, 1.0, a) * lerp(0.0, 1.0, sqrt(head));
