@@ -231,13 +231,18 @@ Shader "TW/Cel/LightningBeam"
                     // r04: a puff (3): a lumpy disc with a soft edge that covers (dust, c2..c3), or a hard-edged fleck
                     float sd = i.beam.z * 37.0;
                     float ang = atan2(q.y, q.x);
-                    float lump = 0.5 * sin(ang * 3.0 + sd) + 0.3 * sin(ang * 5.0 + sd * 1.7 + 1.3) + 0.2 * sin(ang * 8.0 + sd * 2.3);
-                    float reach = 1.0 - i.shape.z * (0.5 + 0.5 * lump);
-                    float fieldP = saturate(1.0 - rr / max(reach, 0.2));
+                    float lump = 0.5 * sin(ang * 3.0 + sd) + 0.3 * sin(ang * 5.0 + sd * 1.7 + 1.3) + 0.2 * sin(ang * 8.0 + sd * 2.3) + 0.15 * sin(ang * 13.0 + sd * 3.1);   // c43: a finer scallop
+                    // c43: a ragged rim (w: amplitude; 0 on the flecks): value noise over the lobe eats into its edge
+                    // and mottles its body, and the lobe THINS as it erodes instead of shrinking as a solid disc
+                    // (the clip's lobes are ragged at the rim and dissolve into mist)
+                    float rag = i.shape.w;
+                    float n2 = CelValue2(q * 4.5 + float2(sd, sd * 0.37)) * 0.6 + CelValue2(q * 9.0 + float2(sd * 1.3, sd)) * 0.4;
+                    float reach = 1.0 - i.shape.z * (0.5 + 0.5 * lump) - rag * (n2 - 0.5);
+                    float fieldP = saturate(1.0 - rr / max(reach, 0.2)) * (1.0 - rag * 0.8 * (n2 - 0.5));
                     float edge = max(i.shape.y, 0.01);
-                    float aP = smoothstep(thrS, thrS + edge, fieldP) * saturate(i.tone.z);
+                    float aP = smoothstep(thrS, thrS + edge, fieldP) * saturate(i.tone.z) * (1.0 - 0.6 * thrS * saturate(rag * 4.0));
                     half3 cp = lerp(CelPal(row, 2), CelPal(row, 3), saturate(fieldP * 1.6));
-                    cp *= lerp(0.6, 1.28, saturate(q.y * 0.9 + 0.5)) * lerp(0.8, 1.1, saturate(fieldP * 2.0));   // c38: each lobe lit on top, dark underneath (a cartoon cloud)   // c35/c30
+                    cp *= lerp(0.6, 1.28, saturate(q.y * 0.9 + 0.5)) * lerp(0.8, 1.1, saturate(fieldP * 2.0)) * lerp(1.0 - 0.3 * rag, 1.0 + 0.3 * rag, n2);   // c43: mottled   // c38: each lobe lit on top, dark underneath (a cartoon cloud)   // c35/c30
                     cp = MixFog(cp, i.more.x);
                     return half4(cp * aP, aP);
                 }
@@ -268,22 +273,24 @@ Shader "TW/Cel/LightningBeam"
                 float cs = max(i.more.w, 0.15);
                 float tail = 1.0 - a;
                 float headB = exp(-tail * tail * 28.0);   // c21: a longer white head (the clip's comets are white over their front quarter)
-                // c03: a round tip (a quarter circle over the last 1/12 of the window), not a chevron
-                float tipT = saturate(tail * 16.0);
-                float tip = sqrt(saturate(1.0 - (1.0 - tipT) * (1.0 - tipT)));
+                // c43: the point is in the width profile now (blade); tip only fades the halo toward the front
+                float tip = saturate(tail * 4.0);
                 // c19: a bright white comet head again (the clip's bolts mostly have one) on a thin beaded strand
                 float bead = 0.82 + 0.25 * Zig(u, 0.35 * cs, salt + 31.0);
                 // c30: a SPINDLE (the clip's f19-f22: each bolt is a long stripe, thick in the middle, pointed at both ends,
                 // its white core along the thick middle, cyan at the thin ends); no comet bulb at the head
                 // c38: PROJECTILES - the thickest point sits at 0.7 of the length (a short pointed front, a long thinner
                 // tail) and the front quarter is white-hot (the clip's bolts carry a bright head: f60/f76/f84)
-                float spin = pow(sin(3.14159 * pow(a, 1.6)), 0.9);   // c39: the weight at 0.65 (c38's 0.7 left a hair-thin tail)
-                float headW = exp(-(a - 0.8) * (a - 0.8) * 60.0);
-                float w = (0.45 + 1.2 * spin) * bead * tip * sqrt(saturate(a * 5.0));   // c39: a fuller tail
+                // c43: a BLADE, not a comet (owner: "some look round with a tail"): the tail widens over the back 0.45,
+                // a thick plateau from 0.45 to 0.72, then a straight spear point; no round head bulge (c38's headW
+                // on a thin tail read as a ball with a tail)
+                float blade = min(pow(saturate(a / 0.45), 0.7), pow(saturate((1.0 - a) / 0.28), 0.85));
+                float spin = blade;
+                float w = 1.6 * blade * bead;
                 float longW = step(1.5, i.shape.w);
                 // c31: a cyan body with the white core only along the thick middle (c30 was a white rod); the short
                 // clinging scribbles on the board are white-hot all through
-                float glow = min((0.4 + 0.45 * spin + 0.5 * headW + 0.55 * (1.0 - longW)) * (i.more.z > 0.5 ? 1.0 : flick), 1.15) + 0.2 * headB;   // c38: a white head   // c33: the scribbles whiter
+                float glow = min((0.45 + 0.4 * spin + 0.55 * (1.0 - longW)) * (i.more.z > 0.5 ? 1.0 : flick), 0.95) + 0.2 * headB * blade;   // c44: a cyan BODY with a thin pale core (c43 was a white line with cyan edges)   // c43: no white ball   // c33: the scribbles whiter
                 if (i.more.z > 0.5) { w = 0.6; glow = 1.0; }   // the far thread stays an even line
                 float prof = w;
                 // the centre line carries one gentle long wave and a smaller one (the clip's bolts are smooth, not braided)
@@ -381,7 +388,7 @@ Shader "TW/Cel/LightningBeam"
                 // c01: a crisp cel edge at the head, a soft airbrushed edge down the tail (the clip's tails feather out)
                 float maskHard = CelAAStep(thr, field);
                 float maskSoft = smoothstep(thr, thr + 0.12, field);   // c14: crisper (the clip's tails are dim, not blurred)
-                float mask = lerp(maskSoft, maskHard, smoothstep(0.35, 0.75, a));
+                float mask = lerp(maskSoft, maskHard, smoothstep(0.1, 0.4, a));   // c43: hard nearly all along (the clip's tails are jagged, not airbrushed)
                 // the ink: only at the head's half (thinner going out; none on the far thread); the palette's ink is pale
                 float inkPx = CelLodInk(0.7) * (1.0 - i.more.z);
                 float ink = CelInk(field, thr, inkPx) * mask * smoothstep(0.4, 0.8, a);
@@ -401,7 +408,7 @@ Shader "TW/Cel/LightningBeam"
                 // c26: a second, wide and faint airbrush glow (the clip's bolts have presence at full frame without a fat core)
                 float hd2 = max(dy - w, 0.0) / max(5.0 * prof + 2.0, 1e-3);
                 float halo2 = exp(-hd2 * hd2) * step(0.05, prof) * (1.0 - mask) * saturate((BEAM_PAD - 1.0 - dy) * 0.7) * saturate(a * 7.0) * tip * lerp(0.5, 1.0, saturate(glow)) * (i.more.z > 0.5 ? 0.0 : flick);
-                half3 add = CelPal(row, 0) * (halo * 0.36 + halo2 * 0.12 * longW) * i.tone.z * (1.0 - i.more.z);   // c36: less again (two bolts converging on the board still summed into a glowing rope)
+                half3 add = CelPal(row, 0) * (halo * 0.22 + halo2 * 0.06 * longW) * i.tone.z * (1.0 - i.more.z);   // c45: the clip's rods have hardly any halo (c44 read as a wire in a glow)   // c36: less again (two bolts converging on the board still summed into a glowing rope)
                 // the far thread is all light: no cover, it adds
                 if (i.more.z > 0.5) { add += body * mask * i.tone.z; cover = 0.0; straight = 0; }
                 add = AddFog(add, i.positionWS, i.more.x, i.more.y);
