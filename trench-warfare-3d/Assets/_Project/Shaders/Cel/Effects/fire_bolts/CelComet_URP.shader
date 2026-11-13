@@ -187,7 +187,7 @@ Shader "TW/Cel/Comet"
                 o.tone = r.tone;
                 o.more = float4(rw, CelCurve(r.erode.xyz, k), r.seed, max(abs(r.extra.w), 0.05));
                 // p16: extra.w < 0 = a standing flame (a ground fire): misc.w = 0.25 + 0.5 k so the fragment can fade it
-                o.misc = float4(ComputeFogFactor(o.positionCS.z), r.motion.z, t, r.extra.w < 0.0 ? 0.25 + 0.5 * k : ((r.extra.y < 0.0 && headR <= 0.0) ? -1.0 : 0.0));
+                o.misc = float4(ComputeFogFactor(o.positionCS.z), r.motion.z, t, r.extra.w < 0.0 ? -2.0 - k : ((r.extra.y < 0.0 && headR <= 0.0) ? -1.0 : 0.0));   // p17: -2..-3 (p16's 0.25+0.5k fell into the pool branch past half life: a tan box)
                 return o;
             }
 
@@ -293,8 +293,8 @@ Shader "TW/Cel/Comet"
                     float hole = CelValue2(float2(sm / (wid * 0.55 + 0.03) - t * 0.7, y * 2.2 + seed * 13.0));
                     fm *= smoothstep(0.22, 0.5, hole + 0.25 * (1.0 - k));   // p04: holes open as it ages
                     lit = saturate(lit * 0.9 + 0.08 + 0.7 * (mott - 0.5));
-                    half3 c = lerp(CelPal(rowA, 1), CelPalCore(rowA).rgb, smoothstep(0.2, 0.8, lit));   // p05: pale cream lit side, mid-grey shade   // p03: cream lit side, dark grey shade
-                    mask = saturate((fm - 0.03) / 0.22);   // p16: lumpy but defined (REF's late clouds have real silhouettes)
+                    half3 c = lerp(CelPal(rowA, 0), CelPalCore(rowA).rgb, smoothstep(0.15, 0.8, lit));   // p17: cream lit side, dark grey shade (REF)   // p03: cream lit side, dark grey shade
+                    mask = saturate((fm - 0.03) / 0.12);   // p17: defined lumps
                     float ink = CelInk(fm, 0.06, CelLodInk(i.tone.w)) * mask;
                     c = lerp(c, CelPalInk(rowA).rgb, ink * 0.35);
                     float op = saturate(i.tone.z) * (1.0 - smoothstep(0.55, 0.88, k));   // d37: the wisp is gone by ~f128 (REF clear at f131)
@@ -322,9 +322,9 @@ Shader "TW/Cel/Comet"
                 float len = i.dims.x, hr = i.dims.y, fl = i.dims.z, amp = i.dims.w;
                 float seed = i.more.z, wl = i.more.w;
                 float inkPx = CelLodInk(i.tone.w);
-                float strand = step(i.misc.w, -0.5);                  // a smoke strand: the ribbon alone
-                float fireMode = step(0.2, i.misc.w);                 // p16: a standing flame
-                float fireK = saturate((i.misc.w - 0.25) / 0.5);
+                float fireMode = step(i.misc.w, -1.5);                // p16: a standing flame (misc.w = -2 - k)
+                float fireK = saturate(-(i.misc.w + 2.0));
+                float strand = step(i.misc.w, -0.5) * (1.0 - fireMode);   // a smoke strand: the ribbon alone
                 float fireEnv = lerp(1.0, smoothstep(0.0, 0.1, fireK) * (1.0 - smoothstep(0.45, 1.0, fireK)), fireMode);
                 float puffs = step(fl + hr, 1e-5) * (1.0 - strand);   // a wisp: a chain of round puffs
 
