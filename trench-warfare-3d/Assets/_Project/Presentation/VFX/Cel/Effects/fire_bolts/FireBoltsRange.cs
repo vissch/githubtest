@@ -24,7 +24,13 @@ namespace TW.Presentation.VFX
         const float DummyUp = -1.3f;
         // b04: each bolt's extra launch height (m): about half the lanes start higher, so they cross the upper-left quarter
         // from near the horizon and arc down onto the dummy and the ground (b03: one low band)
-        static readonly float[] LaneUp = { 0f, 2.0f, 0.7f, 3.0f, 0.3f, 1.4f, 2.5f, 0.5f, 3.4f, 1.0f, 1.8f };   // c01: flatter lanes (the ref's bolts cross the left half nearly level)   // b05: wider (b04 up to 2.6 m: one band)
+        // k04: the high lanes are CAPPED at 1.4 m (was up to 3.4 m), same count, same sizes, same lifetimes, so the
+        // volley's area is unchanged: the top of the screen is where our mass is pure waste. Measured on i01 vs the
+        // reference over the 123 active frames (gate masks): y0-128 holds 1840 px/f of ours and is 99.7% OUTSIDE the
+        // reference, y128-256 holds 21283 px/f and is 73.2% outside; deleting everything above y192 pays iou +0.0093,
+        // and every rigid translation of the whole picture loses in both x and y. So the four lanes whose arc apex
+        // clears y192 are rotated down about their landing points (-2.0 m = -144 px of apex on the highest).
+        static readonly float[] LaneUp = { 0f, 1.4f, 0.7f, 1.4f, 0.3f, 1.4f, 1.4f, 0.5f, 1.4f, 1.0f, 1.4f };   // c01: flatter lanes (the ref's bolts cross the left half nearly level)   // b05: wider (b04 up to 2.6 m: one band)
         static readonly Vector2[] DummyAt = { new Vector2(0f, 0f), new Vector2(0.05f, 0.3f), new Vector2(-0.1f, -0.1f), new Vector2(0.1f, 0.15f),
             new Vector2(0f, 0.05f), new Vector2(-0.05f, 0.25f), new Vector2(0.08f, -0.05f), new Vector2(0f, 0.1f),
             new Vector2(-0.12f, 0.2f), new Vector2(0.12f, 0.35f), new Vector2(-0.08f, -0.15f) };
