@@ -270,7 +270,9 @@ Shader "TW/Cel/LightningBeam"
                 // head (a = 1), a thin pale body behind it and a wider, fainter, softer tail; the brightness falls from
                 // the head to the tail so the ramp's white core sits at the head and the tail stays in the dim cyan bands.
                 // r03: the cells scale with the width (more.w), or the foreshortened far half aliases away
-                float cs = max(i.more.w, 0.15);
+                // c50: on a short arc the cell is a quarter of the arc's length, or a 0.6 m board arc got one 2.6 m kink
+                // cell and drew as a straight spike (the clip's arcs on the board are crooked scribbles)
+                float cs = max(min(i.more.w, i.shape.w * 0.25), 0.05);
                 float tail = 1.0 - a;
                 float headB = exp(-tail * tail * 28.0);   // c21: a longer white head (the clip's comets are white over their front quarter)
                 // c43: the point is in the width profile now (blade); tip only fades the halo toward the front
