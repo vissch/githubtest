@@ -326,7 +326,7 @@ Shader "TW/Cel/Comet"
 
                 // ---- the smoke ribbon: a thin wavy strand behind the flame that fades and thins to nothing
                 //      (a wisp instead: a cluster of round inked puffs along a curling path, lit from above)
-                float ribbonStart = fl * (strand > 0.5 || puffs > 0.5 ? 0.55 : 0.3);   // c01: the bolt's smoke starts inside its flame (it frays out of it)
+                float ribbonStart = (strand > 0.5 || puffs > 0.5) ? fl * 0.55 : hr * 2.0;   // p13: the smear begins just behind the head   // c01: the bolt's smoke starts inside its flame (it frays out of it)
                 float grow = saturate((s - ribbonStart) / max(wl * 0.6, 1e-3));
                 float yc = amp * grow * sin(6.2832 * s / wl + seed * 40.0 - i.misc.z * i.misc.y)
                          + amp * 0.15 * grow * sin(6.2832 * s / (wl * 0.45) + seed * 17.0 - i.misc.z * i.misc.y * 1.7);
@@ -350,7 +350,12 @@ Shader "TW/Cel/Comet"
                         rField = max(rField, (sc > 0.0 && sc < len) ? saturate(1.0 - d) * alivePuff : 0.0);
                     }
                 }
-                else rField = (s > ribbonStart) ? saturate(1.0 - abs(y - yc) / max(rwid, 1e-4)) : 0.0;
+                else
+                {
+                    rField = (s > ribbonStart) ? saturate(1.0 - abs(y - yc) / max(rwid, 1e-4)) : 0.0;
+                    float rg = CelValue2(float2(s / max(rwid * 2.5, 1e-3) - i.misc.z * 2.0, (y - yc) / max(rwid * 0.3, 1e-4) + seed * 5.0));   // p13: streaky, blurred
+                    rField = pow(rField, 1.4) * (0.55 + 0.7 * rg);
+                }
                 float brk = CelValue2(float2(s / (wl * 0.5), seed * 91.0));   // pieces along the ribbon
                 float rCut = puffs > 0.5 ? 1.0 : step(i.more.y, brk * 0.9 + 0.1 * taper);
                 float rMask = lerp(rField * rField, CelAAStep(0.04, rField), max(puffs, strand)) * rCut;   // p06: the bolt's trail is a soft smear
@@ -369,55 +374,60 @@ Shader "TW/Cel/Comet"
                 col *= lerp(rFade, 1.0, rInk);
                 float a = rMask * lerp(rOp, 1.0, rInk);
 
-                // ---- the flame (p06, by eye against REF at full resolution): the reference bolt is SOFT and
-                //      painterly, not cel: a glowing yellow-white fireball head with licking tongues round its back,
-                //      a tail of seven fine parallel streaks with feathered edges (yellow in the middle, orange, red at
-                //      the outside and the tips) inside a faint motion-blur haze, and a warm halo along the whole bolt.
-                //      Colour is a smooth ramp through the palette's five colours by heat; alpha is the soft field.
+                // ---- the flame (p13, against 4x crops of the reference): a cartoon-flame HEAD - round front, pointed
+                //      tongues trailing from its back, a darker crescent mark inside; a BODY as wide as the head with
+                //      fine parallel streak texture (motion blur) and saturated red-orange edges; seven long streaks
+                //      running on behind it; a halo. Colour is a smooth ramp through the palette by heat.
                 {
                     float has = step(1e-5, fl + hr);
                     float hd = length(float2(s, y));
                     float t = i.misc.z;
+                    // streak grain: long thin lines along the bolt
+                    float tex = CelValue2(float2(s / max(hr * 1.6, 1e-3) - t * 4.0, y / max(hr * 0.11, 1e-4) + seed * 7.0));
+                    float tex2 = CelValue2(float2(s / max(hr * 0.8, 1e-3) + t * 6.0, y / max(hr * 0.2, 1e-4) + seed * 3.0));
+                    float grain = 0.5 * tex + 0.5 * tex2;
+                    // HEAD
                     float ang = atan2(y, s);
-                    float lickN = CelValue2(float2(ang * 2.5 + seed * 9.0, t * 10.0 + seed * 3.0));
-                    float hrad = 1.0 + 0.4 * (lickN - 0.5) * saturate(s / max(hr, 1e-4) + 0.6);   // tongues, mostly behind
-                    float ax = s > 0.0 ? hr * 1.8 : hr * 1.05;
-                    float headD = length(float2(s / max(ax, 1e-4), y / max(hr * 0.9, 1e-4))) / hrad;
+                    float back = saturate(s / max(hr, 1e-4) + 0.4);
+                    float tips = CelValue2(float2(ang * 3.0 + seed * 9.0, t * 9.0 + seed * 3.0)) + 0.5 * CelValue2(float2(ang * 7.0 - seed * 5.0, t * 14.0));
+                    float hrad = 1.0 + (tips / 1.5 - 0.5) * 0.9 * back;
+                    float ax = s > 0.0 ? hr * 1.9 : hr * 1.0;
+                    float headD = length(float2(s / max(ax, 1e-4), y / max(hr * 0.95, 1e-4))) / max(hrad, 0.3);
                     float headF = 1.0 - headD;
-                    float bodyL = max(min(fl, hr * 14.0), 1e-3);
+                    float2 cq = float2(s - hr * 0.15, y);
+                    float ringD = abs(length(cq) - hr * 0.42) / max(hr * 0.13, 1e-4);
+                    float mark = saturate(1.0 - ringD) * saturate(0.3 + s / max(hr * 0.5, 1e-4)) * saturate(headF * 6.0);
+                    // BODY
+                    float bodyL = max(min(fl * 0.55, hr * 14.0), 1e-3);
                     float sb = saturate(s / bodyL);
-                    // p07: the BODY - as wide as the head for the first third, then tapering; nearly opaque near the
-                    //      head, thinning out toward the end (REF f42/f60: a fat bright bar, not hair lines)
-                    // p08: flat-top body with a feathered edge (p07's alpha and heat both fell off across the width,
-                    //      so the edges went deep red at low alpha and vanished: it read as a hair line)
-                    // p09: the edge flickers with flame tongues (two octaves of travelling noise, each side its own),
-                    //      and the body fades in through the back of the head instead of starting on a hard line
                     float eN = CelValue2(float2(s / max(hr * 0.7, 1e-3) + t * 9.0, seed * 41.0 + step(0.0, y) * 5.0))
-                             + 0.5 * CelValue2(float2(s / max(hr * 0.3, 1e-3) - t * 13.0, seed * 17.0 + step(0.0, y) * 3.0));
-                    float wHaze = hr * lerp(1.0, 0.2, pow(sb, 0.7)) * (0.6 + 0.55 * eN);
+                             + 0.6 * CelValue2(float2(s / max(hr * 0.25, 1e-3) - t * 13.0, seed * 17.0 + step(0.0, y) * 3.0));
+                    float wHaze = hr * lerp(1.0, 0.22, pow(sb, 0.7)) * (0.5 + 0.7 * eN);
                     float across = saturate(1.0 - abs(y) / max(wHaze, 1e-4)) * smoothstep(-hr * 0.5, hr * 0.4, s);
-                    float haze = smoothstep(0.0, 0.45, across) * (1.0 - sb * sb) * (0.95 - 0.45 * sb);
-                    float streak = 0.0, streakHeat = 0.0;
+                    float haze = smoothstep(0.0, 0.35, across) * (1.0 - sb * sb) * (0.97 - 0.4 * sb);
+                    // STREAKS
+                    float streak = 0.0, streakHeat = 0.0, streakU = 1.0;
                     [unroll] for (int k7 = 0; k7 < 7; k7++)
                     {
                         float hk = CelHash21(float2(k7, seed * 57.0));
                         float hk2 = CelHash21(float2(k7 + 31.0, seed * 19.0));
-                        float Lk = fl * (0.55 + 0.6 * hk);
+                        float Lk = fl * (0.5 + 0.6 * hk);
                         float uk = saturate(s / max(Lk, 1e-3));
-                        float yk = hr * 0.75 * ((k7 - 3.0) / 3.0) * (0.35 + 0.65 * uk)
-                                 + hr * 0.06 * sin(s * 1.1 / max(hr, 1e-3) + hk * 20.0 - t * 6.0) * uk;
-                        float wk = hr * (0.10 + 0.12 * hk2) * (1.0 - 0.6 * uk);
+                        float yk = hr * 0.85 * ((k7 - 3.0) / 3.0) * (0.3 + 0.7 * uk)
+                                 + hr * 0.07 * sin(s * 0.9 / max(hr, 1e-3) + hk * 20.0 - t * 5.0) * uk;
+                        float wk = hr * (0.12 + 0.16 * hk2) * (1.0 - 0.5 * uk);
                         float fk = (s >= 0.0 && s <= Lk) ? saturate(1.0 - abs(y - yk) / max(wk, 1e-4)) : 0.0;
-                        fk = fk * fk * (1.0 - uk * uk);
-                        float hot = 1.0 - abs(k7 - 3.0) / 3.5;
-                        streakHeat = max(streakHeat, fk * hot);
-                        streak = max(streak, fk);
+                        fk = smoothstep(0.0, 0.6, fk) * pow(saturate(1.0 - uk), 0.6);
+                        float hot = 1.0 - abs(k7 - 3.0) / 3.2;
+                        if (fk > streak) { streak = fk; streakHeat = fk * hot; streakU = uk; }
                     }
-                    float headA = saturate(headF * 2.2);
-                    float tailA = max(streak * 0.85, haze);
-                    float alphaF = max(headA, tailA) * has;
-                    float bodyHeat = step(1e-4, haze) * (0.35 + 0.65 * pow(1.0 - sb, 1.3)) * (0.85 + 0.2 * across);   // p09: white where it leaves the head (no seam), yellow, orange, red   // p08: yellow-white leaving the head, orange mid, red at the end; a touch hotter down the middle
-                    float heat = max(saturate(headF * 1.3 + 0.35) * step(0.0, headF), max(streakHeat * (0.9 - 0.4 * sb), bodyHeat));
+                    float headA = saturate(headF * 4.0);
+                    float tailA = max(streak * 0.9, haze);
+                    float alphaF = saturate(max(headA, tailA) * (0.75 + 0.35 * grain)) * has;
+                    float bodyHeat = step(1e-4, haze) * (0.3 + 0.65 * pow(1.0 - sb, 1.3)) * (0.55 + 0.5 * across);
+                    float heat = max(saturate(headF * 1.2 + 0.5) * step(0.0, headF),
+                                     max(streakHeat * (0.75 - 0.35 * streakU) + 0.1 * step(1e-4, streak), bodyHeat));
+                    heat = saturate(heat + 0.18 * (grain - 0.5) - 0.45 * mark);
                     half3 c0 = CelPal(rowA, 0), c1 = CelPal(rowA, 1), c2 = CelPal(rowA, 2), c3 = CelPal(rowA, 3);
                     half3 cc = CelPalCore(rowA).rgb * i.tone.y;
                     half3 fCol = heat < 0.25 ? lerp(c0, c1, heat / 0.25)
@@ -426,12 +436,12 @@ Shader "TW/Cel/Comet"
                                : lerp(c3, cc, (heat - 0.8) / 0.2);
                     col = lerp(col, fCol, alphaF);
                     a = lerp(a, 1.0, alphaF);
-                    // the halo: a wide soft additive wash along the head and the tail
+                    // the halo
                     float sg = s >= 0.0 ? s / max(bodyL * 0.8, 1e-3) : -s / max(hr * 2.8, 1e-4);
                     float bl = saturate(1.0 - length(float2(sg, y / max(hr * 3.4, 1e-4))));
                     bl = max(bl, saturate(1.0 - hd / max(hr * 3.0, 1e-4)));
                     bl *= bl;
-                    col += lerp(c2, c3, bl) * (bl * 0.6 * has);
+                    col += lerp(c2, c3, bl) * (bl * 0.55 * has);
                 }
 
                 half3 fogged = CelAdditiveFog(half3(1.0, 1.0, 1.0), i.positionWS, i.misc.x);

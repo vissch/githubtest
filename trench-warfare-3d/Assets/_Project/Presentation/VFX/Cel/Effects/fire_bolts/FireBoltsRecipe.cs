@@ -73,8 +73,8 @@ namespace TW.Presentation.VFX.Cel
             CelPalette.Add("fb_pool", CelPalette.Hex(0x2A1C14), CelPalette.Hex(0x4A3424), CelPalette.Hex(0x5A4232), CelPalette.Hex(0x86664C),
                 CelPalette.Hex(0x86664C), 1.1f, 4, CelPalette.Hex(0x000000));
             // the comet: deep red at the streaks' tips, red-orange, orange, yellow behind the head, a white-hot core
-            CelPalette.Add("fb_comet", CelPalette.Hex(0x8A2A18), CelPalette.Hex(0xC4502C), CelPalette.Hex(0xE0884A), CelPalette.Hex(0xF3CF86),   // d09: toward the ref #c16a42 / #f3cf86
-                CelPalette.Hex(0xFFFFF0), 0.84f, 4, CelPalette.Hex(0x1E0806));
+            CelPalette.Add("fb_comet", CelPalette.Hex(0xC8281A), CelPalette.Hex(0xEE4E26), CelPalette.Hex(0xF59238), CelPalette.Hex(0xFFD266),   // p13: the saturated red-orange of the REF 4x crops   // d09: toward the ref #c16a42 / #f3cf86
+                CelPalette.Hex(0xFFF6D0), 0.84f, 4, CelPalette.Hex(0x1E0806));
             CelPalette.Add("fb_ribbon", CelPalette.Hex(0x5E585E), CelPalette.Hex(0x847F86), CelPalette.Hex(0xA9A5AB), CelPalette.Hex(0xC8C4C6),   // c05: soft grey (was near-white)
                
                 CelPalette.Hex(0xFFFFFF), 1.1f, 3, CelPalette.Hex(0x3A3438));
@@ -141,14 +141,14 @@ namespace TW.Presentation.VFX.Cel
                     Close = 1, Mid = 1, Far = 1, Aim = CelAim.Target, Speed = 0f, Spread = 0f, Spin = 3f, Gravity = ArcGravity,
                     // b01 (beach, 19 m camera): ribbon 0.2 m wide, 0.75 s of its speed long (a third to half the frame)
                     // b02: a negative Stretch draws the tail behind the birth (the opening bolts were in flight before the fire)
-                    Size = new CelCurve(0.14f * k, 0.26f * k), SizeJitter = 0.2f, Stretch = preflown ? -0.7f : 0.7f,   // p09: as wide as the body (REF)   // p06: a soft wide pale smear   // p01: the smoke trail is a THIN pale line in REF, half the old width   // d18: wider (mask diff) but unbroken and semi-transparent   // c05: a longer, thin grey trail (the ref's are lines)   // c03: the smoke ribbon ~1.5x the flame (0.75 ran to the frame edge)
+                    Size = new CelCurve(0.26f * k, 0.46f * k), SizeJitter = 0.2f, Stretch = preflown ? -0.7f : 0.7f,   // p13: a wide fuzzy band (REF 4x)   // p09: as wide as the body (REF)   // p06: a soft wide pale smear   // p01: the smoke trail is a THIN pale line in REF, half the old width   // d18: wider (mask diff) but unbroken and semi-transparent   // c05: a longer, thin grey trail (the ref's are lines)   // c03: the smoke ribbon ~1.5x the flame (0.75 ran to the frame edge)
                       // c01: 0.2 -> 0.26-0.3 m (the smoke trail frays wider)
                     Erode = new CelCurve(0.06f, 0.2f),   // d18: stays whole (d17 dashes lost)   // c03: the ribbon breaks into pieces (was whole)
                     Palette = "fb_comet", CoolTo = "fb_ribbon", Core = 1.9f,   // p02: the head blazes   // b03: 2.6 -> 2.2 (the bodies read white-hot)
-                    Opacity = 0.3f, Ink = 0f,   // p01: translucent trail, NO ink on the bolt (REF has none)   // d18: ribbon 75% (d16 opaque bands lost)
+                    Opacity = 0.42f, Ink = 0f,   // p01: translucent trail, NO ink on the bolt (REF has none)   // d18: ribbon 75% (d16 opaque bands lost)
                     // b02: a round white-yellow head 0.2 m, a flame body that flares and tapers over 2.2 m, thin red
                     // streaks fading out to 5 m, a ribbon waving 0.08 m over 5.5 m
-                    Extra = new Vector4(0.28f * k, 4.6f * k, 0.02f, 3.0f),   // p04: smaller head, longer tail   // p03: a nearly straight trail   // p01: head 0.3 m (teardrop in the shader), trail wave 0.06 m over 2 m   // d34: head 0.28 -> 0.4 m (every paper: a dot head on a tube)   // d09: head 0.24 -> 0.28 m   // c05: head 0.3 -> 0.24 m (the teardrop flame is about half the old width), licks 3.6 m, trail wave 0.05 m over 3 m   // c03: ribbon wave 0.11 m over 2.2 m (wavy, not a straight line)   // c01: head 0.3 m, ribbon wave 0.04 m (it follows the flame's path)   // b04: head 0.26 m, the flame a long tapering streak (shader)   // b03: head 0.2 -> 0.27 m (the body is twice as wide in the shader)
+                    Extra = new Vector4(0.28f * k, 7.0f * k, 0.02f, 3.0f),   // p13: tails run half the frame   // p04: smaller head, longer tail   // p03: a nearly straight trail   // p01: head 0.3 m (teardrop in the shader), trail wave 0.06 m over 2 m   // d34: head 0.28 -> 0.4 m (every paper: a dot head on a tube)   // d09: head 0.24 -> 0.28 m   // c05: head 0.3 -> 0.24 m (the teardrop flame is about half the old width), licks 3.6 m, trail wave 0.05 m over 3 m   // c03: ribbon wave 0.11 m over 2.2 m (wavy, not a straight line)   // c01: head 0.3 m, ribbon wave 0.04 m (it follows the flame's path)   // b04: head 0.26 m, the flame a long tapering streak (shader)   // b03: head 0.2 -> 0.27 m (the body is twice as wide in the shader)
                 });
         }
 
