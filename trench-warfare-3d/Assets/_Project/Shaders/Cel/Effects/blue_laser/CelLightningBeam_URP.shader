@@ -112,7 +112,7 @@ Shader "TW/Cel/LightningBeam"
                 float halfW = width * 0.5;
                 // r03: size.x is the width AT THE TARGET; nearer the eye the spindle is thinner in metres (painted
                 // dashes keep a readable screen width down the beam: about 2.5x the target's at 10x nearer)
-                float scaleW = thread ? 1.0 : clamp(pow(PixelMetres(p) / max(PixelMetres(r.pos + span), 1e-6), 0.6), 0.15, 2.0);
+                float scaleW = thread ? 1.0 : clamp(pow(PixelMetres(p) / max(PixelMetres(r.pos + span), 1e-6), 0.1), 0.15, 2.0);   // c02: the clip's near stretch is ~2x wider on screen than at the dummy
                 halfW *= scaleW;
                 // going out the line keeps at least ~1.3 px of half-width (2.5 px wide at Far)
                 halfW = max(halfW, 1.3 * saturate(_CelLod.x * 0.5) * PixelMetres(p) * alive * open);
@@ -221,40 +221,29 @@ Shader "TW/Cel/LightningBeam"
                 float a = i.beam.x, y = i.beam.y, u = i.beam.z;
                 float tick = floor(_CelNow * 16.0);
                 float salt = i.shape.z * 97.0 + tick * 13.7;
-                // the spindle: pointed at both ends, fullest a little behind the head
-                // b07: a straight rod with pointed tips (b06b's sine spindle read as a fat lens)
-                float prof = pow(saturate(min(a * 4.0, (1.0 - a) * 3.0)), 0.6);
-                // the centre line zig-zags (two scales, in half-widths) and the outline is ragged
+                // c01 (by eye against the clip, 2026-11-13): each bolt is a COMET, not a spindle. A small round white-hot
+                // head (a = 1), a thin pale body behind it and a wider, fainter, softer tail; the brightness falls from
+                // the head to the tail so the ramp's white core sits at the head and the tail stays in the dim cyan bands.
                 // r03: the cells scale with the width (more.w), or the foreshortened far half aliases away
                 float cs = max(i.more.w, 0.15);
-                // b04: the kinks' size changes along the dash (an amplitude on its own long zig-zag, 0.25..1.75), and a
-                // sharp third scale, so the edge reads as irregular lightning kinks and not an even wave
-                float ampK = 1.0 + 0.75 * Zig(u, 1.3 * cs, salt + 71.0);
-                // b05: less dense fine wiggle (b04 read as an even braid) and 1-2 sharp kinks per dash: a tent offset at a seeded
-                // place along the dash, re-cut each tick
-                float kA = 0.25 + 0.5 * CelHash21(float2(salt, 3.1));
-                float kS = (CelHash21(float2(salt, 5.7)) > 0.5 ? 1.0 : -1.0) * (0.9 + 0.8 * CelHash21(float2(salt, 8.3)));
-                float kinkD = kS * saturate(1.0 - abs(a - kA) / 0.18) + 0.6 * kS * saturate(1.0 - abs(a - kA - 0.4) / 0.12);
-                // b06: the even wiggle is cut to a third and the tent kinks doubled (b05 read as an even braided lens)
-                float zig = (Zig(u, 0.42 * cs, salt) * ampK * 0.35 + 0.08 * Zig(u, 0.13 * cs, salt + 5.1) + 0.05 * Zig(u, 0.045 * cs, salt + 77.0) - kinkD * 2.0) * i.shape.x * 1.6;
-                float rag = 1.0 + 0.2 * Zig(u, 0.07 * cs, salt + 9.3);
-                float w = prof * rag;
-                float dy = abs(y - zig * prof);
-                float field = saturate(1.0 - dy / max(w, 1e-3));
-                field = field * lerp(0.75, 1.0, saturate(a * 1.5));
-                // r04: a fine wisp (1-2 px) weaving about the spindle on its own zig-zag, out to ~2 half-widths
-                float wz = (Zig(u, 0.2 * cs, salt + 17.0) + 0.6 * Zig(u, 0.065 * cs, salt + 23.0)) * 1.4;
-                // b01: brighter, and a second, wider wisp on its own zig-zag: lightning arcs wrapping the dash
-                float wisp = saturate(1.0 - abs(y - wz * prof) / 0.32) * step(0.25, prof) * 0.8 * step(0.15, i.shape.x);
-                float wz2 = (Zig(u, 0.16 * cs, salt + 41.0) + 0.7 * Zig(u, 0.05 * cs, salt + 47.0)) * 2.3;
-                float wisp2 = saturate(1.0 - abs(y - wz2 * prof) / 0.28) * step(0.3, prof) * 0.75 * step(0.15, i.shape.x);
-                // b02: the wisps only show in some cells (b01's ran the dash's whole length: an even sine wrapping a rod)
-                float wc = 0.9 * cs;
-                // b04: fewer still (the critic read b03's wisps as an even sine edge)
-                // b06: rarer still (the wrapping wisps made the bolts read as braided)
-                wisp *= step(0.94, CelHash21(float2(floor(u / wc), salt + 61.0)));   // b07: rarer
-                wisp2 *= step(0.98, CelHash21(float2(floor(u / wc + 0.5), salt + 67.0)));
-                field = max(field, max(wisp, wisp2));
+                float tail = 1.0 - a;
+                float headB = exp(-tail * tail * 70.0);
+                // c03: a round tip (a quarter circle over the last 1/12 of the window), not a chevron
+                float tipT = saturate(tail * 16.0);
+                float tip = sqrt(saturate(1.0 - (1.0 - tipT) * (1.0 - tipT)));
+                float w = (0.34 + 0.22 * pow(tail, 1.4) + 0.55 * headB) * tip * sqrt(saturate(a * 5.0));   // c04: a smaller head bulb; c05: a thinner tail
+                float glow = lerp(0.26, 1.0, a * a) * (1.0 + 0.6 * headB);   // c05: the tail fades more
+                if (i.more.z > 0.5) { w = 0.6; glow = 1.0; }   // the far thread stays an even line
+                float prof = w;
+                // the centre line carries one gentle long wave and a smaller one (the clip's bolts are smooth, not braided)
+                float zig = (0.5 * Zig(u, 3.0 * cs, salt) + 0.25 * Zig(u, 1.1 * cs, salt + 5.1)) * i.shape.x;
+                float dy = abs(y - zig);
+                float field = saturate(1.0 - dy / max(w, 1e-3)) * glow;
+                // a thin crackle hair weaving about the TAIL only (the clip's tails fray into a fine electric wisp)
+                float wz = (Zig(u, 0.25 * cs, salt + 17.0) + 0.6 * Zig(u, 0.08 * cs, salt + 23.0)) * 2.0 + zig;
+                float wisp = saturate(1.0 - abs(y - wz) / 0.3) * (1.0 - smoothstep(0.2, 0.5, a)) * 0.32 * step(0.15, i.shape.x) * step(0.05, prof);
+                wisp *= step(0.7, CelHash21(float2(floor(u / (0.9 * cs)), salt + 61.0)));
+                field = max(field, wisp);
                 // b06: half-width in screen px, so hairs and sparks keep a minimum size down the beam
                 float hwPx = i.beam.w / max(PixelMetres(i.positionWS), 1e-6);
                 float onePx = 1.0 / max(hwPx, 0.5);
@@ -280,7 +269,7 @@ Shader "TW/Cel/LightningBeam"
                         // b06: 2.5-6.5 half-widths (10-30 px off the thinner bolt near the frame edge)
                         float reach = BEAM_PAD * (0.32 + 0.5 * CelHash21(float2(id, salt + 6.0)));
                         float kink = 0.9 * Zig(u, 0.06, salt + id) + 0.5 * Zig(u, 0.025, salt + id + 3.3);
-                        float yb = sgn * (pow(t, 0.8) * reach + kink) + zig * prof;
+                        float yb = sgn * (pow(t, 0.8) * reach + kink) + zig;
                         // b04: wider and white at the root (b03's 0.5-half-width arcs were all ink), and forked: a second,
                         // flatter arm leaves the arc at 0.35-0.6 of its length
                         // b06: hair-thin forks (~1.5-2 px), never under ~1.2 px
@@ -289,31 +278,37 @@ Shader "TW/Cel/LightningBeam"
                         float tf = 0.35 + 0.25 * CelHash21(float2(id, salt + 8.0));
                         if (t > tf)
                         {
-                            float ybf = sgn * (pow(tf, 0.8) * reach + (t - tf) * reach * 0.3 + 0.7 * Zig(u, 0.04, salt + id + 9.1)) + zig * prof;
+                            float ybf = sgn * (pow(tf, 0.8) * reach + (t - tf) * reach * 0.3 + 0.7 * Zig(u, 0.04, salt + id + 9.1)) + zig;
                             bf = max(bf, saturate(1.0 - abs(y - ybf) / (bw * 0.8)) * 0.8);
                         }
                         br = max(br, bf * step(0.15, prof));
                     }
-                    // b06: small white sparks along the bolt (6-12 per bolt), off the core by 1.5-5.5 half-widths, re-cut each tick
-                    float scell = 0.22 * cs;
+                }
+                // b06: small white sparks along the bolt, off the core by 1.5-5.5 half-widths, re-cut each tick
+                // c01: a few per bolt (the clip shows 2-4 pale dots beside a bolt), drawn with or without branch arcs
+                {
+                    float scell = 0.3 * cs;
                     float si = floor(u / scell);
                     float hs = CelHash21(float2(si, salt + 51.0));
-                    if (hs > 0.45)
+                    if (hs > 0.78)
                     {
                         float sx = (si + 0.2 + 0.6 * CelHash21(float2(si, salt + 52.0))) * scell;
                         float sg = CelHash21(float2(si, salt + 53.0)) > 0.5 ? 1.0 : -1.0;
-                        float sy = sg * (1.5 + 4.0 * CelHash21(float2(si, salt + 54.0))) + zig * prof;
-                        float sr = max(0.35 + 0.3 * hs, 1.3 * onePx);
+                        float sy = sg * (1.5 + 4.0 * CelHash21(float2(si, salt + 54.0))) + zig;
+                        float sr = max(0.3 + 0.3 * hs, 1.3 * onePx);
                         float dS = length(float2((u - sx) / max(i.beam.w, 1e-4), y - sy));
-                        br = max(br, saturate(1.0 - dS / sr) * step(0.2, prof));
+                        br = max(br, saturate(1.0 - dS / sr) * step(0.2, prof) * 0.8);
                     }
                 }
                 field = max(field, br);
                 float thr = max(i.tone.w, 0.02);
-                float mask = CelAAStep(thr, field);
-                // the ink: a dark line just inside the edge (thinner going out; none on the far thread)
-                float inkPx = CelLodInk(0.9) * (1.0 - i.more.z);
-                float ink = CelInk(field, thr, inkPx) * mask;
+                // c01: a crisp cel edge at the head, a soft airbrushed edge down the tail (the clip's tails feather out)
+                float maskHard = CelAAStep(thr, field);
+                float maskSoft = smoothstep(thr, thr + 0.3, field);
+                float mask = lerp(maskSoft, maskHard, smoothstep(0.35, 0.75, a));
+                // the ink: only at the head's half (thinner going out; none on the far thread); the palette's ink is pale
+                float inkPx = CelLodInk(0.7) * (1.0 - i.more.z);
+                float ink = CelInk(field, thr, inkPx) * mask * smoothstep(0.4, 0.8, a);
                 half3 body = CelRamp(field, row, i.tone.y);
                 half3 inkC = CelPalInk(row).rgb;
                 half3 straight = lerp(body, inkC, ink);
@@ -322,10 +317,12 @@ Shader "TW/Cel/LightningBeam"
                 // the halo: dim blue light a few half-widths around the spindle (not around the arcs)
                 // r03: tighter and softer (the clip's beam is pale cyan, not ringed in saturated blue)
                 // b07: a tight rim (2 half-widths, was 4: the wide halo made the bolt 20-30 px fat)
-                float halo = saturate(1.0 - (dy - w) / max(2.6 * prof, 1e-3)) * step(0.05, prof) * (1.0 - mask);
-                halo = CelAAStep(0.55, halo) * 0.4 + CelAAStep(0.02, halo) * 0.6;
-                // b06: a brighter cyan glow round the thinner bolt
-                half3 add = CelPal(row, 0) * halo * 0.95 * i.tone.z * (1.0 - i.more.z);
+                // c01: a wide soft pale-cyan bloom (no bands), fuller round the head, that fades with the tail
+                // c03: a gaussian fringe that dies well inside the quad (BEAM_PAD), so it never shows a cut edge
+                float hd = max(dy - w, 0.0) / max(3.2 * prof + 0.8, 1e-3);   // c05: a wider fringe round a thinner core
+                float halo = exp(-hd * hd * 2.0) * step(0.05, prof) * (1.0 - mask) * saturate((BEAM_PAD - 0.5 - dy) * 2.0);
+                halo *= lerp(0.4, 1.0, saturate(glow));
+                half3 add = CelPal(row, 0) * halo * 0.85 * i.tone.z * (1.0 - i.more.z);
                 // the far thread is all light: no cover, it adds
                 if (i.more.z > 0.5) { add += body * mask * i.tone.z; cover = 0.0; straight = 0; }
                 add = AddFog(add, i.positionWS, i.more.x, i.more.y);
