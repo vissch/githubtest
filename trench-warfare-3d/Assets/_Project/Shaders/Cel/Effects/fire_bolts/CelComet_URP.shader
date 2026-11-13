@@ -437,6 +437,25 @@ Shader "TW/Cel/Comet"
                         rField = max(rField, (sc > 0.0 && sc < len) ? saturate(1.0 - d) * alivePuff : 0.0);
                     }
                 }
+                else if (hr > 1e-5)
+                {
+                    // p31 (REF 3x, f41-66): a bolt's smoke trail is a BUNDLE of 2-4 thin pale strands (6-12 px) braided round
+                    //      the path with dark gaps between them, fibrous along their length, twisting, spreading apart and
+                    //      thickening further back, running to the frame's edge. One smooth band read as motion blur.
+                    float spread = 0.5 + 0.9 * saturate((s - ribbonStart) / max(wl * 2.0, 1e-3));
+                    rField = 0.0;
+                    [unroll] for (int js = 0; js < 3; js++)   // p31b: three strands (four thin ones read as hair)
+                    {
+                        float hs = CelHash21(float2(js, seed * 71.0)), hs2 = CelHash21(float2(js + 17.0, seed * 29.0));
+                        float off = rwid * spread * (0.8 * (js - 1.0) + 0.18 * sin(6.2832 * s / (wl * (0.6 + 0.4 * hs)) + hs * 40.0 + i.misc.z * (1.0 + hs2)));   // p31b: a slight twist, nearly straight (REF)
+                        float ws = rwid * (0.3 + 0.2 * hs2) * (0.8 + 0.8 * saturate(s / max(wl * 2.0, 1e-3)));   // p31b: 8-15 px strands, thickening back (REF)
+                        float dy = y - yc - off;
+                        float fs = saturate(1.0 - abs(dy) / max(ws, 1e-4));
+                        float fib = CelValue2(float2(s / max(ws * 4.0, 1e-3) - i.misc.z * 1.5 + hs * 9.0, dy / max(ws * 0.5, 1e-4) + seed * 3.0));
+                        fs = pow(fs, 1.3) * (0.55 + 0.6 * fib) * (0.35 + 0.65 * hs);   // p31c: one strand bright, the others fainter (REF)   // p31b: softer, less fibrous
+                        rField = max(rField, (s > ribbonStart) ? fs : 0.0);
+                    }
+                }
                 else
                 {
                     rField = (s > ribbonStart) ? saturate(1.0 - abs(y - yc) / max(rwid, 1e-4)) : 0.0;
@@ -457,7 +476,7 @@ Shader "TW/Cel/Comet"
                 float lodY = _CelLod.y > 0.0 ? _CelLod.y : 1.0;
                 float rFade = lerp(saturate(taper * lerp(2.2, 5.0, step(1e-5, hr))) * saturate(lodY * 4.0 - 2.0), 1.0, puffs);   // p27l: a bolt's smear holds to the last fifth of the quad (REF: past the body's end)   // p27k: full at lod <= 1 (0.7 at the close film read as a grey cloud), gone at lod 2
                 rFade = lerp(rFade, saturate(taper * 6.0) * saturate(lodY * 2.0 - 0.6), strand);   // b05: fades only near its base
-                float rOp = saturate(i.tone.z) * rFade * lerp(1.0, 0.35 + 0.65 * taper, step(1e-5, hr));   // p29c: a bolt's contrail fades toward its far end (REF)
+                float rOp = saturate(i.tone.z) * rFade * lerp(1.0, 0.55 + 0.45 * taper, step(1e-5, hr));   // p31: the strands stay visible far back (REF)   // p29c: a bolt's contrail fades toward its far end (REF)
                 col *= lerp(rFade, 1.0, rInk);
                 float a = rMask * lerp(rOp, 1.0, rInk);
 
