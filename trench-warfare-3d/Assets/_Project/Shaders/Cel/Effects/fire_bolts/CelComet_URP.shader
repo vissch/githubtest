@@ -405,10 +405,11 @@ Shader "TW/Cel/Comet"
                     // BODY
                     float bodyL = max(min(fl * 0.55, hr * 14.0), 1e-3);
                     float sb = saturate(s / bodyL);
+                    float sway = fireMode * hr * 0.35 * sin(t * 6.0 + seed * 9.0) * sb;   // p18: a standing flame leans and flickers
                     float eN = CelValue2(float2(s / max(hr * 0.7, 1e-3) + t * 9.0, seed * 41.0 + step(0.0, y) * 5.0))
                              + 0.6 * CelValue2(float2(s / max(hr * 0.25, 1e-3) - t * 13.0, seed * 17.0 + step(0.0, y) * 3.0));
-                    float wHaze = hr * lerp(1.0, 0.22, pow(sb, 0.7)) * (0.5 + 0.7 * eN);
-                    float across = saturate(1.0 - abs(y) / max(wHaze, 1e-4)) * smoothstep(-hr * 0.5, hr * 0.4, s);
+                    float wHaze = hr * lerp(lerp(1.0, 0.22, pow(sb, 0.7)), lerp(1.25, 0.35, sb), fireMode) * (0.5 + 0.7 * eN);   // p18: a standing flame stays wide
+                    float across = saturate(1.0 - abs(y - sway) / max(wHaze, 1e-4)) * smoothstep(-hr * 0.5, hr * 0.4, s);
                     float haze = smoothstep(0.0, 0.35, across) * (1.0 - sb * sb) * (0.97 - 0.4 * sb);
                     // STREAKS
                     float streak = 0.0, streakHeat = 0.0, streakU = 1.0;
@@ -416,9 +417,9 @@ Shader "TW/Cel/Comet"
                     {
                         float hk = CelHash21(float2(k7, seed * 57.0));
                         float hk2 = CelHash21(float2(k7 + 31.0, seed * 19.0));
-                        float Lk = fl * (0.5 + 0.6 * hk);
+                        float Lk = fl * (0.5 + 0.6 * hk) * lerp(1.0, 0.45, fireMode);   // p18: short licks on a standing flame
                         float uk = saturate(s / max(Lk, 1e-3));
-                        float yk = hr * 0.85 * ((k7 - 3.0) / 3.0) * (0.3 + 0.7 * uk)
+                        float yk = sway + hr * lerp(0.85, 1.3, fireMode) * ((k7 - 3.0) / 3.0) * (0.3 + 0.7 * uk)
                                  + hr * 0.07 * sin(s * 0.9 / max(hr, 1e-3) + hk * 20.0 - t * 5.0) * uk;
                         float wk = hr * (0.07 + 0.10 * hk2) * (1.0 - 0.5 * uk);
                         float fk = (s >= 0.0 && s <= Lk) ? saturate(1.0 - abs(y - yk) / max(wk, 1e-4)) : 0.0;
@@ -427,7 +428,7 @@ Shader "TW/Cel/Comet"
                         if (fk > streak) { streak = fk; streakHeat = fk * hot; streakU = uk; }
                     }
                     float headA = saturate(headF * 4.0);
-                    float tailA = max(streak * 0.55, haze);
+                    float tailA = max(streak * lerp(0.55, 0.35, fireMode), haze);
                     float alphaF = saturate(max(headA, tailA) * (0.75 + 0.35 * grain)) * has * fireEnv;   // p16: a standing flame fades in and out
                     float bodyHeat = step(1e-4, haze) * (0.3 + 0.7 * pow(1.0 - sb, 1.3)) * (0.5 + 0.6 * pow(across, 1.5));   // p15: hotter down the middle
                     float heat = max(saturate(headF * 0.9 + 0.5) * step(0.0, headF),
