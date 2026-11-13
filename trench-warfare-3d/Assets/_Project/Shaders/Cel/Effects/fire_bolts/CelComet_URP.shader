@@ -446,7 +446,7 @@ Shader "TW/Cel/Comet"
                     float yy = y - sway;
                     float wob = 0.7 + 0.45 * CelValue2(float2(s / max(hr * 2.5, 1e-3) - t * 5.0, seed * 3.0 + step(0.0, yy) * 2.0))   // p23d: bigger bulges
                               + 0.15 * CelValue2(float2(s / max(hr * 0.6, 1e-3) + t * 17.0, seed * 7.0 + step(0.0, yy) * 11.0));
-                    float halfW = hr * lerp(1.1, 0.8, pow(sb, 1.5)) * (1.0 - pow(sb, 8.0)) * wob * lerp(1.0, 2.2, fireMode);   // p23g: a wide fire   // p23c: thicker (REF: 26 px of cream+yellow at 1344)
+                    float halfW = hr * lerp(1.1, 0.8, pow(sb, 1.5)) * (1.0 - pow(sb, 8.0)) * wob * lerp(1.0, 1.5, fireMode);   // p23h: a wide fire, inside its quad   // p23c: thicker (REF: 26 px of cream+yellow at 1344)
                     // HEAD
                     float ang = atan2(yy, s);
                     float back = saturate(s / max(hr, 1e-4) + 0.3);
@@ -502,7 +502,7 @@ Shader "TW/Cel/Comet"
                     float yq = yy + hr * 0.35;
                     float qH = min((s > -hr * 0.5) ? abs(yq) / max(halfW * 2.0 + hr * 0.4, 1e-4) : 10.0, length(float2(s / max(ax * 2.0, 1e-4), yq / max(hr * 2.0, 1e-4))) / max(hrad, 0.3));
                     qH += 0.15 * (grain - 0.5);
-                    float haloA = (1.0 - smoothstep(0.45, 1.0, qH)) * 0.85 * (1.0 - 0.4 * sb) * has * fireEnv * (1.0 - fireMode * 0.5) * rear;   // p23b: stronger
+                    float haloA = (1.0 - smoothstep(0.45, 1.0, qH)) * 0.85 * (1.0 - 0.4 * sb) * has * fireEnv * (1.0 - fireMode) * rear;   // p23h: no dark halo on a standing flame (it filled the quad: a red box)
                     col = lerp(col, c0, haloA);
                     a = lerp(a, 1.0, haloA);
                     col = lerp(col, fCol, alphaF);
