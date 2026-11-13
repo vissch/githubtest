@@ -389,8 +389,8 @@ Shader "TW/Cel/Comet"
                     // HEAD
                     float ang = atan2(y, s);
                     float back = saturate(s / max(hr, 1e-4) + 0.4);
-                    float tips = CelValue2(float2(ang * 3.0 + seed * 9.0, t * 9.0 + seed * 3.0)) + 0.5 * CelValue2(float2(ang * 7.0 - seed * 5.0, t * 14.0));
-                    float hrad = 1.0 + (tips / 1.5 - 0.5) * 0.9 * back;
+                    float tips = CelValue2(float2(ang * 2.2 + seed * 9.0, t * 8.0 + seed * 3.0)) + 0.4 * CelValue2(float2(ang * 5.0 - seed * 5.0, t * 13.0));
+                    float hrad = 1.0 + pow(saturate(tips / 1.4), 1.6) * 1.6 * back - 0.25 * back;   // p15: a few long pointed tips behind, the rest of the rim tucked in
                     float ax = s > 0.0 ? hr * 1.5 : hr * 0.85;   // p14: a smaller head, the body is as wide
                     float headD = length(float2(s / max(ax, 1e-4), y / max(hr * 0.8, 1e-4))) / max(hrad, 0.3);
                     float headF = 1.0 - headD;
@@ -416,19 +416,19 @@ Shader "TW/Cel/Comet"
                         float uk = saturate(s / max(Lk, 1e-3));
                         float yk = hr * 0.85 * ((k7 - 3.0) / 3.0) * (0.3 + 0.7 * uk)
                                  + hr * 0.07 * sin(s * 0.9 / max(hr, 1e-3) + hk * 20.0 - t * 5.0) * uk;
-                        float wk = hr * (0.08 + 0.12 * hk2) * (1.0 - 0.5 * uk);
+                        float wk = hr * (0.07 + 0.10 * hk2) * (1.0 - 0.5 * uk);
                         float fk = (s >= 0.0 && s <= Lk) ? saturate(1.0 - abs(y - yk) / max(wk, 1e-4)) : 0.0;
                         fk = smoothstep(0.0, 0.6, fk) * pow(saturate(1.0 - uk), 0.6);
-                        float hot = 0.45 + 0.55 * (1.0 - abs(k7 - 3.0) / 3.2);
+                        float hot = 0.6 + 0.6 * (1.0 - abs(k7 - 3.0) / 3.2);
                         if (fk > streak) { streak = fk; streakHeat = fk * hot; streakU = uk; }
                     }
                     float headA = saturate(headF * 4.0);
                     float tailA = max(streak * 0.55, haze);
                     float alphaF = saturate(max(headA, tailA) * (0.75 + 0.35 * grain)) * has;
-                    float bodyHeat = step(1e-4, haze) * (0.3 + 0.65 * pow(1.0 - sb, 1.3)) * (0.55 + 0.5 * across);
+                    float bodyHeat = step(1e-4, haze) * (0.3 + 0.7 * pow(1.0 - sb, 1.3)) * (0.5 + 0.6 * pow(across, 1.5));   // p15: hotter down the middle
                     float heat = max(saturate(headF * 0.9 + 0.5) * step(0.0, headF),
-                                     max(streakHeat * (0.85 - 0.45 * streakU) + 0.1 * step(1e-4, streak), bodyHeat));
-                    heat = saturate(heat + 0.18 * (grain - 0.5) - 0.28 * mark);
+                                     max(streakHeat * (0.95 - 0.6 * streakU) + 0.08 * step(1e-4, streak), bodyHeat));
+                    heat = saturate(heat + 0.26 * (grain - 0.5) - 0.28 * mark);   // p15: stronger streak grain
                     half3 c0 = CelPal(rowA, 0), c1 = CelPal(rowA, 1), c2 = CelPal(rowA, 2), c3 = CelPal(rowA, 3);
                     half3 cc = CelPalCore(rowA).rgb * i.tone.y;
                     half3 fCol = heat < 0.25 ? lerp(c0, c1, heat / 0.25)
