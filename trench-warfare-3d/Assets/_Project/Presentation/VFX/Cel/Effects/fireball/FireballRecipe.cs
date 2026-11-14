@@ -156,18 +156,28 @@ namespace TW.Presentation.VFX.Cel
             // ---- the embers the tail leaves along the path it flew (clip frames 24-44): round orange dots that
             // die from the far end.
             int embers = far ? 0 : mid ? 26 : 64;   // a29: the clip shows 17-42 dots a frame on the flown path
+            // a30: THIS RECIPE HAS ONE SHARED rng AND Rec() DRAWS FROM IT, so raising a count in a block that
+            // runs BEFORE another re-rolls that other block. a29 raised this count from 30 to 64 and silently
+            // re-rolled the burst's forty lobes (iou .524 -> .466). The first 30 dots therefore keep the shared
+            // stream's draws - the per-iteration draw count is unchanged at 5 Range + 1 Next - and only the
+            // extra ones take their own stream, the way Glow() already does.
+            var own = new CelRng(seed ^ 0x5EEDu);
             for (int i = 0; i < embers; i++)
             {
+                ref CelRng use = ref (i < 30 ? ref rng : ref own);
                 float back = (i + 0.5f) / Mathf.Max(1, embers);
                 // a29: the dots have FALLEN OUT of the tail and lie near the sand. Deposited on the ballistic
                 // line itself they sat a metre high - 75 px above the clip's y 430-500 band, out of the crop.
-                Vector3 at = Along(from, target, Flight * (1f - back * 0.82f)) + Vector3.up * rng.Range(-1.5f, -0.5f)
-                             + right * rng.Range(-0.4f, 0.4f);
+                Vector3 at = Along(from, target, Flight * (1f - back * 0.82f)) + Vector3.up * use.Range(-1.5f, -0.5f)
+                             + right * use.Range(-0.4f, 0.4f);
                 at.y = Mathf.Max(at.y, Ground(at) + 0.15f);   // and never under the sand
-                float rad = rng.Range(0.05f, 0.12f);
-                var r = Rec(now, OnTwos(hit - back * 0.12f), rng.Range(0.50f, 0.85f) * (1f - back * 0.5f),   // a29: the clip's line lives to f44
-                    FireballKind.Drop, at, Spark, 1f, ref rng);
-                r.Vel = Vector3.up * rng.Range(0.2f, 0.9f);
+                float rad = use.Range(0.05f, 0.12f);
+                // a30: the deposit is spread over fourteen frames, not three (the clip's line still has ten dots
+                // at f44), and it is drawn from the Fire row - the clip's dots are ORANGE (hue 29), not the
+                // Spark row's pale yellow (hue 59).
+                var r = Rec(now, OnTwos(hit - back * 0.42f), use.Range(0.50f, 0.85f) * (1f - back * 0.5f),
+                    FireballKind.Drop, at, Fire, 1f, ref use);
+                r.Vel = Vector3.up * use.Range(0.2f, 0.9f);
                 r.Motion = new Vector4(1.2f, 0.6f, 0f, 0f);
                 r.Size = new Vector4(rad, rad * 0.5f, 1f, 0.004f);
                 r.Extra.y = 1f;
