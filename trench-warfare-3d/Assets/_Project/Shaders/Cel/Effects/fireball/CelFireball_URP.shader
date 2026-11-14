@@ -678,8 +678,17 @@ Shader "TW/Cel/Fireball"
                     // inside u = 0.17 (a dot) and put c1/c0 over most of the lobe.
                     float u = length(q - float2(-0.24, 0.28)) / max(rr, 1e-3);
                     float v = saturate((1.41 - u) / 1.03);
-                    col = CelRamp2(v, i.tone.x, max(i.tone.y, 0.0), ch, 0.0);
-                    col = lerp(col, CelInkColor(i.tone.x, ch, 0.0), CelInk(rr - d, 0.0, i.tone.w));
+                    // a13: the char is a SHELL, not a tone change. A dark cap closes over the lobe from its TOP
+                    // down as ch runs 0..1, its edge as ragged as the lobe's own, and the band under it goes on
+                    // burning: the clip's cooling is charcoal closing over fire, never a ball that dims all over.
+                    // Under the cap the lobe still darkens a little (0.22 ch) the way the clip's unburnt part
+                    // goes from yellow toward orange before the cap reaches it.
+                    float capY = lerp(1.25, -1.25, ch)
+                        + 0.34 * (CelValue2(dir * 3.1 + seed * 5.0 + tk * 0.017) - 0.5);
+                    float charred = Step(capY, q.y, pix);               // 1 above the front, 0 below it
+                    float chPix = max(0.22 * ch, charred);
+                    col = CelRamp2(v, i.tone.x, max(i.tone.y, 0.0), chPix, 0.0);
+                    col = lerp(col, CelInkColor(i.tone.x, chPix, 0.0), CelInk(rr - d, 0.0, i.tone.w));
                 }
                 else if (mode < 6.5)
                 {
