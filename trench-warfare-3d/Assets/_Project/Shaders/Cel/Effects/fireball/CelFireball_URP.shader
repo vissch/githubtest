@@ -210,6 +210,17 @@ Shader "TW/Cel/Fireball"
                     // COMPLETE (a12: a window, not a ramp that only finishes when the lobe dies)
                     shape = float4(tick, r.extra.y > 0.0 ? r.extra.y : 0.10, r.extra.z > 0.0 ? r.extra.z : 0.75,
                         r.erode.x > 0.0 ? r.erode.x : 1.0);
+                    // a22: where this pixel is in the WHOLE CLOUD, so the fragment can band the burst in the
+                    // cloud's frame instead of the lobe's. Axis is the lobe's offset from the burst's heart at
+                    // birth, so axis + (p - pos) is its offset NOW, drift and all. Projected on the billboard's
+                    // own basis (the same vr/vu CelBillboard builds its corners from) and divided by the cloud's
+                    // half-extents, so the fragment has nothing left to do but add its own q.
+                    // The card maps q to rad * (1, squash) metres from the lobe's middle (w = CelBillboard(p,
+                    // cq * rad * Card * (1, squash)) with q = cq * Card), which is the zw pair below.
+                    float3 coff = r.axis + (p - r.pos);
+                    float2 cloudR = float2(max(r.erode.y, 0.01), max(r.erode.z, 0.01));
+                    shape2 = float4(dot(coff, vr) / cloudR.x, dot(coff, vu) / cloudR.y,
+                        rad / cloudR.x, rad * squash / cloudR.y);
                 }
                 else if (mode < 6.5)
                 {
@@ -671,12 +682,40 @@ Shader "TW/Cel/Fireball"
                     float lump2 = CelValue2(dir * 5.1 - seed * 9.0 - tk * 0.013) - 0.5;
                     float rr = 1.0 + amp * (1.6 * lump + 0.8 * lump2);   // its own edge, in q
                     al = 1.0 - Step(rr, d, pix);                        // one hard cel edge, nothing soft
-                    // a08: the band field. u is the distance from the highlight in units of the lobe's own radius;
+                    // a22, the THIRD and last budgeted round of the burst's recorded diagnosis: THE BAND FIELD IS
+                    // MEASURED IN THE CLOUD, NOT IN THE LOBE. a20 took the per-lobe ink contour off and the cloud
+                    // still read as a heap of countable balls; a21 squeezed the per-lobe annulus into a thin rind
+                    // and it still did (and lost the clip's yellow body and its whole orange-red cooling stage).
+                    // So what fences the lobes is not the band's WIDTH but its FRAME: a field measured from each
+                    // lobe's own highlight in each lobe's own card gives two overlapping lobes DIFFERENT values in
+                    // the pixels they share, and a seam is drawn wherever they meet - the shingled roof of tiles
+                    // the reader saw at 3x in a21, each tile wearing its own yellow and orange-red arc through the
+                    // middle of the mass. The clip at f40 is one YELLOW FIELD carrying large irregular creamy
+                    // white blobs that run across several lobes and ignore lobe centres, with the only orange-red
+                    // a hard line on the mass's OUTER bottom edge.
+                    // cloudQ is this pixel's place in the whole cloud, in the cloud's half-extents (the vertex did
+                    // the projection and the divide). It is CONTINUOUS ACROSS LOBES, so two overlapping lobes
+                    // compute the same band value where they overlap and no seam between them can be drawn; and
+                    // the orange-red, which the ramp puts beyond u = 1.15, can only reach pixels far from the
+                    // cloud's middle - its outer silhouette, the one place the clip has it.
+                    float2 cloudQ = i.shape2.xy + q * i.shape2.zw;
+                    // the cloud's own highlight, high and to the eye's left, the way the lobe's used to be
+                    float un = length(cloudQ - float2(-0.20, 0.26));
+                    // ...and made IRREGULAR in the same cloud frame, because a purely radial cloud field is only
+                    // the same mistake at cloud scale - one big bullseye - while the clip's whites are blobs. This
+                    // noise is in CLOUD coordinates with NO per-lobe seed, so its blobs span lobes and ignore
+                    // lobe centres exactly as the clip's do (about 1.4 m across at this frequency).
+                    float blob = CelValue2(cloudQ * 1.9 + 31.7) + 0.5 * CelValue2(cloudQ * 4.3 - 11.3) - 0.75;
+                    // a08: the band field. u WAS the distance from the highlight in units of the lobe's own
+                    // radius (a22 measures it in the cloud instead; the proportions below are a08's and stand);
                     // v holds above the ramp's core threshold (0.88) out to u = 0.5 and only falls under its first
-                    // threshold (0.25) beyond u = 1.15, so the lobe is mostly core and yellow with the orange-red
+                    // threshold (0.25) beyond u = 1.15, so the mass is mostly core and yellow with the orange-red
                     // left as its outermost sliver - the clip's proportions. a07's 1 - u/1.42 reached the core
                     // inside u = 0.17 (a dot) and put c1/c0 over most of the lobe.
-                    float u = length(q - float2(-0.24, 0.28)) / max(rr, 1e-3);
+                    // NOT saturate(): u must be free to pass 1.15, which is where the ramp hands over to the
+                    // orange-red. Clamping it at 1 would leave v at 0.398, above the first threshold, and the
+                    // orange-red rim this whole round is about could never be drawn anywhere.
+                    float u = max(un + 0.50 * blob, 0.0);
                     // a21, the second round of the burst's recorded diagnosis. a20 took the ink contour off every
                     // lobe and the cloud STILL read as a heap of countable balls, so the line was not what fences
                     // them: the independent reader named the band field instead - "the full-circle ORANGE RIM
@@ -685,11 +724,15 @@ Shader "TW/Cel/Fireball"
                     // irregular blobs that run across several lobes and ignore lobe centres". a08's field put the
                     // core inside u = 0.50 and the first threshold at u = 1.15, so every lobe wore a wide yellow
                     // and orange-red annulus - a bullseye, drawn in the middle of the mass as well as at its edge.
-                    // a21 pushes the core out to u = 0.90 and the first threshold to u = 1.22, leaving the warm
-                    // bands as a thin RIND on the last tenth of the radius: neighbouring cores then touch and run
-                    // together into one white-yellow field, and the only orange-red left visible is on lobes no
-                    // neighbour covers - the cloud's OUTER silhouette, which is the one place the clip has it.
-                    float v = saturate((1.35 - u) / 0.51);
+                    // a21 pushed the core out to u = 0.90 and the first threshold to u = 1.22, leaving the warm
+                    // bands as a thin RIND on the last tenth of the radius. FALSIFIED: the cores did merge, the
+                    // cloud still read as a heap, and the price was the clip's yellow body (ours went to paper
+                    // white) and its whole orange-red cooling stage (f54-f60 went white bellies under black caps).
+                    // a22 puts a08's PROPORTIONS back - core to u = 0.50, yellow to 1.15, orange-red beyond - now
+                    // that u is measured in the cloud: at cloud scale a wide band IS the clip, one yellow field
+                    // with a warm rim, and the same width that drew a bullseye on every lobe draws it once, on the
+                    // whole mass. Reverting a21 is not a second change; it is what the new frame must be tested on.
+                    float v = saturate((1.41 - u) / 1.03);
                     // a13: the char is a SHELL, not a tone change. A dark cap closes over the lobe from its TOP
                     // down as ch runs 0..1, its edge as ragged as the lobe's own, and the band under it goes on
                     // burning: the clip's cooling is charcoal closing over fire, never a ball that dims all over.

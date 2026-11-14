@@ -265,6 +265,25 @@ namespace TW.Presentation.VFX.Cel
                 // about f70 and our burst was wholly dark from f72, where the clip still has red-orange cracks
                 // burning in the charcoal until f76.
                 r.Erode = new Vector4(0.86f, 0f, 1f, 0f);
+                // a22, the THIRD and last budgeted round of the burst's recorded diagnosis: the band field
+                // referenced to the CLOUD, not to each lobe. a20 took the per-lobe ink off and the cloud still
+                // read as a heap of countable balls; a21 squeezed the per-lobe annulus into a thin rind and it
+                // STILL did, so the fencing is not the band's WIDTH but the FRAME it is measured in - mode 5
+                // evaluates it in each lobe's own card, from each lobe's own highlight, so two overlapping lobes
+                // shade differently in the pixels they share and draw a seam wherever they meet. The clip at f40
+                // is one yellow field with large irregular white blobs running ACROSS several lobes and ignoring
+                // lobe centres, orange-red only along the mass's outer bottom edge.
+                // Mode 5 reads neither Axis nor Erode.yz, so they carry the cloud to the shader at no cost:
+                //   Axis    this lobe's offset from the burst's HEART (metres, world; the vertex adds the lobe's
+                //           own drift back in, so the shader has p - heart at the drawn age)
+                //   Erode.y the cloud's half-extent ACROSS the view, z its half-extent UP (metres), the units the
+                //           band field is measured in. 2.60 / 1.55 from this recipe's own geometry: a lobe sits
+                //           within BurstRadius 3.25 x spread (1.35 at the foot to 0.50 at the top) across and
+                //           within BurstTall 2.70 x 1.25 / 2 up, so u = 1.15 - where the ramp hands over to the
+                //           orange-red - falls near the visible outer edge of the mass and nowhere inside it.
+                r.Axis = at - heart;
+                r.Erode.y = 2.60f;
+                r.Erode.z = 1.55f;
                 renderer.Spawn(kind, r);
 
                 // the same lobe charred, then flat brown: it comes up as the fire goes and breaks up by frame 112
