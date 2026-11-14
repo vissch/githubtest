@@ -205,7 +205,18 @@ namespace TW.Presentation.VFX.Cel
                 // a18: six bands with a jitter that spans a whole band each way, so neighbouring bands interleave
                 // and no horizontal seam can form. a17's three hard rows broke the cloud into three clusters with
                 // ground between them; the height distribution stays even foot-to-top either way.
-                int band = i * 6 / Mathf.Max(lobes, 1);
+                // a19: the band INDEX is weighted toward the FOOT. a18 gave all six bands an equal share
+                // (7/7/6/7/7/6 of 40) and the profile came out TOP-heavy, 177/271/276 against the clip's
+                // 298/232/240. Width here is lit pixels in a scanline, so a band with a wide spread and the
+                // same lobe count simply strews thin while a narrow band packs solid: the top bands at spread
+                // 0.50 fill in, the foot bands at 1.35 are spread over 2.7x the room and go to holes. So each
+                // band is given lobes in proportion to the horizontal room it is allowed - the inverse CDF of
+                // the spread term itself - and the lit area per band comes out even: 9/8/8/6/5/4 of 40 close,
+                // 5/5/4/3/3/2 of 22 mid, the far LOD's 4 unchanged. The profile is set by how many lobes are
+                // low, not by how wide each band may spread (a16 + a17 + a18 together).
+                float f01 = (i + 0.5f) / Mathf.Max(lobes, 1);
+                float u01 = (1.35f - Mathf.Sqrt(1.8225f - 1.5725f * f01)) / 0.85f;
+                int band = Mathf.Clamp((int)(u01 * 6f), 0, 5);
                 float up01 = Mathf.Clamp01((band + rng.Range(-0.6f, 1.6f)) / 6f);   // 0 at the foot, 1 at the top
                 // a16: 1.35 at the foot, 0.55 at the top, not 1.00/0.60. The clip's widths at 25/50/75 % of its
                 // height are 233/159/163 - widest in the dirt, narrowing as it rises - and a15 measured
