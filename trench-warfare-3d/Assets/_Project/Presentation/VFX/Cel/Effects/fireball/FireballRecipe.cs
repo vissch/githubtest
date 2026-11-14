@@ -1,141 +1,71 @@
-// Phase: CelFx fireball (2026-11-14) - a jet of fireball arcs onto a target, heaps over it, pools round its foot,
-// bubbles and leaves green smoke (reference clip fireball_nolora, 8 s at 24 fps, drawn on twos).
-// Every number below was read off the clip: the arc and its speed from a 3D fit to the beach Range's camera
-// (the head crosses the frame in six frames), the times from its frames (the comments name them, the effect
-// starting on frame 12), the sizes from rays cast on the ground at the dummy's foot, the colours from its pixels
-// taken back through the night grade (a film of flat swatches gave the grade).
+// Phase: CelFx fireball (2026-11-14, round a02) - THE BLOCK-IN. A comet of fire flies in from the eye's left,
+// hits the dummy and bursts into a cloud of round cel lobes that cool to brown smoke and break up, with white
+// spark rays, falling embers, a line of embers left along the comet's path and an orange light on the ground.
+// Reference: fireball_nolora.mp4, 192 f at 24 fps, drawn on twos. Everything below is read off that clip and
+// written out in celfx/spec/eye/fireball.md ("Numbers for the block-in"); nothing here has been fitted to a film
+// of this effect yet, so every size, place and colour is a FIRST GUESS to be corrected from the first film.
+// Crude on purpose (SKILL.md 16 step 4: right place, size, time and colour, no detail).
+//
+// It draws through the kind's own shader (CelFireball_URP, copied from neon_acid in a01) and uses four of its
+// eight modes: 1 drop (the comet's head, its tail, the tail embers, the spark rays, the falling embers), 2 splat
+// (the hit), 6 puff (the lobes of the burst and the smoke they cool into) and 7 glow (the ground light). The
+// strand, mound, puddle and bubble modes of that shader are not used by the fireball and nothing spawns them.
 using UnityEngine;
 
 namespace TW.Presentation.VFX.Cel
 {
     public static class FireballRecipe
     {
-        /// <summary>Seconds the nozzle is open, seconds from the nozzle to the target, and the fall of the arc
-        /// (the clip draws a cartoon arc: 42 m/s and nine times gravity).</summary>
-        public const float JetSeconds = 2.975f, Flight = 0.3634f, Gravity = 90.92f;
-        /// <summary>The band's half-width at the nozzle, through the middle of the flight and at the target (m): a
-        /// point at the nozzle that opens at once, holds one width over the first half of the flight and opens
-        /// again as it comes down (the clip: 0.6 m across from where it enters the frame to half way, 1.4 m where
-        /// it lands). The lanes beside it are placed in these units.</summary>
-        public const float HalfNozzle = 0.03f, HalfMiddle = 0.30f, HalfTarget = 0.75f;
-        /// <summary>The thin ribbon that flies under the band keeps this far under its middle (m, the same three,
-        /// over its place of -1.9): clear of the band at first, inside it where it lands.</summary>
-        const float RibbonNozzle = 0.20f, RibbonMiddle = 0.26f, RibbonTarget = 0.32f;
-        /// <summary>Metres the jet is lifted before it comes down: the clip's arc is fuller than a parabola there.</summary>
-        public const float Lift = 0.16f;
-        /// <summary>The puddle's half-extent across (the card; the longest fingers reach its edge: 4.5 m to the side
-        /// the jet came from) and its depth over its width (the clip: a body 4.6 m across and 2.8 m deep, round
-        /// the target's foot; the Range's ground falls toward the eye there, which draws it out on the screen).</summary>
-        public const float PuddleReach = 5.0f, PuddleDepth = 0.61f;
-        /// <summary>The goo heaped over the target: the card's width (m; a pillar 1.5 m across that stands 2.4 m,
-        /// its tongues to 3.6 m) and its height over its width.</summary>
-        public const float MoundWidth = 4.2f, MoundTall = 1.1f;
+        /// <summary>Seconds from the comet's first light to the hit, measured on the clip: first light frame 12
+        /// (= t0), the head is in frame on 14, it reaches the dummy on 26 and the hit is on 28, so 16 frames.</summary>
+        public const float Flight = 0.6667f;
+        /// <summary>The comet flies nearly level across the frame (clip: the head's centre goes from (230,440) on
+        /// frame 16 to (846,395) on frame 26), so it is given a small cartoon droop, not an artillery arc.</summary>
+        public const float Gravity = 3.2f;
+        /// <summary>Seconds the whole effect is alive: first light frame 12, nothing left by frame 120.</summary>
+        public const float Length = 4.5f;
 
-        // A colour as the shader has to write it (the project is gamma, the palette stores .linear). The values are
-        // the clip's colours taken back through the Range's night grade; the comments give what they show as.
-        static Color S(float r, float g, float b) => new Color(Mathf.LinearToGammaSpace(r), Mathf.LinearToGammaSpace(g), Mathf.LinearToGammaSpace(b), 1f);
-
-        // the heap and the puddle, each tone as the film shows it (the clip's, clustered; the stored values make up
-        // for what a film of the first set showed): ripples #4E8A30, a tone down #74D93D, body #8EF240, light
-        // #A6F64F, pale streaks #C4F968 (the palest, #E8FC86, is mixed from it in the shader)
-        static readonly int Acid = CelPalette.Add("fireball",
-            S(0.248f, 0.429f, 0.192f), S(0.311f, 0.685f, 0.229f), S(0.391f, 0.828f, 0.243f), S(0.462f, 0.857f, 0.285f), S(0.573f, 0.883f, 0.370f), 1.1f, 4, S(0.173f, 0.328f, 0.176f));
-        // the jet: a tone down #7EDE33, body #9CF648, its light streaks #B6F95A and #CFFA6E
-        static readonly int Jet = CelPalette.Add("fireball_jet",
-            S(0.311f, 0.551f, 0.242f), S(0.393f, 0.731f, 0.221f), S(0.432f, 0.897f, 0.271f), S(0.512f, 0.915f, 0.315f), S(0.591f, 0.910f, 0.369f), 1.1f, 4, S(0.173f, 0.328f, 0.176f));
-        // a bubble: rim #35642B, shade #659D41, body #94F741, light #B2F95C, glint #EBFFD7
-        static readonly int Bubble = CelPalette.Add("fireball_bubble",
-            S(0.173f, 0.328f, 0.176f), S(0.312f, 0.481f, 0.236f), S(0.418f, 0.875f, 0.260f), S(0.487f, 0.893f, 0.324f), S(0.605f, 0.951f, 0.713f), 1.1f, 4, S(0.173f, 0.328f, 0.176f));
-        // the smoke, seen through (a puff is FumeOpacity; where two lie over one another, 0.9 over the night ground):
-        // thin #3E6937, a tone down #4D7F3F, body #629F4E, light #6FBB4C, lit by the acid under it #7ED351
-        static readonly int Fume = CelPalette.Add("fireball_fume",
-            S(0.215f, 0.363f, 0.208f), S(0.263f, 0.428f, 0.232f), S(0.325f, 0.526f, 0.276f), S(0.372f, 0.633f, 0.276f), S(0.425f, 0.740f, 0.295f), 1.1f, 4, S(0.173f, 0.328f, 0.176f));
-        const float FumeOpacity = 0.78f;
-
-        /// <summary>The light the acid throws on the ground and on what stands there. The clip's lit ground is three
-        /// and a half times its unlit ground in green and keeps the ground's own pattern: most of the light is
-        /// multiplied into what it falls on (GlowInto: lit = unlit x (1 + GlowInto) at its heart, as much as one
-        /// blend can), the rest is added on top (GlowAdd, as written, before the grade). Pools of it, laid out by
-        /// the jet's own track so they hold from any view, fitted to the clip's ground over the Range's own in
-        /// 64 px cells (a mean error of 4 levels): one under the first third of the jet and one at the target's
-        /// foot while the jet is on (a third pool was tried and measured no better), a smaller one at the foot
-        /// after it.</summary>
-        static readonly Vector3 GlowInto = new Vector3(0.87f, 1.136f, 0.18f), GlowAdd = new Vector3(0.117f, 0.234f, 0.045f);
-        /// <summary>The pool under the jet: the share of the flight it lies under, metres to the left of the track,
-        /// its reach across the track and back toward the nozzle (m), its reach on toward the target over that,
-        /// and how much more than the others it adds.</summary>
-        const float UnderShare = 0.292f, UnderAside = 2.75f, UnderAcross = 6.95f, UnderBehind = 6.42f, UnderAhead = 1f, UnderAdds = 1.7f;
-        /// <summary>The pool at the foot while the jet lands: metres back along the track from the target and to
-        /// the left of it, its strength, its reach (m), and its reach on past the target over that.</summary>
-        const float FootBehind = 0.95f, FootAside = -0.36f, FootStrength = 0.65f, FootReach = 7.12f, FootAhead = 0.77f;
-        /// <summary>The pool the puddle leaves at the foot after the jet: the same (fitted on frames 92-96).</summary>
-        const float AfterBehind = 0.85f, AfterAside = -1.25f, AfterStrength = 0.66f, AfterReach = 5.25f, AfterAhead = 0.97f;
-        /// <summary>The target itself while the goo is on it: its own colours turned the acid's green (the clip's
-        /// chest goes from grey 0.17 to (0.43, 0.80, 0.26) as written), its rings still showing.</summary>
-        static readonly Vector3 CoatInto = new Vector3(0.30f, 1f, 0f), CoatAdd = new Vector3(0.10f, 0.33f, 0.05f);
-        const float CoatReach = 1.8f;
-
-        // a strand of the jet: its place across it (up the screen, toward the eye; 1 is the band's edge), its
-        // half-width at the nozzle and at the target (m), how much of its length is drawn, the seconds one stretch
-        // (the band: one slit) takes, and what it is (0 a lane, 1 a lane with light streaks, 2 the band).
-        // A thin ribbon that flies under the band, the stray dashes alongside, the two lanes that roughen the
-        // band's edges, the band.
-        const int StrandStride = 7;
-        static readonly float[] Strands =
-        {
-            -1.90f,  0.2f, 0.022f, 0.050f, 0.55f, 0.30f,  0f,
-            -1.30f,  0.3f, 0.020f, 0.040f, 0.16f, 0.12f,  0f,
-             1.28f, -0.2f, 0.020f, 0.038f, 0.14f, 0.11f,  0f,
-            -1.10f, -0.5f, 0.026f, 0.050f, 0.22f, 0.15f,  1f,
-            -0.85f,  0.1f, 0.030f, 0.075f, 0.50f, 0.21f,  0f,
-             0.85f, -0.1f, 0.030f, 0.075f, 0.45f, 0.19f,  0f,
-             0.00f,  0.0f, HalfNozzle, HalfTarget, 1f, 0.085f, 2f,
-        };
-
-        // a bubble on the ground: metres to the eye's right of the foot, metres toward the eye (on the Range's own
-        // ground, which falls toward the eye: set where a film of them showed the clip's stand), the radius it swells
-        // to, and the clip's frames it lives over
-        const int BubbleStride = 5;
-        static readonly float[] Bubbles =
-        {
-             2.19f, -0.45f, 0.24f, 42f, 54f,
-             1.81f,  0.45f, 0.23f, 42f, 54f,
-            -3.74f,  0.65f, 0.37f, 46f, 61f,
-            -1.30f,  1.92f, 0.23f, 44f, 62f,
-             2.83f,  0.11f, 0.19f, 50f, 59f,
-            -3.24f,  0.42f, 0.26f, 62f, 74f,
-             2.56f,  0.56f, 0.23f, 62f, 78f,
-            -1.46f,  3.00f, 0.46f, 66f, 82f,
-            -0.91f,  1.68f, 0.27f, 95f, 111f,
-        };
-
-        // the smoke that stands close round the target as the heap comes down: right, toward the eye, up, size (m)
-        const int BurstStride = 4;
-        static readonly float[] Burst =
-        {
-            -1.40f, -0.20f, 1.30f, 0.85f,
-            -0.90f,  0.30f, 0.55f, 0.75f,
-            -1.95f,  0.10f, 0.80f, 0.70f,
-             1.55f, -0.20f, 1.25f, 0.90f,
-             1.20f,  0.40f, 0.45f, 0.80f,
-            -1.10f,  0.95f, 0.35f, 0.65f,
-            -0.30f, -0.60f, 1.60f, 0.70f,
-        };
-
-        /// <summary>The clip's effect starts on its frame 12 and its nozzle opens ClipDelay seconds after that. The
-        /// frames named below are the clip's: AtFrame gives the seconds after the call at which one falls, `late`
-        /// being how much later than the clip's this play's nozzle opens (delay - ClipDelay).</summary>
-        const float FirstFrame = 12f, ClipDelay = 0.039f;
+        /// <summary>The clip's effect starts on its frame 12. AtFrame gives the seconds after the call at which one
+        /// of the clip's frames falls; `late` is how much later than the clip's this play starts.</summary>
+        const float FirstFrame = 12f;
         static float AtFrame(float late, float frame) => (frame - FirstFrame) / 24f - 0.004f + late;
         /// <summary>A time moved onto the drawing it falls in (the effect is drawn on twos), a hair early so the
         /// record is alive on that drawing's first frame.</summary>
         static float OnTwos(float seconds) => Mathf.Round(seconds * 12f) / 12f - 0.004f;
 
-        /// <summary>The launch velocity that carries the jet from the nozzle to the target in Flight seconds.</summary>
-        public static Vector3 Launch(Vector3 nozzle, Vector3 target) => (target - nozzle) / Flight + Vector3.up * (0.5f * Gravity * Flight);
+        // ---- sizes, in metres, from the clip at about 0.013 m per px at the dummy's depth (spec/eye/fireball.md)
+        /// <summary>The comet's head: 180-200 px across in the clip.</summary>
+        public const float HeadRadius = 1.20f;
+        /// <summary>The tail: 80-110 px thick and the whole frame long behind the head.</summary>
+        const float TailRadius = 0.62f, TailLength = 11.0f;
+        /// <summary>The burst at its peak (clip frame 44): 500 x 340 px = 6.5 m across and 4.4 m tall, its foot on
+        /// the ground. Its lobes are circles of 60-110 px = 0.8-1.4 m across.</summary>
+        public const float BurstRadius = 3.25f, BurstTall = 2.20f, LobeRadius = 0.55f;
 
-        /// <summary>Where the fluid that left the nozzle s seconds ago is.</summary>
-        public static Vector3 Along(Vector3 nozzle, Vector3 target, float s) => nozzle + Launch(nozzle, target) * s + Vector3.down * (0.5f * Gravity * s * s);
+        // ---- colours, measured off the clip's pixels (spec/eye/fireball.md). They are written straight, NOT
+        // through neon_acid's grade inversion: that inversion was fitted to a film of flat swatches for the acid,
+        // and BRIEF.md says to reuse it only once a fireball film confirms it. The first film settles this.
+        static readonly int Fire = CelPalette.Add("fb_fire",
+            CelPalette.Hex(0xF84C00), CelPalette.Hex(0xF08A10), CelPalette.Hex(0xF8F40C), CelPalette.Hex(0xFCFC80),
+            CelPalette.Hex(0xFCFCE4), 0.88f, 4, CelPalette.Hex(0xC83000));
+        static readonly int Comet = CelPalette.Add("fb_comet",
+            CelPalette.Hex(0xF84C00), CelPalette.Hex(0xF8A000), CelPalette.Hex(0xF8F81C), CelPalette.Hex(0xFCFCA0),
+            CelPalette.Hex(0xFCFCFC), 0.80f, 4, CelPalette.Hex(0xC83000));
+        // the charred lobes and the flat brown smoke they become (clip frames 72-104)
+        static readonly int Smoke = CelPalette.Add("fb_smoke",
+            CelPalette.Hex(0x201818), CelPalette.Hex(0x3A2E28), CelPalette.Hex(0x584840), CelPalette.Hex(0x6B5A50),
+            CelPalette.Hex(0x6B5A50), 1.1f, 3, CelPalette.Hex(0x140E0C));
+        static readonly int Spark = CelPalette.Add("fb_spark",
+            CelPalette.Hex(0xF84C00), CelPalette.Hex(0xFFC070), CelPalette.Hex(0xFFE8B0), CelPalette.Hex(0xFFFFFF),
+            CelPalette.Hex(0xFFFFFF), 0.5f, 3, CelPalette.Hex(0x401004));
+        const float SmokeOpacity = 0.86f;
+
+        /// <summary>The light the fire throws on the ground. The clip's near ground goes from (24,24,40) to
+        /// (72,48,40) with tops at (96,64,48): about three times in red, and it keeps the ground's own pattern, so
+        /// most of it is multiplied in (GlowInto) and the rest added on top (GlowAdd).</summary>
+        static readonly Vector3 GlowInto = new Vector3(1.40f, 0.72f, 0.14f), GlowAdd = new Vector3(0.22f, 0.10f, 0.03f);
+        /// <summary>The pool that travels under the comet, and the big one under the burst (m).</summary>
+        const float UnderReach = 7.0f, BurstReach = 9.0f;
 
         static readonly int LensId = Shader.PropertyToID("_TWAcidLens");
 
@@ -144,20 +74,25 @@ namespace TW.Presentation.VFX.Cel
 
         /// <summary>
         /// The scene's lens vignette (URP Vignette's intensity and smoothness; 0 for none), for whoever shows the
-        /// effect to hand over: the acid is written brighter where the vignette will darken it, so it shows the
+        /// effect to hand over: the fire is written brighter where the vignette will darken it, so it shows the
         /// clip's colours all the way into the corners of the frame (as far as white allows).
         /// </summary>
         public static void Lens(float intensity, float smoothness) =>
             Shader.SetGlobalVector(LensId, new Vector4(Mathf.Max(0f, intensity) * 3f, Mathf.Max(0.01f, smoothness) * 5f, 0f, 0f));
 
+        /// <summary>The launch velocity that carries the comet from where it starts to the target in Flight seconds.</summary>
+        public static Vector3 Launch(Vector3 from, Vector3 target) => (target - from) / Flight + Vector3.up * (0.5f * Gravity * Flight);
+
+        /// <summary>Where the comet that left `from` s seconds ago is.</summary>
+        public static Vector3 Along(Vector3 from, Vector3 target, float s) => from + Launch(from, target) * s + Vector3.down * (0.5f * Gravity * s * s);
+
         /// <summary>
-        /// Play the jet: from the nozzle onto the target (its chest), whose foot stands on the ground at `ground`;
-        /// `right` is the eye's level right (the puddle and the bubbles are laid out by it). `delay` holds
-        /// the nozzle shut for that long after the call. Everything is spawned now, the light it throws on the
-        /// ground too (the shader finds what it falls on in the camera's depth texture): nothing is left to do per
-        /// frame. No allocation.
+        /// Play the fireball: the comet starts at `from` and hits `target` (the dummy's chest), whose foot stands
+        /// on the ground at `ground`; `right` is the eye's level right. `delay` holds it for that long after the
+        /// call. Everything is spawned now, the light it throws on the ground too (the shader finds what it falls
+        /// on in the camera's depth texture): nothing is left to do per frame. No allocation.
         /// </summary>
-        public static void Play(Vector3 nozzle, Vector3 target, Vector3 ground, Vector3 right, uint seed, float delay = 0f)
+        public static void Play(Vector3 from, Vector3 target, Vector3 ground, Vector3 right, uint seed, float delay = 0f)
         {
             right.y = 0f;
             right = right.sqrMagnitude > 0.001f ? right.normalized : Vector3.right;
@@ -169,270 +104,154 @@ namespace TW.Presentation.VFX.Cel
             bool mid = lod >= 0.5f, far = lod >= 1.5f;
             float now = CelFx.Now;
             var rng = new CelRng(seed);
-            Vector3 vel = Launch(nozzle, target);
-            Vector3 dir = new Vector3(vel.x, 0f, vel.z).normalized;
-            Vector3 across = Vector3.Cross(Vector3.up, dir);
-            float late = delay - ClipDelay;      // the clip's frames, moved with this play's nozzle
-            float hit = delay + Flight;          // the head lands (frame 22)
-            float shut = delay + JetSeconds;     // the nozzle closes (frame 84.7)
-            float dry = shut + Flight;           // the last of it lands (frame 93.4)
+            Vector3 vel = Launch(from, target);
+            Vector3 flat = new Vector3(vel.x, 0f, vel.z);
+            Vector3 heading = flat.sqrMagnitude > 0.001f ? flat.normalized : right;
+            float late = delay;                  // this play starts on the clip's frame 12
+            float hit = delay + Flight;          // the comet lands (clip frame 28)
             ground.y = Ground(ground);
-            Vector3 stand = ground - away * 0.3f;   // the goo stands on the target's foot (and is drawn in front of the target)
-            stand.y = Ground(stand) + 0.03f;
 
-            // ---- the light (under everything). Under the jet: on as the head goes over (frames 14-16), off behind
-            // the tail (frames 86-88).
+            // ---- the light on the ground, under everything. A pool that travels with the comet (the clip's near
+            // ground is orange on frames 11-12, three frames before the comet is in frame), then the big pool under
+            // the burst: strongest on frames 32-50, half by 66, gone by 88-92.
             {
-                float over = Flight * UnderShare;
-                Vector3 under = Vector3.Lerp(nozzle, target, UnderShare) - across * UnderAside;
+                Vector3 under = Vector3.Lerp(from, target, 0.45f);
                 under.y = Ground(under) + 1f;
-                // (from further off it reads as a patch of light away from the jet: less of it there)
-                Glow(renderer, kind, now, delay + over - 0.08f, shut + over + 0.02f, under, across, UnderAcross, UnderAcross, UnderBehind, UnderAhead,
-                    far ? 0.4f : mid ? 0.6f : 1f, GlowInto, GlowAdd * UnderAdds, 0.10f, 0.12f, false, seed);
-                // At the foot, on the ground only (the clip's target is its own colours whenever the goo is off
-                // it): up as the goo heaps there (frames 22-25; the ground at the foot is dark until the head has
-                // landed), gone as the last of the jet lands (frames 86-90).
-                Vector3 foot = ground - dir * FootBehind - across * FootAside;
-                foot.y = Ground(foot) + 1f;
-                Glow(renderer, kind, now, AtFrame(late, 22f), AtFrame(late, 90.5f), foot, across, FootReach, FootReach, FootReach, FootAhead, FootStrength, GlowInto, GlowAdd, 0.125f, 0.19f, true, seed);
-                // What the puddle leaves on the ground after that, a smaller pool: it holds until frame 98 and is
-                // gone as the last of the puddle dries (frame 128).
-                Vector3 after = ground - dir * AfterBehind - across * AfterAside;
-                after.y = Ground(after) + 1f;
-                Glow(renderer, kind, now, AtFrame(late, 86f), AtFrame(late, 128f), after, across, AfterReach, AfterReach, AfterReach, AfterAhead, AfterStrength, GlowInto, GlowAdd, 0.19f, 1.25f, true, seed);
-                // The target: green as the jet comes at it (the clip's chest: a little on frame 16, most of it on
-                // frame 18, all of it on frame 20), and while the goo is on it: until the last of the heap has
-                // run off it (the clip's target is still green on frame 86 and its own colours on frame 90).
-                if (!far) Glow(renderer, kind, now, AtFrame(late, 15f), AtFrame(late, 88.5f), target, across, CoatReach, CoatReach, CoatReach, 1f, 1f, CoatInto, CoatAdd, 0.21f, 0.15f, false, seed);
+                Glow(renderer, kind, now, AtFrame(late, 11f), AtFrame(late, 30f), under, right, UnderReach, UnderReach,
+                    UnderReach, 1f, far ? 0.45f : mid ? 0.7f : 1f, GlowInto, GlowAdd, 0.06f, 0.10f, true, seed);
+                Vector3 pool = ground;
+                pool.y = Ground(pool) + 1f;
+                Glow(renderer, kind, now, AtFrame(late, 28f), AtFrame(late, 92f), pool, right, BurstReach, BurstReach,
+                    BurstReach, 1f, 1f, GlowInto, GlowAdd, 0.08f, 1.0f, true, seed);
             }
 
-            // ---- the puddle (under everything else), round the target's foot: out by frame 44, a star of spikes for
-            // two drawings as the heap comes down (frames 80-83), a small pool by frame 86, dry by frame 110
+            // ---- the comet's head: one round ball of fire with a white core, in frame on the clip's frame 14 and
+            // on the dummy by 26.
             {
-                float born = OnTwos(hit + 0.25f);                        // frame 28
-                float gone = OnTwos(dry + 0.69f);                        // frame 110
-                var r = Rec(now, born, gone - born, FireballKind.Puddle, ground, Acid, 1f, ref rng);
-                r.Axis = right;
-                r.Size = new Vector4(PuddleReach, PuddleReach, 1f, PuddleDepth);
-                r.Motion = Slope(ground);
-                r.Motion.z = Vector3.Dot(dir, right) > 0f ? -1f : 1f;   // its longest fingers run back to the side the jet came from
-                r.Extra.y = 0.67f;
-                r.Extra.z = OnTwos(shut - 0.17f) - born;                 // frame 80
-                renderer.Spawn(kind, r);
-            }
-
-            // ---- the goo heaped over the target (frames 26-85), and the last splash at its foot (frames 85-93)
-            if (!far)
-            {
-                float born = OnTwos(hit + 0.1667f);                      // frame 26
-                float gone = AtFrame(late, 87f);                         // gone as the last of the jet comes in
-                var r = Rec(now, born, gone - born, FireballKind.Mound, stand, Acid, 1f, ref rng);
-                r.Axis = dir;
-                r.Size = new Vector4(MoundWidth, MoundWidth, 1f, MoundTall);
-                r.Motion = new Vector4(0.4f, 1f, 0.6f, 0f);              // at its full height at once (a broad mass at first)
-                r.Extra.z = 0.33f;                                       // it thins to strands from frame 79
-                renderer.Spawn(kind, r);
-
-                var last = Rec(now, AtFrame(late, 85f), 0.354f, FireballKind.Mound, stand, Acid, 1f, ref rng);
-                last.Axis = dir;
-                last.Size = new Vector4(3.4f, 3.4f, 1f, 0.87f);
-                last.Motion = new Vector4(0.125f, 0.4f, 0.6f, 0f);       // up on frame 88
-                last.Extra.y = 1f;
-                last.Extra.z = 0.21f;                                    // down over frames 88-93, hot at its heart
-                renderer.Spawn(kind, last);
-            }
-
-            // ---- the jet's strands
-            int strands = Strands.Length / StrandStride;
-            int first = far ? strands - 1 : mid ? strands - 3 : 0;
-            for (int i = first; i < strands; i++)
-            {
-                int o = i * StrandStride;
-                bool band = Strands[o + 6] > 1.5f;
-                var r = Rec(now, delay, JetSeconds + Flight + 0.05f, FireballKind.Strand, nozzle, Jet, 1f, ref rng);
+                var r = Rec(now, OnTwos(delay), Flight + 0.04f, FireballKind.Drop, from, Comet, 1f, ref rng);
                 r.Vel = vel;
-                r.Motion = new Vector4(Gravity, rng.Range(0.015f, 0.035f), rng.Range(0.03f, 0.10f), Lift);   // the head's and the tail's taper
-                bool ribbon = Strands[o] < -1.5f;
-                r.Size = new Vector4(Strands[o + 2], Strands[o + 3], band ? HalfMiddle : (Strands[o + 2] + Strands[o + 3]) * 0.5f, Flight);
-                r.Tone.w = ribbon ? RibbonMiddle : HalfMiddle;
-                r.Axis = new Vector3(Strands[o], Strands[o + 1], rng.Range(0f, 6.2832f));
-                r.Erode = new Vector4(ribbon ? RibbonNozzle : HalfNozzle, ribbon ? RibbonTarget : HalfTarget, Strands[o + 4], Strands[o + 5]);
-                r.Extra.y = JetSeconds;
-                r.Extra.z = Strands[o + 6];
+                r.Motion = new Vector4(Gravity, 0f, 0f, 0f);
+                r.Size = new Vector4(HeadRadius, HeadRadius * 1.05f, 1f, 0.016f);
+                r.Extra.y = 1f;                  // a round fleck
                 renderer.Spawn(kind, r);
             }
 
-            // ---- the first hit: a star of spikes for one drawing (frames 24-25)
+            // ---- the tail: a ragged banner of flames strung out behind the head, broken into separate lens-shaped
+            // leaves along it (the clip: 80-110 px thick, the whole frame long).
+            int tail = far ? 10 : mid ? 26 : 54;
+            for (int i = 0; i < tail; i++)
+            {
+                float back = (i + rng.Range(0f, 0.9f)) / tail;                 // 0 at the head, 1 at the far end
+                float rad = Mathf.Lerp(TailRadius, TailRadius * 0.35f, back) * rng.Range(0.75f, 1.25f);
+                var r = Rec(now, OnTwos(delay), Flight + 0.04f, FireballKind.Drop,
+                    from - heading * (back * TailLength), Comet, 1f, ref rng);
+                r.Vel = vel + right * rng.Range(-0.6f, 0.6f) + Vector3.up * rng.Range(-0.5f, 0.8f);
+                r.Motion = new Vector4(Gravity, 0f, 0f, 0f);
+                r.Size = new Vector4(rad, rad * 0.55f, 1f, rng.Range(0.020f, 0.045f));
+                r.Extra.y = 2f;                  // a leaf: a point at both ends
+                renderer.Spawn(kind, r);
+            }
+
+            // ---- the embers the tail leaves along the path it flew (clip frames 24-44): round orange dots that
+            // die from the far end.
+            int embers = far ? 0 : mid ? 12 : 30;
+            for (int i = 0; i < embers; i++)
+            {
+                float back = (i + 0.5f) / Mathf.Max(1, embers);
+                Vector3 at = Along(from, target, Flight * (1f - back * 0.82f)) + Vector3.up * rng.Range(-0.5f, 0.5f)
+                             + right * rng.Range(-0.4f, 0.4f);
+                float rad = rng.Range(0.07f, 0.17f);
+                var r = Rec(now, OnTwos(hit - back * 0.12f), rng.Range(0.35f, 0.70f) * (1f - back * 0.5f),
+                    FireballKind.Drop, at, Spark, 1f, ref rng);
+                r.Vel = Vector3.up * rng.Range(0.2f, 0.9f);
+                r.Motion = new Vector4(1.2f, 0.6f, 0f, 0f);
+                r.Size = new Vector4(rad, rad * 0.5f, 1f, 0.004f);
+                r.Extra.y = 1f;
+                renderer.Spawn(kind, r);
+            }
+
+            // ---- the hit: a star of spikes for one drawing (clip frames 28-31)
             if (!far)
             {
-                var r = Rec(now, OnTwos(hit + 0.0833f), 0.08f, FireballKind.Splat, target + Vector3.up * 0.25f, Acid, 1f, ref rng);
-                r.Size = new Vector4(2.2f, 2.2f, 1f, 1f);
+                var r = Rec(now, OnTwos(hit), 0.125f, FireballKind.Splat, target + Vector3.up * 0.2f, Fire, 1f, ref rng);
+                r.Size = new Vector4(3.0f, 3.0f, 1f, 1f);
                 r.Extra.y = 0.8f;
                 renderer.Spawn(kind, r);
             }
 
-            // ---- drops shed along the jet: leaves half a metre to a metre long that fly with it, most of them
-            // just under it
-            int shed = far ? 0 : mid ? 32 : 80;
-            for (int i = 0; i < shed; i++)
+            // ---- THE BURST (the focus part). A cloud of round lobes standing on the ground over the dummy, wider
+            // than it is tall: hot white-yellow from the clip's frame 34 to 48, cooling from 48, charred by 60, the
+            // fire out by 76. Each lobe is drawn twice: a fire puff that lives through the hot phase and a brown one
+            // in the same place that takes over as it cools, so the cloud goes to smoke without moving off the mark.
+            int lobes = far ? 8 : mid ? 16 : 26;
+            Vector3 heart = ground + Vector3.up * (BurstTall * 0.62f);
+            for (int i = 0; i < lobes; i++)
             {
-                bool early = i < shed * 3 / 10;                              // three in ten of them round its head, and bigger
-                float at = delay + (early ? rng.Range(0f, 0.6f) : rng.Range(0f, JetSeconds - 0.02f));
-                float rad = rng.Range(0.030f, 0.055f) * (early ? 1.3f : 1f);
-                var r = Rec(now, at, Flight * rng.Range(0.8f, 1.1f), FireballKind.Drop, nozzle, Jet, 1f, ref rng);
-                r.Vel = vel + across * rng.Range(-1.4f, 1.4f) + Vector3.up * rng.Range(-4.5f, 1.5f) + dir * rng.Range(-4f, 1f);
-                r.Motion = new Vector4(Gravity, 0f, 0f, 0f);
-                r.Size = new Vector4(rad, rad * 0.8f, 1f, rng.Range(0.007f, 0.014f));
+                Vector3 inside = rng.InSphere();
+                Vector3 at = heart + right * (inside.x * BurstRadius) + away * (inside.z * BurstRadius * 0.45f)
+                             + Vector3.up * (inside.y * BurstTall);
+                if (at.y < Ground(at) + 0.35f) at.y = Ground(at) + 0.35f;
+                float size = LobeRadius * rng.Range(0.75f, 1.55f);
+                float born = OnTwos(hit + 0.083f + rng.Range(0f, 0.25f));
+                var r = Rec(now, born, rng.Range(1.7f, 2.1f), FireballKind.Puff, at, Fire, 1f, ref rng);
+                r.Vel = (at - heart).normalized * rng.Range(0.35f, 0.9f) + Vector3.up * rng.Range(0.1f, 0.5f);
+                r.Motion = new Vector4(0f, 1.1f, 0f, 0.25f);
+                r.Size = new Vector4(size, size * 1.45f, 1.25f, 1f);
+                r.Extra.y = 0.80f;               // it only starts to thin near its end
+                r.Extra.z = 1.4f;                // lit all its life: this is the fire itself, not smoke over it
+                renderer.Spawn(kind, r);
+
+                // the same lobe charred, then flat brown: it comes up as the fire goes and breaks up by frame 112
+                var s = Rec(now, OnTwos(hit + 1.25f + rng.Range(0f, 0.3f)), rng.Range(1.6f, 2.3f), FireballKind.Puff,
+                    at + Vector3.up * rng.Range(0f, 0.3f), Smoke, SmokeOpacity, ref rng);
+                s.Vel = (at - heart).normalized * rng.Range(0.2f, 0.6f) + Vector3.up * rng.Range(0.2f, 0.7f);
+                s.Motion = new Vector4(0f, 0.9f, 0f, 0.45f);
+                s.Size = new Vector4(size * 1.15f, size * 1.8f, 1.4f, 1f);
+                s.Extra.y = 0.55f;
+                s.Extra.z = 0.25f;
+                renderer.Spawn(kind, s);
+            }
+
+            // ---- the white spark rays out of the burst (clip frames 30-52): straight needles thrown out of its top
+            // half, no gravity on them, there and gone in two or three drawings.
+            int rays = far ? 0 : mid ? 14 : 34;
+            for (int i = 0; i < rays; i++)
+            {
+                Vector3 d = rng.OnSphere();
+                d.y = Mathf.Abs(d.y) * 1.1f + 0.15f;
+                d = d.normalized;
+                var r = Rec(now, OnTwos(hit + rng.Range(0.04f, 0.9f)), rng.Range(0.10f, 0.22f), FireballKind.Drop,
+                    heart + d * rng.Range(0.5f, 2.2f), Spark, 1f, ref rng);
+                r.Vel = d * rng.Range(14f, 30f);
+                r.Motion = new Vector4(0f, 0f, 0f, 0f);
+                r.Size = new Vector4(0.085f, 0.03f, 1f, rng.Range(0.09f, 0.16f));
                 r.Extra.y = 2f;
                 renderer.Spawn(kind, r);
             }
 
-            // ---- the splash where it lands: thrown on past the target and up, all the while the jet lands
-            int splash = far ? 0 : mid ? 36 : 130;
-            for (int i = 0; i < splash; i++)
-            {
-                bool firstSpray = i < 40;
-                float at = firstSpray ? OnTwos(hit + 0.0833f) + rng.Range(0f, 0.17f) : rng.Range(hit + 0.17f, dry - 0.05f);
-                Vector3 d = rng.OnSphere();
-                d.y = Mathf.Abs(d.y) * 0.9f + 0.35f;
-                d = (d + dir * (firstSpray ? 0.55f : 0.25f)).normalized;
-                float rad = rng.Range(0.032f, 0.075f);
-                var r = Rec(now, at, rng.Range(0.35f, 0.65f), FireballKind.Drop,
-                    target + Vector3.up * rng.Range(-0.5f, 0.9f) + across * rng.Range(-0.4f, 0.4f) - away * 0.9f, Acid, 1f, ref rng);
-                r.Vel = d * (firstSpray ? rng.Range(6f, 12.5f) : rng.Range(6f, 13f));
-                r.Motion = new Vector4(22f, 0.4f, 0f, 0f);
-                r.Size = new Vector4(rad, rad * 0.55f, 1f, rng.Range(0.010f, 0.016f));   // short leaves and beads
-                r.Extra.y = i % 3 == 0 ? 1f : 2f;
-                renderer.Spawn(kind, r);
-            }
-
-            // ---- the spray as the heap comes down (frames 79-88): leaves and beads thrown out all round the target
-            int spray = far ? 0 : mid ? 12 : 44;
-            for (int i = 0; i < spray; i++)
+            // ---- the embers that fall out of it (clip frames 56-92): short bright streaks with a hot head, arcing
+            // out and down, the last bright thing in the frame.
+            int fall = far ? 0 : mid ? 20 : 48;
+            for (int i = 0; i < fall; i++)
             {
                 Vector3 d = rng.OnSphere();
-                d.y = Mathf.Abs(d.y) * 0.8f + 0.15f;
-                float rad = rng.Range(0.020f, 0.045f);
-                var r = Rec(now, AtFrame(late, 79f) + rng.Range(0f, 0.36f), rng.Range(0.30f, 0.5f), FireballKind.Drop,
-                    target + Vector3.up * rng.Range(-0.8f, 0.6f) - away * 0.9f, Acid, 1f, ref rng);
-                r.Vel = d.normalized * rng.Range(4f, 10f);
-                r.Motion = new Vector4(22f, 0.4f, 0f, 0f);
-                r.Size = new Vector4(rad, rad * 0.55f, 1f, rng.Range(0.010f, 0.016f));
+                d.y = Mathf.Abs(d.y) * 0.8f + 0.25f;
+                d = d.normalized;
+                var r = Rec(now, OnTwos(hit + rng.Range(0.5f, 2.4f)), rng.Range(0.8f, 1.6f), FireballKind.Drop,
+                    heart + d * rng.Range(0.4f, 2.6f), Spark, 1f, ref rng);
+                r.Vel = d * rng.Range(3.5f, 9f) + Vector3.up * rng.Range(0.5f, 3f);
+                r.Motion = new Vector4(9.0f, 0.25f, 0f, 0f);
+                r.Size = new Vector4(0.075f, 0.035f, 1f, rng.Range(0.05f, 0.11f));
                 r.Extra.y = 2f;
-                renderer.Spawn(kind, r);
-            }
-
-            // ---- bubbles on the ground round the puddle
-            if (!mid)
-                for (int i = 0; i < Bubbles.Length; i += BubbleStride)
-                {
-                    Vector3 at = ground + right * Bubbles[i] - away * Bubbles[i + 1];
-                    at.y = Ground(at);
-                    float born = AtFrame(late, Bubbles[i + 3]), gone = AtFrame(late, Bubbles[i + 4] + 2f);
-                    var r = Rec(now, born, gone - born, FireballKind.Bubble, at, Bubble, 1f, ref rng);
-                    r.Size = new Vector4(Bubbles[i + 2], Bubbles[i + 2], 1f, 1f);
-                    r.Extra.y = 0.085f;                                  // the pop: one drawing
-                    renderer.Spawn(kind, r);
-                }
-
-            // ---- the smoke: soft puffs that lie over one another, lit from below in their first moments. A column
-            // off the heap's top while the jet lands (frames 36-88): wisps at first, a thick one by the end ...
-            Vector3 top = ground + Vector3.up * 2.8f;
-            int column = far ? 3 : mid ? 9 : 18;
-            for (int i = 0; i < column; i++)
-            {
-                float at = OnTwos(Mathf.Lerp(1.0f, shut + 0.2f, i / (float)(column - 1)));
-                float grown = Mathf.Clamp01((at - 1.0f) / 2.0f);
-                float size = Mathf.Lerp(0.24f, 0.60f, grown) * rng.Range(0.85f, 1.15f);
-                var r = Rec(now, at, rng.Range(1.2f, 1.6f), FireballKind.Puff,
-                    top + right * rng.Range(-0.25f, 0.3f) + Vector3.up * rng.Range(-0.15f, 0.2f) - away * 0.5f, Fume, FumeOpacity * 0.8f, ref rng);
-                r.Vel = Vector3.up * rng.Range(1.5f, 2.3f) + right * rng.Range(0.1f, 0.5f);
-                r.Motion = new Vector4(0f, 0.5f, 0f, 0f);
-                r.Size = new Vector4(size, size * 2.0f, 0.8f, 1f);
-                r.Extra.y = 0.45f;
-                r.Extra.z = 0.10f;
-                renderer.Spawn(kind, r);
-            }
-            // ... big ones at its sides, low and a tone down (frames 56-84) ...
-            int sides = mid ? 0 : 6;
-            for (int i = 0; i < sides; i++)
-            {
-                float sgn = (i & 1) == 0 ? -1f : 1f;
-                float at = OnTwos(rng.Range(1.8f, shut));
-                var r = Rec(now, at, rng.Range(0.9f, 1.3f), FireballKind.Puff,
-                    ground + right * sgn * rng.Range(0.9f, 1.6f) + Vector3.up * rng.Range(0.5f, 1.5f) - away * 0.6f, Fume, FumeOpacity, ref rng);
-                r.Vel = right * sgn * rng.Range(0.4f, 0.8f) + Vector3.up * rng.Range(0.3f, 0.7f);
-                r.Motion = new Vector4(0f, 0.8f, 0f, 0f);
-                r.Size = new Vector4(0.48f, 0.95f, 0.8f, 1f);
-                r.Extra.y = 0.4f;
-                r.Extra.z = 0.2f;
-                renderer.Spawn(kind, r);
-            }
-            // ... banks of it close round the target as the heap comes down (frames 83-134), each a big puff and a
-            // smaller one grown into it: lit all their life, they stand where they are and fray away ...
-            if (!far)
-                for (int i = 0; i < Burst.Length * 2; i += BurstStride)
-                {
-                    int o = i % Burst.Length;
-                    bool second = i >= Burst.Length;
-                    Vector3 off = right * Burst[o] - away * Burst[o + 1];
-                    float size = Burst[o + 3] * (second ? 0.75f : 1.15f);
-                    Vector3 nudge = second ? (right * rng.Range(-0.55f, 0.55f) + Vector3.up * rng.Range(-0.25f, 0.5f)) * Burst[o + 3] : Vector3.zero;
-                    var r = Rec(now, AtFrame(late, 83f) + rng.Range(0f, 0.25f), rng.Range(2.0f, 2.4f), FireballKind.Puff,
-                        ground + off + Vector3.up * Burst[o + 2] + nudge, Fume, 0.85f, ref rng);
-                    r.Vel = off.normalized * 0.12f + Vector3.up * 0.10f;
-                    r.Motion = new Vector4(0f, 0.8f, 0f, 0f);
-                    r.Size = new Vector4(size * 0.6f, size * 1.2f, 0.6f, 1f);
-                    r.Extra.y = 0.55f;
-                    r.Extra.z = 0.9f;
-                    renderer.Spawn(kind, r);
-                }
-            // ... and the plume that stands over the target after it (frames 86-150): it leaves the target's head,
-            // then its far shoulder as its source drifts off to the right and sinks, a little less of it all the
-            // while; whatever is left of it goes together by frame 156
-            int plume = far ? 2 : mid ? 8 : 16;
-            float end = AtFrame(late, 156f);
-            for (int i = 0; i < plume; i++)
-            {
-                float u = i / (float)(plume - 1);
-                float at = OnTwos(Mathf.Lerp(dry - 0.3f, AtFrame(late, 138f), u));
-                float less = 1f - 0.5f * u;
-                var r = Rec(now, at, Mathf.Min(rng.Range(2.2f, 2.6f), end - at), FireballKind.Puff,
-                    ground + Vector3.up * (Mathf.Lerp(2.4f, 1.5f, u) + rng.Range(-0.2f, 0.2f)) + right * (0.8f * u + rng.Range(-0.3f, 0.3f)) - away * 0.4f,
-                    Fume, FumeOpacity * (0.6f + 0.4f * less), ref rng);
-                r.Vel = Vector3.up * rng.Range(1.0f, 1.4f) + right * rng.Range(-0.15f, 0.15f);
-                r.Motion = new Vector4(0f, 0.35f, 0f, 0f);
-                r.Size = new Vector4(0.80f * less, 1.45f * less, 0.8f, 1f);
-                r.Extra.y = 0.35f;
-                r.Extra.z = 0.25f;
-                renderer.Spawn(kind, r);
-            }
-
-            // ---- the fizz: flecks rising off the target as it shows again (frames 90-112)
-            int fizz = mid ? 0 : 26;
-            for (int i = 0; i < fizz; i++)
-            {
-                float rad = rng.Range(0.022f, 0.038f);
-                var r = Rec(now, rng.Range(dry - 0.15f, dry + 0.9f), rng.Range(0.35f, 0.6f), FireballKind.Drop,
-                    ground + right * rng.Range(-0.9f, 0.9f) + Vector3.up * rng.Range(0.3f, 2.0f) - away * rng.Range(0.3f, 0.9f), Acid, 1f, ref rng);
-                r.Vel = Vector3.up * rng.Range(0.5f, 1.4f) + right * rng.Range(-0.2f, 0.2f);
-                r.Motion = new Vector4(-0.6f, 0f, 0f, 0f);
-                r.Size = new Vector4(rad, rad * 0.5f, 1f, 0f);
-                r.Extra.y = 1f;
                 renderer.Spawn(kind, r);
             }
         }
 
-        /// <summary>One light (the shader's glow): alive from `born` to `gone` seconds after the call, coming up over
-        /// `rise` seconds and going over the last `fall`. Its reach: `along` its level `axis`, `up` and down,
-        /// `behind` square to the axis on the near side (with the axis square to the jet's track: back toward the
-        /// nozzle), `ahead` of that on the far side. `into` is multiplied into what it lights, `add` added. A
-        /// `level` light falls on level ground only: whatever stands on that ground is left alone.</summary>
         static void Glow(CelFxRenderer renderer, int kind, float now, float born, float gone, Vector3 at, Vector3 axis,
             float along, float up, float behind, float ahead, float strength, Vector3 into, Vector3 add, float rise, float fall, bool level, uint seed)
         {
             var own = new CelRng(seed);   // a light has nothing random in it: the effect's own draws stay as they were
-            var r = Rec(now, born, gone - born, FireballKind.Glow, at, Acid, strength, ref own);
+            var r = Rec(now, born, gone - born, FireballKind.Glow, at, Fire, strength, ref own);
             r.Tone.y = level ? 1f : 0f;
             r.Axis = axis;
             r.Vel = into;
@@ -452,15 +271,6 @@ namespace TW.Presentation.VFX.Cel
                 Tone = new Vector4(CelRecord.PackPalette(palette), 1f, opacity, 0f),
                 Extra = new Vector4(mode, 0f, 0f, at),
             };
-        }
-
-        /// <summary>The ground's slope at a spot (rise per metre along x and z), for a card that lies on it.</summary>
-        static Vector4 Slope(Vector3 at)
-        {
-            if (RenderGround.Map == null) return Vector4.zero;
-            return new Vector4(
-                (Ground(at + Vector3.right * 3f) - Ground(at - Vector3.right * 3f)) / 6f,
-                (Ground(at + Vector3.forward * 3f) - Ground(at - Vector3.forward * 3f)) / 6f, 0f, 0f);
         }
 
         static float Ground(Vector3 p) => RenderGround.Map != null

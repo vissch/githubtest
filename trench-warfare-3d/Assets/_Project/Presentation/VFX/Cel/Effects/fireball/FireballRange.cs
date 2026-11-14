@@ -1,8 +1,10 @@
-// Phase: CelFx fireball (2026-11-14) - lab-only Range registration: where the reference clip's comet comes from
-// (a 3D fit of its path to the beach camera) and the Range's lens vignette handed to the effect.
-// a01 is the WIRING film: the geometry below is still neon_acid's fit (an arc from above the left shoulder). The
-// clip's fireball is a near-horizontal comet from the LEFT, head in frame at f14 at (230,440) and at the target by
-// f26 - spec/eye/fireball.md. The fit is turn 2's step 4; nothing here has been measured against a fireball film.
+// Phase: CelFx fireball (2026-11-14, a02) - lab-only Range registration: where the reference clip's comet comes
+// from, and the Range's lens vignette handed to the effect.
+// The clip's comet flies in from the EYE'S LEFT, nearly level, not down an arc from a shoulder: its head is in
+// frame at screen (230,440) on frame 16 and on the dummy on frame 26, and before that (frames 11-12) only the near
+// ground is lit by it while it is still off-screen. So it starts 13.6 m to the eye's left of the target, a little
+// above its chest. a02 is the BLOCK-IN fit: measured off the clip (spec/eye/fireball.md) but never yet checked
+// against a fireball film.
 using UnityEngine;
 
 namespace TW.Presentation.VFX.Cel
@@ -23,21 +25,16 @@ namespace TW.Presentation.VFX.Cel
         static void Fire(RangeShot shot)
         {
             CelFx.ZoomOverride = shot.Lod == RangeLod.Close ? CelFx.CloseZoom : shot.Zoom;
-            Vector3 along = shot.Direction;
-            along.y = 0f;
-            along = along.sqrMagnitude > 1e-6f ? along.normalized : Vector3.forward;
-            Vector3 side = new Vector3(along.z, 0f, -along.x);
-            // The fit, held in the shot's own frame so the mid and far stills keep it: 12.6 m back along the flat
-            // fire direction, 2.5 m to its left and 4.8 m above the chest. Off-screen: the jet enters the film's
-            // upper-left corner 0.07 s into its flight.
-            Vector3 nozzle = shot.Target - along * 12.555f - side * 2.474f + Vector3.up * 4.770f;
             var camera = ViewEye.Main;
             Vector3 forward = camera != null ? camera.transform.forward : shot.Target - shot.Eye;
             forward.y = 0f;
             if (forward.sqrMagnitude < 0.0001f) forward = Vector3.forward;
             Vector3 right = Vector3.Cross(Vector3.up, forward.normalized);
+            // 13.6 m to the eye's left of the target and 0.4 m over its chest: the clip's comet crosses the frame
+            // from off-screen left in sixteen frames, so it is off-screen for the first two of them.
+            Vector3 from = shot.Target - right * 13.6f + Vector3.up * 0.4f;
             FireballRecipe.Lens(Vignette, VignetteSmooth);
-            FireballRecipe.Play(nozzle, shot.Target, shot.Ground, right, (uint)shot.Seed, Delay);
+            FireballRecipe.Play(from, shot.Target, shot.Ground, right, (uint)shot.Seed, Delay);
         }
     }
 }

@@ -42,12 +42,13 @@ namespace TW.Tests
         }
 
         [Test]
-        public void The_Jet_Leaves_The_Nozzle_And_Lands_On_The_Target()
+        public void The_Comet_Starts_Off_Screen_And_Lands_On_The_Target()
         {
             Assert.That((FireballRecipe.Along(Nozzle, Target, 0f) - Nozzle).magnitude, Is.LessThan(1e-4f));
             Assert.That((FireballRecipe.Along(Nozzle, Target, FireballRecipe.Flight) - Target).magnitude, Is.LessThan(1e-3f));
             Vector3 half = FireballRecipe.Along(Nozzle, Target, FireballRecipe.Flight * 0.5f);
-            Assert.That(half.y, Is.GreaterThan((Nozzle.y + Target.y) * 0.5f + 1f), "the clip's jet is an arc, not a line");
+            Assert.That(half.y, Is.GreaterThan((Nozzle.y + Target.y) * 0.5f), "the clip's comet droops a little, it does not dive");
+            Assert.That(half.y, Is.LessThan((Nozzle.y + Target.y) * 0.5f + 0.5f), "the clip's comet is near level, not an artillery arc");
         }
 
         [Test]
