@@ -155,14 +155,17 @@ namespace TW.Presentation.VFX.Cel
 
             // ---- the embers the tail leaves along the path it flew (clip frames 24-44): round orange dots that
             // die from the far end.
-            int embers = far ? 0 : mid ? 12 : 30;
+            int embers = far ? 0 : mid ? 26 : 64;   // a29: the clip shows 17-42 dots a frame on the flown path
             for (int i = 0; i < embers; i++)
             {
                 float back = (i + 0.5f) / Mathf.Max(1, embers);
-                Vector3 at = Along(from, target, Flight * (1f - back * 0.82f)) + Vector3.up * rng.Range(-0.5f, 0.5f)
+                // a29: the dots have FALLEN OUT of the tail and lie near the sand. Deposited on the ballistic
+                // line itself they sat a metre high - 75 px above the clip's y 430-500 band, out of the crop.
+                Vector3 at = Along(from, target, Flight * (1f - back * 0.82f)) + Vector3.up * rng.Range(-1.5f, -0.5f)
                              + right * rng.Range(-0.4f, 0.4f);
-                float rad = rng.Range(0.07f, 0.17f);
-                var r = Rec(now, OnTwos(hit - back * 0.12f), rng.Range(0.35f, 0.70f) * (1f - back * 0.5f),
+                at.y = Mathf.Max(at.y, Ground(at) + 0.15f);   // and never under the sand
+                float rad = rng.Range(0.05f, 0.12f);
+                var r = Rec(now, OnTwos(hit - back * 0.12f), rng.Range(0.50f, 0.85f) * (1f - back * 0.5f),   // a29: the clip's line lives to f44
                     FireballKind.Drop, at, Spark, 1f, ref rng);
                 r.Vel = Vector3.up * rng.Range(0.2f, 0.9f);
                 r.Motion = new Vector4(1.2f, 0.6f, 0f, 0f);
