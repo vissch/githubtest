@@ -139,7 +139,7 @@ namespace TW.Presentation.VFX.Cel
 
             // ---- the tail: a ragged banner of flames strung out behind the head, broken into separate lens-shaped
             // leaves along it (the clip: 80-110 px thick, the whole frame long).
-            int tail = far ? 10 : mid ? 26 : 54;
+            int tail = far ? 4 : mid ? 26 : 54;   // a11: four records this far off, not ten (FireballTests' far bound)
             for (int i = 0; i < tail; i++)
             {
                 float back = (i + rng.Range(0f, 0.9f)) / tail;                 // 0 at the head, 1 at the far end
@@ -184,7 +184,7 @@ namespace TW.Presentation.VFX.Cel
             // than it is tall: hot white-yellow from the clip's frame 34 to 48, cooling from 48, charred by 60, the
             // fire out by 76. Each lobe is drawn twice: a fire puff that lives through the hot phase and a brown one
             // in the same place that takes over as it cools, so the cloud goes to smoke without moving off the mark.
-            int lobes = far ? 8 : mid ? 15 : 24;
+            int lobes = far ? 4 : mid ? 15 : 24;   // a11: four this far off (each spawns a smoke puff too), not eight
             Vector3 heart = ground + Vector3.up * (BurstTall * 0.72f);
             for (int i = 0; i < lobes; i++)
             {
