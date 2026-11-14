@@ -701,6 +701,23 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **See it:** `C:/Users/PC/Documents/celfx/tools/capture.ps1 -Effect neon_acid` (the Range film; the reference is
   `neon_acid_nolora.mp4`, what it shows is written down in `C:/Users/PC/Documents/celfx/spec/eye/neon_acid.md`).
 
+### Fireball (a CelFx effect: a comet of fire, the burst of lobes it breaks into, sparks, smoke and its light, 2026-11-14)
+- **Files (SHOW):** `Presentation/VFX/Cel/Effects/fireball/FireballRecipe.cs` (`FireballRecipe.Play(from, target,
+  ground, right, seed, delay)`: every record spawned at once, nothing left to do per frame; the clip's numbers as
+  named constants; `Lens(intensity, smoothness)` hands the scene's lens vignette to the shader),
+  `Presentation/VFX/Cel/Effects/fireball/FireballKind.cs` (the pool: one shader, a 40-segment strip, 768 records;
+  the modes of a record - Strand, Drop, Splat, Mound, Puddle, **Lobe**, Puff, Glow),
+  `Presentation/VFX/Cel/Effects/fireball/FireballRange.cs` (lab-only: where the Range's comet comes from, and the
+  vignette), `Shaders/Cel/Effects/fireball/CelFireball_URP.shader` (eight modes in one shader, its header the record
+  layout; mode 5 is this effect's own LOBE - a hard-cut round cel ball banded through the kit's `CelRamp2` with a
+  `CelInk` contour, charring into a second palette row - and is what the burst is made of), keeper
+  `Resources/ShaderKeep/KeepCelFireball.mat`.
+- **Tests:** FireballTests (`Tests/Cel`: the comet's arc lands on the target; a close play has every layer and fits
+  half its pool; far < mid < close; nothing is drawn eight seconds on; the lens is put back with the session;
+  0 B per play).
+- **See it:** `C:/Users/PC/Documents/celfx/tools/capture.ps1 -Effect fireball` (the Range film; the reference is
+  `fireball_nolora.mp4`, what it shows is written down in `C:/Users/PC/Documents/celfx/spec/eye/fireball.md`).
+
 ### Debris and destruction of props and houses
 - **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers,
   `ZoomShare`; a pool whose last piece has sunk is not drawn), `Presentation/Camera/DebrisRenderer.Parts.cs` (a man's
@@ -1164,7 +1181,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Cel:** CelFxTests, NeonAcidTests
+- **Cel:** CelFxTests, FireballTests, NeonAcidTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, ScriptedEnemySlotTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** AnimClockPlayTests, CaptureRigPlayTests, DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudMinimapPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, GymRequestTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
