@@ -302,11 +302,21 @@ namespace TW.Presentation.VFX.Cel
                 // the same lobe charred, then flat brown: it comes up as the fire goes and breaks up by frame 112
                 var s = Rec(now, OnTwos(hit + 1.25f + rng.Range(0f, 0.3f)), rng.Range(1.6f, 2.3f), FireballKind.Puff,
                     at + Vector3.up * rng.Range(0f, 0.3f), Smoke, SmokeOpacity, ref rng);
-                s.Vel = (at - heart).normalized * rng.Range(0.2f, 0.6f) + Vector3.up * rng.Range(0.2f, 0.7f);
-                s.Motion = new Vector4(0f, 0.9f, 0f, 0.45f);
-                s.Size = new Vector4(size * 1.15f, size * 1.8f, 1.4f, 1f);
+                // a32: THE SMOKE WAS NEVER A CLOUD. The clip at f88-f96 is ONE coherent light warm-brown mass of
+                // big overlapping puffs, about three times our width and twice our height (regionmeasure widths
+                // 194/312/289 against our 74/55/74, px/frame ratio 0.22, iou 0.082 - the worst part in the shot).
+                // Ours was a scatter of small near-black flecks with desert between them. Four COEFFICIENTS, no
+                // count, no palette and the per-iteration draw count held at exactly 5 Range + 1 Next so the
+                // shared CelRng cannot re-roll the spark rays or the falling embers that are spawned after this.
+                // Size and the outward velocity make the puffs big enough and spread enough to MEET and read as
+                // one mass; Motion.w lifts the column; Extra.z is mode 6's `lit`, which sets how fast the puff
+                // walks pale -> light -> body and how far it then sinks toward `shade` - at 0.25 it was on `body`
+                // by age 0.35 and 68 % of the way to `shade` by its end, which is the near-black.
+                s.Vel = (at - heart).normalized * rng.Range(0.9f, 2.0f) + Vector3.up * rng.Range(0.4f, 1.1f);
+                s.Motion = new Vector4(0f, 0.9f, 0f, 0.60f);
+                s.Size = new Vector4(size * 2.00f, size * 2.20f, 1.4f, 1f);
                 s.Extra.y = 0.55f;
-                s.Extra.z = 0.25f;
+                s.Extra.z = 0.70f;
                 renderer.Spawn(kind, s);
             }
 
