@@ -222,7 +222,12 @@ namespace TW.Presentation.VFX.Cel
                 // no line round each lobe at all in the hot phase, only a thin rim on the cloud's outer edge
                 r.Tone = new Vector4(CelRecord.PackPalette(Fire, Smoke), 1f, 1f, 3.0f);
                 r.Extra.y = 0.11f;               // the lumps on its edge: the clip's lobes are round but not circles
-                r.Extra.z = 0.74f;               // it starts to char at three quarters of its life
+                // a12: the char WINDOW. A lobe born about clip frame f32 with a 1.9 s life begins to char at 0.38
+                // of it (about f49, the clip's f48) and is fully charred at 0.72 (about f65; the clip is mostly
+                // dark at f60 and its fire is out by f76). a07-a08 started at 0.74 and only finished at the
+                // lobe's death, so the cloud was still cream-white at f54-f60 - the defect that dropped a08.
+                r.Extra.z = 0.38f;
+                r.Erode = new Vector4(0.72f, 0f, 1f, 0f);
                 renderer.Spawn(kind, r);
 
                 // the same lobe charred, then flat brown: it comes up as the fire goes and breaks up by frame 112

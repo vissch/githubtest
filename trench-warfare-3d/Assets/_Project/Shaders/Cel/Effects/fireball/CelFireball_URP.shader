@@ -206,7 +206,10 @@ Shader "TW/Cel/Fireball"
                     const float Card = 1.22;
                     w = CelBillboard(p, cq * rad * Card * float2(1.0, squash));
                     q = cq * Card;                                      // |q| = 1 is the lobe's own edge
-                    shape = float4(tick, r.extra.y > 0.0 ? r.extra.y : 0.10, r.extra.z > 0.0 ? r.extra.z : 0.75, 0.0);
+                    // shape.z the life fraction at which it begins to char, shape.w the one at which the char is
+                    // COMPLETE (a12: a window, not a ramp that only finishes when the lobe dies)
+                    shape = float4(tick, r.extra.y > 0.0 ? r.extra.y : 0.10, r.extra.z > 0.0 ? r.extra.z : 0.75,
+                        r.erode.x > 0.0 ? r.erode.x : 1.0);
                 }
                 else if (mode < 6.5)
                 {
@@ -656,7 +659,12 @@ Shader "TW/Cel/Fireball"
                     // orange-red at the far edge - cooling into the row it chars to from shape.z of its life, and
                     // contoured with a hard ink line tone.w screen pixels wide just inside its edge. Everything
                     // steps on the effect's twos clock (shape.x = tick), like every other mode here.
-                    float tk = i.shape.x, amp = i.shape.y, coolFrom = i.shape.z;
+                    float tk = i.shape.x, amp = i.shape.y, charStart = i.shape.z, charEnd = i.shape.w;
+                    // a12: the char runs over its own window instead of to the lobe's death. CelRamp2 blends on
+                    // smoothstep(coolFrom, 1, k), so passing it the remapped progress with coolFrom 0 lets the
+                    // char START at charStart of the life and be COMPLETE at charEnd - the clip chars while the
+                    // cloud is still big (f48 to about f65), not as it dies.
+                    float ch = saturate((k - charStart) / max(charEnd - charStart, 1e-3));
                     float d = length(q);
                     float2 dir = d > 1e-4 ? q / d : float2(1.0, 0.0);   // read on the direction: no seam round the circle
                     float lump = CelValue2(dir * 2.3 + seed * 17.0 + tk * 0.021) - 0.5;
@@ -670,8 +678,8 @@ Shader "TW/Cel/Fireball"
                     // inside u = 0.17 (a dot) and put c1/c0 over most of the lobe.
                     float u = length(q - float2(-0.24, 0.28)) / max(rr, 1e-3);
                     float v = saturate((1.41 - u) / 1.03);
-                    col = CelRamp2(v, i.tone.x, max(i.tone.y, 0.0), k, coolFrom);
-                    col = lerp(col, CelInkColor(i.tone.x, k, coolFrom), CelInk(rr - d, 0.0, i.tone.w));
+                    col = CelRamp2(v, i.tone.x, max(i.tone.y, 0.0), ch, 0.0);
+                    col = lerp(col, CelInkColor(i.tone.x, ch, 0.0), CelInk(rr - d, 0.0, i.tone.w));
                 }
                 else if (mode < 6.5)
                 {
