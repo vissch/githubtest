@@ -1,4 +1,4 @@
-// Phase: CelFx fireball (2026-11-14; a02 the block-in, a04 the burst as a mass sitting on the ground). A comet of fire flies in from the eye's left,
+// Phase: CelFx fireball (2026-11-14; a02 the block-in, a04 the mass on the ground, a05 its lobes drawn as cel drops). A comet of fire flies in from the eye's left,
 // hits the dummy and bursts into a cloud of round cel lobes that cool to brown smoke and break up, with white
 // spark rays, falling embers, a line of embers left along the comet's path and an orange light on the ground.
 // Reference: fireball_nolora.mp4, 192 f at 24 fps, drawn on twos. Everything below is read off that clip and
@@ -202,12 +202,18 @@ namespace TW.Presentation.VFX.Cel
                 if (at.y < Ground(at) + 0.30f) at.y = Ground(at) + 0.30f;
                 float size = LobeRadius * rng.Range(0.80f, 1.30f);
                 float born = OnTwos(hit + 0.083f + rng.Range(0f, 0.25f));
-                var r = Rec(now, born, rng.Range(1.7f, 2.1f), FireballKind.Puff, at, Fire, 1f, ref rng);
-                r.Vel = (at - heart).normalized * rng.Range(0.35f, 0.9f) + Vector3.up * rng.Range(0.1f, 0.5f);
-                r.Motion = new Vector4(0f, 1.1f, 0f, 0.25f);
-                r.Size = new Vector4(size, size * 1.45f, 1.25f, 1f);
-                r.Extra.y = 0.80f;               // it only starts to thin near its end
-                r.Extra.z = 1.4f;                // lit all its life: this is the fire itself, not smoke over it
+                // a05. a03 and a04 pushed the ARRANGEMENT both ways and the width profile never followed, so the
+                // card's falsifier sends the round here instead: how one lobe is DRAWN. The puff mode has no line
+                // round it by design (the shader's header says so), which is why a02-a04 are flat yellow with a
+                // soft edge and no rim however the lobes are stacked. A fire lobe is now a round cel DROP, which
+                // is hard-edged and takes the palette's bands and its ink; only the smoke it cools into stays a
+                // puff. Falsifier: if the mass still has no rim and no white core, the palette's bands are not
+                // reaching this shape and the next round must read the shader, not the recipe.
+                var r = Rec(now, born, rng.Range(1.7f, 2.1f), FireballKind.Drop, at, Fire, 1f, ref rng);
+                r.Vel = (at - heart).normalized * rng.Range(0.25f, 0.65f) + Vector3.up * rng.Range(0.05f, 0.35f);
+                r.Motion = new Vector4(0f, 1.6f, 0f, 0f);
+                r.Size = new Vector4(size, size * 1.08f, 1f, 0.006f);
+                r.Extra.y = 1f;                  // a round fleck: the clip's lobes are circles, hard-edged
                 renderer.Spawn(kind, r);
 
                 // the same lobe charred, then flat brown: it comes up as the fire goes and breaks up by frame 112
