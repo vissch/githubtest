@@ -732,7 +732,21 @@ Shader "TW/Cel/Fireball"
                     // that u is measured in the cloud: at cloud scale a wide band IS the clip, one yellow field
                     // with a warm rim, and the same width that drew a bullseye on every lobe draws it once, on the
                     // whole mass. Reverting a21 is not a second change; it is what the new frame must be tested on.
-                    float v = saturate((1.41 - u) / 1.03);
+                    // a23: and those proportions are now FITTED to the cloud, which is the one thing a22 got
+                    // wrong. a08's A = 1.41, B = 1.03 were written for the LOBE's radius, where u = 1.15 is a
+                    // lobe's outermost sliver; carried over to the cloud unchanged, u = 1.15 is HALF THE MASS, so
+                    // a22 came out as a target - cream centre, yellow annulus, orange annulus, flat poster red
+                    // over the whole outer and lower half - where the clip's body is yellow with the orange-red
+                    // only a thin rind on the outer silhouette. The same overshoot put flat red lobes on screen
+                    // at f30-f32, eighteen frames before the clip has any red at all.
+                    // CelRamp's thresholds are fixed (0.25 / 0.50 / 0.75, core at 0.88), so A and B place the
+                    // bands in u directly: core out to A - 0.88 B, orange-red beyond A - 0.25 B. A = 2.16,
+                    // B = 1.83 put the core at u = 0.55 (a22's was 0.50: the white heart deliberately does NOT
+                    // grow), light yellow to 0.79, the yellow BODY to 1.24, orange to 1.70, and the orange-red
+                    // rim only beyond 1.70 - the outermost rind of the whole cloud, which is where the clip
+                    // rims it. Nothing else of a22 moves: cloudQ, the cloud highlight, the cloud-space noise,
+                    // the half-extents, the per-lobe alpha, the ink (still off) are all exactly as it built them.
+                    float v = saturate((2.16 - u) / 1.83);
                     // a13: the char is a SHELL, not a tone change. A dark cap closes over the lobe from its TOP
                     // down as ch runs 0..1, its edge as ragged as the lobe's own, and the band under it goes on
                     // burning: the clip's cooling is charcoal closing over fire, never a ball that dims all over.
