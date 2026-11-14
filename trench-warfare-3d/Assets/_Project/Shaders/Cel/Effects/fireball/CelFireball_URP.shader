@@ -746,7 +746,31 @@ Shader "TW/Cel/Fireball"
                     // rim only beyond 1.70 - the outermost rind of the whole cloud, which is where the clip
                     // rims it. Nothing else of a22 moves: cloudQ, the cloud highlight, the cloud-space noise,
                     // the half-extents, the per-lobe alpha, the ink (still off) are all exactly as it built them.
-                    float v = saturate((2.16 - u) / 1.83);
+                    // a24: and A gets a TIME AXIS, which is the one thing this field has never had. An
+                    // independent analyst at the a23 diagnosis point measured the red-rim-class fraction
+                    // (g < 110) of the burst body per frame: the CLIP ramps .043 .076 .179 .464 .661 .621 at
+                    // f36 f44 f48 f60 f68 f76, while a23 sits FLAT at about 0.25 for its whole life (a16: .186
+                    // .158 .160 .299 .420 .000). a23 is five times too red while hot and seven times too cool
+                    // while cooling, and a16 beats it at BOTH ends. The reason was one line: v = (A - u) / B had
+                    // no k in it at all, so every band boundary was fixed in space for the lobe's whole life and
+                    // the only way the burst could show warm colour was to show it in a PLACE, from its first
+                    // frame - hence flat red lobes at f30-f33, eighteen frames before the clip has any red, and
+                    // a pale creamy heart at f54-f76 where the clip is orange-red on grey-brown charcoal.
+                    // THE CLIP'S WARM BAND IS A CLOCK. At k = 0.28 the core reaches cloud u = 0.99 and the
+                    // orange-red only beyond 2.14: a white-and-yellow mass with a thin rim, the clip's f36-f48,
+                    // whose interior is white-dominant with yellow as the mortar between the blobs. At k = 0.80
+                    // the core is gone and the orange-red starts at u = 0.94: red-orange over the whole field,
+                    // the clip's f68-f76. k 0.28..0.80 is about f44..f68 at this lobe's 1.7-2.1 s life, so the
+                    // warm front LEADS charStart 0.38 and finishes just before charEnd 0.86 - fire that cools
+                    // under a cap already closing over it, which is what the clip shows.
+                    // This also records a struck conclusion: a13 claimed the char SHELL is independent of this
+                    // ramp. Three falsifiers have now fired on that (a21, a23, and the table above). The cool's
+                    // colour comes from the band field; no round may assume the shell is independent, and every
+                    // band-field round is judged at f54-f76 as well as at f36-f48.
+                    // B, cloudQ, the highlight, the blob noise, the alpha, the ink (off) and the char cap are
+                    // exactly as a22 and a23 left them. No geometry moves.
+                    float A = lerp(2.60, 1.40, saturate((k - 0.28) / 0.52));
+                    float v = saturate((A - u) / 1.83);
                     // a13: the char is a SHELL, not a tone change. A dark cap closes over the lobe from its TOP
                     // down as ch runs 0..1, its edge as ragged as the lobe's own, and the band under it goes on
                     // burning: the clip's cooling is charcoal closing over fire, never a ball that dims all over.
