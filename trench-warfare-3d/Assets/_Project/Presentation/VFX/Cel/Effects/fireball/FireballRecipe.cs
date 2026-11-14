@@ -199,7 +199,10 @@ namespace TW.Presentation.VFX.Cel
                 // one silhouette, so the lobes go back to many and smaller.
                 Vector3 inside = rng.InSphere();
                 float up01 = inside.y * 0.5f + 0.5f;                       // 0 at the foot, 1 at the top
-                float spread = Mathf.Lerp(1.0f, 0.60f, up01);
+                // a16: 1.35 at the foot, 0.55 at the top, not 1.00/0.60. The clip's widths at 25/50/75 % of its
+                // height are 233/159/163 - widest in the dirt, narrowing as it rises - and a15 measured
+                // 112/182/180, bulging at the waist. a03 pushed this knob the WRONG way (widest at the top).
+                float spread = Mathf.Lerp(1.35f, 0.55f, up01);
                 Vector3 at = heart + right * (inside.x * BurstRadius * spread)
                              + away * (inside.z * BurstRadius * 0.45f * spread)
                              + Vector3.up * ((up01 - 0.5f) * BurstTall * 1.25f);
