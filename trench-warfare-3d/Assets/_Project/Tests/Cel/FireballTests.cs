@@ -1,5 +1,6 @@
-// Phase: CelFx neon acid (2026-11-14) - the jet's arc, its pool's capacity, the far simplification, that it leaves
-// nothing behind, the lens handed over and put back, and the allocation guard.
+// Phase: CelFx fireball (2026-11-14) - the comet's arc, the pool's capacity, the far simplification, that the
+// effect leaves nothing behind, the lens handed over and put back, and the allocation guard. Copied from
+// neon_acid's tests in a01 and corrected to the fireball's own parts in a10, the first run of this lane's gate.
 using System;
 using NUnit.Framework;
 using UnityEngine;
@@ -65,14 +66,19 @@ namespace TW.Tests
         }
 
         [Test]
-        public void A_Far_Jet_Is_The_Band_The_Puddle_Its_Light_And_A_Little_Smoke()
+        public void A_Far_Fireball_Is_The_Comet_Its_Tail_The_Burst_And_Its_Light()
         {
             CreateRenderer();
             CelFx.ZoomOverride = 240f;
             FireballRecipe.Play(Nozzle, Target, Vector3.zero, Vector3.right, 1917u);
             int kind = renderer.KindId(FireballKind.KindName);
             int far = renderer.SpawnedOf(kind);   // SpawnedOf counts every record ever spawned
-            Assert.That(far, Is.InRange(5, 12), "three lights (under the jet, at the foot, after it), the puddle, the band, five puffs");
+            // a10: this bound was neon_acid's (5..12 for a band, a puddle and three lights) and had never been run
+            // against the fireball, whose far play is a different set of parts: two ground lights, the comet's head
+            // and the ten records of its tail, the burst's eight lobes and the eight smoke puffs they cool into -
+            // 29 records - with the hit's splat, the spark rays and the falling embers all left out at this distance.
+            Assert.That(far, Is.InRange(20, 40),
+                "two ground lights, the comet's head and tail, the burst's lobes and their smoke; no splat, no rays, no embers");
             renderer.Clear();
             CelFx.ZoomOverride = CelFx.MidZoom;
             FireballRecipe.Play(Nozzle, Target, Vector3.zero, Vector3.right, 1917u);
