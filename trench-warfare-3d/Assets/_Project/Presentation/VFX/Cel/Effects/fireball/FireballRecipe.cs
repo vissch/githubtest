@@ -202,8 +202,11 @@ namespace TW.Presentation.VFX.Cel
                 // crowds the middle by construction, so no spread curve over it can make the foot the widest
                 // part; three equal rows, lowest first, put a third of the lobes in the dirt. The sphere still
                 // supplies the horizontal jitter.
-                int row = i * 3 / Mathf.Max(lobes, 1);
-                float up01 = (row + rng.Range(0.15f, 0.85f)) / 3f;         // 0 at the foot, 1 at the top
+                // a18: six bands with a jitter that spans a whole band each way, so neighbouring bands interleave
+                // and no horizontal seam can form. a17's three hard rows broke the cloud into three clusters with
+                // ground between them; the height distribution stays even foot-to-top either way.
+                int band = i * 6 / Mathf.Max(lobes, 1);
+                float up01 = Mathf.Clamp01((band + rng.Range(-0.6f, 1.6f)) / 6f);   // 0 at the foot, 1 at the top
                 // a16: 1.35 at the foot, 0.55 at the top, not 1.00/0.60. The clip's widths at 25/50/75 % of its
                 // height are 233/159/163 - widest in the dirt, narrowing as it rises - and a15 measured
                 // 112/182/180, bulging at the waist. a03 pushed this knob the WRONG way (widest at the top).
