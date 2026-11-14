@@ -1093,6 +1093,17 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Tests:** ShaderInclusionTests (every `Shader.Find("TW/...")` must be in Always Included Shaders or used by a
   material under `Resources/ShaderKeep/`, or it breaks the player).
 
+
+### Final CelFx library (2026-11-14)
+
+Delivery and integration limits: `docs/reference/celfx-final-delivery.md`.
+
+`Presentation/VFX/Range/FinalVfxPreview.cs` provides the optional player preview: `TrenchWarfare.exe -twvfx fire_bolts`. The preview uses a neutral stage, not the calibrated capture beach.
+
+- Files: `Presentation/VFX/Cel/CelDemo.cs`, `Presentation/VFX/Cel/CelFx.cs`, `Presentation/VFX/Cel/CelFxRecipe.cs`, `Presentation/VFX/Cel/CelFxRenderer.cs`, `Presentation/VFX/Cel/CelKind.cs`, `Presentation/VFX/Cel/CelPalette.cs`, `Presentation/VFX/Cel/CelRecord.cs`, `Presentation/VFX/Cel/Effects/artillery/ArtilleryBillowKind.cs`, `Presentation/VFX/Cel/Effects/artillery/ArtilleryKinds.cs`, `Presentation/VFX/Cel/Effects/artillery/ArtilleryRange.cs`, `Presentation/VFX/Cel/Effects/artillery/ArtilleryRecipe.cs`, `Presentation/VFX/Cel/Effects/blue_laser/BlueLaserRecipe.cs`, `Presentation/VFX/Cel/Effects/blue_laser/LightningBeamKind.cs`, `Presentation/VFX/Cel/Effects/bullet_impacts/BulletImpacts.cs`, `Presentation/VFX/Cel/Effects/cyan_beam/CyanBeamKind.cs`, `Presentation/VFX/Cel/Effects/cyan_beam/CyanBeamRange.cs`, `Presentation/VFX/Cel/Effects/cyan_beam/CyanBeamRecipe.cs`, `Presentation/VFX/Cel/Effects/explosion/ExpFireKind.cs`, `Presentation/VFX/Cel/Effects/explosion/ExplosionArcKind.cs`, `Presentation/VFX/Cel/Effects/explosion/ExplosionKind.cs`, `Presentation/VFX/Cel/Effects/explosion/ExplosionRange.cs`, `Presentation/VFX/Cel/Effects/explosion/ExplosionRecipe.cs`, `Presentation/VFX/Cel/Effects/fire_bolts/CometKind.cs`, `Presentation/VFX/Cel/Effects/fire_bolts/FireBoltsRange.cs`, `Presentation/VFX/Cel/Effects/fire_bolts/FireBoltsRecipe.cs`, `Presentation/VFX/Cel/Effects/flamethrower/FlameJetKind.cs`, `Presentation/VFX/Cel/Effects/flamethrower/FlameSmokeKind.cs`, `Presentation/VFX/Cel/Effects/flamethrower/FlamethrowerRange.cs`, `Presentation/VFX/Cel/Effects/flamethrower/FlamethrowerRecipe.cs`, `Presentation/VFX/Cel/Effects/flamethrower/FlameWashKind.cs`, `Presentation/VFX/Cel/Effects/green_laser/GreenLaserRecipe.cs`, `Presentation/VFX/Cel/Effects/neon_acid/NeonAcidKind.cs`, `Presentation/VFX/Cel/Effects/neon_acid/NeonAcidRange.cs`, `Presentation/VFX/Cel/Effects/neon_acid/NeonAcidRecipe.cs`, `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalDebrisKind.cs`, `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalGroundKind.cs`, `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalLaserKind.cs`, `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalLaserLighting.cs`, `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalLaserRange.cs`, `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalLaserRecipe.cs`, `Presentation/VFX/Range/CelRange.cs`, `Presentation/VFX/Range/TargetDummy.cs`, `Editor/Cel/CelFxStill.cs`, `Editor/RangeStage.cs`.
+- Tests: `ArtilleryBillowTests`, `ArtilleryCelFxTests`, `ArtilleryGroundFanTests`, `BlueLaserCelFxTests`, `BulletImpactsCelFxTests`, `CelDelayedPlayTests`, `CelFxTests`, `CelRangeTests`, `CyanBeamCelFxTests`, `FireBoltsCelFxTests`, `FlamethrowerCelFxTests`, `GreenLaserCelFxTests`, `NeonAcidCelFxTests`, `NeonAcidTests`, `OrbitalLaserCelFxTests`, `OrbitalLaserLightingTests`, `OrbitalLaserTests`.
+- Every effect has its original ShaderKeep material. Shared renderer combines the emitter and lighting lifecycle hooks. Selection provenance is in `docs/reference/celfx-final-selection.json`.
+
 ## Generated indexes (do not edit: `python Tools/codemap.py`)
 
 Which component sets, reads or calls each `SceneHooks` member (the hand rows above no longer repeat this):
@@ -1100,10 +1111,10 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- gen:hooks -->
 | SceneHooks member | Set by | Read / called by |
 |---|---|---|
-| `CloseUp` | CaptureRig, PerfBench, TacticalCamera | Atmosphere, BattlefieldProps, CombatFx, CombatFx.Bursts, CombatFx.Chunks, CombatFx.Close, CombatFx.Grenades, CombatFx.Ground, NightLights, PropDestruction, SmallLife |
+| `CloseUp` | CaptureRig, PerfBench, RangeStage, TacticalCamera | Atmosphere, BattlefieldProps, CombatFx, CombatFx.Bursts, CombatFx.Chunks, CombatFx.Close, CombatFx.Grenades, CombatFx.Ground, NightLights, PropDestruction, SmallLife |
 | `IsWater` | WaterRings | CombatFx, CombatFx.Ambient, CombatFx.Chunks, CombatFx.Ground, CombatFx.Mines, NightLights, TankRenderer |
 | `AddRing` | WaterRings | CombatFx, CombatFx.Chunks, LandingCraftView, TankRenderer |
-| `Sparks` | CombatFx | CombatFx.Abilities, Flamethrower, NightLights, TankRenderer, TankRenderer.Fizzers |
+| `Sparks` | CombatFx | CombatFx.Abilities, Flamethrower, NightLights, RangeStage, TankRenderer, TankRenderer.Fizzers |
 | `AimPreview` | TestPanel | CombatFx.Abilities |
 | `SmokeSources` | NightLights | CombatFx.Ambient |
 | `TanksDrawn` | TankRenderer | CombatFx, CombatFx.Ground, VATRenderer |
@@ -1111,8 +1122,9 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `VehicleGunPort` | TankRenderer | CombatFx.Bodies |
 | `DrawnWreck` | TankRenderer | BattlefieldComposer |
 | `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Deaths, CombatFx.Ground |
-| `Flash` | NightLights | CombatFx.Chunks, TankRenderer, TankRenderer.Riders, TankRenderer.Salvo |
-| `FireLight` | NightLights | Flamethrower, TankRenderer |
+| `Flash` | NightLights | CelFx, CombatFx.Chunks, TankRenderer, TankRenderer.Riders, TankRenderer.Salvo |
+| `FlashWithCard` | NightLights | CelFx |
+| `FireLight` | NightLights | CelFx, Flamethrower, TankRenderer |
 | `FirePool` | NightLights.Pools | NightLights, TankRenderer |
 | `CookOff` | CombatFx | PropDestruction |
 | `FootFall` | CombatFx | TankRenderer |
@@ -1122,6 +1134,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
+- **Cel:** ArtilleryBillowTests, ArtilleryCelFxTests, ArtilleryGroundFanTests, BlueLaserCelFxTests, BulletImpactsCelFxTests, CelDelayedPlayTests, CelFxTests, CelRangeTests, CyanBeamCelFxTests, FireBoltsCelFxTests, FlamethrowerCelFxTests, GreenLaserCelFxTests, NeonAcidCelFxTests, NeonAcidTests, OrbitalLaserCelFxTests, OrbitalLaserLightingTests, OrbitalLaserTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, ScriptedEnemySlotTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** AnimClockPlayTests, CaptureRigPlayTests, DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudMinimapPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests

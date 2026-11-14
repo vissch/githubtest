@@ -1,0 +1,62 @@
+{
+  "selected_by": "Owner request: commit these VFX as final in the current Windows build",
+  "effects": {
+    "explosion": {
+      "evidence": "C:\\Users\\PC\\Documents\\celfx\\agents\\explosion\\reference_match_20261114\\final_candidate74",
+      "worktree": "C:\\Users\\PC\\Documents\\GitHub\\githubtest-cel-explosion",
+      "head": "4a23437d31ef6dba852e22d898e2d46fb3a55b7c",
+      "archived_files": 83,
+      "archive_sha256": "b17161856d4894951c550ffdf017dd686dbcdcb6f90be4b1ad6f6943f2c252da"
+    },
+    "flamethrower": {
+      "evidence": "C:\\Users\\PC\\Documents\\celfx\\agents\\flamethrower\\reference_match_20261114\\final_candidate59",
+      "worktree": "C:\\Users\\PC\\Documents\\GitHub\\githubtest-cel-flamethrower",
+      "head": "c1059ef6c5d556b9bfa46c6a508e50e68cee15e1",
+      "archived_files": 53,
+      "archive_sha256": "9ebedb1d5016e815f67b2e9ba9142fe24d4324226949a5aebeda74f2034c5e08"
+    },
+    "fire_bolts": {
+      "evidence": "C:\\Users\\PC\\Documents\\celfx\\agents\\fire_bolts\\impact_trails_20261114\\final",
+      "worktree": "C:\\Users\\PC\\Documents\\GitHub\\githubtest-cel-fire-bolts",
+      "head": "dd7805312f13053e47d8817e18a687e3cae3068d",
+      "live_mismatches": []
+    },
+    "green_laser": {
+      "evidence": "C:\\Users\\PC\\Documents\\celfx\\runs\\green_laser\\loop_v3_capture_smoke_20261114",
+      "worktree": "C:\\Users\\PC\\Documents\\GitHub\\githubtest-cel-green-laser",
+      "head": "22408edf1502071fa0a171867495173427e59838"
+    },
+    "orbital_laser": {
+      "evidence": "C:\\Users\\PC\\Documents\\celfx\\runs\\orbital_laser\\codex_20261114_r26",
+      "worktree": "C:\\Users\\PC\\Documents\\GitHub\\githubtest-cel-orbital-laser",
+      "head": "85ee28a41b19b9df103960dad4a9c8eeb0356d67",
+      "snapshot_mismatches": []
+    },
+    "bullet_impacts": {
+      "evidence": "C:\\Users\\PC\\Documents\\celfx\\runs\\bullet_impacts\\codex_20261113_r05",
+      "worktree": "C:\\Users\\PC\\Documents\\GitHub\\githubtest-cel-bullet-impacts",
+      "head": "05f20ab288bb4c2a45640aa848ef09b433143bac"
+    },
+    "blue_laser": {
+      "worktree": "C:\\Users\\PC\\Documents\\GitHub\\githubtest-cel-blue-laser",
+      "head": "e4b5a625650d7e29f1a0a8439a71d019b4d1e802",
+      "status": ""
+    },
+    "artillery": {
+      "worktree": "C:\\Users\\PC\\Documents\\GitHub\\githubtest-cel-artillery",
+      "head": "8bea14eca9936f3920340277a0160ebb5216c012",
+      "status": ""
+    },
+    "cyan_beam": {
+      "worktree": "C:\\Users\\PC\\Documents\\GitHub\\githubtest-cel-cyan-beam",
+      "head": "33867212391ef566c159e93128dff35d22dfb435",
+      "status": ""
+    },
+    "neon_acid": {
+      "worktree": "C:\\Users\\PC\\Documents\\GitHub\\githubtest-cel-neon-acid",
+      "head": "3bc91c11ff4f7d2c8fd9bafcec7f788d881d331e",
+      "status": ""
+    }
+  },
+  "note": "Selection does not claim an exact reference match. Orbital snapshot r26 excludes later shadow experiments."
+}

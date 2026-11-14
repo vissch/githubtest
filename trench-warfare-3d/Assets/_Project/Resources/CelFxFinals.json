@@ -1,0 +1,15 @@
+{
+  "version": "2026-11-14",
+  "effects": [
+    "explosion",
+    "flamethrower",
+    "fire_bolts",
+    "green_laser",
+    "orbital_laser",
+    "bullet_impacts",
+    "blue_laser",
+    "artillery",
+    "cyan_beam",
+    "neon_acid"
+  ]
+}

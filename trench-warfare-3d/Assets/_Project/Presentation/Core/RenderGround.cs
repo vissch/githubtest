@@ -129,6 +129,9 @@ namespace TW.Presentation
         /// <summary>A flash of light at a place: colour, peak intensity, reach (m), seconds. A tank's gun or a strike on its
         /// plate lights the ground round it the way a shell does. (NightLights lends one of its pooled lights)</summary>
         public static System.Action<UnityEngine.Vector3, UnityEngine.Color, float, float, float> Flash;
+        /// <summary>A transient flash with explicit glow-card intensity. Same pooled light as Flash,
+        /// without the persistent painted pool and hearth used by FireLight.</summary>
+        public static System.Action<UnityEngine.Vector3, UnityEngine.Color, float, float, float, float> FlashWithCard;
         /// <summary>The same, for a thing that BURNS rather than flashes: the last argument is how bright the glow
         /// card over the light is. Flash leaves it at the muzzle-flash default of 2.6, which is a white disc that
         /// does not care how dim the light under it was set - a fire needs a fraction of that or it erases the
@@ -166,7 +169,7 @@ namespace TW.Presentation
         {
             CloseUp = 0f; TanksDrawn = false; SmokeSources.Clear();
             IsWater = null; AddRing = null; Sparks = null; Biplane = null; VehicleTracks = null; VehicleGunPort = null;
-            DrawnWreck = null; IsTankSlot = null; Flash = null; FireLight = null; FirePool = null; CookOff = null; FootFall = null; AimPreview = null;
+            DrawnWreck = null; IsTankSlot = null; Flash = null; FlashWithCard = null; FireLight = null; FirePool = null; CookOff = null; FootFall = null; AimPreview = null;
             MachineGlows = null; MachineLight = null; LampOut = null; Standing = null;
         }
     }

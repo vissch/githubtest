@@ -514,6 +514,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.CaptureRig.Pigments(path, cell)` | Editor/CaptureRig.cs | Lays every painted surface out side by side as one PNG, each tiled 2x2 so the repeat is visible. |
 | `TW.Editor.CaptureRig.Textures(path, top)` | Editor/CaptureRig.cs | Every texture in memory, largest first, with what it really costs, and a count of the distinct materials and shaders the props are drawn with. |
 | `TW.Editor.CaptureRig.Stress(unitsPerSide, path, frames, settleSeconds)` | Editor/CaptureRig.cs | Profiles the game with `unitsPerSide` riflemen deployed by EACH side (so 1000 is the documented 2,000-man stress preset), then puts the scene back as ... |
+| `TW.Editor.CelFxStill.Sheet(recipe, dir, zoom, w, h)` | Editor/Cel/CelFxStill.cs | Render the recipe's sheet into dir; returns a one-line summary. |
 | `TW.Editor.CrabManifest.MachineOf(assetPath)` | Editor/CrabManifest.cs | The machine a model file belongs to: "Kettle" for .../Kettle_LOD1.fbx. |
 | `TW.Editor.DeathLab.Absurd(intensity)` | Editor/DeathLab.cs | Pins how absurd the deaths are (0 today's, 1 the new look, 2 ludicrous; negative: the knob decides). |
 | `TW.Editor.DeathLab.Row(n, x, z, team, spacing, hp, maxHp)` | Editor/DeathLab.cs | n men in a line along x from (x, z), facing +z, each with hp hit points; returns their slots. |
@@ -532,6 +533,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.InkLinesSetup.Install()` | Editor/InkLinesSetup.cs | (no summary: read the method) |
 | `TW.Editor.LookLab.Knob(name, value)` | Editor/LookLab.cs | A knob set in the game on the lab's next frame. |
 | `TW.Editor.LookLab.Clear()` | Editor/LookLab.cs | Every knob back to its default on the lab's next frame. |
+| `TW.Editor.RangeStage.Run(options)` | Editor/RangeStage.cs | (no summary: read the method) |
 | `TW.Editor.RiderLab.Setup(archetype, riders, x, z, team, yawDeg, climb)` | Editor/RiderLab.cs | A walker of `archetype` (6 Pincer .. |
 | `TW.Editor.RiderLab.Climbers(slot, n)` | Editor/RiderLab.cs | `n` riflemen of the machine's team spawn 12-15 m behind it, held, and run in and climb aboard (for a machine that is already standing: spawn it ... |
 | `TW.Editor.RiderLab.BoardMen(slot, men)` | Editor/RiderLab.cs | Real men take these riders' places: board from where they stand. |

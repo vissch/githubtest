@@ -113,6 +113,7 @@ Shader "TW/Toon (URP)"
             #include "Assets/_Project/Shaders/TWWater.hlsl"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
             #include "Assets/_Project/Shaders/TWLightPools.hlsl"
+            #include "Assets/_Project/Shaders/Cel/Effects/orbital_laser/OrbitalLaserLighting.hlsl"
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; float2 chunk : TEXCOORD1; half4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; half4 color : COLOR; float fog : TEXCOORD3; };
@@ -332,6 +333,8 @@ Shader "TW/Toon (URP)"
                 color += heat;
                 if (_TWPoolUnblue > 0.0) color.b -= min(color.b * 0.6, unblue * _TWPoolsThroughHaze);   // and over the haze the fog put back
                 color += poolLight * _TWPoolsThroughHaze;
+                // The energy light keeps the surface's texture and normals, without fire warmth or wet glints.
+                color += max(albedo, 0.16) * CelOrbitalDiffuseLight(i.positionWS, normalize(i.normalWS));
                 return half4(color, 1.0);
             }
             ENDHLSL
