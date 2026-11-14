@@ -677,7 +677,19 @@ Shader "TW/Cel/Fireball"
                     // left as its outermost sliver - the clip's proportions. a07's 1 - u/1.42 reached the core
                     // inside u = 0.17 (a dot) and put c1/c0 over most of the lobe.
                     float u = length(q - float2(-0.24, 0.28)) / max(rr, 1e-3);
-                    float v = saturate((1.41 - u) / 1.03);
+                    // a21, the second round of the burst's recorded diagnosis. a20 took the ink contour off every
+                    // lobe and the cloud STILL read as a heap of countable balls, so the line was not what fences
+                    // them: the independent reader named the band field instead - "the full-circle ORANGE RIM
+                    // drawn round every lobe plus each lobe's own concentric yellow band and cream core, which
+                    // fence even the interior lobes the clip leaves open", against "the clip's whites are large
+                    // irregular blobs that run across several lobes and ignore lobe centres". a08's field put the
+                    // core inside u = 0.50 and the first threshold at u = 1.15, so every lobe wore a wide yellow
+                    // and orange-red annulus - a bullseye, drawn in the middle of the mass as well as at its edge.
+                    // a21 pushes the core out to u = 0.90 and the first threshold to u = 1.22, leaving the warm
+                    // bands as a thin RIND on the last tenth of the radius: neighbouring cores then touch and run
+                    // together into one white-yellow field, and the only orange-red left visible is on lobes no
+                    // neighbour covers - the cloud's OUTER silhouette, which is the one place the clip has it.
+                    float v = saturate((1.35 - u) / 0.51);
                     // a13: the char is a SHELL, not a tone change. A dark cap closes over the lobe from its TOP
                     // down as ch runs 0..1, its edge as ragged as the lobe's own, and the band under it goes on
                     // burning: the clip's cooling is charcoal closing over fire, never a ball that dims all over.
