@@ -19,6 +19,8 @@ namespace TW.Presentation.VFX.Cel
 
         // the live renderer (made on first use by Renderer; a destroyed one reads null and the next use makes another)
         static CelFxRenderer live;
+        // Awake must inspect the owner without re-entering lazy component creation.
+        internal static CelFxRenderer ExistingRenderer => live;
         /// <summary>A pinned clock for stills (NaN: Time.time). Records are born on it and the shader reads it.</summary>
         public static float Clock = float.NaN;
         /// <summary>A pinned zoom for stills and tests (NaN: the camera's, ViewEye.Zoom).</summary>
