@@ -37,7 +37,14 @@
 //             it is painted. Pos its middle, Axis the eye's level right. Size x half-extent across (m), w depth /
 //             width. Motion x, y the ground's slope there, z the side its longest fingers run to (1 the eye's
 //             right, -1 its left). Extra y seconds it takes to spread, z the age at which it drains.
-//  5 bubble   Pos on the ground. Size x radius it swells to (m). Extra y seconds of the pop at the end of its life.
+//  5 lobe     a07: one lobe of the burst. A round cel ball facing the eye, hard-cut, with a lumpy edge, the
+//             palette's bands off a highlight high and to the eye's left (core, c3, c2, c1 at the edge), an ink
+//             contour, and a cooling into the palette's second row. Pos where it sits, Vel its drift, Motion
+//             (gravity, drag, -, buoyancy). Size x radius at birth (m), y at death, z the ease, w its squash
+//             (0 or 1 round, 0.8 a little flattened). Tone y the core's HDR multiplier, w the ink's width in
+//             screen pixels (0 no contour). Extra y the lumps' amplitude (0: 0.10), z the life fraction at which
+//             it starts to char into the cool row (0: 0.75). It replaced the acid's bubble, which the fireball
+//             never spawned; a lobe is the one thing the drop and the puff modes cannot draw.
 //  6 puff     smoke: no line round it, a ragged edge, seen through; it frays into upright tatters. Pos, Vel,
 //             Motion (gravity, drag, -, buoyancy). Size x, y, z its size over the life (m). Extra y the life
 //             fraction at which it starts to thin, z the share of its life it is lit by the acid under it (core,
@@ -54,7 +61,9 @@
 // Tone: x the palette row, y unused (a glow: 1 if it falls on level ground only and leaves what stands on it
 // alone), z opacity (a glow: its strength), w unused (a strand: the band's half-width through the middle of the
 // flight, m: the strands keep their places in the band).
-// Palette rows: c0 rim, c1 shade, c2 body, c3 light, core pale.
+// Palette rows: c0 rim, c1 shade, c2 body, c3 light, core pale. Mode 5 reads them through the kit's CelRamp2
+// instead, which cuts a 0..1 field into the row's bands (the lightest n of c0..c3) and its HDR core, and blends the
+// whole ramp into the row the record cools to (Tone.x = row + 256 x cool row), so one record can go fire to char.
 //
 // Two passes, one draw: the light pass first (only the glows draw in it: lit = unlit x (1 + what a glow multiplies
 // in), which a blend can do and an added colour cannot), then everything, in the records' order.
@@ -188,14 +197,16 @@ Shader "TW/Cel/Fireball"
                 }
                 else if (mode < 5.5)
                 {
-                    float popAt = r.life - r.extra.y;
-                    float swell = saturate(a / max(popAt * 0.35, 0.01));
-                    float rad = r.size.x * (0.18 + 0.82 * pow(swell, 0.7));
-                    float pop = saturate((a - popAt) / max(r.extra.y, 0.01));
-                    float card = rad * (1.4 + 0.9 * step(0.0001, pop));  // room for the ripple it stands in, and for the pop's ring
-                    w = CelBillboard(r.pos + float3(0.0, rad * 0.92, 0.0), cq * card);
-                    q = cq * (card / max(rad, 1e-4));
-                    shape = float4(tick, pop, swell, 0.0);
+                    // a07: the burst's lobe. One round cel ball facing the eye, carried by its own velocity with
+                    // drag, gravity and buoyancy like a puff. The card is wider than the lobe by Card: its lumps
+                    // reach 1 + amp and the ink line is drawn just inside its edge, so neither may touch the card's.
+                    float3 p = r.pos + r.vel * CelDragInt(r.motion.y, a) + float3(0.0, 0.5 * (r.motion.w - r.motion.x) * a * a, 0.0);
+                    float rad = CelCurve(r.size.xyz, k);
+                    float squash = r.size.w > 0.0 ? r.size.w : 1.0;     // 1 round, 0.8 a little flattened
+                    const float Card = 1.22;
+                    w = CelBillboard(p, cq * rad * Card * float2(1.0, squash));
+                    q = cq * Card;                                      // |q| = 1 is the lobe's own edge
+                    shape = float4(tick, r.extra.y > 0.0 ? r.extra.y : 0.10, r.extra.z > 0.0 ? r.extra.z : 0.75, 0.0);
                 }
                 else if (mode < 6.5)
                 {
@@ -638,34 +649,23 @@ Shader "TW/Cel/Fireball"
                 }
                 else if (mode < 5.5)
                 {
-                    float ang = atan2(q.y, q.x);
-                    float tk = i.shape.x, pop = i.shape.y;
-                    float sq = 0.05 * sin(tk * 2.1 + seed * 30.0);
-                    float2 p = q / float2(1.0 + sq, 1.0 - sq);          // it wobbles on every drawing
-                    float r1 = length(p);
-                    if (pop > 0.0001)
-                    {
-                        float ringR = 0.9 + 1.1 * pop;
-                        float ring = 1.0 - Step(0.07 * (1.0 - pop) + 0.02, abs(r1 - ringR), pix);
-                        ring *= step(0.35, CelHash21(float2(floor(ang * 2.2 + seed * 9.0), 3.0)));
-                        float fl = (1.0 - Step(0.10 * (1.0 - pop), length(frac(p * 1.6 + seed) - 0.5), pix * 1.6))
-                            * step(0.82, CelHash21(floor(p * 1.6 + seed) + 13.0)) * step(r1, ringR);
-                        al = max(ring, fl) * (1.0 - pop);
-                        col = light;
-                    }
-                    else
-                    {
-                        al = (1.0 - Step(0.90, r1, pix)) * 0.94;
-                        col = lerp(body, light, 1.0 - Step(0.52, length(p - float2(-0.16, 0.22)), pix));
-                        col = lerp(col, shade, Step(0.80, length(p - float2(-0.10, 0.14)), pix));
-                        col = lerp(col, rim, Step(0.85, r1, pix) * 0.8);
-                        col = lerp(col, pale, 1.0 - Step(0.17, length((p - float2(-0.34, 0.38)) * float2(1.0, 1.25)), pix));
-                        // the ripple it stands in: a thin arc on the ground round its foot
-                        float2 g = (q - float2(0.0, -0.92)) / float2(1.22, 0.30);
-                        float arc = (1.0 - Step(0.10, abs(length(g) - 1.0), pix * 3.0)) * step(g.y, 0.25) * step(0.94, r1);
-                        col = lerp(col, rim, arc);
-                        al = max(al, arc * 0.8);
-                    }
+                    // a07: the burst's lobe (the focus part), the mode the clip's lobe needs and neither the drop
+                    // (one flat palette row, lines 488-505: it only ever computes al) nor the puff (no line round it
+                    // by design) can give it. One hard-cut round cel ball, lumpy at its edge, filled with the
+                    // palette's bands off a highlight high and to the eye's left - white core, pale yellow, yellow,
+                    // orange-red at the far edge - cooling into the row it chars to from shape.z of its life, and
+                    // contoured with a hard ink line tone.w screen pixels wide just inside its edge. Everything
+                    // steps on the effect's twos clock (shape.x = tick), like every other mode here.
+                    float tk = i.shape.x, amp = i.shape.y, coolFrom = i.shape.z;
+                    float d = length(q);
+                    float2 dir = d > 1e-4 ? q / d : float2(1.0, 0.0);   // read on the direction: no seam round the circle
+                    float lump = CelValue2(dir * 2.3 + seed * 17.0 + tk * 0.021) - 0.5;
+                    float lump2 = CelValue2(dir * 5.1 - seed * 9.0 - tk * 0.013) - 0.5;
+                    float rr = 1.0 + amp * (1.6 * lump + 0.8 * lump2);   // its own edge, in q
+                    al = 1.0 - Step(rr, d, pix);                        // one hard cel edge, nothing soft
+                    float v = saturate(1.0 - length(q - float2(-0.30, 0.34)) / max(rr * 1.42, 1e-3));
+                    col = CelRamp2(v, i.tone.x, max(i.tone.y, 0.0), k, coolFrom);
+                    col = lerp(col, CelInkColor(i.tone.x, k, coolFrom), CelInk(rr - d, 0.0, i.tone.w));
                 }
                 else if (mode < 6.5)
                 {

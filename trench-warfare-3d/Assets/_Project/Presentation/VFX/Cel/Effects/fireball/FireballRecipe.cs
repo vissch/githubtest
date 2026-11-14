@@ -6,10 +6,11 @@
 // of this effect yet, so every size, place and colour is a FIRST GUESS to be corrected from the first film.
 // Crude on purpose (SKILL.md 16 step 4: right place, size, time and colour, no detail).
 //
-// It draws through the kind's own shader (CelFireball_URP, copied from neon_acid in a01) and uses four of its
+// It draws through the kind's own shader (CelFireball_URP, copied from neon_acid in a01) and uses five of its
 // eight modes: 1 drop (the comet's head, its tail, the tail embers, the spark rays, the falling embers), 2 splat
-// (the hit), 6 puff (the lobes of the burst and the smoke they cool into) and 7 glow (the ground light). The
-// strand, mound, puddle and bubble modes of that shader are not used by the fireball and nothing spawns them.
+// (the hit), 5 lobe (one lobe of the burst: a07 rewrote the acid's unused bubble mode into it), 6 puff (the
+// smoke the burst cools into) and 7 glow (the ground light). The strand, mound and puddle modes of that shader
+// are not used by the fireball and nothing spawns them.
 using UnityEngine;
 
 namespace TW.Presentation.VFX.Cel
@@ -202,18 +203,25 @@ namespace TW.Presentation.VFX.Cel
                 if (at.y < Ground(at) + 0.30f) at.y = Ground(at) + 0.30f;
                 float size = LobeRadius * rng.Range(0.80f, 1.30f);
                 float born = OnTwos(hit + 0.083f + rng.Range(0f, 0.25f));
-                // a05. a03 and a04 pushed the ARRANGEMENT both ways and the width profile never followed, so the
-                // card's falsifier sends the round here instead: how one lobe is DRAWN. The puff mode has no line
-                // round it by design (the shader's header says so), which is why a02-a04 are flat yellow with a
-                // soft edge and no rim however the lobes are stacked. A fire lobe is now a round cel DROP, which
-                // is hard-edged and takes the palette's bands and its ink; only the smoke it cools into stays a
-                // puff. Falsifier: if the mass still has no rim and no white core, the palette's bands are not
-                // reaching this shape and the next round must read the shader, not the recipe.
-                var r = Rec(now, born, rng.Range(1.7f, 2.1f), FireballKind.Drop, at, Fire, 1f, ref rng);
+                // a07. a05 and a06 settled HOW BIG a lobe is and that it wants a hard cel edge, and a06's
+                // falsifier fired on the other half: the lobes are one flat yellow at any size. Reading the
+                // shader said why, and it is not a knob - the drop mode only ever computes its silhouette and
+                // leaves col at the palette's body row, and the puff mode draws no line at all. So a lobe is now
+                // drawn by mode 5, written for this effect in a07: a hard-cut round ball banded from a highlight
+                // (white core, pale yellow, yellow, orange-red at its far edge) with an ink contour, charring
+                // into the smoke row over the last quarter of its life. Place, size, count, birth and drift are
+                // a06's, untouched, so this round changes only how one lobe is DRAWN.
+                var r = Rec(now, born, rng.Range(1.7f, 2.1f), FireballKind.Lobe, at, Fire, 1f, ref rng);
                 r.Vel = (at - heart).normalized * rng.Range(0.25f, 0.65f) + Vector3.up * rng.Range(0.05f, 0.35f);
                 r.Motion = new Vector4(0f, 1.6f, 0f, 0f);
-                r.Size = new Vector4(size, size * 1.08f, 1f, 0.006f);
-                r.Extra.y = 1f;                  // a round fleck: the clip's lobes are circles, hard-edged
+                // 0.90: the drop's round fleck filled 0.9 of its radius and the lobe fills all of it, so a06's
+                // DRAWN size is kept exactly. w is the lobe's squash now, not the drop's stretch: 1 = round.
+                r.Size = new Vector4(size * 0.90f, size * 0.97f, 1f, 1f);
+                // the fire row, charring into the smoke row (CelRamp2's second row); 1 the core's multiplier,
+                // 1 its opacity, 5.5 the ink contour in screen pixels
+                r.Tone = new Vector4(CelRecord.PackPalette(Fire, Smoke), 1f, 1f, 5.5f);
+                r.Extra.y = 0.11f;               // the lumps on its edge: the clip's lobes are round but not circles
+                r.Extra.z = 0.74f;               // it starts to char at three quarters of its life
                 renderer.Spawn(kind, r);
 
                 // the same lobe charred, then flat brown: it comes up as the fire goes and breaks up by frame 112
