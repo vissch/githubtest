@@ -1,4 +1,4 @@
-// Phase: CelFx fireball (2026-11-14, round a02) - THE BLOCK-IN. A comet of fire flies in from the eye's left,
+// Phase: CelFx fireball (2026-11-14, a02 block-in, a03 the burst as one mass). A comet of fire flies in from the eye's left,
 // hits the dummy and bursts into a cloud of round cel lobes that cool to brown smoke and break up, with white
 // spark rays, falling embers, a line of embers left along the comet's path and an orange light on the ground.
 // Reference: fireball_nolora.mp4, 192 f at 24 fps, drawn on twos. Everything below is read off that clip and
@@ -40,7 +40,7 @@ namespace TW.Presentation.VFX.Cel
         const float TailRadius = 0.62f, TailLength = 11.0f;
         /// <summary>The burst at its peak (clip frame 44): 500 x 340 px = 6.5 m across and 4.4 m tall, its foot on
         /// the ground. Its lobes are circles of 60-110 px = 0.8-1.4 m across.</summary>
-        public const float BurstRadius = 3.25f, BurstTall = 2.20f, LobeRadius = 0.55f;
+        public const float BurstRadius = 3.25f, BurstTall = 2.20f, LobeRadius = 1.25f;
 
         // ---- colours, measured off the clip's pixels (spec/eye/fireball.md). They are written straight, NOT
         // through neon_acid's grade inversion: that inversion was fitted to a film of flat swatches for the acid,
@@ -179,19 +179,26 @@ namespace TW.Presentation.VFX.Cel
                 renderer.Spawn(kind, r);
             }
 
-            // ---- THE BURST (the focus part). A cloud of round lobes standing on the ground over the dummy, wider
-            // than it is tall: hot white-yellow from the clip's frame 34 to 48, cooling from 48, charred by 60, the
+            // ---- THE BURST (the focus part). ONE MASS of big round lobes standing on the ground over the dummy
+            // and over its head, wider than it is tall and widest at its top: hot white-yellow from the clip's frame 34 to 48, cooling from 48, charred by 60, the
             // fire out by 76. Each lobe is drawn twice: a fire puff that lives through the hot phase and a brown one
             // in the same place that takes over as it cools, so the cloud goes to smoke without moving off the mark.
-            int lobes = far ? 8 : mid ? 16 : 26;
-            Vector3 heart = ground + Vector3.up * (BurstTall * 0.62f);
+            int lobes = far ? 5 : mid ? 9 : 13;
+            Vector3 heart = ground + Vector3.up * (BurstTall * 1.05f);
             for (int i = 0; i < lobes; i++)
             {
+                // a03: the clip's mass is WIDEST AT ITS TOP (its widths at 25/50/75 % of its height are
+                // 233/159/163 px, ours at a02 were 177/187/152: a flat band, widest in its middle). So the lobes
+                // are spread wider the higher they sit, and are packed in at the foot - a cauliflower head, not a
+                // ball and not a layer on the ground.
                 Vector3 inside = rng.InSphere();
-                Vector3 at = heart + right * (inside.x * BurstRadius) + away * (inside.z * BurstRadius * 0.45f)
-                             + Vector3.up * (inside.y * BurstTall);
-                if (at.y < Ground(at) + 0.35f) at.y = Ground(at) + 0.35f;
-                float size = LobeRadius * rng.Range(0.75f, 1.55f);
+                float up01 = inside.y * 0.5f + 0.5f;                       // 0 at the foot, 1 at the top
+                float spread = Mathf.Lerp(0.50f, 1.0f, up01);
+                Vector3 at = heart + right * (inside.x * BurstRadius * spread)
+                             + away * (inside.z * BurstRadius * 0.40f * spread)
+                             + Vector3.up * ((up01 - 0.45f) * BurstTall * 1.6f);
+                if (at.y < Ground(at) + 0.60f) at.y = Ground(at) + 0.60f;
+                float size = LobeRadius * rng.Range(0.80f, 1.25f);
                 float born = OnTwos(hit + 0.083f + rng.Range(0f, 0.25f));
                 var r = Rec(now, born, rng.Range(1.7f, 2.1f), FireballKind.Puff, at, Fire, 1f, ref rng);
                 r.Vel = (at - heart).normalized * rng.Range(0.35f, 0.9f) + Vector3.up * rng.Range(0.1f, 0.5f);
