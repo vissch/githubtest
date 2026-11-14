@@ -731,7 +731,29 @@ Shader "TW/Cel/Fireball"
                     // time ramp keep the clean warm rind and the cooling ramp they earned, untouched.
                     // a26 keeps a25's ENVELOPE, which was the half of it that worked: zero at the rim, so the
                     // warm rind and a24's f54-f76 cooling ramp are untouched, strongest only in the heart.
-                    float coreCut = 0.50 * saturate(1.25 - un) * max(blobHF, 0.0);
+                    // a27: the cut becomes a WALL instead of a PEAK, and that is the whole round. a26's
+                    // max(blobHF, 0.0) cuts hardest where the noise is HIGHEST, so it digs a few deep BAYS into
+                    // the cream and leaves the rest of the sheet connected behind them: measured on the repaired
+                    // core counter, a26's cream at f40 is 5 blobs whose largest holds 0.68 of the core area,
+                    // against the clip's 11 blobs whose largest holds 0.27. Raising that peak-cut's frequency or
+                    // amplitude cannot fix it - simulated on this exact CelValue2, the 2x frequency the a26
+                    // reader's NEXT asked for leaves ONE component of 59711 px (max/total 1.00), a finer stipple
+                    // of holes in the same sheet. The clip does not spend its interior differently from us: at
+                    // f40 the clip is 31302 core / 33653 mortar px (48/52) and a26 is 30932 / 32574 (49/51), the
+                    // SAME budget. The clip spends it as ONE CONNECTED NET of narrow lanes (3 mortar components,
+                    // 99 % of the mortar in one of them, lane half-width 3.8 px) and a26 spends it as a few fat
+                    // bays (12 components, the largest only 0.37, half-width 8.2 px, p90 26.7). So the mortar
+                    // must be a THIN CONTINUOUS WALL at the noise's ZERO CROSSINGS, not a pit at its peaks:
+                    // saturate(1.0 - abs(blobHF) / 0.20) is 1 where blobHF = 0 and falls to 0 by |blobHF| = 0.20,
+                    // a lane whose width is set by that 0.20 and whose topology is a net by construction, because
+                    // the zero set of a smooth 2D field is a set of CLOSED CURVES. Simulated: 15 blobs, the
+                    // largest holding 0.35 of the core, the mortar one component holding 0.88. The coefficient
+                    // comes DOWN 0.50 -> 0.45, so in the hot phase (v = 1) the floor is v = 0.55 and still no
+                    // orange can enter the mass: strictly safer than a26 on its own stated bound. The
+                    // frequencies, the envelope, A/B, the time ramp, the char cap and every recipe number are
+                    // UNTOUCHED, and v = saturate(v - coreCut) below keeps the cut one-sided by construction, so
+                    // a25's falsification still stands and this cut can never enlarge the core either.
+                    float coreCut = 0.45 * saturate(1.25 - un) * saturate(1.0 - abs(blobHF) / 0.20);
                     // a08: the band field. u WAS the distance from the highlight in units of the lobe's own
                     // radius (a22 measures it in the cloud instead; the proportions below are a08's and stand);
                     // v holds above the ramp's core threshold (0.88) out to u = 0.5 and only falls under its first
