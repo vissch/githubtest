@@ -836,8 +836,18 @@ Shader "TW/Cel/Fireball"
                     // burning: the clip's cooling is charcoal closing over fire, never a ball that dims all over.
                     // Under the cap the lobe still darkens a little (0.22 ch) the way the clip's unburnt part
                     // goes from yellow toward orange before the cap reaches it.
-                    float capY = lerp(1.25, -1.25, ch)
-                        + 0.34 * (CelValue2(dir * 3.1 + seed * 5.0 + tk * 0.017) - 0.5);
+                    // a31: the cap was written to CLOSE COMPLETELY. q.y spans about -1..1, so at ch = 1 the
+                    // front sat at -1.25 +- 0.17, BELOW the whole lobe: every pixel charred, chPix = 1,
+                    // and CelRamp2 returned the smoke row everywhere regardless of v - one flat tone with
+                    // no fire in it at all, from about f69 on. The clip's cooling mass is NEVER that: it is
+                    // grey-brown char with a dozen orange CRACKS still burning in it at f76-f80 (red over
+                    // char 0.101 against our 0.0016). Two terms, one expression: the front now STOPS at
+                    // -0.25 so a band of each lobe never chars, and the noise amplitude GROWS 0.34 -> 1.14
+                    // as ch passes 0.5 so the front frays into cracks instead of sweeping clean. Identical
+                    // at ch = 0 by construction, so every frame before the cap moves is untouched.
+                    float capY = lerp(1.25, -0.25, ch)
+                        + (0.34 + 0.80 * smoothstep(0.50, 1.0, ch))
+                          * (CelValue2(dir * 3.1 + seed * 5.0 + tk * 0.017) - 0.5);
                     float charred = Step(capY, q.y, pix);               // 1 above the front, 0 below it
                     float chPix = max(0.22 * ch, charred);
                     col = CelRamp2(v, i.tone.x, max(i.tone.y, 0.0), chPix, 0.0);
