@@ -41,7 +41,7 @@ namespace TW.Presentation.VFX.Cel
         const float TailRadius = 0.62f, TailLength = 11.0f;
         /// <summary>The burst at its peak (clip frame 44): 500 x 340 px = 6.5 m across and 4.4 m tall, its foot on
         /// the ground. Its lobes are circles of 60-110 px = 0.8-1.4 m across.</summary>
-        public const float BurstRadius = 3.25f, BurstTall = 2.20f, LobeRadius = 0.55f;   // a15: 0.45 -> 0.55, so neighbours touch (85-110 px against the clip's 60-110)
+        public const float BurstRadius = 3.25f, BurstTall = 2.70f, LobeRadius = 0.55f;   // a17: 2.20 -> 2.70, the cloud grows up with the foot a16 gave it (the clip is 1.5 wide to 1 tall)   // a15: 0.45 -> 0.55, so neighbours touch (85-110 px against the clip's 60-110)
 
         // ---- colours, measured off the clip's pixels (spec/eye/fireball.md). They are written straight, NOT
         // through neon_acid's grade inversion: that inversion was fitted to a film of flat swatches for the acid,
@@ -198,11 +198,16 @@ namespace TW.Presentation.VFX.Cel
                 // drop. a03 also fused 13 big lobes into 6 smooth pieces where the clip reads 36.6 pieces inside
                 // one silhouette, so the lobes go back to many and smaller.
                 Vector3 inside = rng.InSphere();
-                float up01 = inside.y * 0.5f + 0.5f;                       // 0 at the foot, 1 at the top
+                // a17: the lobe's HEIGHT comes from its index, not from the sphere. A random point in a sphere
+                // crowds the middle by construction, so no spread curve over it can make the foot the widest
+                // part; three equal rows, lowest first, put a third of the lobes in the dirt. The sphere still
+                // supplies the horizontal jitter.
+                int row = i * 3 / Mathf.Max(lobes, 1);
+                float up01 = (row + rng.Range(0.15f, 0.85f)) / 3f;         // 0 at the foot, 1 at the top
                 // a16: 1.35 at the foot, 0.55 at the top, not 1.00/0.60. The clip's widths at 25/50/75 % of its
                 // height are 233/159/163 - widest in the dirt, narrowing as it rises - and a15 measured
                 // 112/182/180, bulging at the waist. a03 pushed this knob the WRONG way (widest at the top).
-                float spread = Mathf.Lerp(1.35f, 0.55f, up01);
+                float spread = Mathf.Lerp(1.35f, 0.50f, up01);
                 Vector3 at = heart + right * (inside.x * BurstRadius * spread)
                              + away * (inside.z * BurstRadius * 0.45f * spread)
                              + Vector3.up * ((up01 - 0.5f) * BurstTall * 1.25f);
