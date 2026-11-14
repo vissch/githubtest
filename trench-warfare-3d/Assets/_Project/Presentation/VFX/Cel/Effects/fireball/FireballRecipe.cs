@@ -41,7 +41,7 @@ namespace TW.Presentation.VFX.Cel
         const float TailRadius = 0.62f, TailLength = 11.0f;
         /// <summary>The burst at its peak (clip frame 44): 500 x 340 px = 6.5 m across and 4.4 m tall, its foot on
         /// the ground. Its lobes are circles of 60-110 px = 0.8-1.4 m across.</summary>
-        public const float BurstRadius = 3.25f, BurstTall = 2.20f, LobeRadius = 0.45f;
+        public const float BurstRadius = 3.25f, BurstTall = 2.20f, LobeRadius = 0.55f;   // a15: 0.45 -> 0.55, so neighbours touch (85-110 px against the clip's 60-110)
 
         // ---- colours, measured off the clip's pixels (spec/eye/fireball.md). They are written straight, NOT
         // through neon_acid's grade inversion: that inversion was fitted to a film of flat swatches for the acid,
@@ -184,7 +184,10 @@ namespace TW.Presentation.VFX.Cel
             // than it is tall: hot white-yellow from the clip's frame 34 to 48, cooling from 48, charred by 60, the
             // fire out by 76. Each lobe is drawn twice: a fire puff that lives through the hot phase and a brown one
             // in the same place that takes over as it cools, so the cloud goes to smoke without moving off the mark.
-            int lobes = far ? 4 : mid ? 15 : 24;   // a11: four this far off (each spawns a smoke puff too), not eight
+            // a15: 40 close and 22 mid, not 24 and 15 - the clip's cloud is 6.5 m across with its lobes
+            // overlapping into one silhouette, ours was about 0.6 of that width with ground showing between them.
+            // far stays 4 (each spawns a smoke puff too): the far-LOD contract is 8..16 records.
+            int lobes = far ? 4 : mid ? 22 : 40;
             Vector3 heart = ground + Vector3.up * (BurstTall * 0.72f);
             for (int i = 0; i < lobes; i++)
             {
