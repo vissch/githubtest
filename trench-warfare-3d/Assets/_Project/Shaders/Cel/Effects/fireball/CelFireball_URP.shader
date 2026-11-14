@@ -705,7 +705,25 @@ Shader "TW/Cel/Fireball"
                     // the same mistake at cloud scale - one big bullseye - while the clip's whites are blobs. This
                     // noise is in CLOUD coordinates with NO per-lobe seed, so its blobs span lobes and ignore
                     // lobe centres exactly as the clip's do (about 1.4 m across at this frequency).
-                    float blob = CelValue2(cloudQ * 1.9 + 31.7) + 0.5 * CelValue2(cloudQ * 4.3 - 11.3) - 0.75;
+                    // a25: this noise is now the CORE-BREAKER as well. a22-a24 only let it wobble the band
+                    // BOUNDARIES, and it could not break the heart, for a measurable reason: at k = 0.28 the core
+                    // threshold sits at cloud u 0.99 while un at the heart is about 0.3, and the amplitude was
+                    // only 0.50 (swing +-0.375), so the whole heart stayed inside the core band whatever the
+                    // noise did - one giant cream lens, which a24's reader marked [worse] against a16 ('a flat
+                    // cream-and-yellow poster with no blob or lobe edge inside it'). The clip has about TWENTY
+                    // small irregular creamy blobs with saturated yellow as the MORTAR between them, each smaller
+                    // than a lobe and crossing two or three of them; ours has 4.7 of ~1400 px and the white AREA
+                    // is nearly right, so this is purely DISTRIBUTION.
+                    // Frequency 1.9 -> 4.8 (and 4.3 -> 9.5) makes a feature about 2.60 / 4.8 = 0.54 m, roughly a
+                    // lobe radius, which is the clip's blob size; it is still in CLOUD coordinates with no
+                    // per-lobe seed, so the blobs run across lobes and ignore lobe centres.
+                    float blob = CelValue2(cloudQ * 4.8 + 31.7) + 0.5 * CelValue2(cloudQ * 9.5 - 11.3) - 0.75;
+                    // ...and the amplitude gets an ENVELOPE so it breaks only the heart. At un ~ 0.3 it is 1.045,
+                    // so u swings about +-0.78 around 0.3: it crosses the core threshold 0.99 and breaks the lens
+                    // into blobs with yellow mortar, while staying under the orange threshold 1.24 so no warm
+                    // colour can appear in the heart. At un >= 1.25 it is ZERO, so a23's fitted bands and a24's
+                    // time ramp keep the clean warm rind and the cooling ramp they earned, untouched.
+                    float blobAmp = 1.10 * saturate(1.25 - un);
                     // a08: the band field. u WAS the distance from the highlight in units of the lobe's own
                     // radius (a22 measures it in the cloud instead; the proportions below are a08's and stand);
                     // v holds above the ramp's core threshold (0.88) out to u = 0.5 and only falls under its first
@@ -715,7 +733,7 @@ Shader "TW/Cel/Fireball"
                     // NOT saturate(): u must be free to pass 1.15, which is where the ramp hands over to the
                     // orange-red. Clamping it at 1 would leave v at 0.398, above the first threshold, and the
                     // orange-red rim this whole round is about could never be drawn anywhere.
-                    float u = max(un + 0.50 * blob, 0.0);
+                    float u = max(un + blobAmp * blob, 0.0);
                     // a21, the second round of the burst's recorded diagnosis. a20 took the ink contour off every
                     // lobe and the cloud STILL read as a heap of countable balls, so the line was not what fences
                     // them: the independent reader named the band field instead - "the full-circle ORANGE RIM
