@@ -175,7 +175,13 @@ namespace TW.Presentation.VFX.Cel
                 // a30: the deposit is spread over fourteen frames, not three (the clip's line still has ten dots
                 // at f44), and it is drawn from the Fire row - the clip's dots are ORANGE (hue 29), not the
                 // Spark row's pale yellow (hue 59).
-                var r = Rec(now, OnTwos(hit - back * 0.42f), use.Range(0.50f, 0.85f) * (1f - back * 0.5f),
+                // a33: a30 proved the LINE DIES TOO SOON and named this term as the knob - its own words,
+                // 'the per-dot LIFETIME is the knob'. a30's deposits are right (20 and 17 dots a frame at f28
+                // and f32 against the clip's 14 and 33) and then they go out: 7/1/1 at f36/f40/f44 against the
+                // clip's 43/24/14, because a dot laid at f26 lives 0.50-0.85 s x (1 - back/2), i.e. about ten
+                // frames. THREE TIMES that life, and nothing else: the same ONE Range draw, the same bounds
+                // ratio, the same count, the same deposit window, the same stream - so no record moves.
+                var r = Rec(now, OnTwos(hit - back * 0.42f), use.Range(1.50f, 2.55f) * (1f - back * 0.5f),
                     FireballKind.Drop, at, Fire, 1f, ref use);
                 r.Vel = Vector3.up * use.Range(0.2f, 0.9f);
                 r.Motion = new Vector4(1.2f, 0.6f, 0f, 0f);
