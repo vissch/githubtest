@@ -150,8 +150,8 @@ namespace TW.Presentation.VFX.Cel
             renderer.Spawn(CelKinds.Streak, new CelRecord
             {
                 Pos = start - velocity.normalized * (0.55f * scale), Born = born, Vel = velocity, Life = flight, Axis = Vector3.up, Seed = rng.Next(),
-                Size = new Vector4(0.13f * scale, 0.16f * scale, 1f, 0.17f), Erode = new Vector4(0f, 0.03f, 1f, 0f),
-                Tone = new Vector4(CelRecord.PackPalette(CelPalette.Find("art_spark")), 4f, 1f, 0f),
+                Size = new Vector4(1.6f * scale, 2.4f * scale, 1f, 0.40f), Erode = new Vector4(0f, 0.03f, 1f, 0f),
+                Tone = new Vector4(CelRecord.PackPalette(CelPalette.Find("art_hot")), 1f, 1f, 0f),
                 Extra = new Vector4(0f, 2f * scale, 0f, 0f),
             });
             if (!close) return;
