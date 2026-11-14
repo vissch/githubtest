@@ -299,7 +299,7 @@ namespace TW.Presentation.VFX.Cel
 
             // ---- the white spark rays out of the burst (clip frames 30-52): straight needles thrown out of its top
             // half, no gravity on them, there and gone in two or three drawings.
-            int rays = far ? 0 : mid ? 14 : 34;
+            int rays = far ? 0 : mid ? 29 : 70;   // a28: the clip has 34-47 separate spark objects a frame, not 8-22 blades
             for (int i = 0; i < rays; i++)
             {
                 Vector3 d = rng.OnSphere();
@@ -309,14 +309,14 @@ namespace TW.Presentation.VFX.Cel
                     heart + d * rng.Range(0.5f, 2.2f), Spark, 1f, ref rng);
                 r.Vel = d * rng.Range(14f, 30f);
                 r.Motion = new Vector4(0f, 0f, 0f, 0f);
-                r.Size = new Vector4(0.085f, 0.03f, 1f, rng.Range(0.09f, 0.16f));
+                r.Size = new Vector4(0.028f, 0.012f, 1f, rng.Range(0.025f, 0.045f));   // a28: a needle, not a blade - the stretch is SECONDS of its own motion
                 r.Extra.y = 2f;
                 renderer.Spawn(kind, r);
             }
 
             // ---- the embers that fall out of it (clip frames 56-92): short bright streaks with a hot head, arcing
             // out and down, the last bright thing in the frame.
-            int fall = far ? 0 : mid ? 20 : 48;
+            int fall = far ? 0 : mid ? 33 : 80;   // a28: many short embers, not a few fat leaves
             for (int i = 0; i < fall; i++)
             {
                 Vector3 d = rng.OnSphere();
@@ -326,7 +326,7 @@ namespace TW.Presentation.VFX.Cel
                     heart + d * rng.Range(0.4f, 2.6f), Spark, 1f, ref rng);
                 r.Vel = d * rng.Range(3.5f, 9f) + Vector3.up * rng.Range(0.5f, 3f);
                 r.Motion = new Vector4(9.0f, 0.25f, 0f, 0f);
-                r.Size = new Vector4(0.075f, 0.035f, 1f, rng.Range(0.05f, 0.11f));
+                r.Size = new Vector4(0.026f, 0.014f, 1f, rng.Range(0.05f, 0.11f));   // a28: thinner head; the stretch stays, the clip's falling embers keep a trail
                 r.Extra.y = 2f;
                 renderer.Spawn(kind, r);
             }
