@@ -245,7 +245,16 @@ namespace TW.Presentation.VFX.Cel
                 // the fire row, charring into the smoke row (CelRamp2's second row); 1 the core's multiplier,
                 // 1 its opacity, and the ink contour in screen pixels - a08 cuts it from 5.5 to 3.0: the clip has
                 // no line round each lobe at all in the hot phase, only a thin rim on the cloud's outer edge
-                r.Tone = new Vector4(CelRecord.PackPalette(Fire, Smoke), 1f, 1f, 3.0f);
+                // a20, the first round of the burst's recorded DIAGNOSIS (a17, a18, a19 all moved the numbers and
+                // were dropped on the eye; three arrangements of the same forty drawn balls traded one visible
+                // structure for another). The ink goes to 0, from a08's 3.0. a08's own comment beside it has said
+                // since then that "the clip has no line round each lobe at all in the hot phase, only a thin rim
+                // on the cloud's outer edge", and the line was only narrowed, never removed. Mode 5 closes a
+                // complete CelInk contour round every lobe's own circle, so a cloud of forty is drawn as forty
+                // closed onions and reads - the independent reader's words - as a bunch of grapes. This tests
+                // whether that contour is what stops them fusing, in the hot phase and in the char. The orange-red
+                // band the ramp puts at each lobe's outer sliver stays, so the mass keeps a warm edge.
+                r.Tone = new Vector4(CelRecord.PackPalette(Fire, Smoke), 1f, 1f, 0f);
                 r.Extra.y = 0.11f;               // the lumps on its edge: the clip's lobes are round but not circles
                 // a12: the char WINDOW. A lobe born about clip frame f32 with a 1.9 s life begins to char at 0.38
                 // of it (about f49, the clip's f48) and is fully charred at 0.72 (about f65; the clip is mostly
