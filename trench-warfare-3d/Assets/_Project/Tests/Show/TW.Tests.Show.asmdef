@@ -21,7 +21,8 @@
     "TW.Data",
     "Unity.InputSystem",
     "TW.Perf",
-    "TW.Editor"
+    "TW.Editor",
+    "TW.Presentation.VFX"
   ],
   "includePlatforms": [
     "Editor"

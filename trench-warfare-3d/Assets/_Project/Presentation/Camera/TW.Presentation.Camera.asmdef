@@ -16,7 +16,8 @@
     "TW.Data",
     "TW.Presentation.Core",
     "TW.Presentation.Units",
-    "TW.Net"
+    "TW.Net",
+    "TW.Presentation.VFX"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
