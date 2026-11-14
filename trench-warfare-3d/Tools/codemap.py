@@ -57,6 +57,9 @@ AGENTS_MAX_LINES = 40
 
 # One line per folder, two levels under Assets/_Project. A new folder fails --check until it has a line here.
 PURPOSE = {
+    'Editor/Cel': 'Cel effect capture helpers.',
+    'Shaders/Cel': 'Final cel VFX primitives and effect-specific shaders.',
+    'Tests/Cel': 'Cel renderer, recipe, lifecycle and final effect regression tests.',
     'Art': 'Source art Unity imports but the game does not load by name (figures, clip FBX).',
     'Art/Characters': "Owner's Mixamo-rigged figures (Soldier, Sniper) and the ~100 clip FBX the VAT baker reads.",
     'Data': 'ScriptableObject schemas and the baker that turns them into sim tables (SIM lane).',
@@ -116,6 +119,9 @@ PURPOSE = {
 
 # What each runtime switch does. A switch found in the code with no line here fails --check.
 FLAG_EFFECT = {
+    '-twvfx': 'Windows player: preview one selected final CelFx effect, with buttons for all ten.',
+    '-twrange': 'Editor RangeStage capture options.',
+    'TW.Range.Request': 'SessionState request for the editor RangeStage.',
     '-twCanary': 'Player/editor arg: run the second (peer) sim world as a determinism canary. Off in single player.',
     '-twbench': 'Player/editor arg: run PerfBench with "key=value ..." options and quit. Options: `Perf/BenchOptions.cs` `Parse`; recipes: workflow.md, section 7.',
     'TW_BENCH': 'Environment variable, same as -twbench. Also fires in editor Play if set, so unset it after use.',
