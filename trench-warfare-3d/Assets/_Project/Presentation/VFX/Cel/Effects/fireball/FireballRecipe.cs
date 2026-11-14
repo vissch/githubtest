@@ -227,7 +227,10 @@ namespace TW.Presentation.VFX.Cel
                 // dark at f60 and its fire is out by f76). a07-a08 started at 0.74 and only finished at the
                 // lobe's death, so the cloud was still cream-white at f54-f60 - the defect that dropped a08.
                 r.Extra.z = 0.38f;
-                r.Erode = new Vector4(0.72f, 0f, 1f, 0f);
+                // a14: 0.86, not a13's 0.72 - with the cap doing the work the front crossed the whole lobe by
+                // about f70 and our burst was wholly dark from f72, where the clip still has red-orange cracks
+                // burning in the charcoal until f76.
+                r.Erode = new Vector4(0.86f, 0f, 1f, 0f);
                 renderer.Spawn(kind, r);
 
                 // the same lobe charred, then flat brown: it comes up as the fire goes and breaks up by frame 112
