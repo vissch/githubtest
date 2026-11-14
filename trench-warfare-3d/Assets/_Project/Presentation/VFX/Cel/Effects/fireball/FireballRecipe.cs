@@ -218,8 +218,9 @@ namespace TW.Presentation.VFX.Cel
                 // DRAWN size is kept exactly. w is the lobe's squash now, not the drop's stretch: 1 = round.
                 r.Size = new Vector4(size * 0.90f, size * 0.97f, 1f, 1f);
                 // the fire row, charring into the smoke row (CelRamp2's second row); 1 the core's multiplier,
-                // 1 its opacity, 5.5 the ink contour in screen pixels
-                r.Tone = new Vector4(CelRecord.PackPalette(Fire, Smoke), 1f, 1f, 5.5f);
+                // 1 its opacity, and the ink contour in screen pixels - a08 cuts it from 5.5 to 3.0: the clip has
+                // no line round each lobe at all in the hot phase, only a thin rim on the cloud's outer edge
+                r.Tone = new Vector4(CelRecord.PackPalette(Fire, Smoke), 1f, 1f, 3.0f);
                 r.Extra.y = 0.11f;               // the lumps on its edge: the clip's lobes are round but not circles
                 r.Extra.z = 0.74f;               // it starts to char at three quarters of its life
                 renderer.Spawn(kind, r);

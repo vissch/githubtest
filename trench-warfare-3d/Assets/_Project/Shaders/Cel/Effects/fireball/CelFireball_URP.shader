@@ -663,7 +663,13 @@ Shader "TW/Cel/Fireball"
                     float lump2 = CelValue2(dir * 5.1 - seed * 9.0 - tk * 0.013) - 0.5;
                     float rr = 1.0 + amp * (1.6 * lump + 0.8 * lump2);   // its own edge, in q
                     al = 1.0 - Step(rr, d, pix);                        // one hard cel edge, nothing soft
-                    float v = saturate(1.0 - length(q - float2(-0.30, 0.34)) / max(rr * 1.42, 1e-3));
+                    // a08: the band field. u is the distance from the highlight in units of the lobe's own radius;
+                    // v holds above the ramp's core threshold (0.88) out to u = 0.5 and only falls under its first
+                    // threshold (0.25) beyond u = 1.15, so the lobe is mostly core and yellow with the orange-red
+                    // left as its outermost sliver - the clip's proportions. a07's 1 - u/1.42 reached the core
+                    // inside u = 0.17 (a dot) and put c1/c0 over most of the lobe.
+                    float u = length(q - float2(-0.24, 0.28)) / max(rr, 1e-3);
+                    float v = saturate((1.41 - u) / 1.03);
                     col = CelRamp2(v, i.tone.x, max(i.tone.y, 0.0), k, coolFrom);
                     col = lerp(col, CelInkColor(i.tone.x, k, coolFrom), CelInk(rr - d, 0.0, i.tone.w));
                 }
