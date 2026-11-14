@@ -1,4 +1,4 @@
-// Phase: CelFx fireball (2026-11-14; a02 the block-in, a04 the mass on the ground, a05 its lobes drawn as cel drops). A comet of fire flies in from the eye's left,
+// Phase: CelFx fireball (2026-11-14; a02 the block-in, a04 the mass on the ground, a05 drops, a06 drops at half the size). A comet of fire flies in from the eye's left,
 // hits the dummy and bursts into a cloud of round cel lobes that cool to brown smoke and break up, with white
 // spark rays, falling embers, a line of embers left along the comet's path and an orange light on the ground.
 // Reference: fireball_nolora.mp4, 192 f at 24 fps, drawn on twos. Everything below is read off that clip and
@@ -40,7 +40,7 @@ namespace TW.Presentation.VFX.Cel
         const float TailRadius = 0.62f, TailLength = 11.0f;
         /// <summary>The burst at its peak (clip frame 44): 500 x 340 px = 6.5 m across and 4.4 m tall, its foot on
         /// the ground. Its lobes are circles of 60-110 px = 0.8-1.4 m across.</summary>
-        public const float BurstRadius = 3.25f, BurstTall = 2.20f, LobeRadius = 0.90f;
+        public const float BurstRadius = 3.25f, BurstTall = 2.20f, LobeRadius = 0.45f;
 
         // ---- colours, measured off the clip's pixels (spec/eye/fireball.md). They are written straight, NOT
         // through neon_acid's grade inversion: that inversion was fitted to a film of flat swatches for the acid,
@@ -183,7 +183,7 @@ namespace TW.Presentation.VFX.Cel
             // than it is tall: hot white-yellow from the clip's frame 34 to 48, cooling from 48, charred by 60, the
             // fire out by 76. Each lobe is drawn twice: a fire puff that lives through the hot phase and a brown one
             // in the same place that takes over as it cools, so the cloud goes to smoke without moving off the mark.
-            int lobes = far ? 7 : mid ? 13 : 20;
+            int lobes = far ? 8 : mid ? 15 : 24;
             Vector3 heart = ground + Vector3.up * (BurstTall * 0.72f);
             for (int i = 0; i < lobes; i++)
             {
