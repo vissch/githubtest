@@ -65,7 +65,9 @@ namespace TW.Presentation.Tactical
         /// <summary>A grenade's burst, in place of a shell's. True: drawn.</summary>
         bool GrenadeBurst(SimEvent e, Vector3 p)
         {
-            if (books != null && books.Ready)
+            bool water = SceneHooks.IsWater != null && SceneHooks.IsWater(p.x, p.z) && !SceneTints.Now.MoltenLiquid;
+            bool finalGrenade = finalCel && FinalBattleFx.Burst(TW.Sim.Combat.BlastShape.Shell, SourceId.Grenade, water, p, Vector3.forward, e.Tick);
+            if (books != null && books.Ready && !finalGrenade)
             {
                 float closeUp = SceneHooks.CloseUp;
                 Vector4 wind = Shader.GetGlobalVector(WindGlobalId);

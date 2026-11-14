@@ -120,7 +120,9 @@ namespace TW.Presentation.Tactical
         const float FireLit = 3.8f;   // the LIGHT a fire throws. Raise this, never the glow card: peak lights the mud, the card only paints a white disc over it         // a fire's light. NightLights burns its own at 7 over 11 m, but that one is
                                             // not renewed on top of itself, and it does not stand a metre from a parapet
 
-        struct Jet { public float NextCatch; public int Slot; public Vector3 Nozzle, Offset, Aim, ManVel, WasAt; public float Started, Until, NextPuff, NextLight, NextSpill, NextRoot, Seed; public bool Rides;
+        public bool UseFinalCel;
+
+        struct Jet { public float NextFinal; public float NextCatch; public int Slot; public Vector3 Nozzle, Offset, Aim, ManVel, WasAt; public float Started, Until, NextPuff, NextLight, NextSpill, NextRoot, Seed; public bool Rides;
             /// <summary>The sim fired it (a unit whose weapon SetsBurning): the sim decides who is alight, so the stream
             /// is drawn and leaves its fuel on the ground but sets nobody burning by itself.</summary>
             public bool Sim; }
@@ -527,6 +529,17 @@ namespace TW.Presentation.Tactical
             // burst starts and stops like a valve instead of appearing and vanishing
             float valve = Mathf.Clamp01(age / 0.10f) * Mathf.Clamp01(left / 0.14f);
             if (valve <= 0.01f) return;
+            if (UseFinalCel && j.Sim)
+            {
+                if (now >= j.NextFinal && left >= .08f)
+                {
+                    j.NextFinal = now + FinalBattleFx.FlamePacketSeconds;
+                    Vector3 finalHit = Hit(mouth, j.Aim, Reach, out _);
+                    FinalBattleFx.Flame(mouth, finalHit, (uint)(j.Slot + 1) * 1917u);
+                }
+                return;
+            }
+
 
             // The body of the jet is a DRAWING. The pack has a stream in it - blue_direction_explosion, rooted at its
             // left edge and thrown right - and it was skipped for two rounds because it is blue, when the converter

@@ -34,6 +34,41 @@ namespace TW.Presentation.VFX.Cel
             return right * (SweepCentreRight - Mathf.Sin(angle) * RadiusRight) + forward * (Mathf.Cos(angle) * RadiusForward);
         }
 
+        /// <summary>One real-time sweep frame at the simulation's head; no reference-shot volley or scripted path.</summary>
+        public static void PlayBattleCharge(Vector3 at, float strength, float seconds)
+        {
+            var record = new CelRecord
+            {
+                Pos = at + Vector3.up * .35f, Born = CelFx.Now, Life = Mathf.Max(.02f, seconds),
+                Axis = Vector3.up, Size = new Vector4(.3f + strength * 1.6f, .3f + strength * 1.6f, 1f, 0f),
+                Tone = new Vector4(CelRecord.PackPalette(Energy), 1.5f + strength, .4f + strength * .5f, 0f),
+                Extra = new Vector4(0f, 1.8f, 0f, 0f),
+            };
+            CelFx.Renderer.Spawn(CelKinds.Glow, record);
+        }
+
+        public static void PlayBattleFrame(Vector3 head, Vector3 right, float seconds, uint seed)
+        {
+            var rng = new CelRng(seed);
+            const float elapsed = .3f;
+            float phase = Mathf.Repeat(CelFx.Now, 2.6f);
+            Vector3 centre = head - SweepOffset(elapsed + phase, right);
+            var renderer = CelFx.Renderer;
+            int kind = renderer.KindId(OrbitalLaserKind.KindName);
+            var shaft = Record(centre, right, CelFx.Now - elapsed, elapsed + Mathf.Max(.01f, seconds),
+                OrbitalLaserKind.Beam, 1.55f, 1.3f, 220f, Energy, 3.2f, 1f, ref rng);
+            shaft.Extra.y = phase; shaft.Motion = Vector4.zero;
+            renderer.Spawn(kind, shaft);
+            if (CelFx.Zoom < CelFx.FarZoom)
+            {
+                var spiral = Record(centre, right, shaft.Born, shaft.Life, OrbitalLaserKind.Spiral,
+                    .09f, .13f, 12f, Energy, 2.2f, .95f, ref rng);
+                spiral.Extra.y = phase; spiral.Motion = Vector4.zero;
+                renderer.Spawn(kind, spiral);
+            }
+            OrbitalLaserLighting.Add(head, CelFx.Now, seconds, new Color(.56f, 1.92f, 3.6f), 9.3f, right);
+        }
+
         public static void Play(Vector3 centre, Vector3 right, uint seed)
         {
             right.y = 0f;

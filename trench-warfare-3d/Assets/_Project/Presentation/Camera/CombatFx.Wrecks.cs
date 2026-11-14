@@ -25,7 +25,8 @@ namespace TW.Presentation.Tactical
                          + new Vector3((Hash01(prop.Pos.x + e.Tick, prop.Pos.z, e.A) - 0.5f) * 2.4f * size, 0f, (Hash01(prop.Pos.z, prop.Pos.x + e.Tick, e.A + 3) - 0.5f) * 2.4f * size);
             at.y = RenderGround.Sample(map, at.x, at.z) + (0.5f + 1.3f * Hash01(prop.Pos.x, prop.Pos.z + e.Tick, e.A + 7)) * size;
             float delay = ShotStagger.Delay(e.A, e.Tick, w.Config.TickSeconds, shotStagger);
-            tracers.Add(WreckTracer(from, at, Time.time + delay, w.Team[e.A], TracerSeconds));
+            if (finalCel) FinalBattleFx.Shot(from, at, e.Tick * 31u + (uint)e.A, delay);
+            else tracers.Add(WreckTracer(from, at, Time.time + delay, w.Team[e.A], TracerSeconds));
         }
 
         /// <summary>The round at a wreck as a tracer: a usual round (Width and Streak 0 are the usual round's), on screen

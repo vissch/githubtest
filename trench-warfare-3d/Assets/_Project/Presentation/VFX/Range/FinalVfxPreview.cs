@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UIElements;
 using TW.Presentation;
 using TW.Presentation.VFX.Cel;
 
@@ -66,6 +67,7 @@ namespace TW.Presentation.VFX
             dummy.Place(Vector3.zero, 180f);
             selected = Mathf.Max(0, Array.IndexOf(Effects, requested));
             ready = true;
+            BuildMenu();
             Play();
         }
 
@@ -92,16 +94,34 @@ namespace TW.Presentation.VFX
             if (Time.time >= nextPlay) Play();
         }
 
-        void OnGUI()
+        void BuildMenu()
         {
-            if (!ready) return;
-            GUILayout.BeginArea(new Rect(12, 12, 230, 500), GUI.skin.box);
-            GUILayout.Label("Final VFX - " + Effects[selected]);
+            var document = gameObject.AddComponent<UIDocument>();
+            var panel = ScriptableObject.CreateInstance<PanelSettings>();
+            panel.sortingOrder = 1000;
+            document.panelSettings = panel;
+            var root = document.rootVisualElement;
+            root.style.position = Position.Absolute;
+            root.style.left = 12; root.style.top = 12; root.style.width = 230;
+            root.style.paddingLeft = root.style.paddingRight = 10;
+            root.style.paddingTop = root.style.paddingBottom = 10;
+            root.style.backgroundColor = new Color(.07f, .10f, .15f, .94f);
+            root.style.unityFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            root.style.color = Color.white;
+            root.Add(new Label("Final VFX"));
             for (int i = 0; i < Effects.Length; i++)
-                if (GUILayout.Button(Effects[i])) { selected = i; Play(); }
-            if (GUILayout.Button("Replay")) Play();
-            if (GUILayout.Button("Quit")) Application.Quit();
-            GUILayout.EndArea();
+            {
+                int choice = i;
+                var button = new Button(() => { selected = choice; Play(); }) { text = Effects[i] };
+                button.style.height = 27; button.style.marginTop = 3;
+                button.style.backgroundColor = new Color(.16f, .22f, .30f);
+                button.style.color = Color.white;
+                root.Add(button);
+            }
+            var replay = new Button(Play) { text = "Replay" };
+            replay.style.height = 27; root.Add(replay);
+            var quit = new Button(() => Application.Quit()) { text = "Quit" };
+            quit.style.height = 27; root.Add(quit);
         }
     }
 }

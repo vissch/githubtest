@@ -24,7 +24,7 @@ namespace TW.Presentation.Tactical
     public sealed partial class CombatFx
     {
         struct Flyover { public Vector3 Start, Dir; public float Length, Fired, Warm; }        // Fired, Warm: sim seconds
-        struct Sweep { public Vector3 Start, Dir; public float Length, HalfWidth, T0, T1, Trail; }     // T0, T1: sim seconds; Trail: metres burned so far
+        struct Sweep { public Vector3 Start, Dir; public float Length, HalfWidth, T0, T1, Trail, FinalClock; public bool FinalIssued; }     // T0, T1: sim seconds; Trail: metres burned so far
         readonly List<Flyover> flyovers = new List<Flyover>(4);
         readonly List<Sweep> sweeps = new List<Sweep>(4);
         readonly List<Matrix4x4> smokeCards = new List<Matrix4x4>(2048);
@@ -152,6 +152,16 @@ namespace TW.Presentation.Tactical
                 {
                     // the charge: a glow gathering over the start of the corridor, brighter and larger as it comes
                     float u = Mathf.InverseLerp(s.T0 - BeamChargeSeconds, s.T0, simNow);
+                    if (finalCel)
+                    {
+                        if (!s.FinalIssued || s.FinalClock != Time.time)
+                        {
+                            FinalBattleFx.BeamCharge(new Vector3(s.Start.x, groundY, s.Start.z), u, Mathf.Max(.02f, Time.deltaTime * 1.1f));
+                            s.FinalIssued = true; s.FinalClock = Time.time; sweeps[i] = s;
+                        }
+                        continue;
+                    }
+
                     if (drawnBeam)
                     {
                         // L10: a standing flame growing 0.5 -> 2 m at the start, brighter as the charge comes (sim clock: pause holds it)
@@ -172,7 +182,16 @@ namespace TW.Presentation.Tactical
                 var head = s.Start + s.Dir * (s.Length * t);
                 head.y = RenderGround.Sample(map, head.x, head.z);
                 var column = flashMat != null ? flashMat : sparkMat != null ? sparkMat : aimMat;
-                if (drawnBeam)
+                if (finalCel)
+                {
+                    Vector3 right = Vector3.Cross(Vector3.up, s.Dir).normalized;
+                    if (!s.FinalIssued || s.FinalClock != Time.time)
+                    {
+                        FinalBattleFx.Beam(head, right, Mathf.Max(.02f, Time.deltaTime * 1.1f), (uint)(i + 1) * 1917u);
+                        s.FinalIssued = true; s.FinalClock = Time.time; sweeps[i] = s;
+                    }
+                }
+                else if (drawnBeam)
                 {
                     // L10: the pillar of fire at the head, the bloom where it splashes on the ground, and a burning trail card
                     // each metre it has walked. The pillar is about a fifth of its drawing's width (the 62 % fill is the foot's
@@ -211,7 +230,7 @@ namespace TW.Presentation.Tactical
                     batch.Add(Matrix4x4.TRS(head + Vector3.up * 0.8f, Quaternion.identity, Vector3.one * (s.HalfWidth * 2.4f)));
                     Flush(sphere, new RenderParams(column) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off });
                 }
-                if (running && now >= nextBeamFlash && books != null && books.Ready)
+                if (!finalCel && running && now >= nextBeamFlash && books != null && books.Ready)
                 {
                     nextBeamFlash = now + BeamFlashEvery;
                     books.Add(FlipbookFx.Book.Flash, head + Vector3.up * 1.2f, s.HalfWidth * 3f, 0.12f, FlipbookFx.Kind.Upright, glow: SceneMood.Night ? 3f : 1.6f);
@@ -241,7 +260,8 @@ namespace TW.Presentation.Tactical
                     for (int g = -1; g <= 1; g += 2)
                     {
                         Vector3 gun = at + rot * new Vector3(g * 0.9f, -0.3f, 1.5f);
-                        tracers.Add(new Tracer { From = gun, To = p, Born = now, Hit = true, Team = (byte)(e.B & 1), Life = TracerSeconds });
+                        if (finalCel) FinalBattleFx.Shot(gun, p, e.Tick * 31u + (uint)(g + 1), 0f);
+                        else tracers.Add(new Tracer { From = gun, To = p, Born = now, Hit = true, Team = (byte)(e.B & 1), Life = TracerSeconds });
                         if (recipes >= 0.5f)   // L09: the wing guns flare as they fire
                         {
                             var cam = Camera.main;

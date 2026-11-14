@@ -1,4 +1,4 @@
-﻿// Phase: B1 (implemented; C4 VFX: the drawn bursts, hits and flares live in FlipbookFx; B5 ragdolls still stand-ins)
+// Phase: B1 (implemented; C4 VFX: the drawn bursts, hits and flares live in FlipbookFx; B5 ragdolls still stand-ins)
 // Makes the fight readable: every Shot event becomes a short-lived tracer with a muzzle flare and a spurt where it
 // lands, every Hit a spike and a puff on the man, every Explosion a drawn burst with its column and wings, every Death
 // leaves a body (banners: the Toolkit HUD's ObjectiveTracker, or OnGUI here under the old HUD). Instanced draws, no GameObjects.
@@ -12,6 +12,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using TW.Sim;
+using TW.Sim.Combat;
 using TW.Sim.Match;
 using TW.Presentation;
 
@@ -81,7 +82,8 @@ namespace TW.Presentation.Tactical
         /// <summary>A round drawn like a sim shot's, for fire the sim does not know about (a rider on a walker).</summary>
         public void AddTracer(Vector3 from, Vector3 to, byte team, float width = 1f, float delay = 0f)
         {
-            if (tracers.Count < 1500) tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = team, Width = width, Life = TracerSeconds });
+            if (finalCel) FinalBattleFx.Shot(from, to, (uint)(Time.frameCount * 31 + team), delay);
+            else if (tracers.Count < 1500) tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = team, Width = width, Life = TracerSeconds });
         }
 
         /// <summary>Whether a tracer's time on screen is over: the prune's rule, pure so a test can hold it. A tracer built
@@ -192,6 +194,8 @@ namespace TW.Presentation.Tactical
         }
 
 
+        bool finalCel;
+
         void Awake()
         {
             // knobs (Knobs): the pools and the close reach; the public fields only where a knob is set
@@ -216,6 +220,8 @@ namespace TW.Presentation.Tactical
             columnCap = FlipbookFx.ReadColumnCap();
             columnPlay = FlipbookFx.ReadColumnPlay();
             recipes = ReadRecipes();
+            finalCel = Knobs.Get("fx.finalCel", 1f) >= .5f;
+            flames.UseFinalCel = finalCel;
             shellFire = ReadShellFire();
             shellGrit = ReadShellGrit();
             classArms = ReadClassArms();
@@ -556,6 +562,7 @@ namespace TW.Presentation.Tactical
                     // the close assault's bundle of grenades is thrown, not fired (CombatFx.Close.cs): no bullet's tracer for it
                     bool bundle = e.Scalar >= 0.5f && classArms > 0f && books != null && books.Ready;
                     if (bundle) ThrowBundle(from, to, delay, scale, e.Tick * 31u + (uint)e.A);
+                    else if (finalCel) FinalBattleFx.Shot(from, to, e.Tick * 31u + (uint)e.A, delay);
                     else tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0, Width = arms.Tracer == 1f ? 0f : arms.Tracer,
                         Life = TracerSeconds * arms.TracerLife, Streak = arms.Streak });   // the class's round: its weight, its time on screen, its length
                     // AOSA C72: an image run logs the shot as drawn (read-only; off, this is one static bool)
@@ -726,8 +733,9 @@ namespace TW.Presentation.Tactical
                     Vector3 toward = new Vector3(e.Dir.x, 0f, e.Dir.z); if (toward.sqrMagnitude < 0.01f) toward = Vector3.forward;
                     p -= toward.normalized * (0.18f * scale);   // on the side the round came from
                     p += new Vector3(UnityEngine.Random.Range(-0.12f, 0.12f), UnityEngine.Random.Range(-0.15f, 0.15f), UnityEngine.Random.Range(-0.12f, 0.12f)) * scale;
+                    if (finalCel && !vehicle) FinalBattleFx.Impact(p, toward.normalized, feetY, e.Tick * 17u + (uint)e.B, e.Scalar > 0f);
                     if (vehicle) books.Add(FlipbookFx.Book.Star, p, 1.5f * scale * UnityEngine.Random.Range(0.8f, 1.2f), 0.07f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 4f : 1.8f) * SceneTints.Now.Glow);
-                    else
+                    else if (!finalCel)
                     {
                         // the spike by the weapon that fired it (CombatFx.Close.cs): a sniper's harder than a pistol's
                         var shotBy = classArms > 0f && e.A >= 0 && e.A < w.Archetype.Length ? KindOf(w.Archetype[e.A]) : ArmsKind.Rifle;
@@ -753,13 +761,13 @@ namespace TW.Presentation.Tactical
                             books.Add(blood.Value, p + along * (wide * 0.45f), wide, blood.Value == FlipbookFx.Book.BloodSnipe ? 25f / 12f : 28f / 12f,
                                 velocity: Vector3.down * 0.4f, roll: cam != null ? FlipbookFx.ScreenRoll(cam, along) : 0f, alpha: 0.95f * gore);
                         }
-                        else
+                        else if (!finalCel || vehicle)
                             books.Add(FlipbookFx.Book.Puff, p, (vehicle ? 1.9f : 1.9f) * scale, 0.7f, mirror,
                                 velocity: toward.normalized * 1.3f + Vector3.up * 1.1f, grow: 1.0f, roll: puffRoll, alpha: 0.85f, pop: 0.4f);
                         // and dust at his feet whichever of the two was drawn: with blood the cloud above was skipped
                         // altogether, so a rifle hit left no mark on the ground at all (the review, 2026-10-12). Spurt is
                         // biome-tinted by ApplyTints as the Puff is, so it is snow dust on snow.
-                        if (!vehicle)
+                        if (!vehicle && !finalCel)
                         {
                             var dust = ImpactPuff(e.Tick, e.B);
                             Vector3 feet = new Vector3(p.x, feetY, p.z);
@@ -838,7 +846,8 @@ namespace TW.Presentation.Tactical
                     if (lean > 1e-3f) flight /= lean; else { flight = Vector3.zero; lean = 0f; }
                     var recipe = RecipeFor(e.Dir.y, lean, wet, recipes, e.Scalar, e.A);   // fx.recipes 0: BurstRecipe.Old, the burst as it always was
                     var look = BurstLookFor(e.A, classArms, wet, melt);     // CombatFx.Bursts.cs: the burst by what made it
-                    if (drawn)
+                    bool finalBurst = finalCel && FinalBattleFx.Burst((BlastShape)(int)e.Dir.y, e.A, damp, p, flight, e.Tick * 31u + (uint)e.A);
+                    if (drawn && !finalBurst)
                     {
                         // the drawn burst: its own light for an instant, the earth (or water) stood up in a column, the low
                         // burst running out either side, and the boiling cloud that rises off it and thins
