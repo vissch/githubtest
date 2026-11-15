@@ -13,7 +13,7 @@ namespace TW.Presentation.VFX.Cel
         public override string Name => KindName;
         public override Shader FindShader() => Shader.Find("TW/Cel/AcidBeam");
         public override Mesh BuildMesh() => CelMeshes.Strip(48, "Cel Acid Beam");
-        public override int Capacity => 1536;
+        public override int Capacity => 2048;   // a close beam queues about 1000 records up front; two must fit
         public override int Order => 18;
     }
 }

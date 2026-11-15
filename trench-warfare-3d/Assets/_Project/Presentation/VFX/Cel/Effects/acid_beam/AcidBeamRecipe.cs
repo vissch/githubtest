@@ -17,16 +17,19 @@ namespace TW.Presentation.VFX.Cel
         /// of the beam (none: the clip's beam is a straight line).</summary>
         public const float Speed = 22f, JetSeconds = 3.095f, Gravity = 0f;
         /// <summary>The beam's half-width (m) at the nozzle and at the target (its lumpy edges sit at 0.68-1 of it: the
-        /// clip's beam is 1.5 m thick where it leaves the frame and 1.2 m where it lands).</summary>
-        public const float HalfNozzle = 1.0f, HalfTarget = 0.70f;
-        /// <summary>Seconds of fluid: the spear point at its head, the tail's taper, the end that breaks up.</summary>
-        const float HeadTaper = 0.08f, TailTaper = 0.05f, BreakUp = 0.30f;
+        /// clip's beam is 1.3-1.6 m thick where it leaves the frame and 0.9-1.0 m where it lands; b01 filmed 10 % over).</summary>
+        public const float HalfNozzle = 0.92f, HalfTarget = 0.70f;
+        /// <summary>Seconds of fluid: the head's cone (the first fluid is thin: the clip's beam is 0.36 of its width
+        /// 0.02 s behind the point, 0.78 at 0.21 s), the tail's taper, the end that breaks up (the clip: fluid that
+        /// left after 2.6 s of the 3.1 is a torn net by frame 88).</summary>
+        const float HeadTaper = 0.45f, TailTaper = 0.05f, BreakUp = 0.60f;
         /// <summary>The puddle's half-extent across (m) and its depth over its width (the clip: a slab 3.6 m across
-        /// round the target's foot, 260 x 90 px at frame 125).</summary>
-        public const float PuddleReach = 3.9f, PuddleDepth = 0.80f;
-        /// <summary>The mass of goo over the target: the card's width (m) and its height over its width (the clip: 5 m
-        /// across and 4.7 m tall while the beam lands).</summary>
-        public const float MoundWidth = 5.2f, MoundTall = 0.95f;
+        /// round the target's foot, 260 x 90 px at frame 125; b01 filmed a little big) and how far to the eye's right
+        /// of the foot its middle lies (the clip's: 50 px).</summary>
+        public const float PuddleReach = 3.6f, PuddleDepth = 0.75f, PuddleRight = 0.7f;
+        /// <summary>The mass of goo over the target: the card's width (m) and its height over its width: a see-through
+        /// backing (the clip's mass is sheets of goo: the leaves and the core below make it).</summary>
+        public const float MoundWidth = 4.6f, MoundTall = 0.75f;
 
         // A colour as the shader has to write it (the project is gamma, the palette stores .linear). The values are
         // the clip's colours taken back through the Range's night grade; the comments give what they show as.
@@ -147,26 +150,29 @@ namespace TW.Presentation.VFX.Cel
                 Vector3 foot = ground - dir * 1.6f;
                 foot.y = Ground(foot) + 1f;
                 Glow(renderer, kind, now, AtFrame(late, 24f), AtFrame(late, 100f), foot, across, 6.5f, 6.5f, 6.5f, 0.8f, 0.75f, GlowInto, GlowAdd, 0.25f, 0.20f, true, seed);
-                // ... under the near half of the beam while it runs (frames 21-96) ...
+                // ... under the near half of the beam while it runs (frames 23-96; b01 lit the near ground too much,
+                // too soon) ...
                 Vector3 under = Vector3.Lerp(nozzle, target, 0.55f);
                 under.y = Ground(under) + 1f;
-                Glow(renderer, kind, now, AtFrame(late, 21f), AtFrame(late, 96f), under, across, 6f, 6f, 6f, 1f, far ? 0.4f : mid ? 0.6f : 1f, GlowInto, GlowAdd * 1.3f, 0.12f, 0.15f, true, seed);
-                // ... the puddle's own glow after it (frames 98-165) ...
-                Vector3 after = ground;
-                after.y = Ground(after) + 1f;
-                Glow(renderer, kind, now, AtFrame(late, 98f), AtFrame(late, 165f), after, across, 3.5f, 3.5f, 3.5f, 1f, 0.5f, GlowInto, GlowAdd, 0.2f, 0.8f, true, seed);
-                // ... and the target, green from the moment the beam reaches it until the goo has run off it (frames 30-110)
-                if (!far) Glow(renderer, kind, now, AtFrame(late, 30f), AtFrame(late, 110f), target, across, CoatReach, CoatReach, CoatReach, 1f, 1f, CoatInto, CoatAdd, 0.08f, 0.3f, false, seed);
+                Glow(renderer, kind, now, AtFrame(late, 23f), AtFrame(late, 96f), under, across, 6f, 6f, 6f, 1f, far ? 0.25f : mid ? 0.4f : 0.6f, GlowInto, GlowAdd * 1.3f, 0.20f, 0.15f, true, seed);
+                // ... the puddle's own glow after it, kept low so it does not light the target's head (frames 98-165) ...
+                Vector3 after = ground + right * PuddleRight;
+                after.y = Ground(after) + 0.4f;
+                Glow(renderer, kind, now, AtFrame(late, 98f), AtFrame(late, 165f), after, across, 3.5f, 0.8f, 3.5f, 1f, 0.5f, GlowInto, GlowAdd, 0.2f, 0.8f, true, seed);
+                // ... and the target, green from the moment the beam reaches it until the goo has run off it (frames 33-110)
+                if (!far) Glow(renderer, kind, now, AtFrame(late, 33f), AtFrame(late, 110f), target, across, CoatReach, CoatReach, CoatReach, 1f, 1f, CoatInto, CoatAdd, 0.10f, 0.3f, false, seed);
             }
 
             // ---- the puddle round the target's foot: under the goo from frame 96, full by frame 112, holes open in it
             // from frame 138 and tear it to islands, dry by frame 168
             {
                 float born = AtFrame(late, 96f), gone = AtFrame(late, 168f);
-                var r = Rec(now, born, gone - born, AcidBeamKind.Puddle, ground, Pool, 1f, ref rng);
+                Vector3 at = ground + right * PuddleRight;
+                at.y = Ground(at);
+                var r = Rec(now, born, gone - born, AcidBeamKind.Puddle, at, Pool, 1f, ref rng);
                 r.Axis = right;
                 r.Size = new Vector4(PuddleReach, PuddleReach, 1f, PuddleDepth);
-                r.Motion = Slope(ground);
+                r.Motion = Slope(at);
                 r.Motion.z = 1f;
                 r.Extra.y = 0.45f;
                 r.Extra.z = AtFrame(late, 138f) - born;
@@ -178,17 +184,18 @@ namespace TW.Presentation.VFX.Cel
             if (!far)
             {
                 float born = AtFrame(late, 44f), gone = AtFrame(late, 100f);
-                var r = Rec(now, born, gone - born, AcidBeamKind.Mound, stand, Splash, 0.9f, ref rng);
+                var r = Rec(now, born, gone - born, AcidBeamKind.Mound, stand, Splash, 0.5f, ref rng);
                 r.Axis = dir;
                 r.Size = new Vector4(MoundWidth, MoundWidth, 1f, MoundTall);
                 r.Motion = new Vector4(0.15f, 0.35f, 0.6f, 0f);
                 r.Extra.z = 0.30f;
                 renderer.Spawn(kind, r);
 
+                // (the lump: broad and low, wider than it is tall)
                 float lb = AtFrame(late, 94f), lg = AtFrame(late, 113f);
                 var lump = Rec(now, lb, lg - lb, AcidBeamKind.Mound, stand, Blob, 1f, ref rng);
                 lump.Axis = dir;
-                lump.Size = new Vector4(3.6f, 3.6f, 1f, 0.80f);
+                lump.Size = new Vector4(4.2f, 4.2f, 1f, 0.60f);
                 lump.Motion = new Vector4(0.08f, 0.8f, 0.6f, 0f);
                 lump.Extra.z = 0.40f;
                 renderer.Spawn(kind, lump);
@@ -235,7 +242,7 @@ namespace TW.Presentation.VFX.Cel
             }
 
             // ---- beads thrown off it all along while it runs: small round flecks, most of them under it
-            int beads = Count(70, n);
+            int beads = Count(110, n);
             for (int i = 0; i < beads; i++)
             {
                 float rad = rng.Range(0.035f, 0.075f);
@@ -243,24 +250,25 @@ namespace TW.Presentation.VFX.Cel
                 r.Vel = vel * rng.Range(0.55f, 1.0f) + Vector3.up * rng.Range(-4f, 2.5f) + across * rng.Range(-3f, 3f);
                 r.Motion = new Vector4(9f, 1.2f, 0f, 0f);
                 r.Size = new Vector4(rad, rad * 0.8f, 1f, 0.004f);
+                r.Tone.w = 2f + (i & 1);                                 // light and yellow (the clip's beads are bright)
                 r.Extra.y = 1f;
                 renderer.Spawn(kind, r);
             }
 
             // ---- sparks: yellow-orange dashes thrown out of the hit while the beam lands (frames 37-98), and dashes
             // streaming along the beam
-            int sparks = Count(170, n);
+            int sparks = Count(240, n);
             for (int i = 0; i < sparks; i++)
             {
                 Vector3 d = rng.OnSphere();
                 d.y = Mathf.Abs(d.y) * 0.9f + 0.1f;
                 d = (d + dir * 0.45f).normalized;
-                float rad = rng.Range(0.025f, 0.045f);
+                float rad = rng.Range(0.02f, 0.04f);
                 var r = Rec(now, AtFrame(late, rng.Range(37f, 98f)), rng.Range(0.22f, 0.45f), AcidBeamKind.Drop,
                     target + Vector3.up * rng.Range(-0.4f, 0.6f) - away * 0.5f, Spark, 1f, ref rng);
                 r.Vel = d * rng.Range(7f, 17f);
                 r.Motion = new Vector4(9f, 1.0f, 0f, 0f);
-                r.Size = new Vector4(rad, rad * 0.7f, 1f, 0.035f);
+                r.Size = new Vector4(rad, rad * 0.7f, 1f, 0.02f);           // short dashes (b01's 0.035 s drew long needles)
                 r.Extra.y = 4f;
                 renderer.Spawn(kind, r);
             }
@@ -294,6 +302,37 @@ namespace TW.Presentation.VFX.Cel
                 renderer.Spawn(kind, r);
             }
 
+            // ---- the splash mass while the beam lands (frames 40-94): sheets of goo thrown out of the hit all round
+            // it, on the way the beam goes more than back, each a pointed leaf that lives a few frames, of every tone
+            // and seen through a little; together they make the clip's mass of sheets
+            int sheets = far ? 0 : mid ? 90 : 260;
+            for (int i = 0; i < sheets; i++)
+            {
+                Vector3 d = rng.OnSphere();
+                d = (d + dir * 0.35f + Vector3.up * 0.25f).normalized;
+                float rad = rng.Range(0.12f, 0.30f);
+                var r = Rec(now, AtFrame(late, rng.Range(40f, 94f)), rng.Range(0.12f, 0.28f), AcidBeamKind.Drop,
+                    target + Vector3.up * rng.Range(-0.5f, 0.5f) + across * rng.Range(-0.3f, 0.3f) - away * 0.6f, Splash, 0.85f, ref rng);
+                r.Vel = d * rng.Range(2.5f, 7f);
+                r.Motion = new Vector4(4f, 3f, 0f, 0f);
+                r.Size = new Vector4(rad * 0.6f, rad, 0.5f, rng.Range(0.06f, 0.12f));
+                float t = rng.Range(0f, 1f);
+                r.Tone.w = t < 0.35f ? 0f : t < 0.60f ? 1f : t < 0.85f ? 2f : 3f;
+                r.Extra.y = 2f;
+                renderer.Spawn(kind, r);
+            }
+            // ... round a hot core where the beam goes in: a small pale star, new on every drawing (frames 35-93)
+            if (!far)
+            {
+                float cb = AtFrame(late, 35f), cg = AtFrame(late, 93f);
+                var r = Rec(now, cb, cg - cb, AcidBeamKind.Splat, target + Vector3.up * 0.1f, Splash, 1f, ref rng);
+                r.Size = new Vector4(0.9f, 1.2f, 1f, 1f);
+                r.Axis = new Vector3(1f, 0.75f, 0f);
+                r.Extra.y = 1.0f;
+                r.Extra.z = 0.14f;
+                renderer.Spawn(kind, r);
+            }
+
             // ---- the starbursts
             if (!far)
                 for (int i = 0; i < Stars.Length; i += StarStride)
@@ -307,23 +346,39 @@ namespace TW.Presentation.VFX.Cel
                 }
 
             // ---- the beam's end: big glossy blobs it breaks into, falling and carried on (frames 88-112)
-            int ends = Count(14, n);
+            // (of every size: most small, a few very big)
+            int ends = Count(26, n);
             for (int i = 0; i < ends; i++)
             {
-                float rad = rng.Range(0.18f, 0.40f);
-                float at = delay + JetSeconds - BreakUp * rng.Range(0.1f, 1.0f);
-                var r = Rec(now, at, rng.Range(0.45f, 0.8f), AcidBeamKind.Drop, nozzle + Vector3.up * rng.Range(-0.6f, 0.6f), Blob, 1f, ref rng);
-                r.Vel = vel * rng.Range(0.7f, 1.0f) + Vector3.up * rng.Range(-2f, 2f) + across * rng.Range(-2f, 2f);
+                float h = rng.Range(0f, 1f);
+                float rad = 0.10f + 0.45f * h * h;
+                float at = delay + JetSeconds - BreakUp * rng.Range(0.05f, 1.0f);
+                var r = Rec(now, at, rng.Range(0.5f, 0.9f), AcidBeamKind.Drop, nozzle + Vector3.up * rng.Range(-0.8f, 0.8f), Blob, 1f, ref rng);
+                r.Vel = vel * rng.Range(0.7f, 1.0f) + Vector3.up * rng.Range(-2.5f, 2.5f) + across * rng.Range(-2.5f, 2.5f);
                 r.Motion = new Vector4(5f, 1.0f, 0f, 0f);
                 r.Size = new Vector4(rad, rad * 0.9f, 1f, 0.01f);
                 r.Extra.y = 3f;
                 renderer.Spawn(kind, r);
             }
+            // ... with many small bright beads among them
+            int endBeads = Count(70, n);
+            for (int i = 0; i < endBeads; i++)
+            {
+                float rad = rng.Range(0.03f, 0.08f);
+                var r = Rec(now, delay + JetSeconds - BreakUp * rng.Range(0.0f, 1.0f), rng.Range(0.4f, 0.8f), AcidBeamKind.Drop,
+                    nozzle + Vector3.up * rng.Range(-0.8f, 0.8f), Jet, 1f, ref rng);
+                r.Vel = vel * rng.Range(0.6f, 1.0f) + Vector3.up * rng.Range(-3f, 3f) + across * rng.Range(-3f, 3f);
+                r.Motion = new Vector4(4f, 1.5f, 0f, 0f);
+                r.Size = new Vector4(rad, rad * 0.8f, 1f, 0f);
+                r.Tone.w = 2f + (i & 1);
+                r.Extra.y = 1f;
+                renderer.Spawn(kind, r);
+            }
             // ... and the bubbles in the lump of goo the beam leaves on the target (frames 92-110)
-            int lumpBlobs = mid ? 0 : 12;
+            int lumpBlobs = mid ? 0 : 22;
             for (int i = 0; i < lumpBlobs; i++)
             {
-                float rad = rng.Range(0.14f, 0.34f);
+                float rad = rng.Range(0.12f, 0.40f);
                 Vector3 at = ground + right * rng.Range(-1.3f, 1.3f) + Vector3.up * rng.Range(0.4f, 2.6f) - away * rng.Range(0.6f, 1.2f);
                 var r = Rec(now, AtFrame(late, rng.Range(92f, 104f)), rng.Range(0.25f, 0.45f), AcidBeamKind.Drop, at, Blob, 1f, ref rng);
                 r.Vel = Vector3.up * rng.Range(-0.3f, 0.5f) + right * rng.Range(-0.3f, 0.3f);
@@ -339,13 +394,14 @@ namespace TW.Presentation.VFX.Cel
             {
                 float u = rng.Range(0.10f, 0.85f);                       // where along the beam (0 the nozzle side, 1 the target)
                 float pass = delay + flight * u;                         // the head goes over it
-                float at = rng.Range(pass + 0.05f, delay + JetSeconds - 0.3f);
-                Vector3 on = Vector3.Lerp(nozzle, target, u) + Vector3.up * Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.7f;
+                float at = rng.Range(pass + 0.05f, delay + JetSeconds - 0.4f);
+                // (b01's sat on the beam: the clip's bank is 2-4 m over it by frame 50, and thins away by frame 100)
+                Vector3 on = Vector3.Lerp(nozzle, target, u) + Vector3.up * (Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.7f + 1.0f);
                 float size = rng.Range(0.6f, 1.0f);
-                var r = Rec(now, at, rng.Range(1.4f, 2.1f), AcidBeamKind.Puff, on, Fume, FumeOpacity, ref rng);
-                r.Vel = Vector3.up * rng.Range(1.0f, 1.8f) + dir * rng.Range(0.0f, 0.6f);
+                var r = Rec(now, at, rng.Range(1.0f, 1.5f), AcidBeamKind.Puff, on, Fume, FumeOpacity * 0.75f, ref rng);
+                r.Vel = Vector3.up * rng.Range(1.6f, 2.6f) + dir * rng.Range(0.0f, 0.6f);
                 r.Motion = new Vector4(0f, 0.6f, 0f, 0f);
-                r.Size = new Vector4(size * 0.5f, size * 1.4f, 0.7f, 1f);
+                r.Size = new Vector4(size * 0.5f, size * 1.6f, 0.7f, 1f);
                 r.Extra.y = 0.5f;
                 r.Extra.z = 0.15f;
                 renderer.Spawn(kind, r);

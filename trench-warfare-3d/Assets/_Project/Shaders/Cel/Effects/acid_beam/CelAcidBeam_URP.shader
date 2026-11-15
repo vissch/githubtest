@@ -128,9 +128,9 @@ Shader "TW/Cel/AcidBeam"
                     float hw;
                     if (r.extra.z > 1.5)
                     {
-                        hw = lerp(r.size.x, r.size.y, kS) * lerp(1.0, 0.60, starve);
-                        // its broken end is a wavy rope that swings across where the beam was, more the later it left
-                        c += side * (beam * 0.55 * starve * sin(e * 31.0 + r.axis.z)) + nrm * (beam * 0.35 * starve * sin(e * 23.0 + r.axis.z * 1.3));
+                        hw = lerp(r.size.x, r.size.y, kS) * lerp(1.0, 1.30, starve);
+                        // its broken end is a torn net that spreads a little wider and swings across where the beam was
+                        c += side * (beam * 0.30 * starve * sin(e * 23.0 + r.axis.z)) + nrm * (beam * 0.25 * starve * sin(e * 17.0 + r.axis.z * 1.3));
                     }
                     else
                     {
@@ -446,20 +446,39 @@ Shader "TW/Cel/AcidBeam"
                         // the beam: lumpy edges that ride with the fluid (a lump keeps its place in the fluid as it
                         // flies), a spear point at its head, a blunt end at its tail
                         half3 hot = CelPalCore(row).rgb, streak = CelPalInk(row).rgb;
-                        float ends = pow(saturate(e / i.shape2.x), 0.55) * pow(saturate((D - e) / i.shape2.y), 0.5);
+                        // (the head: a long cone - the first fluid is thin and it widens over its first 0.45 s, steeply
+                        // at the point: the clip's beam is 0.36 of its full width 0.02 s behind the point, 0.78 at 0.21 s)
+                        float ends = pow(saturate(e / i.shape2.x), 0.33) * pow(saturate((D - e) / i.shape2.y), 0.5);
                         float lt = CelValue2(float2(e * 24.0 + seed * 31.0, 0.5)) * 0.65 + CelValue2(float2(e * 61.0 + seed * 13.0, 2.5)) * 0.35;
                         float lb = CelValue2(float2(e * 21.0 + seed * 17.0, 7.5)) * 0.65 + CelValue2(float2(e * 55.0 + seed * 7.0, 9.5)) * 0.35;
                         float edge = (q.x > 0.0 ? 0.68 + 0.32 * lt : 0.70 + 0.30 * lb) * ends;
-                        // breaking up: beads and necks along the rope, the necks torn through as it goes
-                        float bead = 0.5 + 0.5 * cos(6.2831853 * (e / 0.030 + seed * 3.0));
-                        edge *= lerp(1.0, 0.18 + 0.82 * bead, starve);
-                        edge *= step(0.30 * starve * starve, bead);
                         al = (1.0 - Step(edge, abs(q.x), pixX)) * step(0.02, edge);
+                        // breaking up: the sheet tears into a net of ropes round holes that grow as it goes (cells of
+                        // the fluid, so the net flies with it), the ropes thinning to strands
+                        float border = 1.0;
+                        if (starve > 0.001)
+                        {
+                            float2 wp = float2(q.x * 2.2, e / 0.035) + seed * 7.0;
+                            float2 wc = floor(wp), wf = frac(wp);
+                            float f1 = 8.0, f2 = 8.0;
+                            [unroll] for (int yy = -1; yy <= 1; yy++)
+                            [unroll] for (int xx = -1; xx <= 1; xx++)
+                            {
+                                float2 o2 = float2(xx, yy);
+                                float2 pt = o2 + float2(CelHash21(wc + o2 + 3.1), CelHash21(wc + o2 + 17.7)) * 0.9 + 0.05 - wf;
+                                float dd = dot(pt, pt);
+                                if (dd < f1) { f2 = f1; f1 = dd; } else if (dd < f2) { f2 = dd; }
+                            }
+                            border = sqrt(f2) - sqrt(f1);                // 0 on a border between two cells
+                            float rope = lerp(1.6, 0.12, starve);
+                            al *= 1.0 - Step(rope, border, pixX * 3.0);
+                            border /= max(rope, 0.05);
+                        }
                         // across it: a yellow core with a hot heart, lime round it, then green, a dark lip at its edge;
-                        // the bands waver along it (less yellow where it breaks up)
+                        // the bands waver along it (in the net: each rope green with a yellow middle)
                         float pd = pixX / max(edge, 0.05);
                         float wob = CelValue2(float2(e * 17.0 + seed * 5.0, q.x * 2.0 + 4.5)) - 0.5;
-                        float d = abs(q.x) / max(edge, 0.02) + 0.16 * wob + 0.30 * starve;
+                        float d = lerp(abs(q.x) / max(edge, 0.02) + 0.16 * wob, 0.25 + 0.75 * saturate(border), smoothstep(0.0, 0.5, starve));
                         col = lerp(rim, shade, 1.0 - Step(0.92, d, pd));
                         col = lerp(col, body, 1.0 - Step(0.74, d, pd));
                         col = lerp(col, light, 1.0 - Step(0.56, d, pd));
@@ -521,8 +540,19 @@ Shader "TW/Cel/AcidBeam"
                     {
                         float wd = pow(saturate(1.0 - q.x * q.x), 0.75);    // a leaf: a point at both ends
                         al = (1.0 - Step(wd * 0.92, abs(q.y), pixY)) * step(0.03, wd);
+                        // its tone (Tone.w: 0 body, 1 shade, 2 light, 3 the row's ink), a lighter streak down its
+                        // middle, a little off to one side
+                        float ts = i.tone.w;
+                        half3 base = ts < 0.5 ? body : ts < 1.5 ? shade : ts < 2.5 ? light : CelPalInk(row).rgb;
+                        col = lerp(base, lerp(base, pale, 0.65), 1.0 - Step(0.28 * wd, abs(q.y - 0.18 * wd), pixY));
                     }
-                    else if (i.shape.y > 0.5) al = 1.0 - Step(0.9, length(q), pix);
+                    else if (i.shape.y > 0.5)
+                    {
+                        al = 1.0 - Step(0.9, length(q), pix);
+                        float ts = i.tone.w;                            // its tone, as a leaf's
+                        col = ts < 0.5 ? body : ts < 1.5 ? shade : ts < 2.5 ? light : CelPalInk(row).rgb;
+                        col = lerp(col, pale, 1.0 - Step(0.35, length(q - float2(-0.25, 0.3)), pix));
+                    }
                     else
                     {
                         float aspect = max(i.shape.x, 1.0);
@@ -542,9 +572,10 @@ Shader "TW/Cel/AcidBeam"
                     // a pale-yellow heart, light-yellow streaks out along its spikes, lime at their ends
                     float rq = length(q);
                     float2 radial = float2(atan2(qr.y, qr.x) * 2.546 + seed * 7.0, rq * 4.0 - seed * 3.0);
-                    col = lerp(body, light, saturate(Streaks(radial, seed, 0.55, 0.30, pix * 9.0) + (1.0 - smoothstep(0.25, 0.55, rq))));
-                    col = lerp(col, pale, saturate(Streaks(radial + float2(0.5, 0.3), seed + 0.4, 0.30, 0.20, pix * 9.0) * (1.0 - smoothstep(0.3, 0.7, rq)) + (1.0 - smoothstep(0.12, 0.30, rq))));
-                    col = lerp(col, shade, smoothstep(0.65, 0.95, rq) * 0.6);
+                    half3 yellow = CelPalInk(row).rgb;
+                    col = lerp(light, yellow, saturate(Streaks(radial, seed, 0.55, 0.30, pix * 9.0) + (1.0 - smoothstep(0.20, 0.50, rq))));
+                    col = lerp(col, pale, saturate(Streaks(radial + float2(0.5, 0.3), seed + 0.4, 0.30, 0.20, pix * 9.0) * (1.0 - smoothstep(0.3, 0.7, rq)) + (1.0 - smoothstep(0.10, 0.26, rq))));
+                    col = lerp(col, lerp(body, shade, 0.5), smoothstep(0.55, 0.95, rq) * 0.8);
                 }
                 else if (mode < 3.5)
                 {
@@ -664,8 +695,8 @@ Shader "TW/Cel/AcidBeam"
                     ring *= step(0.45, CelValue2(spoke * 2.2 + floor(ringF) * 3.7 + seed * 5.0)) * step(0.18, rb) * step(rb, 0.88);
                     col = lerp(shade, body, Step(0.68, CelValue2(q * 3.4 + seed * 5.0 + tk * 0.02), pix * 3.4));
                     col = lerp(col, pale, ring);
-                    float band = 1.0 - Step(0.16, inside, pix * 3.0 / max(edge, 0.05));
-                    col = lerp(col, CelPalInk(row).rgb, (1.0 - Step(0.24, inside, pix * 3.0 / max(edge, 0.05))) * (1.0 - band));
+                    float band = 1.0 - Step(0.24, inside, pix * 3.0 / max(edge, 0.05));   // (b01's 0.16 drew it thin)
+                    col = lerp(col, CelPalInk(row).rgb, (1.0 - Step(0.34, inside, pix * 3.0 / max(edge, 0.05))) * (1.0 - band));
                     col = lerp(col, pale, band);
                     // only where the ground is: level, and at the height the puddle lies at
                     float3 lie = spot - i.shape3.xyz;
