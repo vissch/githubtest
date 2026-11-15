@@ -1,30 +1,26 @@
-// Phase: CelFx fireball (2026-11-14; a02 the block-in, a04 the mass on the ground, a05 drops, a06 drops at half the size). A comet of fire flies in from the eye's left,
-// hits the dummy and bursts into a cloud of round cel lobes that cool to brown smoke and break up, with white
-// spark rays, falling embers, a line of embers left along the comet's path and an orange light on the ground.
-// Reference: fireball_nolora.mp4, 192 f at 24 fps, drawn on twos. Everything below is read off that clip and
-// written out in celfx/spec/eye/fireball.md ("Numbers for the block-in"); nothing here has been fitted to a film
-// of this effect yet, so every size, place and colour is a FIRST GUESS to be corrected from the first film.
-// Crude on purpose (SKILL.md 16 step 4: right place, size, time and colour, no detail).
+// Phase: CelFx fireball (2026-11-14; s01 2026-11-15: rebuilt by eye against the clip). A comet of fire flies in
+// from the eye's near left, hits the dummy and bursts into a mound of round cel lobes that cool to brown smoke and
+// break up, with white spark rays, a fountain of sparks that fall as embers, a line of embers left along the
+// comet's path and an orange light on the ground.
+// Reference: fireball_nolora.mp4, 192 f at 24 fps, drawn on twos; the effect starts on its frame 12 and the hit is
+// frame 28. Sizes and places are read off the clip through the beach Range's camera (a pinhole of 1339 px focal
+// length at 1344 x 768: 70.9 px to the metre at the dummy); colours are the clip's pixels.
 //
-// It draws through the kind's own shader (CelFireball_URP, copied from neon_acid in a01) and uses five of its
-// eight modes: 1 drop (the comet's head, its tail, the tail embers, the spark rays, the falling embers), 2 splat
-// (the hit), 5 lobe (one lobe of the burst: a07 rewrote the acid's unused bubble mode into it), 6 puff (the
-// smoke the burst cools into) and 7 glow (the ground light). The strand, mound and puddle modes of that shader
-// are not used by the fireball and nothing spawns them.
+// It draws through the kind's own shader (CelFireball_URP): 0 the comet (head and tail on one strip), 1 a fleck
+// (tail embers, spark rays, falling sparks, ground embers), 2 the hit's star, 3 the cloud (the whole burst, from
+// fire to smoke, on one card) and 7 the light on the ground.
 using UnityEngine;
 
 namespace TW.Presentation.VFX.Cel
 {
     public static class FireballRecipe
     {
-        /// <summary>Seconds from the comet's first light to the hit, measured on the clip: first light frame 12
-        /// (= t0), the head is in frame on 14, it reaches the dummy on 26 and the hit is on 28, so 16 frames.</summary>
+        /// <summary>Seconds from the comet's first light to the hit: clip frames 12 to 28.</summary>
         public const float Flight = 0.6667f;
-        /// <summary>The comet flies nearly level across the frame (clip: the head's centre goes from (230,440) on
-        /// frame 16 to (846,395) on frame 26), so it is given a small cartoon droop, not an artillery arc.</summary>
+        /// <summary>The comet flies nearly straight; the clip's path is 0.2 m fuller than a line at its middle.</summary>
         public const float Gravity = 3.2f;
         /// <summary>Seconds the whole effect is alive: first light frame 12, nothing left by frame 120.</summary>
-        public const float Length = 4.5f;
+        public const float Length = 4.6f;
 
         /// <summary>The clip's effect starts on its frame 12. AtFrame gives the seconds after the call at which one
         /// of the clip's frames falls; `late` is how much later than the clip's this play starts.</summary>
@@ -34,39 +30,55 @@ namespace TW.Presentation.VFX.Cel
         /// record is alive on that drawing's first frame.</summary>
         static float OnTwos(float seconds) => Mathf.Round(seconds * 12f) / 12f - 0.004f;
 
-        // ---- sizes, in metres, from the clip at about 0.013 m per px at the dummy's depth (spec/eye/fireball.md)
-        /// <summary>The comet's head: 180-200 px across in the clip.</summary>
-        public const float HeadRadius = 1.20f;
-        /// <summary>The tail: 80-110 px thick and the whole frame long behind the head.</summary>
-        const float TailRadius = 0.62f, TailLength = 11.0f;
-        /// <summary>The burst at its peak (clip frame 44): 500 x 340 px = 6.5 m across and 4.4 m tall, its foot on
-        /// the ground. Its lobes are circles of 60-110 px = 0.8-1.4 m across.</summary>
-        public const float BurstRadius = 3.25f, BurstTall = 2.70f, LobeRadius = 0.55f;   // a17: 2.20 -> 2.70, the cloud grows up with the foot a16 gave it (the clip is 1.5 wide to 1 tall)   // a15: 0.45 -> 0.55, so neighbours touch (85-110 px against the clip's 60-110)
+        // ---- sizes, in metres
+        /// <summary>The comet's head: 95 px of radius at 11.4 m from the eye (frame 16), 56 px at the dummy.</summary>
+        public const float HeadRadius = 0.79f;
+        /// <summary>The tail, as long as it shows across the view (it runs away from the eye, so it is longer than this).</summary>
+        const float TailLength = 10.5f;
+        /// <summary>The cloud at its peak (clip frame 40): 410 x 350 px, its middle a little right of and above the
+        /// dummy's chest.</summary>
+        public const float CloudHalfWidth = 2.9f, CloudHalfHeight = 2.45f;
+        /// <summary>Metres the cloud's card is drawn toward the eye, so the ground in front of the dummy does not cut its foot.</summary>
+        const float CloudPull = 2.6f;
 
-        // ---- colours, measured off the clip's pixels (spec/eye/fireball.md). They are written straight, NOT
-        // through neon_acid's grade inversion: that inversion was fitted to a film of flat swatches for the acid,
-        // and BRIEF.md says to reuse it only once a fireball film confirms it. The first film settles this.
-        static readonly int Fire = CelPalette.Add("fb_fire",
-            CelPalette.Hex(0xF84C00), CelPalette.Hex(0xF08A10), CelPalette.Hex(0xF8F40C), CelPalette.Hex(0xFCFC80),
-            CelPalette.Hex(0xFCFCE4), 0.88f, 4, CelPalette.Hex(0xC83000));
+        // A colour as the film shows it. The project renders in gamma space and the palette stores .linear, so a
+        // colour handed over as picked comes out one gamma too dark (orange goes red, the smoke goes black):
+        // this takes it back first (NeonAcidRecipe.S does the same).
+        static Color C(int rgb)
+        {
+            Color c = CelPalette.Hex(rgb);
+            return new Color(Mathf.LinearToGammaSpace(c.r), Mathf.LinearToGammaSpace(c.g), Mathf.LinearToGammaSpace(c.b), 1f);
+        }
+
+        // ---- colours. The comments give what the clip shows; the values are what has to be written for the Range's
+        // night grade to show that (measured on films s04/s05 with runs/fireball/_s1/clusters.py: the grade turns a
+        // written orange (250,110,5) into (254,158,0) and a written smoke (85,66,57) into (103,75,62)).
+        // the comet: red-orange rim (250,70,5), orange (240,137,25), yellow (250,247,15), cream, white; ink = the
+        // deep red splat on its nose (249,24,0)
         static readonly int Comet = CelPalette.Add("fb_comet",
-            CelPalette.Hex(0xF84C00), CelPalette.Hex(0xF8A000), CelPalette.Hex(0xF8F81C), CelPalette.Hex(0xFCFCA0),
-            CelPalette.Hex(0xFCFCFC), 0.80f, 4, CelPalette.Hex(0xC83000));
-        // the charred lobes and the flat brown smoke they become (clip frames 72-104)
+            C(0xFA2A04), C(0xF55C14), C(0xFAF70F), C(0xFCFAA0), C(0xFDFCF4), 1.1f, 4, C(0xF90A00));
+        // the cloud's fire: red-orange (251,60,5), orange (250,105,5), yellow (248,246,10), (cream), white
+        // (251,249,231); ink = the red-brown line round a hot lobe (190,85,43)
+        static readonly int Fire = CelPalette.Add("fb_fire",
+            C(0xFB2404), C(0xFA4605), C(0xF8F60A), C(0xFCFACD), C(0xFAF8F4), 1.1f, 4, C(0xB4401E));
+        // what the cloud cools to: char (39,28,23), the crease between lobes (75,61,54), the smoke as it comes
+        // (83,67,58) and as it goes (90,73,64)
         static readonly int Smoke = CelPalette.Add("fb_smoke",
-            CelPalette.Hex(0x201818), CelPalette.Hex(0x3A2E28), CelPalette.Hex(0x584840), CelPalette.Hex(0x6B5A50),
-            CelPalette.Hex(0x6B5A50), 1.1f, 3, CelPalette.Hex(0x140E0C));
-        static readonly int Spark = CelPalette.Add("fb_spark",
-            CelPalette.Hex(0xF84C00), CelPalette.Hex(0xFFC070), CelPalette.Hex(0xFFE8B0), CelPalette.Hex(0xFFFFFF),
-            CelPalette.Hex(0xFFFFFF), 0.5f, 3, CelPalette.Hex(0x401004));
-        const float SmokeOpacity = 0.86f;
+            C(0x191411), C(0x463B34), C(0x4F4239), C(0x56483F), C(0x56483F), 1.1f, 4, C(0x191411));
+        // the embers the tail leaves: red-orange (250,70,5) with an orange-yellow middle (250,150,20)
+        static readonly int Ember = CelPalette.Add("fb_ember",
+            C(0xE01802), C(0xE01802), C(0xFA2A04), C(0xFA640F), C(0xFA640F), 1.1f, 4, C(0x401004));
+        // the spark rays: white with a pink edge
+        static readonly int Ray = CelPalette.Add("fb_ray",
+            C(0xFF8C6E), C(0xFF8C6E), C(0xFF7858), C(0xFFF6EB), C(0xFFF6EB), 1.1f, 4, C(0x401004));
+        // the sparks that fall: orange (250,100,20) with a pale middle
+        static readonly int Fall = CelPalette.Add("fb_fall",
+            C(0xF03C08), C(0xF03C08), C(0xFA3E0E), C(0xFFD2A0), C(0xFFD2A0), 1.1f, 4, C(0x401004));
 
-        /// <summary>The light the fire throws on the ground. The clip's near ground goes from (24,24,40) to
-        /// (72,48,40) with tops at (96,64,48): about three times in red, and it keeps the ground's own pattern, so
-        /// most of it is multiplied in (GlowInto) and the rest added on top (GlowAdd).</summary>
-        static readonly Vector3 GlowInto = new Vector3(1.40f, 0.72f, 0.14f), GlowAdd = new Vector3(0.22f, 0.10f, 0.03f);
-        /// <summary>The pool that travels under the comet, and the big one under the burst (m).</summary>
-        const float UnderReach = 9.0f, BurstReach = 10.0f;   // a34: 7.0 -> 9.0 and 9.0 -> 10.0. The pool lit 37.7/38.5/66.7% of the near-ground box at f14/f24/f44 against the clip's 75.6/80.6/83.9 (tools/_fb_gamma.py cmd_reach); area x1.65 and x1.23, the rest of the reach bought by `strength` at the call sites.
+        /// <summary>The light the fire throws on the ground: most of it multiplied into the ground (it keeps its
+        /// pattern), the rest added on top.</summary>
+        static readonly Vector3 GlowInto = new Vector3(1.40f, 0.52f, 0.08f), GlowAdd = new Vector3(0.22f, 0.075f, 0.015f);
+        const float UnderReach = 8.0f, BurstReach = 10.0f;
 
         static readonly int LensId = Shader.PropertyToID("_TWAcidLens");
 
@@ -106,257 +118,120 @@ namespace TW.Presentation.VFX.Cel
             float now = CelFx.Now;
             var rng = new CelRng(seed);
             Vector3 vel = Launch(from, target);
-            Vector3 flat = new Vector3(vel.x, 0f, vel.z);
-            Vector3 heading = flat.sqrMagnitude > 0.001f ? flat.normalized : right;
             float late = delay;                  // this play starts on the clip's frame 12
             float hit = delay + Flight;          // the comet lands (clip frame 28)
             ground.y = Ground(ground);
+            // the cloud's middle: 0.25 m to the right of the chest and 0.35 m over it
+            Vector3 heart = target + right * 0.25f + Vector3.up * 0.35f;
 
-            // ---- the light on the ground, under everything. A pool that travels with the comet (the clip's near
-            // ground is orange on frames 11-12, three frames before the comet is in frame), then the big pool under
-            // the burst: strongest on frames 32-50, half by 66, gone by 88-92.
+            // ---- the light on the ground, under everything: one pool under the comet's path as it comes in, one
+            // where it lands, then the big one under the burst (strongest on frames 30-46, gone by 72).
             {
-                Vector3 under = Vector3.Lerp(from, target, 0.45f);
+                Vector3 under = Vector3.Lerp(from, target, 0.28f);
                 under.y = Ground(under) + 1f;
-                Glow(renderer, kind, now, AtFrame(late, 11f), AtFrame(late, 30f), under, right, UnderReach, UnderReach,
-                    UnderReach, 1f, far ? 1.17f : mid ? 1.82f : 2.6f, GlowInto, GlowAdd, 0.06f, 0.10f, true, seed);   // a34: strength x2.6, the LOD ratios kept. The travelling pool's gain measured (27,14,4) at f24 against the clip's (75,39,12) - a FLAT 2.8x deficit (channel spread 0.22, where a gamma error would predict 8.62), so this is a LEVEL knob, not a colour one. GlowInto/GlowAdd deliberately untouched: the measured hue is already the clip's (ours 1:0.51:0.13, clip 1:0.52:0.15).
+                Glow(renderer, kind, now, AtFrame(late, 12f), AtFrame(late, 24f), under, right, UnderReach, UnderReach,
+                    UnderReach, 1f, far ? 1.0f : mid ? 1.5f : 2.1f, GlowInto, GlowAdd, 0.16f, 0.25f, true, seed);
+                Vector3 near = Vector3.Lerp(from, target, 0.78f);
+                near.y = Ground(near) + 1f;
+                Glow(renderer, kind, now, AtFrame(late, 17f), AtFrame(late, 31f), near, right, UnderReach, UnderReach,
+                    UnderReach, 1f, far ? 1.0f : mid ? 1.5f : 2.1f, GlowInto, GlowAdd, 0.22f, 0.20f, true, seed);
                 Vector3 pool = ground;
                 pool.y = Ground(pool) + 1f;
-                Glow(renderer, kind, now, AtFrame(late, 28f), AtFrame(late, 80f), pool, right, BurstReach, BurstReach,
-                    BurstReach, 1f, 1.6f, GlowInto, GlowAdd, 0.08f, 1.1f, true, seed);   // a34: strength 1 -> 1.6 (gain measured (32,17,5) at f44 against the clip's (51,25,6)), and the pool is brought OUT when the clip's is: gone f92 -> f80 with fall 1.0 -> 1.1, so GlowOn's `down` = (life-age)/fall at f76 goes 0.667 -> 0.152 while f44 stays 1.000 and f60 stays 0.758. Measured: ours still lit 59.6% of the near-ground box at f76, the clip's only 7.1%.
+                Glow(renderer, kind, now, AtFrame(late, 27f), AtFrame(late, 80f), pool, right, BurstReach, BurstReach,
+                    BurstReach, 1f, 2.0f, GlowInto, GlowAdd, 0.12f, 1.5f, true, seed);
             }
 
-            // ---- the comet's head: one round ball of fire with a white core, in frame on the clip's frame 14 and
-            // on the dummy by 26.
+            // ---- the comet: its head and its tail, one strip along the path. It is in frame on the clip's frame
+            // 14 and on the dummy by 27; after the hit the tail breaks up and its blobs shrink away by frame 40.
             {
-                var r = Rec(now, OnTwos(delay), Flight + 0.04f, FireballKind.Drop, from, Comet, 1f, ref rng);
-                r.Vel = vel;
+                var r = Rec(now, OnTwos(delay), Flight + 0.62f, FireballKind.Comet, from, Comet, 1f, ref rng);
+                r.Vel = Launch(from, target - away * 0.9f);   // it lands on the dummy's face, not inside it: the dummy does not hide the head
                 r.Motion = new Vector4(Gravity, 0f, 0f, 0f);
-                r.Size = new Vector4(HeadRadius, HeadRadius * 1.05f, 1f, 0.016f);
-                r.Extra.y = 1f;                  // a round fleck
-                renderer.Spawn(kind, r);
-            }
-
-            // ---- the tail: a ragged banner of flames strung out behind the head, broken into separate lens-shaped
-            // leaves along it (the clip: 80-110 px thick, the whole frame long).
-            int tail = far ? 4 : mid ? 26 : 54;   // a11: four records this far off, not ten (FireballTests' far bound)
-            for (int i = 0; i < tail; i++)
-            {
-                float back = (i + rng.Range(0f, 0.9f)) / tail;                 // 0 at the head, 1 at the far end
-                float rad = Mathf.Lerp(TailRadius, TailRadius * 0.35f, back) * rng.Range(0.75f, 1.25f);
-                var r = Rec(now, OnTwos(delay), Flight + 0.04f, FireballKind.Drop,
-                    from - heading * (back * TailLength), Comet, 1f, ref rng);
-                r.Vel = vel + right * rng.Range(-0.6f, 0.6f) + Vector3.up * rng.Range(-0.5f, 0.8f);
-                r.Motion = new Vector4(Gravity, 0f, 0f, 0f);
-                r.Size = new Vector4(rad, rad * 0.55f, 1f, rng.Range(0.020f, 0.045f));
-                r.Extra.y = 2f;                  // a leaf: a point at both ends
+                r.Size = new Vector4(HeadRadius, TailLength, 2.0f, Flight);
                 renderer.Spawn(kind, r);
             }
 
             // ---- the embers the tail leaves along the path it flew (clip frames 24-44): round orange dots that
-            // die from the far end.
-            int embers = far ? 0 : mid ? 26 : 64;   // a29: the clip shows 17-42 dots a frame on the flown path
-            // a30: THIS RECIPE HAS ONE SHARED rng AND Rec() DRAWS FROM IT, so raising a count in a block that
-            // runs BEFORE another re-rolls that other block. a29 raised this count from 30 to 64 and silently
-            // re-rolled the burst's forty lobes (iou .524 -> .466). The first 30 dots therefore keep the shared
-            // stream's draws - the per-iteration draw count is unchanged at 5 Range + 1 Next - and only the
-            // extra ones take their own stream, the way Glow() already does.
-            var own = new CelRng(seed ^ 0x5EEDu);
+            // hang where the comet passed and go out one by one.
+            int embers = far ? 0 : mid ? 12 : 30;
             for (int i = 0; i < embers; i++)
             {
-                ref CelRng use = ref (i < 30 ? ref rng : ref own);
-                float back = (i + 0.5f) / Mathf.Max(1, embers);
-                // a29: the dots have FALLEN OUT of the tail and lie near the sand. Deposited on the ballistic
-                // line itself they sat a metre high - 75 px above the clip's y 430-500 band, out of the crop.
-                Vector3 at = Along(from, target, Flight * (1f - back * 0.82f)) + Vector3.up * use.Range(-1.5f, -0.5f)
-                             + right * use.Range(-0.4f, 0.4f);
-                at.y = Mathf.Max(at.y, Ground(at) + 0.15f);   // and never under the sand
-                float rad = use.Range(0.05f, 0.12f);
-                // a30: the deposit is spread over fourteen frames, not three (the clip's line still has ten dots
-                // at f44), and it is drawn from the Fire row - the clip's dots are ORANGE (hue 29), not the
-                // Spark row's pale yellow (hue 59).
-                // a33: a30 proved the LINE DIES TOO SOON and named this term as the knob - its own words,
-                // 'the per-dot LIFETIME is the knob'. a30's deposits are right (20 and 17 dots a frame at f28
-                // and f32 against the clip's 14 and 33) and then they go out: 7/1/1 at f36/f40/f44 against the
-                // clip's 43/24/14, because a dot laid at f26 lives 0.50-0.85 s x (1 - back/2), i.e. about ten
-                // frames. THREE TIMES that life, and nothing else: the same ONE Range draw, the same bounds
-                // ratio, the same count, the same deposit window, the same stream - so no record moves.
-                var r = Rec(now, OnTwos(hit - back * 0.42f), use.Range(1.50f, 2.55f) * (1f - back * 0.5f),
-                    FireballKind.Drop, at, Fire, 1f, ref use);
-                r.Vel = Vector3.up * use.Range(0.2f, 0.9f);
-                r.Motion = new Vector4(1.2f, 0.6f, 0f, 0f);
-                r.Size = new Vector4(rad, rad * 0.5f, 1f, 0.004f);
-                r.Extra.y = 1f;
+                float back = (i + rng.Range(0f, 1f)) / embers;                // 0 at the hit, 1 far back along the path
+                float when = Flight * (1f - back * 0.50f);                    // the head was here then
+                Vector3 at = Along(from, target - away * 0.9f, when) + Vector3.up * rng.Range(-0.5f, 0.7f) + right * rng.Range(-0.2f, 0.2f);
+                float rad = rng.Range(0.04f, 0.10f);
+                var r = Rec(now, OnTwos(hit - 0.10f + rng.Range(0f, 0.40f)), rng.Range(0.30f, 0.80f),
+                    FireballKind.Drop, at, Ember, 1f, ref rng);
+                r.Vel = Vector3.up * rng.Range(0.2f, 1.4f) - (target - from).normalized * rng.Range(0f, 0.6f);
+                r.Motion = new Vector4(0.6f, 0.8f, 0f, 0f);
+                r.Size = new Vector4(rad, rad * 0.30f, 1.6f, 0.004f);
+                r.Extra.y = 1f;                  // a round fleck
                 renderer.Spawn(kind, r);
             }
 
-            // ---- the hit: a star of spikes for one drawing (clip frames 28-31)
+            // ---- THE BURST: one card. Fire, char, smoke and flecks, on the clip's frame clock from the hit.
+            {
+                var r = Rec(now, hit - 0.004f, Length - Flight - 0.08f, FireballKind.Cloud, heart, Fire, 1f, ref rng);
+                r.Tone = new Vector4(CelRecord.PackPalette(Fire, Smoke), 1f, 1f, 0f);
+                r.Size = new Vector4(CloudHalfWidth, CloudHalfHeight, CloudPull, far ? 9f : mid ? 18f : 28f);
+                renderer.Spawn(kind, r);
+            }
+
+            // ---- the hit: a white star of spikes over the young cloud for two drawings (clip frames 28-32)
             if (!far)
             {
-                var r = Rec(now, OnTwos(hit), 0.125f, FireballKind.Splat, target + Vector3.up * 0.2f, Fire, 1f, ref rng);
-                r.Size = new Vector4(3.0f, 3.0f, 1f, 1f);
-                r.Extra.y = 0.8f;
+                var r = Rec(now, OnTwos(hit + 0.083f), 0.20f, FireballKind.Splat, heart - Vector3.up * 0.35f, Ray, 1f, ref rng);
+                r.Size = new Vector4(1.3f, 1.3f, 1f, 1f);
+                r.Extra.y = CloudPull + 0.3f;    // in front of the cloud's card
                 renderer.Spawn(kind, r);
             }
 
-            // ---- THE BURST (the focus part). A cloud of round lobes standing on the ground over the dummy, wider
-            // than it is tall: hot white-yellow from the clip's frame 34 to 48, cooling from 48, charred by 60, the
-            // fire out by 76. Each lobe is drawn twice: a fire puff that lives through the hot phase and a brown one
-            // in the same place that takes over as it cools, so the cloud goes to smoke without moving off the mark.
-            // a15: 40 close and 22 mid, not 24 and 15 - the clip's cloud is 6.5 m across with its lobes
-            // overlapping into one silhouette, ours was about 0.6 of that width with ground showing between them.
-            // far stays 4 (each spawns a smoke puff too): the far-LOD contract is 8..16 records.
-            int lobes = far ? 4 : mid ? 22 : 40;
-            Vector3 heart = ground + Vector3.up * (BurstTall * 0.72f);
-            for (int i = 0; i < lobes; i++)
-            {
-                // a04. a03 proved the arrangement matters and that I had the clip's profile BACKWARDS: read from
-                // the foot up, the clip's widths at 25/50/75 % of its height are 233/159/163, so its mass is
-                // WIDEST AT ITS FOOT, sitting in the dirt, and narrows as it goes up. a03 made ours widest at its
-                // top and lifted it off the ground (122/209/228, coverage 0.65 -> 0.43, iou 0.186 -> 0.146): a
-                // drop. a03 also fused 13 big lobes into 6 smooth pieces where the clip reads 36.6 pieces inside
-                // one silhouette, so the lobes go back to many and smaller.
-                Vector3 inside = rng.InSphere();
-                // a17: the lobe's HEIGHT comes from its index, not from the sphere. A random point in a sphere
-                // crowds the middle by construction, so no spread curve over it can make the foot the widest
-                // part; three equal rows, lowest first, put a third of the lobes in the dirt. The sphere still
-                // supplies the horizontal jitter.
-                // a18: six bands with a jitter that spans a whole band each way, so neighbouring bands interleave
-                // and no horizontal seam can form. a17's three hard rows broke the cloud into three clusters with
-                // ground between them; the height distribution stays even foot-to-top either way.
-                // a19: the band INDEX is weighted toward the FOOT. a18 gave all six bands an equal share
-                // (7/7/6/7/7/6 of 40) and the profile came out TOP-heavy, 177/271/276 against the clip's
-                // 298/232/240. Width here is lit pixels in a scanline, so a band with a wide spread and the
-                // same lobe count simply strews thin while a narrow band packs solid: the top bands at spread
-                // 0.50 fill in, the foot bands at 1.35 are spread over 2.7x the room and go to holes. So each
-                // band is given lobes in proportion to the horizontal room it is allowed - the inverse CDF of
-                // the spread term itself - and the lit area per band comes out even: 9/8/8/6/5/4 of 40 close,
-                // 5/5/4/3/3/2 of 22 mid, the far LOD's 4 unchanged. The profile is set by how many lobes are
-                // low, not by how wide each band may spread (a16 + a17 + a18 together).
-                float f01 = (i + 0.5f) / Mathf.Max(lobes, 1);
-                float u01 = (1.35f - Mathf.Sqrt(1.8225f - 1.5725f * f01)) / 0.85f;
-                int band = Mathf.Clamp((int)(u01 * 6f), 0, 5);
-                float up01 = Mathf.Clamp01((band + rng.Range(-0.6f, 1.6f)) / 6f);   // 0 at the foot, 1 at the top
-                // a16: 1.35 at the foot, 0.55 at the top, not 1.00/0.60. The clip's widths at 25/50/75 % of its
-                // height are 233/159/163 - widest in the dirt, narrowing as it rises - and a15 measured
-                // 112/182/180, bulging at the waist. a03 pushed this knob the WRONG way (widest at the top).
-                float spread = Mathf.Lerp(1.35f, 0.50f, up01);
-                Vector3 at = heart + right * (inside.x * BurstRadius * spread)
-                             + away * (inside.z * BurstRadius * 0.45f * spread)
-                             + Vector3.up * ((up01 - 0.5f) * BurstTall * 1.25f);
-                if (at.y < Ground(at) + 0.30f) at.y = Ground(at) + 0.30f;
-                float size = LobeRadius * rng.Range(0.80f, 1.30f);
-                float born = OnTwos(hit + 0.083f + rng.Range(0f, 0.25f));
-                // a07. a05 and a06 settled HOW BIG a lobe is and that it wants a hard cel edge, and a06's
-                // falsifier fired on the other half: the lobes are one flat yellow at any size. Reading the
-                // shader said why, and it is not a knob - the drop mode only ever computes its silhouette and
-                // leaves col at the palette's body row, and the puff mode draws no line at all. So a lobe is now
-                // drawn by mode 5, written for this effect in a07: a hard-cut round ball banded from a highlight
-                // (white core, pale yellow, yellow, orange-red at its far edge) with an ink contour, charring
-                // into the smoke row over the last quarter of its life. Place, size, count, birth and drift are
-                // a06's, untouched, so this round changes only how one lobe is DRAWN.
-                var r = Rec(now, born, rng.Range(1.7f, 2.1f), FireballKind.Lobe, at, Fire, 1f, ref rng);
-                r.Vel = (at - heart).normalized * rng.Range(0.25f, 0.65f) + Vector3.up * rng.Range(0.05f, 0.35f);
-                r.Motion = new Vector4(0f, 1.6f, 0f, 0f);
-                // 0.90: the drop's round fleck filled 0.9 of its radius and the lobe fills all of it, so a06's
-                // DRAWN size is kept exactly. w is the lobe's squash now, not the drop's stretch: 1 = round.
-                r.Size = new Vector4(size * 0.90f, size * 0.97f, 1f, 1f);
-                // the fire row, charring into the smoke row (CelRamp2's second row); 1 the core's multiplier,
-                // 1 its opacity, and the ink contour in screen pixels - a08 cuts it from 5.5 to 3.0: the clip has
-                // no line round each lobe at all in the hot phase, only a thin rim on the cloud's outer edge
-                // a20, the first round of the burst's recorded DIAGNOSIS (a17, a18, a19 all moved the numbers and
-                // were dropped on the eye; three arrangements of the same forty drawn balls traded one visible
-                // structure for another). The ink goes to 0, from a08's 3.0. a08's own comment beside it has said
-                // since then that "the clip has no line round each lobe at all in the hot phase, only a thin rim
-                // on the cloud's outer edge", and the line was only narrowed, never removed. Mode 5 closes a
-                // complete CelInk contour round every lobe's own circle, so a cloud of forty is drawn as forty
-                // closed onions and reads - the independent reader's words - as a bunch of grapes. This tests
-                // whether that contour is what stops them fusing, in the hot phase and in the char. The orange-red
-                // band the ramp puts at each lobe's outer sliver stays, so the mass keeps a warm edge.
-                r.Tone = new Vector4(CelRecord.PackPalette(Fire, Smoke), 1f, 1f, 0f);
-                r.Extra.y = 0.11f;               // the lumps on its edge: the clip's lobes are round but not circles
-                // a12: the char WINDOW. A lobe born about clip frame f32 with a 1.9 s life begins to char at 0.38
-                // of it (about f49, the clip's f48) and is fully charred at 0.72 (about f65; the clip is mostly
-                // dark at f60 and its fire is out by f76). a07-a08 started at 0.74 and only finished at the
-                // lobe's death, so the cloud was still cream-white at f54-f60 - the defect that dropped a08.
-                r.Extra.z = 0.38f;
-                // a14: 0.86, not a13's 0.72 - with the cap doing the work the front crossed the whole lobe by
-                // about f70 and our burst was wholly dark from f72, where the clip still has red-orange cracks
-                // burning in the charcoal until f76.
-                r.Erode = new Vector4(0.86f, 0f, 1f, 0f);
-                // a22, the THIRD and last budgeted round of the burst's recorded diagnosis: the band field
-                // referenced to the CLOUD, not to each lobe. a20 took the per-lobe ink off and the cloud still
-                // read as a heap of countable balls; a21 squeezed the per-lobe annulus into a thin rind and it
-                // STILL did, so the fencing is not the band's WIDTH but the FRAME it is measured in - mode 5
-                // evaluates it in each lobe's own card, from each lobe's own highlight, so two overlapping lobes
-                // shade differently in the pixels they share and draw a seam wherever they meet. The clip at f40
-                // is one yellow field with large irregular white blobs running ACROSS several lobes and ignoring
-                // lobe centres, orange-red only along the mass's outer bottom edge.
-                // Mode 5 reads neither Axis nor Erode.yz, so they carry the cloud to the shader at no cost:
-                //   Axis    this lobe's offset from the burst's HEART (metres, world; the vertex adds the lobe's
-                //           own drift back in, so the shader has p - heart at the drawn age)
-                //   Erode.y the cloud's half-extent ACROSS the view, z its half-extent UP (metres), the units the
-                //           band field is measured in. 2.60 / 1.55 from this recipe's own geometry: a lobe sits
-                //           within BurstRadius 3.25 x spread (1.35 at the foot to 0.50 at the top) across and
-                //           within BurstTall 2.70 x 1.25 / 2 up, so u = 1.15 - where the ramp hands over to the
-                //           orange-red - falls near the visible outer edge of the mass and nowhere inside it.
-                r.Axis = at - heart;
-                r.Erode.y = 2.60f;
-                r.Erode.z = 1.55f;
-                renderer.Spawn(kind, r);
-
-                // the same lobe charred, then flat brown: it comes up as the fire goes and breaks up by frame 112
-                var s = Rec(now, OnTwos(hit + 1.25f + rng.Range(0f, 0.3f)), rng.Range(1.6f, 2.3f), FireballKind.Puff,
-                    at + Vector3.up * rng.Range(0f, 0.3f), Smoke, SmokeOpacity, ref rng);
-                // a32: THE SMOKE WAS NEVER A CLOUD. The clip at f88-f96 is ONE coherent light warm-brown mass of
-                // big overlapping puffs, about three times our width and twice our height (regionmeasure widths
-                // 194/312/289 against our 74/55/74, px/frame ratio 0.22, iou 0.082 - the worst part in the shot).
-                // Ours was a scatter of small near-black flecks with desert between them. Four COEFFICIENTS, no
-                // count, no palette and the per-iteration draw count held at exactly 5 Range + 1 Next so the
-                // shared CelRng cannot re-roll the spark rays or the falling embers that are spawned after this.
-                // Size and the outward velocity make the puffs big enough and spread enough to MEET and read as
-                // one mass; Motion.w lifts the column; Extra.z is mode 6's `lit`, which sets how fast the puff
-                // walks pale -> light -> body and how far it then sinks toward `shade` - at 0.25 it was on `body`
-                // by age 0.35 and 68 % of the way to `shade` by its end, which is the near-black.
-                s.Vel = (at - heart).normalized * rng.Range(0.9f, 2.0f) + Vector3.up * rng.Range(0.4f, 1.1f);
-                s.Motion = new Vector4(0f, 0.9f, 0f, 0.60f);
-                s.Size = new Vector4(size * 2.00f, size * 2.20f, 1.4f, 1f);
-                s.Extra.y = 0.55f;
-                s.Extra.z = 0.70f;
-                renderer.Spawn(kind, s);
-            }
-
-            // ---- the white spark rays out of the burst (clip frames 30-52): straight needles thrown out of its top
-            // half, no gravity on them, there and gone in two or three drawings.
-            int rays = far ? 0 : mid ? 29 : 70;   // a28: the clip has 34-47 separate spark objects a frame, not 8-22 blades
+            // ---- the white spark rays out of the burst (clip frames 34-50): short needles thrown out all round its
+            // top, each two dashes one behind the other, there and gone in two drawings.
+            int rays = far ? 0 : mid ? 28 : 56;
             for (int i = 0; i < rays; i++)
             {
-                Vector3 d = rng.OnSphere();
-                d.y = Mathf.Abs(d.y) * 1.1f + 0.15f;
-                d = d.normalized;
-                var r = Rec(now, OnTwos(hit + rng.Range(0.04f, 0.9f)), rng.Range(0.10f, 0.22f), FireballKind.Drop,
-                    heart + d * rng.Range(0.5f, 2.2f), Spark, 1f, ref rng);
-                r.Vel = d * rng.Range(14f, 30f);
-                r.Motion = new Vector4(0f, 0f, 0f, 0f);
-                r.Size = new Vector4(0.028f, 0.012f, 1f, rng.Range(0.025f, 0.045f));   // a28: a needle, not a blade - the stretch is SECONDS of its own motion
+                float turn = rng.Range(-0.12f, 1.12f) * Mathf.PI;             // over the top, a little under the sides
+                Vector3 d = (right * Mathf.Cos(turn) + Vector3.up * Mathf.Sin(turn) + away * rng.Range(-0.25f, 0.25f)).normalized;
+                float born = hit + rng.Range(0.20f, 0.95f);
+                float reach = rng.Range(2.0f, 3.4f), speed = rng.Range(4f, 8f);
+                for (int j = 0; j < (mid ? 2 : 3); j++)
+                {
+                    var r = Rec(now, OnTwos(born), 0.24f, FireballKind.Drop, heart + d * (reach + j * rng.Range(0.45f, 0.75f)), Ray, 1f, ref rng);
+                    r.Vel = d * speed;
+                    r.Size = new Vector4(0.052f, 0.034f, 1f, rng.Range(0.022f, 0.044f));   // the stretch is seconds of its own motion (half its length)
+                    r.Extra.y = 2f;              // a leaf
+                    renderer.Spawn(kind, r);
+                }
+            }
+
+            // ---- the fountain of sparks (clip frames 46-90): thrown out of the cloud's rim in arcs, short bright
+            // dashes that fall as long thin embers.
+            int sparks = far ? 0 : mid ? 50 : 120;
+            for (int i = 0; i < sparks; i++)
+            {
+                float turn = rng.Range(-0.05f, 1.05f) * Mathf.PI;
+                Vector3 d = (right * Mathf.Cos(turn) + Vector3.up * Mathf.Sin(turn) + away * rng.Range(-0.5f, 0.5f)).normalized;
+                var r = Rec(now, OnTwos(hit + rng.Range(0.70f, 1.45f)), rng.Range(0.7f, 1.5f), FireballKind.Drop,
+                    heart + d * rng.Range(1.6f, 2.6f), Fall, 1f, ref rng);
+                r.Vel = d * rng.Range(3f, 9f) + Vector3.up * rng.Range(1f, 4f);
+                r.Motion = new Vector4(17f, 0.9f, 0f, 0f);
+                r.Size = new Vector4(0.034f, 0.022f, 1f, rng.Range(0.024f, 0.052f));
                 r.Extra.y = 2f;
                 renderer.Spawn(kind, r);
             }
 
-            // ---- the embers that fall out of it (clip frames 56-92): short bright streaks with a hot head, arcing
-            // out and down, the last bright thing in the frame.
-            int fall = far ? 0 : mid ? 33 : 80;   // a28: many short embers, not a few fat leaves
-            for (int i = 0; i < fall; i++)
+            // ---- the embers left on the ground (clip frames 80-114): small glowing dots that go out one by one
+            int coals = far ? 0 : mid ? 7 : 18;
+            for (int i = 0; i < coals; i++)
             {
-                Vector3 d = rng.OnSphere();
-                d.y = Mathf.Abs(d.y) * 0.8f + 0.25f;
-                d = d.normalized;
-                var r = Rec(now, OnTwos(hit + rng.Range(0.5f, 2.4f)), rng.Range(0.8f, 1.6f), FireballKind.Drop,
-                    heart + d * rng.Range(0.4f, 2.6f), Spark, 1f, ref rng);
-                r.Vel = d * rng.Range(3.5f, 9f) + Vector3.up * rng.Range(0.5f, 3f);
-                r.Motion = new Vector4(9.0f, 0.25f, 0f, 0f);
-                r.Size = new Vector4(0.026f, 0.014f, 1f, rng.Range(0.05f, 0.11f));   // a28: thinner head; the stretch stays, the clip's falling embers keep a trail
-                r.Extra.y = 2f;
+                Vector2 on = rng.InDisc() * 5.5f;
+                Vector3 at = ground + right * on.x + away * (on.y * 0.8f);
+                at.y = Ground(at) + 0.06f;
+                float rad = rng.Range(0.04f, 0.075f);
+                var r = Rec(now, OnTwos(hit + rng.Range(2.0f, 2.8f)), rng.Range(0.6f, 1.3f), FireballKind.Drop, at, Fall, 1f, ref rng);
+                r.Size = new Vector4(rad, rad * 0.6f, 1f, 0.004f);
+                r.Extra.y = 1f;
                 renderer.Spawn(kind, r);
             }
         }

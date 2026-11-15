@@ -60,7 +60,7 @@ namespace TW.Tests
             FireballRecipe.Play(Nozzle, Target, Vector3.zero, Vector3.right, 1917u);
             int kind = renderer.KindId(FireballKind.KindName);
             Assert.That(kind, Is.GreaterThanOrEqualTo(0));
-            Assert.That(renderer.SpawnedOf(kind), Is.GreaterThan(200), "strands, drops, splash, bubbles and smoke");
+            Assert.That(renderer.SpawnedOf(kind), Is.GreaterThan(150), "the lights, the comet, its embers, the cloud, the star, the rays, the sparks and the coals");
             Assert.That(renderer.SpawnedOf(kind), Is.LessThanOrEqualTo(renderer.CapacityOf(kind) / 2),
                 "everything is queued up front: two jets at once must not overwrite each other's first");
         }
@@ -73,17 +73,12 @@ namespace TW.Tests
             FireballRecipe.Play(Nozzle, Target, Vector3.zero, Vector3.right, 1917u);
             int kind = renderer.KindId(FireballKind.KindName);
             int far = renderer.SpawnedOf(kind);   // SpawnedOf counts every record ever spawned
-            // a11: the bound here was neon_acid's (5..12: a band, a puddle, three lights) and had never been run
-            // against the fireball. Its parts are different - two ground lights, the comet's head and its tail, the
-            // burst's lobes and the smoke puffs they cool into, with the hit's splat, the spark rays and the falling
-            // embers all left out this far away - but the CONTRACT the old bound carried is the one that matters and
-            // it still holds: a fireball this far off is a few dozen pixels tall, so it must collapse to a handful of
-            // records. It was spawning 29 (a ten-record tail and eight lobes with eight puffs), which is a far LOD
-            // that costs nearly a mid one, so a11 cut the far tail to 4 and the far lobes to 4 rather than widen this
-            // range to fit. 2 lights + 1 head + 4 tail + 4 lobes + 4 puffs = 15. The lower bound keeps a part from
-            // being silently dropped: under 8 records the comet or the burst has stopped being drawn at all.
-            Assert.That(far, Is.InRange(8, 16),
-                "two ground lights, the comet's head and a short tail, four burst lobes and their smoke; no splat, no rays, no embers");
+            // s01: the far fireball is five records - three ground lights, the comet (head and tail are one
+            // strip) and the cloud (the whole burst is one card, with fewer lobes this far off). No embers, no
+            // star, no rays, no sparks. Under four a part has stopped being drawn; over eight the far LOD has
+            // started to cost like a mid one.
+            Assert.That(far, Is.InRange(4, 8),
+                "three ground lights, the comet and the cloud; no embers, no star, no rays, no sparks");
             renderer.Clear();
             CelFx.ZoomOverride = CelFx.MidZoom;
             FireballRecipe.Play(Nozzle, Target, Vector3.zero, Vector3.right, 1917u);

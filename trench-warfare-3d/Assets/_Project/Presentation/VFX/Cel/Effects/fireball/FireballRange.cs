@@ -30,9 +30,12 @@ namespace TW.Presentation.VFX.Cel
             forward.y = 0f;
             if (forward.sqrMagnitude < 0.0001f) forward = Vector3.forward;
             Vector3 right = Vector3.Cross(Vector3.up, forward.normalized);
-            // 13.6 m to the eye's left of the target and 0.4 m over its chest: the clip's comet crosses the frame
-            // from off-screen left in sixteen frames, so it is off-screen for the first two of them.
-            Vector3 from = shot.Target - right * 13.6f + Vector3.up * 0.4f;
+            // s01: the clip's comet does not cross the frame level: it comes from NEAR THE EYE, to its left, and
+            // flies AWAY into the dummy, so it shrinks and climbs the frame as it goes (its head is 95 px of
+            // radius on frame 16 and 56 px on the dummy: 11.4 m and 18.9 m from the eye). Fitted through the
+            // Range's camera to the head's place on frames 16, 20, 24 and 26: it starts 8.2 m to the eye's
+            // left of the target, 9.7 m nearer the eye and 2.3 m higher.
+            Vector3 from = shot.Target - right * 8.21f - forward.normalized * 9.74f + Vector3.up * 2.29f;
             FireballRecipe.Lens(Vignette, VignetteSmooth);
             FireballRecipe.Play(from, shot.Target, shot.Ground, right, (uint)shot.Seed, Delay);
         }
