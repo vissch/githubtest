@@ -701,6 +701,19 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **See it:** `C:/Users/PC/Documents/celfx/tools/capture.ps1 -Effect neon_acid` (the Range film; the reference is
   `neon_acid_nolora.mp4`, what it shows is written down in `C:/Users/PC/Documents/celfx/spec/eye/neon_acid.md`).
 
+### Acid beam (a CelFx effect: a straight beam of acid, its splash over the target, puddle, smoke and light, 2026-11-15)
+- **Files (SHOW):** `Presentation/VFX/Cel/Effects/acid_beam/AcidBeamRecipe.cs` (`AcidBeamRecipe.Play(nozzle, target,
+  ground, right, seed, delay)`: every record spawned at once; the clip's numbers as named constants; `Lens(intensity,
+  smoothness)` as the neon acid's), `Presentation/VFX/Cel/Effects/acid_beam/AcidBeamKind.cs` (the pool: one shader,
+  a 48-segment strip, 2048 records), `Presentation/VFX/Cel/Effects/acid_beam/AcidBeamRange.cs` (lab-only: the
+  Range's nozzle and vignette), `Shaders/Cel/Effects/acid_beam/CelAcidBeam_URP.shader` (built from the neon acid's:
+  the beam with its head cone and torn end, drops, blobs and sparks, starbursts, the mound, the puddle decal, smoke,
+  the light pass; drawn on ones), keeper `Resources/ShaderKeep/KeepCelAcidBeam.mat`.
+- **Tests:** AcidBeamTests (`Tests/Cel`: the beam is a straight line onto the target; a close beam has every layer
+  and fits half its pool; far < mid < close; nothing is drawn eight seconds on; the lens is put back; 0 B per play).
+- **See it:** `C:/Users/PC/Documents/celfx/tools/capture.ps1 -Effect acid_beam -StageOpts 't0=0.5'` (the reference is
+  `acid_beam_cel_00001_.mp4`, what it shows is written down in `C:/Users/PC/Documents/celfx/spec/eye/acid_beam.md`).
+
 ### Debris and destruction of props and houses
 - **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers,
   `ZoomShare`; a pool whose last piece has sunk is not drawn), `Presentation/Camera/DebrisRenderer.Parts.cs` (a man's
@@ -1164,7 +1177,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Cel:** CelFxTests, NeonAcidTests
+- **Cel:** AcidBeamTests, CelFxTests, NeonAcidTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, ScriptedEnemySlotTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** AnimClockPlayTests, CaptureRigPlayTests, DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudMinimapPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, GymRequestTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
