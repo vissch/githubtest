@@ -222,14 +222,14 @@ namespace TW.Presentation.VFX.Cel
             }
 
             // ---- the embers left on the ground (clip frames 80-114): small glowing dots that go out one by one
-            int coals = far ? 0 : mid ? 7 : 18;
+            int coals = far ? 0 : mid ? 9 : 22;
             for (int i = 0; i < coals; i++)
             {
-                Vector2 on = rng.InDisc() * 5.5f;
+                Vector2 on = rng.InDisc() * 7.0f;
                 Vector3 at = ground + right * on.x + away * (on.y * 0.8f);
                 at.y = Ground(at) + 0.06f;
-                float rad = rng.Range(0.04f, 0.075f);
-                var r = Rec(now, OnTwos(hit + rng.Range(2.0f, 2.8f)), rng.Range(0.6f, 1.3f), FireballKind.Drop, at, Fall, 1f, ref rng);
+                float rad = rng.Range(0.045f, 0.085f);
+                var r = Rec(now, OnTwos(hit + rng.Range(2.0f, 3.0f)), rng.Range(0.7f, 1.5f), FireballKind.Drop, at, Fall, 1f, ref rng);
                 r.Size = new Vector4(rad, rad * 0.6f, 1f, 0.004f);
                 r.Extra.y = 1f;
                 renderer.Spawn(kind, r);
