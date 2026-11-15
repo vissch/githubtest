@@ -16,11 +16,11 @@
 //              size.xyz the strand's width (m); size.w the wavelength (m); extra.y the wave's amplitude (m)
 // A DOT record (size.w < 0) is a quad at CelPosition (it moves), radius size.xyz (m), pulled erode.w metres toward
 // the eye (so the board does not cut it):
-//   extra.x 2  BLOOM: an opaque white core in a frosty translucent cloud with a lumpy boiling rim, glitter, a faint
-//              additive halo; y the cloud's opacity, z the core's radius (share of the BIRTH quad: it keeps its size
-//              in metres; at most half the quad; 0 none), w rim glitter
-//           3  STAR: a crisp ice starburst; y spike root half-width (quad units), z spikes, w core share
-//           4  FLECK: a small hard chip stretched along its screen velocity; y length over width
+//   extra.x 2  BLOOM: an opaque white core in a frosty cloud that falls off as a power to a lumpy boiling rim,
+//              glitter, a faint additive halo; y the fall's power, z the core's radius (share of the quad; 0 none),
+//              w rim glitter; it fades evenly as it erodes while the core shrinks
+//           3  STAR: a crisp ice daisy of fat rounded petals; y a petal's half-width (quad units), z petals, w core
+//           4  FLECK: a small white flake (a rounded drop) along its screen velocity; y length over width
 //           5  SHARD: a crystal shard (a short barbed dart) along its screen velocity, tumbling at motion.z; y length
 //              over width
 //           6  FROST: a cluster of soft bright clumps with dark gaps (snow on glass) over a faint mist; y clump cells
@@ -55,6 +55,8 @@ Shader "TW/Cel/IceBolt"
             // its specks and puffs)
             #define DART_PAD 1.3
             #define RIBBON_PAD 5.0
+            // how much of its core a bloom loses as it erodes (fitted with the bloom, i03)
+            #define BLOOM_SHRINK 1.000
 
             float4 _TWIceLens;
 
@@ -115,8 +117,6 @@ Shader "TW/Cel/IceBolt"
                     o.q = float4(corner, r.seed, -1.0);
                     o.tone = float4(r.tone.x, r.tone.y, r.tone.z, CelCurve(r.erode.xyz, k));
                     o.shape = float4(mode, r.extra.y, r.extra.z, r.extra.w);
-                    // a bloom's core keeps the size it was born with while the cloud round it grows
-                    if (mode > 1.5 && mode < 2.5) o.shape.z = min(r.extra.z * r.size.x / max(rad, 1e-4), 0.5);
                     o.more.x = ComputeFogFactor(o.positionCS.z);
                     return o;
                 }
@@ -233,27 +233,23 @@ Shader "TW/Cel/IceBolt"
                     float sd = i.q.z;
                     if (mode < 2.5)
                     {
-                        // BLOOM (i02, the clip's radial profile f22-f112): an opaque white-blue core of a fixed size
-                        // (z: its radius in quad units) fading through an inner ramp into a frosty translucent cloud of y
-                        // opacity, flat out to ~0.62 of the quad and falling off to its edge; a lumpy outline that boils
-                        // frame to frame, frost grain, white glitter in its rim, a faint blue halo; it erodes core first
-                        // and the cloud into holes
+                        // BLOOM (i03, fitted to the clip's vertical opacity profile f16-f132 in a model of this very
+                        // fragment over the clip's own plate): opaque at the core's edge (z: its radius, a share of the
+                        // quad, so it grows with the cloud), falling as (1 - t)^y out to a lumpy edge that boils frame
+                        // to frame; the core white, frost grain toward the edge, glitter in the rim, a faint blue
+                        // halo; it fades evenly (x (1 - erosion)) while the opaque core shrinks, holes opening late
                         float n1 = CelValue2(qv * 2.1 + float2(sd * 37.0, sd * 11.0));
                         float n2 = CelValue2(qv * 4.7 + float2(sd * 13.0 + tick * 0.37, sd * 29.0 - tick * 0.23));
                         float n3 = CelValue2(qv * 11.0 + float2(sd * 7.0 - tick * 0.11, sd * 3.0 + tick * 0.17));
-                        float lumpR = rr * (1.0 + 0.26 * (n1 - 0.5) + 0.14 * (n2 - 0.5));
-                        float edgeIn = 0.62 * (1.0 - 0.2 * thr), edgeOut = 1.0 - 0.25 * thr;
-                        float cloud = i.shape.y * (1.0 - smoothstep(edgeIn, edgeOut, lumpR)) * lerp(0.85, 1.15, n3);
-                        cloud *= saturate((0.6 * n2 + 0.4 * n3 + 0.3 - thr * 1.3) * 4.0);
-                        float coreR = i.shape.z;
-                        float coreFade = saturate(1.0 - thr * 2.5);
-                        float rc = rr * (1.0 + 0.18 * (n2 - 0.5));
-                        float coreM = 0.0, inner = 0.0;
-                        if (coreR > 1e-3)
-                        {
-                            coreM = (1.0 - smoothstep(coreR * 0.75, coreR * 1.25, rc)) * coreFade;
-                            inner = (1.0 - smoothstep(coreR * 1.2, coreR * 1.95, rc)) * coreFade;
-                        }
+                        float lumpR = rr * (1.0 + 0.22 * (n1 - 0.5) + 0.12 * (n2 - 0.5));
+                        float zc = max(i.shape.z, 0.0) * (1.0 - BLOOM_SHRINK * thr);
+                        float t = saturate((lumpR - zc) / max(1.0 - zc, 1e-3));
+                        float cloud = pow(1.0 - t, max(i.shape.y, 0.2));
+                        cloud *= 1.0 + 0.5 * (n3 - 0.5) * t;
+                        float holes = saturate((0.6 * n2 + 0.4 * n3 + 0.75 - thr * 1.3) * 4.0);
+                        cloud = saturate(cloud) * (1.0 - thr) * holes;
+                        float coreM = (1.0 - smoothstep(zc * 0.55, zc * 1.05, rr * (1.0 + 0.16 * (n2 - 0.5)))) * (1.0 - thr);
+                        float edgeIn = max(zc, 0.3), edgeOut = 1.0 - 0.25 * thr;
                         // glitter: a share of small cells in the rim holds a white point, dealt again every other frame
                         float2 gc = qv * 18.0;
                         float2 gi = floor(gc);
@@ -264,21 +260,24 @@ Shader "TW/Cel/IceBolt"
                         float glit = (gh > 0.85 ? 1.0 : 0.0) * saturate(1.0 - length(gc - gp) / 0.32) * rim * i.shape.w * (1.0 - thr);
                         col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(n3 * 0.7 + (1.0 - rr) * 0.3));
                         col = lerp(col, CelPalCore(row).rgb * i.tone.y, saturate(max(coreM, glit)));
-                        cover = saturate(max(max(cloud, inner), glit)) * i.tone.z;
+                        cover = saturate(max(cloud, glit)) * i.tone.z;
                         float halo = exp(-rr * rr * 2.2) * saturate(1.0 - rr * 0.75) * (1.0 - cover) * 0.22 * (1.0 - thr);
                         add = CelPal(row, 1) * halo * i.tone.z;
                     }
                     else if (mode < 3.5)
                     {
-                        // STAR: z sharp spikes of uneven length round a small core, crisp
+                        // STAR (the clip at 3x f16-f17, f87-f94): z fat rounded PETALS of a little uneven length round a
+                        // white core, like a daisy of ice; y a petal's half-width at its widest (quad units), w the core
                         float nS = max(i.shape.z, 5.0);
                         float turn = frac(atan2(qv.y, qv.x) * 0.159155 + 0.5 + sd * 3.7);
                         float sec = turn * nS;
                         float idS = floor(sec);
-                        float lenS = lerp(0.42, 1.0, CelHash21(float2(idS, sd * 53.0 + 7.0)));
-                        float offS = (CelHash21(float2(idS, sd * 91.0)) - 0.5) * 0.4;
+                        float lenS = lerp(0.62, 1.0, CelHash21(float2(idS, sd * 53.0 + 7.0)));
+                        float offS = (CelHash21(float2(idS, sd * 91.0)) - 0.5) * 0.3;
                         float lat = abs(sec - idS - 0.5 - offS) * 6.28318 / nS * rr;
-                        float wS = max(i.shape.y, 0.01) * saturate(1.0 - rr / lenS);
+                        // an elliptical petal from near the centre to lenS, widest a little past its middle
+                        float pc = lenS * 0.56, ph = lenS * 0.46;
+                        float wS = max(i.shape.y, 0.01) * sqrt(saturate(1.0 - (rr - pc) * (rr - pc) / max(ph * ph, 1e-4)));
                         float coreS = max(i.shape.w, 0.05);
                         float dS = max(wS - lat, coreS - rr);
                         float m = CelAAStep(0.0, dS) * step(rr, 1.0);
@@ -287,11 +286,12 @@ Shader "TW/Cel/IceBolt"
                     }
                     else if (mode < 4.5)
                     {
-                        // FLECK: a small hard kite of a chip, along its motion
-                        float kite = qv.x > 0.0 ? 1.0 : 0.7;
-                        float dF = 1.0 - (abs(qv.x) / kite + abs(qv.y));
+                        // FLECK (the clip at 3x): a small white flake, a rounded drop along its motion (blunt ahead, a
+                        // little narrower behind), whitest on its upper side
+                        float kite = qv.x > 0.0 ? 1.0 : 0.75;
+                        float dF = 1.0 - length(float2(qv.x / kite, qv.y));
                         float m = CelAAStep(0.0, dF);
-                        col = lerp(CelPal(row, 3), CelPalCore(row).rgb * i.tone.y, step(0.0, qv.y));
+                        col = lerp(CelPal(row, 3), CelPalCore(row).rgb * i.tone.y, saturate(0.65 + qv.y));
                         cover = m * i.tone.z * (1.0 - thr);
                     }
                     else if (mode < 5.5)
@@ -310,31 +310,29 @@ Shader "TW/Cel/IceBolt"
                     }
                     else if (mode < 6.5)
                     {
-                        // FROST (i03, the clip at 3x f104-f144): a cluster of small soft bright clumps with dark gaps
-                        // between them (snow on glass) over a faint mist, inside a lumpy envelope that thins from its
-                        // edge as it erodes; y clump cells per quad radius, z density
+                        // FROST (i03, the clip at 2-3x f98-f156): fluffy irregular snow clumps of many sizes with dark
+                        // gaps (three octaves of value noise cut at a level that is lower toward the middle), a
+                        // crystalline grain, white specks, over a faint grey mist, in a lumpy envelope that thins from
+                        // its edge as it erodes; y the clumps' scale (per quad radius), z density
                         float sc = max(i.shape.y, 1.0);
-                        float2 cp = qv * sc;
-                        float2 ci = floor(cp);
-                        float clump = 0.0;
-                        [unroll] for (int cy = -1; cy <= 1; cy++)
-                        {
-                            [unroll] for (int cx = -1; cx <= 1; cx++)
-                            {
-                                float2 c = ci + float2(cx, cy);
-                                float h = CelHash21(c + sd * 19.0);
-                                float2 o = float2(CelHash21(c + sd * 23.0 + 1.7), CelHash21(c + sd * 29.0 + 3.1));
-                                float r0 = lerp(0.3, 0.62, CelHash21(c + sd * 31.0));
-                                float d = length(cp - (c + o)) / r0;
-                                clump = max(clump, (h > 0.3 ? 1.0 : 0.0) * saturate(1.0 - d * d));
-                            }
-                        }
+                        float f1 = CelValue2(qv * sc + float2(sd * 19.0, sd * 7.0));
+                        float f2 = CelValue2(qv * sc * 2.3 + float2(sd * 23.0 + 5.1, sd * 3.0));
+                        float f3 = CelValue2(qv * sc * 5.3 + float2(sd * 29.0, sd * 13.0 + 2.7));
+                        float fb = f1 * 0.52 + f2 * 0.3 + f3 * 0.18;
                         float lumpR = rr * (1.0 + 0.34 * (CelValue2(qv * 2.0 + sd * 7.0) - 0.5));
-                        float env = 1.0 - smoothstep(0.4 * (1.0 - 0.4 * thr), 1.0 - 0.3 * thr, lumpR);
-                        float dens = saturate(clump * 1.4) * env;
-                        float mist = env * env * 0.22;
-                        cover = saturate(max(dens * 0.85, mist) * max(i.shape.z, 0.1)) * (1.0 - thr) * i.tone.z;
-                        col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(clump));
+                        float env = 1.0 - smoothstep(0.3 * (1.0 - 0.4 * thr), 1.0 - 0.3 * thr, lumpR);
+                        float cut = lerp(0.6, 0.38, env) + thr * 0.12;
+                        float clump = smoothstep(cut, cut + 0.22, fb) * env;
+                        float mist = env * env * 0.34;
+                        // white specks: a share of small cells holds a 1-2 px point
+                        float2 kc = qv * sc * 4.0;
+                        float2 ki = floor(kc);
+                        float kh = CelHash21(ki + sd * 37.0);
+                        float2 kp = ki + 0.2 + 0.6 * float2(CelHash21(ki + sd * 41.0 + 1.3), CelHash21(ki + sd * 43.0 + 2.9));
+                        float speck = (kh > 0.8 ? 1.0 : 0.0) * saturate(1.0 - length(kc - kp) / 0.3) * env;
+                        cover = saturate(max(max(clump * 0.85, mist), speck) * max(i.shape.z, 0.1)) * (1.0 - thr) * i.tone.z;
+                        col = lerp(CelPal(row, 2), CelPal(row, 3), saturate((fb - cut) * 3.0 + (f3 - 0.5) * 0.6));
+                        col = lerp(col, CelPalCore(row).rgb * i.tone.y, saturate(speck));
                     }
                     else if (mode < 7.5)
                     {

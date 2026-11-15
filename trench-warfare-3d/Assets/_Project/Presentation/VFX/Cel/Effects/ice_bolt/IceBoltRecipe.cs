@@ -65,8 +65,8 @@ namespace TW.Presentation.VFX.Cel
             W(0.68f, 0.82f, 1f), 1.1f, 4, W(0.30f, 0.38f, 0.50f));
         // the frost mist
         public static readonly int FrostRow = CelPalette.Add("ice_frost",
-            W(0.30f, 0.36f, 0.45f), W(0.38f, 0.45f, 0.56f), W(0.47f, 0.56f, 0.70f), W(0.58f, 0.69f, 0.86f),
-            W(0.66f, 0.78f, 0.95f), 1.1f, 4, W(0.30f, 0.36f, 0.45f));
+            W(0.30f, 0.34f, 0.40f), W(0.384f, 0.44f, 0.512f), W(0.476f, 0.533f, 0.612f), W(0.586f, 0.659f, 0.789f),
+            W(0.697f, 0.784f, 0.95f), 1.1f, 4, W(0.30f, 0.34f, 0.40f));
 
         static readonly int LensId = Shader.PropertyToID("_TWIceLens");
 
@@ -82,10 +82,10 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>The clip's rhythm: a shot every 3.2-4.8 frames from f8 (the first point in at the left edge) to
         /// f114 (the last), one dart (50 %), two (35 %) or three (15 %) to a shot on lanes up to LaneSpread apart near
         /// the camera, all landing on the chest; each dart drags its own wake of mist on its lane, born with it.</summary>
-        const float FirstShot = 8f, LastShot = 114f, ShotGapMin = 3.2f, ShotGapMax = 4.8f, LaneSpread = 0.3f;
+        const float FirstShot = 8f, LastShot = 114f, ShotGapMin = 2.6f, ShotGapMax = 3.8f, LaneSpread = 0.42f;
         /// <summary>A wake's life (s), its width (m: 8-13 px soft strands near the camera), its wave's amplitude (m)
         /// and its opacity.</summary>
-        const float WakeLife = 0.62f, WakeWidth = 0.13f, WakeAmp = 0.12f, WakeOpacity = 0.6f;
+        const float WakeLife = 0.62f, WakeWidth = 0.15f, WakeAmp = 0.16f, WakeOpacity = 0.6f;
         /// <summary>The gap (f66-f90): the bloom is gone and the darts glance off the board, so a share of the wakes
         /// runs on past the dummy to the upper right (the clip's f80 strands reach ~(1100, 250)).</summary>
         const float GlanceFrom = 66f, GlanceTo = 90f, GlanceShare = 0.45f;
@@ -102,7 +102,7 @@ namespace TW.Presentation.VFX.Cel
             for (float f = FirstShot; f <= LastShot; f += rng.Range(ShotGapMin, ShotGapMax))
             {
                 float g = rng.Next();
-                int n = g < 0.5f ? 1 : g < 0.85f ? 2 : 3;
+                int n = g < 0.45f ? 1 : g < 0.8f ? 2 : 3;
                 Vector3 centre = rng.InSphere() * LaneSpread;
                 acc += keep;
                 bool on = acc >= 1f;
@@ -112,7 +112,7 @@ namespace TW.Presentation.VFX.Cel
                     float at = AtFrame(f + (d == 0 ? 0f : rng.Range(0.4f, 1.8f))) - 0.035f;
                     Vector3 lane = centre + (d == 0 ? Vector3.zero : (right * rng.Range(-1f, 1f) + up * rng.Range(-1f, 1f)) * 0.12f);
                     float life = rng.Jitter(DartLife, 0.06f), width = rng.Jitter(DartWidth, 0.3f), dseed = rng.Next();
-                    int wakes = far ? 0 : mid ? (rng.Next() < 0.5f ? 1 : 0) : (rng.Next() < 0.7f ? 1 : 2);
+                    int wakes = far ? 0 : mid ? (rng.Next() < 0.5f ? 1 : 0) : (rng.Next() < 0.2f ? 1 : 2);
                     if (on && darts) renderer.Spawn(kind, Dart(now + at, from + lane, to, life, width, dseed));
                     for (int w = 0; w < 2; w++)
                     {
@@ -181,21 +181,29 @@ namespace TW.Presentation.VFX.Cel
         static CelLayer Around(CelLayer l, float radius) { l.Shape = CelShape.Sphere; l.ShapeSize = new Vector3(radius, 0f, 0f); return l; }
         static CelLayer Fade(CelLayer l, float pow) { l.Erode = new CelCurve(0f, 0.9f, pow); return l; }
         static CelLayer Exact(CelLayer l) { l.TimeJitter = 0f; l.LifeJitter = 0f; l.SizeJitter = 0f; return l; }
+        static CelLayer Erode(CelLayer l, float end, float pow) { l.Erode = new CelCurve(0f, end, pow); return l; }
+        /// <summary>Where the second bloom sits (the clip's is ~8 px left of the first) and the spray past the dummy's
+        /// arm (the clip's ~75 px right of the hit), right/up/along the shot like HitOffset.</summary>
+        static readonly Vector3 Hit2Offset = new Vector3(-0.21f, 0.04f, -0.08f), SprayOffset = new Vector3(0.84f, -0.08f, -0.08f);
 
         public static readonly CelFxRecipe Hit = new CelFxRecipe("ice_bolt_hit", 7f,
-            // i02: the first bloom f16.5 -> f77 as the clip's radial profile (f22-f64): an opaque core ~27 px in
-            // radius that keeps its size (0.655 of its birth quad, at most half the quad), fading into a frosty cloud
-            // at 0.6 opacity that reaches 60 px at f18, 72 at f22, 90 at f30, 100 at f40, 110 at f56; it thins from
-            // f62 (the core first, gone by f72) and is gone by f78
-            Exact(Dot("bloom", "ice_bloom", new Vector4(IceBoltKind.Bloom, 0.6f, 0.655f, 1f), AtFrame(16.5f), 0f, AtFrame(77f) - AtFrame(16.5f), 1, 1, new CelCurve(0.55f, 1.64f, 0.4f), 0.9f, 1)),
-            // the second bloom f89 -> f138: 75 px at f92, 96-108 at f104-f120, its core fading from f108, the cloud by f136
-            Exact(Fade(Dot("bloom 2", "ice_bloom", new Vector4(IceBoltKind.Bloom, 0.6f, 0.62f, 1f), AtFrame(89f), 0f, AtFrame(138f) - AtFrame(89f), 1, 1, new CelCurve(0.52f, 1.74f, 0.4f), 0.9f, 1), 3.2f)),
-            // its body boils: denser clumps of cloud come and go inside it
-            Dim(Around(Dot("bloom clumps", "ice_bloom", new Vector4(IceBoltKind.Bloom, 0.55f, 0f, 0.5f), AtFrame(19f), AtFrame(70f) - AtFrame(19f), 0.14f, 40, 12, new CelCurve(0.45f, 0.6f), 0.95f), 0.4f), 0.6f),
-            Dim(Around(Dot("bloom clumps 2", "ice_bloom", new Vector4(IceBoltKind.Bloom, 0.55f, 0f, 0.5f), AtFrame(91f), AtFrame(126f) - AtFrame(91f), 0.14f, 30, 8, new CelCurve(0.5f, 0.65f), 0.95f), 0.45f), 0.6f),
+            // i03: the blooms fitted to the clip's opacity up and down from the hit (rings every 8 px, f16-f132) in a
+            // model of the BLOOM fragment over the clip's own plate (checked against the i02 film): opaque at a core a
+            // quarter of the quad, falling as a power to the edge; the first ~45 px at f18, ~72 by f26 that holds
+            // to f42 and widens to ~100 as its centre thins (f62-f66), gone by ~f84; the second the same from f88,
+            // fading f118-f132
+            Exact(Erode(Dot("bloom", "ice_bloom", new Vector4(IceBoltKind.Bloom, 1.814f, 0.337f, 1f), AtFrame(16f), 0f, AtFrame(84.7f) - AtFrame(16f), 1, 1, new CelCurve(0.601f, 1.831f, 0.565f), 0.9f, 1), 1f, 4.09f)),
+            At(Exact(Erode(Dot("bloom 2", "ice_bloom", new Vector4(IceBoltKind.Bloom, 1.681f, 0.275f, 1f), AtFrame(87.6f), 0f, AtFrame(134.3f) - AtFrame(87.6f), 1, 1, new CelCurve(0.688f, 2.186f, 0.543f), 0.9f, 1), 1f, 2.62f)), Hit2Offset),
+            // its body boils: small denser lumps of cloud come and go at its rim
+            Dim(Around(Dot("bloom clumps", "ice_bloom", new Vector4(IceBoltKind.Bloom, 1.6f, 0f, 0.5f), AtFrame(19f), AtFrame(66f) - AtFrame(19f), 0.14f, 30, 10, new CelCurve(0.35f, 0.48f), 0.95f), 0.5f), 0.5f),
+            Dim(Around(Dot("bloom clumps 2", "ice_bloom", new Vector4(IceBoltKind.Bloom, 1.6f, 0f, 0.5f), AtFrame(91f), AtFrame(120f) - AtFrame(91f), 0.14f, 24, 8, new CelCurve(0.38f, 0.5f), 0.95f), 0.55f), 0.5f),
+            // the frost the impact sprays on past the dummy's arm in the darts' direction (the clip f34-f84 and
+            // f98-f128: 0.6-0.7 opacity ~75 px right of the hit, ~45 px across, glittering)
+            Exact(At(Erode(Dot("spray", "ice_bloom", new Vector4(IceBoltKind.Bloom, 1.3f, 0f, 1f), AtFrame(32f), 0f, AtFrame(84f) - AtFrame(32f), 1, 1, new CelCurve(0.42f, 0.66f, 0.5f), 0.9f), 1f, 3f), SprayOffset)),
+            Exact(At(Erode(Dot("spray 2", "ice_bloom", new Vector4(IceBoltKind.Bloom, 1.3f, 0f, 1f), AtFrame(98f), 0f, AtFrame(130f) - AtFrame(98f), 1, 1, new CelCurve(0.48f, 0.7f, 0.5f), 0.9f), 1f, 4f), SprayOffset)),
             // the two crisp starbursts that open the blooms (f16, f88): ~12 fat uneven spikes 60-70 px across, a white core
-            Dot("star", "ice_hit", new Vector4(IceBoltKind.Star, 0.2f, 12f, 0.3f), AtFrame(15.6f), 0f, 0.11f, 1, 1, new CelCurve(0.5f, 0.6f, 0.5f), 1f, 1),
-            Dot("star 2", "ice_hit", new Vector4(IceBoltKind.Star, 0.2f, 13f, 0.3f), AtFrame(87.6f), 0f, 0.11f, 1, 1, new CelCurve(0.55f, 0.66f, 0.5f), 1f, 1),
+            Exact(Dot("star", "ice_hit", new Vector4(IceBoltKind.Star, 0.15f, 15f, 0.3f), AtFrame(15.6f), 0f, 0.1f, 1, 1, new CelCurve(0.48f, 0.56f, 0.5f), 1f, 1)),
+            Exact(Erode(Dot("star 2", "ice_hit", new Vector4(IceBoltKind.Star, 0.14f, 16f, 0.28f), AtFrame(87f), 0f, 0.24f, 1, 1, new CelCurve(0.36f, 0.8f, 0.6f), 1f, 1), 1f, 3f)),
             // the forming bloom's splash: a few spiky stars at its rim f17-f26
             Dim(Around(Dot("rim splash", "ice_hit", new Vector4(IceBoltKind.Star, 0.12f, 9f, 0.18f), AtFrame(17f), AtFrame(26f) - AtFrame(17f), 0.08f, 6, 2, new CelCurve(0.3f, 0.36f), 1f), 0.35f), 0.85f),
             new CelLayer
@@ -226,9 +234,9 @@ namespace TW.Presentation.VFX.Cel
                 // the gap (f64-f92): darts break on the board and glance off to the right and up-right as shards,
                 // two-tone javelins 20-60 px long (the biggest ~90)
                 Name = "shards", Kind = IceBoltKind.KindName, Anchor = CelAnchor.Target, Offset = HitOffset, Start = AtFrame(63f), Duration = AtFrame(92f) - AtFrame(63f), TimeJitter = 0.04f, Life = 0.42f, LifeJitter = 0.3f,
-                Close = 30, Mid = 10, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Dir, Speed = 9f, SpeedJitter = 0.4f, Spread = 40f, Gravity = 3f, Drag = 1.5f, Spin = 5f,
-                Size = new CelCurve(0.1f, 0.08f), SizeJitter = 0.5f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.3f, 2f), Feather = 0.8f,
-                Palette = "ice_dart", Core = 1f, Opacity = 1f, Extra = new Vector4(IceBoltKind.Shard, 3.4f, 0f, 0f),
+                Close = 36, Mid = 12, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Dir, Speed = 9f, SpeedJitter = 0.4f, Spread = 40f, Gravity = 3f, Drag = 1.5f, Spin = 5f,
+                Size = new CelCurve(0.135f, 0.11f), SizeJitter = 0.45f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.3f, 2f), Feather = 0.8f,
+                Palette = "ice_dart", Core = 1f, Opacity = 1f, Extra = new Vector4(IceBoltKind.Shard, 3.6f, 0f, 0f),
             },
             new CelLayer
             {
@@ -239,9 +247,10 @@ namespace TW.Presentation.VFX.Cel
                 Palette = "ice_dart", Core = 1f, Opacity = 1f, Extra = new Vector4(IceBoltKind.Shard, 3.2f, 0f, 0f),
             },
             // frost mist left of the dummy as the second bloom holds (f104-f132) and right of it as it fades (f120-f152)
-            At(Dot("frost left", "ice_frost", new Vector4(IceBoltKind.Frost, 4.5f, 1.4f, 0f), AtFrame(100f), 0.1f, 1.3f, 2, 1, new CelCurve(0.45f, 0.58f, 0.5f), 0.5f), new Vector3(-1.45f, 0.55f, -0.2f)),
-            At(Dot("frost right", "ice_frost", new Vector4(IceBoltKind.Frost, 4.5f, 1.4f, 0f), AtFrame(120f), 0.12f, 1.3f, 2, 1, new CelCurve(0.42f, 0.56f, 0.5f), 0.5f), new Vector3(1.05f, 0.05f, 0f)),
-            Around(Dot("frost rim", "ice_frost", new Vector4(IceBoltKind.Frost, 5.5f, 1.2f, 0f), AtFrame(98f), AtFrame(112f) - AtFrame(98f), 0.9f, 6, 2, new CelCurve(0.3f, 0.42f, 0.5f), 0.6f), 0.45f));
+            At(Erode(Dot("frost left", "ice_frost", new Vector4(IceBoltKind.Frost, 3.6f, 1.4f, 0f), AtFrame(90f), 0.08f, 1.85f, 2, 1, new CelCurve(0.5f, 0.62f, 0.5f), 0.5f), 0.9f, 1.8f), new Vector3(-1.29f, 0.75f, -0.2f)),
+            At(Erode(Dot("frost right", "ice_frost", new Vector4(IceBoltKind.Frost, 3.6f, 1.4f, 0f), AtFrame(114f), 0.1f, 1.4f, 2, 1, new CelCurve(0.55f, 0.68f, 0.5f), 0.5f), 0.9f, 2.2f), new Vector3(1.0f, 0.05f, 0f)),
+            At(Erode(Dot("frost right low", "ice_frost", new Vector4(IceBoltKind.Frost, 3.6f, 1.3f, 0f), AtFrame(126f), 0.1f, 1.35f, 1, 1, new CelCurve(0.42f, 0.5f, 0.5f), 0.5f), 0.9f, 2.5f), new Vector3(1.22f, -0.42f, 0f)),
+            Around(Dot("frost rim", "ice_frost", new Vector4(IceBoltKind.Frost, 4.2f, 1.2f, 0f), AtFrame(98f), AtFrame(112f) - AtFrame(98f), 0.9f, 6, 2, new CelCurve(0.3f, 0.42f, 0.5f), 0.6f), 0.45f));
 
         /// <summary>Fire it: the volley from the muzzle to the target (its sheets, then every shot's wakes, then its
         /// darts), the hit at the target. LAB ONLY. No allocation.</summary>
