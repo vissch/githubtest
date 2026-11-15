@@ -245,11 +245,12 @@ Shader "TW/Cel/IceBolt"
                         float zc = max(i.shape.z, 0.0) * (1.0 - BLOOM_SHRINK * thr);
                         float t = saturate((lumpR - zc) / max(1.0 - zc, 1e-3));
                         float cloud = pow(1.0 - t, max(i.shape.y, 0.2));
+                        float shown = saturate(cloud * 5.0);
                         // frost grain (two scales, ~8 and ~4 px at the hold) and an outer half broken into clumps with
                         // small dark gaps between them
                         float n4 = CelValue2(qv * 23.0 + float2(sd * 17.0 + tick * 0.21, sd * 5.0 - tick * 0.13));
                         float grain = 0.6 * n3 + 0.4 * n4;
-                        cloud *= 1.0 + 1.1 * (grain - 0.5) * t;
+                        cloud *= lerp(0.55, 1.25, grain);
                         cloud *= saturate((grain + 0.55 - t * 0.75) * 3.0);
                         float holes = saturate((0.6 * n2 + 0.4 * n3 + 0.75 - thr * 1.3) * 4.0);
                         cloud = saturate(cloud) * (1.0 - thr) * holes;
@@ -262,7 +263,7 @@ Shader "TW/Cel/IceBolt"
                         float gh = CelHash21(gi + sd * 71.0 + deal * 0.731);
                         float2 gp = gi + 0.25 + 0.5 * float2(CelHash21(gi + 3.1 + sd + deal), CelHash21(gi + 5.7 + sd - deal));
                         float rim = smoothstep(edgeIn * 0.5, edgeIn, rr) * (1.0 - smoothstep(edgeOut * 0.9, edgeOut * 1.1, lumpR));
-                        float glit = (gh > 0.85 ? 1.0 : 0.0) * saturate(1.0 - length(gc - gp) / 0.32) * rim * i.shape.w * (1.0 - thr);
+                        float glit = (gh > 0.85 ? 1.0 : 0.0) * saturate(1.0 - length(gc - gp) / 0.32) * rim * i.shape.w * (1.0 - thr) * shown;
                         col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(n3 * 0.7 + (1.0 - rr) * 0.3));
                         col = lerp(col, CelPalCore(row).rgb * i.tone.y, saturate(max(coreM, glit)));
                         cover = saturate(max(cloud, glit)) * i.tone.z;
