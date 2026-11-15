@@ -143,6 +143,8 @@ Shader "TW/Cel/IceBolt"
                 float3 side = cross(dir, toEye);
                 float sl = dot(side, side);
                 side = sl > 1e-6 ? side * rsqrt(sl) : UNITY_MATRIX_V[0].xyz;
+                // +across is up on the screen, so the light facet is the upper one on any shot
+                if (dot(side, UNITY_MATRIX_V[1].xyz) < 0.0) side = -side;
                 float across = v.uv.y * 2.0 - 1.0;
                 float width = CelCurve(r.size.xyz, k) * alive * open;
                 float halfW = max(width * 0.5, 1e-5);
@@ -188,19 +190,26 @@ Shader "TW/Cel/IceBolt"
                 return (half3)LinearToSRGB(min(lin * min(lift, gain * 1.2), 1.0));
             }
 
-            // the half-width (0..1 of the barbs') of one edge of a dart at a (0 tail .. 1 head): a straight spear point
-            // from the tip back to the barb at hb, the barb's back edge stepping in to the shaft, a smaller jag on the
-            // shaft at jagA, and a broken tail over its last `tail`
-            float DartEdge(float a, float hb, float barbW, float shaft, float jagA, float jagW, float tail)
+            // one edge of an ICICLE dart (the clip at 4x), in half-widths of its widest point, at a (0 tail .. 1 head): a
+            // needle point straight from the tip (a = 1) back to the widest point hb, then a short broken stub that eases
+            // in to `back` and comes to a ragged end at a = 0
+            float IceEdge(float a, float hb, float w0, float back)
             {
-                float tip = barbW * saturate((1.0 - a) / max(1.0 - hb, 0.05));
-                float back = lerp(shaft, barbW, saturate((a - hb + 0.06) / 0.06));
-                float w = a >= hb ? tip : back;
-                float rise = saturate((a - jagA + 0.04) / 0.04);
-                float fall = saturate(1.0 - (a - jagA) / 0.16);
-                float jag = a < jagA ? lerp(shaft, jagW, rise) : lerp(shaft, jagW, fall);
-                if (a < hb - 0.06) w = max(w, jag);
-                return w * saturate(a / max(tail, 0.02));
+                float tip = w0 * saturate((1.0 - a) / max(1.0 - hb, 0.05));
+                float stub = lerp(back, w0, smoothstep(hb * 0.35, hb, a)) * saturate(a / max(hb * 0.45, 0.02));
+                return a >= hb ? tip : stub;
+            }
+
+            // inside a hook that sweeps back from the widest point (y >= 0 measured on its own side): its outer edge
+            // runs from (hb, w0) back to its point at (hb - len, 0.92 w0), its inner edge from the point forward into
+            // the stub, so a gap stands between the hook and the stub (a barb, not a notch); > 0 inside
+            float IceHook(float a, float y, float hb, float w0, float back, float len)
+            {
+                float t = (a - (hb - len)) / max(len, 1e-3);
+                float outer = lerp(0.92 * w0, w0, saturate(t));
+                float inner = lerp(0.92 * w0, back, saturate(t / 0.8));
+                float inA = min(t, 1.0 - t + 0.02);
+                return min(min(outer - y, y - inner), inA * len * 6.0);
             }
 
             half4 frag(Varyings i) : SV_Target
@@ -274,8 +283,8 @@ Shader "TW/Cel/IceBolt"
                         float y = qv.y;
                         float h1 = CelHash21(float2(sd * 13.1, 2.3)), h2 = CelHash21(float2(sd * 17.9, 4.1));
                         float hb = lerp(0.35, 0.6, h1);
-                        float upW = DartEdge(a, hb, 1.0, lerp(0.35, 0.55, h2), 0.25, 0.6, 0.25);
-                        float dnW = DartEdge(a, hb - 0.08, lerp(0.6, 0.95, h2), lerp(0.3, 0.5, h1), 0.22, 0.5, 0.2);
+                        float upW = IceEdge(a, hb, 1.0, lerp(0.35, 0.55, h2));
+                        float dnW = IceEdge(a, hb - 0.08, lerp(0.6, 0.95, h2), lerp(0.3, 0.5, h1));
                         float eW = y >= 0.0 ? upW : dnW;
                         float m = CelAAStep(0.0, eW - abs(y));
                         col = y >= 0.1 * eW ? CelPal(row, 3) : CelPal(row, 1);
@@ -314,17 +323,32 @@ Shader "TW/Cel/IceBolt"
                 }
                 else if (mode < 0.5)
                 {
-                    // DART: a flat crystal javelin, two-tone, hard-edged, its tail breaking up
+                    // DART: an ICICLE javelin (the clip at 4x): a long needle point, the widest part a quarter to two
+                    // fifths from the back, a short broken stub behind it, a swept-back hook on the lower edge of most
+                    // (on the upper of a few); two-tone, hard-edged, a deep blue line along the lower edge
                     float a = i.q.x, y = i.q.y;
                     float sd = i.more.w;
                     float h1 = CelHash21(float2(sd * 13.1, 2.3)), h2 = CelHash21(float2(sd * 17.9, 4.1)), h3 = CelHash21(float2(sd * 5.3, 7.7));
-                    float hb = lerp(0.36, 0.62, h1);
-                    float upW = DartEdge(a, hb + (h2 - 0.5) * 0.08, 1.0, lerp(0.36, 0.5, h3), lerp(0.2, max(hb - 0.14, 0.21), h2), lerp(0.4, 0.7, h1), 0.22);
-                    float dnW = DartEdge(a, hb - (h2 - 0.5) * 0.08, lerp(0.75, 1.0, h3), lerp(0.32, 0.46, h1), lerp(0.18, max(hb - 0.12, 0.19), h3), lerp(0.35, 0.65, h2), 0.18);
+                    float hb = lerp(0.22, 0.42, h1);
+                    float w0u = lerp(0.8, 1.0, h3), w0d = lerp(0.85, 1.0, h2);
+                    float backU = lerp(0.4, 0.6, h2), backD = lerp(0.35, 0.55, h3);
+                    float upW = IceEdge(a, hb + (h2 - 0.5) * 0.06, w0u, backU);
+                    float dnW = IceEdge(a, hb - (h2 - 0.5) * 0.06, w0d, backD);
+                    float hookLen = lerp(0.1, 0.2, h3);
+                    float hookUp = h2 > 0.8 ? 1.0 : 0.0;
+                    float hookDn = h1 < 0.72 ? 1.0 : 0.0;
                     float cellL = max(i.q.w * 0.9, 1e-3);
                     float rag = (CelHash21(float2(floor(i.q.z / cellL), sd * 31.0 + step(0.0, y))) - 0.5) * 0.14;
                     float eW = y >= 0.0 ? upW : dnW;
                     float dE = eW + rag * step(0.05, eW) - abs(y);
+                    // the hook on its side: behind the widest point the stub is narrower and the hook stands off it
+                    float hookOn = y >= 0.0 ? hookUp : hookDn;
+                    if (hookOn > 0.5 && a < hb)
+                    {
+                        float stubW = (y >= 0.0 ? backU : backD) * saturate(a / max(hb * 0.45, 0.02));
+                        float w0h = y >= 0.0 ? w0u : w0d;
+                        dE = max(stubW + rag * 0.5 - abs(y), IceHook(a, abs(y), hb, w0h, stubW, hookLen));
+                    }
                     float inside = CelAAStep(0.0, dE);
                     float hwPx = i.q.w / max(PixelMetres(i.positionWS), 1e-6);
                     float onePx = 1.0 / max(hwPx, 0.5);

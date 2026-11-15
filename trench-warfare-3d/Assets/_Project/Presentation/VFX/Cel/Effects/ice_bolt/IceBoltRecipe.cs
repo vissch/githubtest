@@ -77,12 +77,12 @@ namespace TW.Presentation.VFX.Cel
         // ---------------------------------------------------------------- the corridor (played from the muzzle)
         /// <summary>A stream of darts: born on a sphere round the muzzle (the clip's lanes are ~0.3 m apart near the
         /// camera) and all landing on the chest.</summary>
-        static CelLayer Darts(string name, int close, int mid, float start, float duration, float width, float spread)
+        static CelLayer Darts(string name, int close, int mid, int far, float start, float duration, float width, float spread)
         {
             return new CelLayer
             {
                 Name = name, Kind = IceBoltKind.KindName, Start = start, Duration = duration, TimeJitter = 0.06f, Life = DartLife, LifeJitter = 0.08f,
-                Close = close, Mid = mid, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(spread, 0f, 0f), Aim = CelAim.Target, Speed = 0f, Spread = 0f, Arrive = 1f,
+                Close = close, Mid = mid, Far = far, Shape = CelShape.Sphere, ShapeSize = new Vector3(spread, 0f, 0f), Aim = CelAim.Target, Speed = 0f, Spread = 0f, Arrive = 1f,
                 Size = new CelCurve(width, width), SizeJitter = 0.35f, Stretch = DartWindow, Erode = new CelCurve(0f, 0f), Feather = 0f,
                 Palette = "ice_dart", Core = 1f, Opacity = 1f, Ink = 1f, Extra = new Vector4(IceBoltKind.Dart, 0f, DartHeadStart, DartHeadEnd),
             };
@@ -106,16 +106,16 @@ namespace TW.Presentation.VFX.Cel
             Ribbons("ribbons", 64, 24, AtFrame(8) - 0.04f, AtFrame(114) - AtFrame(8), 0.55f, 0.05f, 0.14f, 0.62f, 0.3f),
             Ribbons("ribbon sheets", 20, 6, AtFrame(9) - 0.04f, AtFrame(112) - AtFrame(9), 0.5f, 0.12f, 0.1f, 0.3f, 0.25f),
             // i01: ~40 darts from f8 (in at the left edge) to f114 (the last in), landing f14..f120
-            Darts("darts", 40, 20, AtFrame(8) - 0.035f, AtFrame(114) - AtFrame(8), 0.16f, 0.3f));
+            Darts("darts", 40, 20, 8, AtFrame(8) - 0.035f, AtFrame(114) - AtFrame(8), 0.16f, 0.3f));
 
         // ---------------------------------------------------------------- the hit (played at the chest)
         /// <summary>A dot of the IceBolt kind at the hit (Stretch is minus its minimum px at Far; 0.001 = none).</summary>
-        static CelLayer Dot(string name, string palette, Vector4 extra, float start, float duration, float life, int close, int mid, CelCurve size, float pull = 0.6f)
+        static CelLayer Dot(string name, string palette, Vector4 extra, float start, float duration, float life, int close, int mid, CelCurve size, float pull = 0.6f, int far = 0)
         {
             return new CelLayer
             {
                 Name = name, Kind = IceBoltKind.KindName, Anchor = CelAnchor.Target, Offset = HitOffset, Start = start, Duration = duration, TimeJitter = 0.02f, Life = life, LifeJitter = 0.15f,
-                Close = close, Mid = mid, Far = 0, Shape = CelShape.Point, Aim = CelAim.None, Speed = 0f, Size = size, SizeJitter = 0.12f, Stretch = -0.001f,
+                Close = close, Mid = mid, Far = far, Shape = CelShape.Point, Aim = CelAim.None, Speed = 0f, Size = size, SizeJitter = 0.12f, Stretch = -0.001f,
                 Erode = new CelCurve(0f, 0.9f, 6f), Feather = pull, Palette = palette, Core = 1f, Opacity = 1f, Extra = extra,
             };
         }
@@ -128,15 +128,15 @@ namespace TW.Presentation.VFX.Cel
         public static readonly CelFxRecipe Hit = new CelFxRecipe("ice_bolt_hit", 7f,
             // i01: the first bloom f16.5 -> f77, its bright body 26 px in radius at f18, 33 at f40, 40 at f55, thinning
             // from f62 and gone by f76 (the body is 0.74 of the quad, so these are quad radii)
-            Dot("bloom", "ice_bloom", new Vector4(IceBoltKind.Bloom, 0.16f, 0.45f, 1f), AtFrame(16.5f), 0f, AtFrame(77f) - AtFrame(16.5f), 1, 1, new CelCurve(0.46f, 0.78f, 0.45f)),
+            Dot("bloom", "ice_bloom", new Vector4(IceBoltKind.Bloom, 0.16f, 0.45f, 1f), AtFrame(16.5f), 0f, AtFrame(77f) - AtFrame(16.5f), 1, 1, new CelCurve(0.46f, 0.78f, 0.45f), 0.6f, 1),
             // the second bloom f89 -> f124: 30 px at f92, 40 at f100-f110, 24 at f118
-            Fade(Dot("bloom 2", "ice_bloom", new Vector4(IceBoltKind.Bloom, 0.16f, 0.45f, 1f), AtFrame(89f), 0f, AtFrame(125f) - AtFrame(89f), 1, 1, new CelCurve(0.55f, 0.78f, 0.35f)), 3f),
+            Fade(Dot("bloom 2", "ice_bloom", new Vector4(IceBoltKind.Bloom, 0.16f, 0.45f, 1f), AtFrame(89f), 0f, AtFrame(125f) - AtFrame(89f), 1, 1, new CelCurve(0.55f, 0.78f, 0.35f), 0.6f, 1), 3f),
             // it flickers frame to frame: short brighter pulses over the holds
             Dim(Dot("bloom pulse", "ice_bloom", new Vector4(IceBoltKind.Bloom, 0.2f, 0.55f, 0.5f), AtFrame(18f), AtFrame(70f) - AtFrame(18f), 0.1f, 36, 10, new CelCurve(0.38f, 0.5f)), 0.55f),
             Dim(Dot("bloom pulse 2", "ice_bloom", new Vector4(IceBoltKind.Bloom, 0.2f, 0.55f, 0.5f), AtFrame(91f), AtFrame(116f) - AtFrame(91f), 0.1f, 18, 6, new CelCurve(0.4f, 0.52f)), 0.55f),
             // the two crisp starbursts that open the blooms (f16, f88): ~15 uneven spikes 60 px across
-            Dot("star", "ice_hit", new Vector4(IceBoltKind.Star, 0.07f, 15f, 0.2f), AtFrame(15.6f), 0f, 0.11f, 1, 1, new CelCurve(0.5f, 0.62f, 0.5f), 0.7f),
-            Dot("star 2", "ice_hit", new Vector4(IceBoltKind.Star, 0.07f, 15f, 0.2f), AtFrame(87.6f), 0f, 0.11f, 1, 1, new CelCurve(0.52f, 0.64f, 0.5f), 0.7f),
+            Dot("star", "ice_hit", new Vector4(IceBoltKind.Star, 0.07f, 15f, 0.2f), AtFrame(15.6f), 0f, 0.11f, 1, 1, new CelCurve(0.5f, 0.62f, 0.5f), 0.7f, 1),
+            Dot("star 2", "ice_hit", new Vector4(IceBoltKind.Star, 0.07f, 15f, 0.2f), AtFrame(87.6f), 0f, 0.11f, 1, 1, new CelCurve(0.52f, 0.64f, 0.5f), 0.7f, 1),
             // smaller stars flash at the rim through the holds as darts land
             Dim(Around(Dot("rim stars", "ice_hit", new Vector4(IceBoltKind.Star, 0.05f, 11f, 0.14f), AtFrame(19f), AtFrame(70f) - AtFrame(19f), 0.07f, 16, 6, new CelCurve(0.3f, 0.36f), 0.7f), 0.2f), 0.85f),
             Dim(Around(Dot("rim stars 2", "ice_hit", new Vector4(IceBoltKind.Star, 0.05f, 11f, 0.14f), AtFrame(92f), AtFrame(116f) - AtFrame(92f), 0.07f, 8, 3, new CelCurve(0.3f, 0.36f), 0.7f), 0.2f), 0.85f),
