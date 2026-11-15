@@ -77,7 +77,7 @@ namespace TW.Presentation.VFX.Cel
 
         /// <summary>The light the acid throws on the ground and on what stands there (the neon acid's: multiplied into
         /// what it falls on so the ground keeps its pattern, a little added on top).</summary>
-        static readonly Vector3 GlowInto = new Vector3(0.87f, 1.136f, 0.18f), GlowAdd = new Vector3(0.117f, 0.234f, 0.045f);
+        static readonly Vector3 GlowInto = new Vector3(0.90f, 1.40f, 0.20f), GlowAdd = new Vector3(0.13f, 0.30f, 0.05f);   // (b14: greener - the clip's #6EDB5F under the hit, ours #68A151)
         static readonly Vector3 CoatInto = new Vector3(0.45f, 1.3f, 0.05f), CoatAdd = new Vector3(0.16f, 0.45f, 0.06f);
         const float CoatReach = 2.3f;   // (b06: the clip's target is pale lime from its head to its post; b05's head stayed grey)
 
@@ -171,12 +171,12 @@ namespace TW.Presentation.VFX.Cel
                 foot.y = Ground(foot) + 1f;
                 // (b13: from frame 29 and tighter, little on the far side - the clip's ground is dark at f26 and its pool at
                 // f42 lies under the hit with a dark patch right of the target; b01-b12 washed the whole ground from f24)
-                Glow(renderer, kind, now, AtFrame(late, 29f), AtFrame(late, 100f), foot, across, 4.8f, 4.8f, 4.8f, 0.35f, 0.8f, GlowInto, GlowAdd, 0.25f, 0.20f, true, seed);
+                Glow(renderer, kind, now, AtFrame(late, 28f), AtFrame(late, 100f), foot, across, 6.5f, 6.5f, 6.5f, 0.8f, 0.95f, GlowInto, GlowAdd, 0.15f, 0.20f, true, seed);   // (b14: b13's 4.8 m left the far side dark)
                 // ... under the near half of the beam while it runs (frames 23-96; b01 lit the near ground too much,
                 // too soon) ...
                 Vector3 under = Vector3.Lerp(nozzle, target, 0.70f);
                 under.y = Ground(under) + 1f;
-                Glow(renderer, kind, now, AtFrame(late, 26f), AtFrame(late, 96f), under, across, 6f, 6f, 6f, 1f, far ? 0.2f : mid ? 0.25f : 0.32f, GlowInto, GlowAdd * 1.3f, 0.20f, 0.15f, true, seed);
+                Glow(renderer, kind, now, AtFrame(late, 25f), AtFrame(late, 96f), under, across, 6f, 6f, 6f, 1f, far ? 0.2f : mid ? 0.3f : 0.45f, GlowInto, GlowAdd * 1.3f, 0.15f, 0.15f, true, seed);
                 // ... the puddle's own glow after it, kept low so it does not light the target's head (frames 98-165) ...
                 Vector3 after = ground + right * PuddleRight;
                 after.y = Ground(after) + 0.4f;
@@ -416,25 +416,14 @@ namespace TW.Presentation.VFX.Cel
                 Vector3 at = target + Vector3.up * rng.Range(0.4f, 2.4f) + right * rng.Range(-1.0f, 1.2f) - away * rng.Range(-0.2f, 0.6f);
                 Tongue(renderer, kind, now, AtFrame(late, rng.Range(70f, 86f)), at, target - Vector3.up * 1.5f, away, rng.Next() < 0.3f, ref rng);
             }
-            // ... and big slow sheets of goo over the target as the beam runs out (frames 84-96: the clip's mass turns from
-            // spikes to flowing green goo before it sinks to the lump; b12)
-            int goo = far ? 0 : mid ? 12 : 30;                           // (b13: b12's 60 light ones read as a pale bush)
+            // ... and tongues of goo running down out of the mass as the beam runs out (frames 84-97: the clip's mass turns
+            // to tall streaks of goo running down before it sinks to the lump; b14 - b12-b13's slow sheets read as a pile
+            // of round blobs)
+            int goo = far ? 0 : mid ? 16 : 40;
             for (int i = 0; i < goo; i++)
             {
-                float rad = rng.Range(0.5f, 0.9f);
-                bool green = rng.Next() < 0.85f;
-                Vector3 at = target + Vector3.up * rng.Range(-0.6f, 2.4f) + right * rng.Range(-1.4f, 1.6f) - away * rng.Range(-0.2f, 0.8f);
-                var r = Rec(now, AtFrame(late, rng.Range(84f, 96f)), rng.Range(0.25f, 0.45f), AcidBeamKind.Drop, at, green ? Sheet : Splash, 1f, ref rng);
-                Vector3 o = at - target;
-                o -= away * Vector3.Dot(o, away);
-                r.Vel = o.normalized * rng.Range(0.5f, 2.0f) + Vector3.up * rng.Range(-0.5f, 1.0f);
-                r.Motion = new Vector4(1.5f, 1.5f, 0f, 0f);
-                r.Size = new Vector4(rad * 0.8f, rad, 0.6f, rng.Range(0.2f, 0.4f));
-                float t = rng.Next();
-                r.Tone.w = green ? (t < 0.45f ? 1f : t < 0.9f ? 2f : 3f) : (t < 0.3f ? 1f : t < 0.65f ? 2f : t < 0.9f ? 3f : 4f);
-                r.Erode = new Vector4(rng.Next() < 0.4f ? 1f : 0f, 0f, 0f, 0f);
-                r.Extra.y = 6f;
-                renderer.Spawn(kind, r);
+                Vector3 at = target + Vector3.up * rng.Range(0.6f, 3.0f) + right * rng.Range(-1.3f, 1.5f) - away * rng.Range(-0.2f, 0.7f);
+                Tongue(renderer, kind, now, AtFrame(late, rng.Range(84f, 97f)), at, at + Vector3.up * 3f + right * rng.Range(-0.8f, 0.8f), away, rng.Next() < 0.7f, ref rng);
             }
             // ... round a hot core where the beam goes in: a small pale star, new on every drawing (frames 35-93)
             if (!far)
@@ -494,6 +483,25 @@ namespace TW.Presentation.VFX.Cel
                 r.Motion = new Vector4(9f, 1.0f, 0f, 0f);
                 r.Size = new Vector4(rad, rad * 0.8f, 1f, 0.006f);
                 r.Tone.w = i % 3 == 0 ? 2f : i % 3 == 1 ? 0f : 3f;             // light, lime, yellow
+                r.Extra.y = 1f;
+                renderer.Spawn(kind, r);
+            }
+
+            // ---- a dense spray of tiny droplets round the splash late in it (frames 70-90: the clip's are about 150 dots a
+            // frame at f76-86; b14)
+            int fine = Count(260, n);
+            for (int i = 0; i < fine; i++)
+            {
+                Vector3 d = rng.OnSphere();
+                d.y = Mathf.Abs(d.y) * 0.8f + 0.05f;
+                d = (d + dir * 0.3f).normalized;
+                float rad = rng.Range(0.018f, 0.04f);
+                var r = Rec(now, AtFrame(late, rng.Range(70f, 90f)), rng.Range(0.25f, 0.5f), AcidBeamKind.Drop,
+                    target + Vector3.up * rng.Range(-0.4f, 1.2f) + right * rng.Range(-0.6f, 0.8f) - away * rng.Range(0.0f, 0.8f), Splash, 1f, ref rng);
+                r.Vel = d * rng.Range(6f, 16f);
+                r.Motion = new Vector4(9f, 1.2f, 0f, 0f);
+                r.Size = new Vector4(rad, rad * 0.8f, 1f, 0.006f);
+                r.Tone.w = i % 3 == 0 ? 2f : i % 3 == 1 ? 3f : 0f;
                 r.Extra.y = 1f;
                 renderer.Spawn(kind, r);
             }
