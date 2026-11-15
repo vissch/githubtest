@@ -361,6 +361,17 @@ Shader "TW/Cel/AcidBeam"
                     float2 c = float2(0.816 * cos(an), 0.80 + 0.755 * sin(an));
                     f = min(f, length((m - c) * float2(1.0, 0.8)) - (0.10 + 0.10 * CelHash21(float2(b + 47.0, seed * 7.0 + 3.0))));
                 }
+                // (b11) gaps torn through it, warped so that none is round (a round one reads as an eye), opening more as
+                // it goes (the clip's lump has the night showing through it in places; b06-b10's was a filled cushion)
+                [unroll] for (int g = 0; g < 5; g++)
+                {
+                    float g1 = CelHash21(float2(g + 61.0, seed * 17.0 + 4.0)), g2 = CelHash21(float2(g + 67.0, seed * 43.0 + 9.0));
+                    float g3 = CelHash21(float2(g + 71.0, seed * 29.0 + 2.0));
+                    float an = 6.2831853 * g1, rr = 0.35 + 0.5 * g2;
+                    float2 c = float2(0.80 * rr * cos(an), 0.80 + 0.74 * rr * sin(an));
+                    float2 w = m + 0.14 * (float2(CelValue2(m * 3.0 + seed * 7.0 + g), CelValue2(m * 3.0 + seed * 11.0 + g * 2.0)) - 0.5);
+                    f = min(f, length((w - c) * float2(1.0, 1.3)) - (0.04 + 0.09 * g3) * (1.0 + 0.8 * opn));
+                }
                 return min(f, length((m - float2(0.62, 0.95)) * float2(1.0, 0.85)) - 0.58 * opn);   // (b07: a bay, b06's read as a donut)
             }
 
@@ -788,7 +799,7 @@ Shader "TW/Cel/AcidBeam"
                     float2 m = float2(q.x / sx, q.y * Hh / sy) / 0.86;
                     float mp = max(pixX / sx, pixY * Hh / sy) / 0.86;
                     float opn = 1.0 - smoothstep(0.15, 0.75, sink);
-                    float wob = 0.03 * (CelValue2(float2(atan2(m.y - 0.80, m.x) * 2.5 + seed * 9.0, tk * 0.7)) - 0.5);
+                    float wob = 0.06 * (CelValue2(float2(atan2(m.y - 0.80, m.x) * 4.0 + seed * 9.0, tk * 0.7)) - 0.5);   // (b11: more ragged)
                     float f = Lump(m, seed, tk, opn) + wob;
                     al = Step(0.0, f, mp) * step(0.0, q.y);
                     float fl = Lump(m + L * 0.10, seed, tk, opn) + wob, fs = Lump(m - L * 0.22, seed, tk, opn) + wob;   // (b07: deeper)
@@ -800,13 +811,16 @@ Shader "TW/Cel/AcidBeam"
                     col = lerp(col, lerp(light, pale, 0.6), Step(0.80, pn, mp * 6.5) * deep);
                     col = lerp(col, shade, Step(0.60, 1.0 - pn, mp * 6.5) * deep * 0.9);
                     col = lerp(col, rim, Step(0.80, 1.0 - pn, mp * 6.5) * deep * 0.5);   // (b08: the clip's lump has pale and dark patches)
+                    // dark folds through it (b11: the clip's goo has dark lines where its sheets lie over each other)
+                    float fold = CelValue2(m * 2.6 + float2(seed * 13.0, tk * 0.04));
+                    col = lerp(col, rim, (1.0 - Step(0.025, abs(fold - 0.5), mp * 2.6)) * deep * 0.7);
                     uint row2 = CelRowA(i.tone.y);
                     half3 bRim = CelPal(row2, 0), bShade = CelPal(row2, 1), bIn = CelPal(row2, 2), bLit = CelPal(row2, 3), bGlint = CelPalCore(row2).rgb;
-                    [loop] for (int j = 0; j < 20; j++)
+                    [loop] for (int j = 0; j < 14; j++)                 // (b11: fewer and bigger, the clip's)
                     {
                         float h1 = CelHash21(float2(j + 1.0, seed * 91.0 + 3.0)), h2 = CelHash21(float2(j + 7.0, seed * 37.0 + 5.0));
                         float h3 = CelHash21(float2(j + 13.0, seed * 53.0 + 1.0));
-                        float rb = j < 2 ? 0.20 + 0.10 * h3 : 0.05 + 0.11 * h3 * h3;
+                        float rb = j < 3 ? 0.18 + 0.14 * h3 : 0.05 + 0.13 * h3 * h3;
                         float rho = j < 2 ? 0.10 + 0.35 * h2 : 0.20 + 0.75 * h2;
                         float2 c = float2(0.80 * rho * cos(6.2831853 * h1), max(0.80 + 0.74 * rho * sin(6.2831853 * h1), 0.25));
                         c += 0.035 * (float2(CelValue2(float2(tk * 0.45 + j * 3.1, seed * 7.0)), CelValue2(float2(tk * 0.45 + j * 5.3, seed * 11.0 + 4.0))) - 0.5);
@@ -814,7 +828,7 @@ Shader "TW/Cel/AcidBeam"
                             * (1.0 - smoothstep(0.0, 1.0, (1.0 - sink) * 1.7 - CelHash21(float2(j + 19.0, seed * 29.0))));
                         float2 dp = m - c;
                         float d = length(dp);
-                        half3 c2 = lerp(bIn, bLit, Step(rb * 0.78, length(dp + L * rb * 0.18), mp));
+                        half3 c2 = lerp(bIn, bLit, Step(rb * 0.70, length(dp + L * rb * 0.18), mp));   // (b11: a thick pale rim)
                         c2 = lerp(c2, bShade, Step(rb * 0.86, length(dp - L * rb * 0.16), mp) * 0.8);
                         c2 = lerp(c2, bGlint, 1.0 - Step(rb * 0.17, length(dp - L * rb * 0.42), mp));
                         c2 = lerp(c2, bRim, Step(rb * 0.94 - 1.6 * mp, d, mp) * step(dot(dp, L), 0.15 * rb) * step(CelHash21(float2(j + 23.0, seed * 17.0)), 0.55));
@@ -898,7 +912,7 @@ Shader "TW/Cel/AcidBeam"
                     float f = Puff(q, seed, tk);
                     float n = CelValue2(q * 2.6 + seed * 13.0 + tk * 0.11) * 0.6 + CelValue2(q * 6.5 + seed * 5.0 - tk * 0.07) * 0.4 - 0.5;
                     float strand = CelValue2(float2(q.x * 8.0 + seed * 19.0, q.y * 1.6 - tk * 0.09)) - 0.5;   // upright tatters
-                    float cut = f + 0.20 * n + (0.05 + 0.22 * fray) * strand - fray * 0.34;   // it thins from its rim inward as it ages
+                    float cut = f + 0.20 * n + (0.05 + 0.36 * fray) * strand - fray * 0.30;   // it thins from its rim inward as it ages, into wisps (b11: stronger)
                     // smoke: no line round it, a soft ragged edge, a veil the background shows through as it ages (b08:
                     // the clip's goes from a soft lumpy band on the beam at f50-60 to see-through wisps by f84; b02-b07's
                     // were opaque cotton puffs to the end)
@@ -913,7 +927,7 @@ Shader "TW/Cel/AcidBeam"
                     float under = smoothstep(-0.15, 0.55, dot(q, float2(0.45, -0.85)) + 0.5 * n);
                     col = lerp(col, lerp(shade, body, glow), under * 0.8);   // its underside a tone down,
                     col = lerp(col, rim, smoothstep(0.55, 0.95, under + 0.6 * n) * 0.5 * (1.0 - 0.7 * glow));   // its hollows two
-                    col = lerp(col, rim, (1.0 - smoothstep(0.0, 0.045, abs(n + 0.10 * strand - 0.10))) * smoothstep(0.08, 0.20, cut) * 0.45);   // dark curls in it
+                    col = lerp(col, rim, (1.0 - smoothstep(0.0, 0.045, abs(n + 0.10 * strand - 0.10))) * smoothstep(0.08, 0.20, cut) * 0.6);   // dark curls in it
                     al *= (1.0 - smoothstep(0.35, 1.0, fray)) * smoothstep(0.0, 0.08, k);
                     col = MixFog(col, i.fog);
                 }
