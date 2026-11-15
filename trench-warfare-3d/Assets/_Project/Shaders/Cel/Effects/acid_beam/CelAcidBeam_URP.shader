@@ -129,6 +129,7 @@ Shader "TW/Cel/AcidBeam"
                     if (r.extra.z > 1.5)
                     {
                         hw = lerp(r.size.x, r.size.y, kS) * lerp(1.0, 1.30, starve);
+                        hw *= 1.0 + 0.6 * smoothstep(0.88, 1.0, kS);   // it fans out into the splash where it lands
                         // its broken end is a torn net that spreads a little wider and swings across where the beam was
                         c += side * (beam * 0.30 * starve * sin(e * 23.0 + r.axis.z)) + nrm * (beam * 0.25 * starve * sin(e * 17.0 + r.axis.z * 1.3));
                     }
@@ -453,32 +454,33 @@ Shader "TW/Cel/AcidBeam"
                         float lb = CelValue2(float2(e * 21.0 + seed * 17.0, 7.5)) * 0.65 + CelValue2(float2(e * 55.0 + seed * 7.0, 9.5)) * 0.35;
                         float edge = (q.x > 0.0 ? 0.68 + 0.32 * lt : 0.70 + 0.30 * lb) * ends;
                         al = (1.0 - Step(edge, abs(q.x), pixX)) * step(0.02, edge);
-                        // breaking up: the sheet tears into a net of ropes round holes that grow as it goes (cells of
-                        // the fluid, so the net flies with it), the ropes thinning to strands
+                        // breaking up: ROUND holes open in the sheet, each its own size, and grow until they meet, so
+                        // the fluid between them is blobby ropes of every thickness that tear apart (cells of the
+                        // fluid, so the holes fly with it; b02's cell borders drew a honeycomb of straight ropes)
                         float border = 1.0;
                         if (starve > 0.001)
                         {
-                            float2 wp = float2(q.x * 2.2, e / 0.035) + seed * 7.0;
+                            float2 wp = float2(q.x * 2.0, e / 0.040) + seed * 7.0;
                             float2 wc = floor(wp), wf = frac(wp);
-                            float f1 = 8.0, f2 = 8.0;
+                            float gap = 8.0;                             // how far this point is outside every hole
                             [unroll] for (int yy = -1; yy <= 1; yy++)
                             [unroll] for (int xx = -1; xx <= 1; xx++)
                             {
                                 float2 o2 = float2(xx, yy);
-                                float2 pt = o2 + float2(CelHash21(wc + o2 + 3.1), CelHash21(wc + o2 + 17.7)) * 0.9 + 0.05 - wf;
-                                float dd = dot(pt, pt);
-                                if (dd < f1) { f2 = f1; f1 = dd; } else if (dd < f2) { f2 = dd; }
+                                float2 cid = wc + o2;
+                                float2 pt = o2 + float2(CelHash21(cid + 3.1), CelHash21(cid + 17.7)) * 0.8 + 0.1 - wf;
+                                float hr = (0.18 + 0.42 * CelHash21(cid + 29.3)) * starve * 1.5;
+                                gap = min(gap, length(pt) - hr);
                             }
-                            border = sqrt(f2) - sqrt(f1);                // 0 on a border between two cells
-                            float rope = lerp(1.6, 0.12, starve);
-                            al *= 1.0 - Step(rope, border, pixX * 3.0);
-                            border /= max(rope, 0.05);
+                            al *= Step(0.0, gap, pixX * 2.0);
+                            border = saturate(1.0 - gap / 0.30);         // 1 at a hole's rim, 0 deep in the fluid
                         }
                         // across it: a yellow core with a hot heart, lime round it, then green, a dark lip at its edge;
                         // the bands waver along it (in the net: each rope green with a yellow middle)
                         float pd = pixX / max(edge, 0.05);
                         float wob = CelValue2(float2(e * 17.0 + seed * 5.0, q.x * 2.0 + 4.5)) - 0.5;
-                        float d = lerp(abs(q.x) / max(edge, 0.02) + 0.16 * wob, 0.25 + 0.75 * saturate(border), smoothstep(0.0, 0.5, starve));
+                        float d = abs(q.x) / max(edge, 0.02) + 0.16 * wob;
+                        d = max(d, lerp(d, 0.35 + 0.65 * border, smoothstep(0.0, 0.5, starve)));   // (round a hole: green, then lime)
                         col = lerp(rim, shade, 1.0 - Step(0.92, d, pd));
                         col = lerp(col, body, 1.0 - Step(0.74, d, pd));
                         col = lerp(col, light, 1.0 - Step(0.56, d, pd));
