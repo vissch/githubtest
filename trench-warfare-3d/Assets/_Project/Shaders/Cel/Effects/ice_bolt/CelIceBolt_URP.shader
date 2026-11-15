@@ -165,7 +165,7 @@ Shader "TW/Cel/IceBolt"
                     float drift = r.motion.z * age;
                     float w1 = sin(6.28318 * u / wl + sd + drift);
                     float w2 = sin(6.28318 * u / (wl * 0.55) + sd * 1.7 + 1.3 - drift * 0.6);
-                    float taper = pow(saturate((clipS - s) / 0.55), 0.9);
+                    float taper = pow(saturate((clipS - s) / 0.22), 0.9);
                     off = (0.88 * w1 + 0.12 * w2) * r.extra.y * taper;
                 }
                 float3 wp = p + side * (off + across * halfW * pad);
@@ -286,10 +286,10 @@ Shader "TW/Cel/IceBolt"
                     }
                     else if (mode < 4.5)
                     {
-                        // FLECK (the clip at 3x): a small white flake, a rounded drop along its motion (blunt ahead, a
-                        // little narrower behind), whitest on its upper side
-                        float kite = qv.x > 0.0 ? 1.0 : 0.75;
-                        float dF = 1.0 - length(float2(qv.x / kite, qv.y));
+                        // FLECK (the clip at 3x): a small white chip, a teardrop along its motion (round ahead, drawn
+                        // to a point behind), its tail a little crooked per chip, whitest on its upper side
+                        float bend = (CelHash21(float2(sd * 11.3, 3.7)) - 0.5) * 0.5;
+                        float dF = qv.x > 0.0 ? 1.0 - length(qv) : 1.0 - (abs(qv.x) * 0.9 + abs(qv.y + bend * qv.x) * 1.6);
                         float m = CelAAStep(0.0, dF);
                         col = lerp(CelPal(row, 3), CelPalCore(row).rgb * i.tone.y, saturate(0.65 + qv.y));
                         cover = m * i.tone.z * (1.0 - thr);

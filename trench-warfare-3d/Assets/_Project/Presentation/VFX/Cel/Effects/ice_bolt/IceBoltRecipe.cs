@@ -203,15 +203,15 @@ namespace TW.Presentation.VFX.Cel
             Exact(At(Erode(Dot("spray 2", "ice_bloom", new Vector4(IceBoltKind.Bloom, 1.3f, 0f, 1f), AtFrame(98f), 0f, AtFrame(130f) - AtFrame(98f), 1, 1, new CelCurve(0.48f, 0.7f, 0.5f), 0.9f), 1f, 4f), SprayOffset)),
             // the two crisp starbursts that open the blooms (f16, f88): ~12 fat uneven spikes 60-70 px across, a white core
             Exact(Dot("star", "ice_hit", new Vector4(IceBoltKind.Star, 0.15f, 15f, 0.3f), AtFrame(15.6f), 0f, 0.1f, 1, 1, new CelCurve(0.48f, 0.56f, 0.5f), 1f, 1)),
-            Exact(Erode(Dot("star 2", "ice_hit", new Vector4(IceBoltKind.Star, 0.14f, 16f, 0.28f), AtFrame(87f), 0f, 0.24f, 1, 1, new CelCurve(0.5f, 0.86f, 0.6f), 1f, 1), 1f, 3f)),
+            Exact(Erode(Dot("star 2", "ice_hit", new Vector4(IceBoltKind.Star, 0.14f, 16f, 0.2f), AtFrame(87f), 0f, 0.24f, 1, 1, new CelCurve(0.5f, 0.86f, 0.6f), 1f, 1), 1f, 3f)),
             // the forming bloom's splash: a few spiky stars at its rim f17-f26
             Dim(Around(Dot("rim splash", "ice_hit", new Vector4(IceBoltKind.Star, 0.12f, 9f, 0.18f), AtFrame(17f), AtFrame(26f) - AtFrame(17f), 0.08f, 6, 2, new CelCurve(0.3f, 0.36f), 1f), 0.35f), 0.85f),
             new CelLayer
             {
                 // white chips (4-8 px petals at 1x) thrown out of the hit to ~100-150 px, some falling (f16-f140)
                 Name = "chips", Kind = IceBoltKind.KindName, Anchor = CelAnchor.Target, Offset = HitOffset, Start = AtFrame(16f), Duration = AtFrame(118f) - AtFrame(16f), TimeJitter = 0.03f, Life = 0.6f, LifeJitter = 0.4f,
-                Close = 140, Mid = 46, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.45f, 0f, 0f), Aim = CelAim.Radial, Speed = 4.2f, SpeedJitter = 0.85f, UpBias = 0.25f, Gravity = 5f, Drag = 1.2f,
-                Size = new CelCurve(0.055f, 0.04f), SizeJitter = 0.55f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.4f, 2f), Feather = 1f,
+                Close = 110, Mid = 36, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.45f, 0f, 0f), Aim = CelAim.Radial, Speed = 4.2f, SpeedJitter = 0.85f, UpBias = 0.25f, Gravity = 5f, Drag = 1.2f,
+                Size = new CelCurve(0.036f, 0.026f), SizeJitter = 0.7f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.4f, 2f), Feather = 1f,
                 Palette = "ice_hit", Core = 1f, Opacity = 1f, Extra = new Vector4(IceBoltKind.Fleck, 2.3f, 0f, 0f),
             },
             new CelLayer
@@ -234,8 +234,8 @@ namespace TW.Presentation.VFX.Cel
                 // the gap (f64-f92): darts break on the board and glance off to the right and up-right as shards,
                 // two-tone javelins 20-60 px long (the biggest ~90)
                 Name = "shards", Kind = IceBoltKind.KindName, Anchor = CelAnchor.Target, Offset = HitOffset, Start = AtFrame(63f), Duration = AtFrame(92f) - AtFrame(63f), TimeJitter = 0.04f, Life = 0.42f, LifeJitter = 0.3f,
-                Close = 30, Mid = 10, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Dir, Speed = 14f, SpeedJitter = 0.35f, Spread = 40f, UpBias = 0.5f, Gravity = 3f, Drag = 0.8f, Spin = 5f,
-                Size = new CelCurve(0.135f, 0.11f), SizeJitter = 0.45f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.3f, 2f), Feather = 0.8f,
+                Close = 17, Mid = 6, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Dir, Speed = 14f, SpeedJitter = 0.35f, Spread = 40f, UpBias = 0.5f, Gravity = 3f, Drag = 0.8f, Spin = 5f,
+                Size = new CelCurve(0.115f, 0.095f), SizeJitter = 0.45f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.3f, 2f), Feather = 0.8f,
                 Palette = "ice_dart", Core = 1f, Opacity = 1f, Extra = new Vector4(IceBoltKind.Shard, 3.6f, 0f, 0f),
             },
             new CelLayer
