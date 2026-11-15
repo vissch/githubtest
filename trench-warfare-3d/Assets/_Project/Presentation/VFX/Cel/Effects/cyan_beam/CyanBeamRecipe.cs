@@ -203,8 +203,10 @@ namespace TW.Presentation.VFX.Cel
             // redrawn every 0.14 s with a new layout, over a small broken white heart (0.06 of the 3 m card).
             // e06: denser - 22 blades a record, 0.18 s each (about 3 records alive, ~65 blades) - the e04 film's
             // shatter held 30-35k cyan px in box 620,180,420,320 against the clip's 44-53k.
+            // e08: wide translucent shards drawn over what is behind them (not added); the heart 0.06 -> 0.10 of the card
+            // and in front of the dummy - the clip's white centre covers its head (about 70 px across at f64)
             Dot("cyan impact needles", "cyan_beam_hit", 6, BeamStart + 0.1f, 4.75f, 0.18f, 80, 32, 0,
-                new CelCurve(2.9f, 3.4f), 0.05f, 22f, 0.06f),
+                new CelCurve(2.9f, 3.4f), 0.05f, 22f, 0.10f),
             Dot("cooling target core", "cyan_beam_hit", 1, BeamEnd - 0.08f, 0f, 1.25f, 1, 1, 1,
                 new CelCurve(1.1f, 0.04f, 1.5f), 3f, 0f, 0.25f),
             DummyLight(0), DummyLight(1), DummyLight(2), DummyLight(3), DummyLight(4), DummyLight(5),

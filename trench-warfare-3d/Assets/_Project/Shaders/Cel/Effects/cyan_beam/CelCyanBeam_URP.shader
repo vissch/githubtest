@@ -63,8 +63,10 @@ Shader "TW/Cel/CyanBeam"
                     float2 corner = input.uv * 2.0 - 1.0;
                     // Energy sits just in front of the contact surface, instead of being cut out by the dummy.
                     bool groundPool = mode > 1.5 && mode < 2.5;
-                    bool needles = (mode > 5.5 && mode < 6.5)   // e03: just behind the dummy, which stays visible in front
-                        || (mode > 0.5 && mode < 1.5 && abs(record.extra.y - 2.0) < 0.01 && far < 0.5);   // e04: the impact bloom too
+                    // e04: the impact bloom just behind the dummy, which stays visible in front. e08: the shard card (mode 6) is
+                    // in front again - its white heart covers the dummy's head as the clip's does, and the fragment hides
+                    // its shards behind the dummy through the depth texture (e03-e07 had the whole card behind it).
+                    bool needles = mode > 0.5 && mode < 1.5 && abs(record.extra.y - 2.0) < 0.01 && far < 0.5;
                     float3 litCenter = center + normalize(_WorldSpaceCameraPos - center) * (groundPool ? radius + 0.6 : (needles ? -0.3 : 0.7));
                     float quadRadius = groundPool && record.extra.z < 0.0 ? radius * 1.35 : radius;
                     float3 world = CelBillboard(litCenter, corner * quadRadius);
@@ -242,56 +244,66 @@ Shader "TW/Cel/CyanBeam"
                 }
                 if (mode > 5.5 && mode < 6.5)
                 {
-                    // e03: the clip's point of contact is a SHATTER, not a star: 30-40 thin ice needles of very uneven
-                    // length (many short, a few long), starting at uneven distances from the centre, slightly bent,
-                    // white along the root, pale cyan bodies and cyan tips, over a SMALL broken white centre. Each
-                    // record draws `points` needles; two or three records overlap, each with its own layout.
+                    // e08: the clip's point of contact is a cluster of WIDE translucent ice shards (spec/eye/cyan_beam.md):
+                    // cyan bodies with a paler streak down the middle and white roots, overlapping at all angles, long ones
+                    // up and to the sides, short ones toward the ground and back down the beam - drawn OVER what lies
+                    // behind them. e03-e07's needles were ADDED onto the bloom, the atmosphere and each other, and the sum
+                    // ran past white into the grade's cream (e07 box 620,180,420,320: white 15-19k px at (246,250,231),
+                    // cyan 26-31k against the clip's 44-55k at (118,223,235)). Each record draws `points` shards.
                     float count = clamp(input.shape.z, 3.0, 24.0);
                     float salt = input.beam.z * 71.0;
                     float turn = input.beam.z * 6.28318;
-                    float needle = 0.0, needleCore = 0.0, needleTip = 0.0, needleGlow = 0.0;
+                    float shard = 0.0, streak = 0.0, rootWhite = 0.0, fringe = 0.0;
                     [loop] for (int n = 0; n < 24; n++)
                     {
                         if (n >= (int)count) break;
                         float nn = n + 1.0;
                         float h0 = CelHash21(float2(nn, salt)), h1 = CelHash21(float2(nn, salt + 5.0));
                         float h2 = CelHash21(float2(nn, salt + 9.0)), h3 = CelHash21(float2(nn, salt + 13.0));
-                        float h4 = CelHash21(float2(nn, salt + 17.0));
+                        float h4 = CelHash21(float2(nn, salt + 17.0)), h5 = CelHash21(float2(nn, salt + 23.0));
                         float theta = turn + (n + 0.5 + (h0 - 0.5) * 0.9) / count * 6.28318;
                         float2 dir = float2(cos(theta), sin(theta));
                         float2 perp = float2(-dir.y, dir.x);
-                        // shorter toward the ground, as the clip's (the spray goes up and forward)
-                        float reach = lerp(0.45, 1.0, smoothstep(-0.75, 0.2, dir.y));
-                        // e04: two populations (the clip: a dense crust of short blades round the centre, a few long
-                        // ones) and every tip inside the card: e03's ran to its square edge and ended blunt.
-                        float h5 = CelHash21(float2(nn, salt + 23.0));
-                        float root = 0.02 + 0.12 * h1;
-                        float span = h5 < 0.55 ? 0.08 + 0.22 * h2 : 0.32 + 0.68 * pow(h2, 1.4);
-                        float tip = root + span * reach * (0.92 - root);
-                        // e07: back to e04's width - e06's wider blades overlapped into a solid star; density comes
-                        // from the count instead (22 a record, about 3 records alive)
-                        float width = (0.014 + 0.030 * h3) * (h5 < 0.55 ? 0.8 : 1.15);
-                        float along01 = (dot(samplePosition, dir) - root) / max(tip - root, 1e-3);
-                        float bend = (h4 - 0.5) * 0.30 * (tip - root);
+                        // the beam comes in from the lower left of the screen: shards that way are short, as toward the ground
+                        float toBeam = saturate(dot(dir, float2(-0.894, -0.447)));
+                        float reach = lerp(0.45, 1.0, smoothstep(-0.75, 0.2, dir.y)) * (1.0 - 0.5 * toBeam);
+                        float root = 0.02 + 0.10 * h1;
+                        float span = h5 < 0.5 ? 0.10 + 0.24 * h2 : 0.36 + 0.64 * pow(h2, 1.3);
+                        float tip = root + span * reach * (0.94 - root);
+                        float shardLength = tip - root;
+                        // wide-rooted: the root half width a share of the shard's own length (the clip's 0.05-0.11)
+                        float width = max(shardLength * (0.05 + 0.06 * h3), 0.012);
+                        float along01 = (dot(samplePosition, dir) - root) / max(shardLength, 1e-3);
+                        float bend = (h4 - 0.5) * 0.20 * shardLength;
                         float lateral = abs(dot(samplePosition, perp) - bend * along01 * along01);
                         float inside = step(0.0, along01) * step(along01, 1.0);
-                        // e04: a blade - widest just off the root, a long straight taper to a sharp point
-                        float halfWidth = width * pow(saturate(1.0 - along01), 1.25) * saturate(along01 * 6.0 + 0.5);
+                        float halfWidth = width * pow(saturate(1.0 - along01), 1.1) * saturate(along01 * 5.0 + 0.35);
                         float body = (1.0 - CelAAStep(halfWidth, lateral)) * inside;
-                        needle = max(needle, body);
-                        needleCore = max(needleCore, (1.0 - CelAAStep(halfWidth * 0.42, lateral)) * inside * step(along01, 0.28));
-                        needleTip = max(needleTip, body * max(step(0.55, along01), CelAAStep(halfWidth * 0.55, lateral)));
-                        needleGlow = max(needleGlow, (1.0 - CelAAStep(halfWidth * 1.6 + 0.004, lateral)) * inside);
+                        shard = max(shard, body);
+                        float middle = (1.0 - CelAAStep(halfWidth * 0.36, lateral)) * inside;
+                        streak = max(streak, middle * step(along01, 0.78));
+                        rootWhite = max(rootWhite, middle * step(along01, 0.18 + 0.16 * h2));
+                        fringe = max(fringe, (1.0 - smoothstep(halfWidth, halfWidth * 2.4 + 0.012, lateral)) * inside);
                     }
+                    // the card is 0.7 m in front of the target (vertex); the shards lie 1 m deeper, 0.3 m behind it, so
+                    // the dummy in front of them hides them - the depth texture holds the dummy
+                    float2 screenUV = input.positionCS.xy / _ScaledScreenParams.xy;
+                    float sceneEye = LinearEyeDepth(SampleSceneDepth(screenUV), _ZBufferParams);
+                    float cardEye = -TransformWorldToView(input.positionWS).z;
+                    float shown = step(cardEye + 1.0, sceneEye);
+                    shard *= shown; streak *= shown; rootWhite *= shown; fringe *= shown;
                     float heartRadius = input.shape.w;
                     float heart = (1.0 - CelAAStep(heartRadius, radius)) * ImpactCuts(samplePosition / max(heartRadius, 0.01), input.beam.z);
-                    half3 color = CelPal(row, 2);
-                    color = lerp(color, CelPal(row, 1), needleTip);
-                    color = lerp(color, CelPal(row, 3), max(needleCore, heart));
-                    float cover = max(needle, heart) * (1.0 - erosion);
-                    color *= cover;
-                    color += CelPal(row, 1) * (needleGlow - needle * needleGlow) * 0.55 * (1.0 - erosion);
-                    return half4(AddFog(color * input.tone.z, input), 0.0);
+                    // hit row (e00cal grade model): c1 A8E5EB shows the clip's shard cyan (118,224,235), c2 the paler
+                    // streak, c3 the grade's whitest neutral (227,231,228); c0 a deeper cyan fringe, added
+                    half3 color = CelPal(row, 1);
+                    color = lerp(color, CelPal(row, 2), streak);
+                    color = lerp(color, CelPal(row, 3), max(rootWhite, heart));
+                    float cover = max(shard, heart) * (1.0 - erosion) * input.tone.z;
+                    half3 glow = CelPal(row, 0) * (fringe - fringe * shard) * 0.45 * (1.0 - erosion) * input.tone.z;
+                    // the fog takes an added colour toward nothing; a covering one fades its cover with it
+                    float fogKeep = AddFog(half3(1.0, 1.0, 1.0), input).g;
+                    return half4(AddFog(color * cover + glow, input), cover * 0.85 * fogKeep);
                 }
                 if (mode > 4.5)
                 {
