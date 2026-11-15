@@ -128,7 +128,7 @@ Shader "TW/Cel/AcidBeam"
                     float hw;
                     if (r.extra.z > 1.5)
                     {
-                        hw = lerp(r.size.x, r.size.y, kS) * lerp(1.0, 1.30, starve);
+                        hw = lerp(r.size.x, r.size.y, kS) * lerp(1.0, 1.50, starve);
                         hw *= 1.0 + 0.6 * smoothstep(0.88, 1.0, kS);   // it fans out into the splash where it lands
                         // its broken end is a torn net that spreads a little wider and swings across where the beam was
                         c += side * (beam * 0.30 * starve * sin(e * 23.0 + r.axis.z)) + nrm * (beam * 0.25 * starve * sin(e * 17.0 + r.axis.z * 1.3));
@@ -469,7 +469,7 @@ Shader "TW/Cel/AcidBeam"
                                 float2 o2 = float2(xx, yy);
                                 float2 cid = wc + o2;
                                 float2 pt = o2 + float2(CelHash21(cid + 3.1), CelHash21(cid + 17.7)) * 0.8 + 0.1 - wf;
-                                float hr = (0.18 + 0.42 * CelHash21(cid + 29.3)) * starve * 1.5;
+                                float hr = (0.18 + 0.42 * CelHash21(cid + 29.3)) * starve * 1.15;   // (b03's 1.5 left thin strands)
                                 gap = min(gap, length(pt) - hr);
                             }
                             al *= Step(0.0, gap, pixX * 2.0);
@@ -542,11 +542,12 @@ Shader "TW/Cel/AcidBeam"
                     {
                         float wd = pow(saturate(1.0 - q.x * q.x), 0.75);    // a leaf: a point at both ends
                         al = (1.0 - Step(wd * 0.92, abs(q.y), pixY)) * step(0.03, wd);
-                        // its tone (Tone.w: 0 body, 1 shade, 2 light, 3 the row's ink), a lighter streak down its
-                        // middle, a little off to one side
+                        // its tone (Tone.w: 0 body, 1 shade, 2 light, 3 the row's ink, 4 rim), a lighter streak down
+                        // its middle, a little off to one side (pale on the light ones, a tone up on the dark ones)
                         float ts = i.tone.w;
-                        half3 base = ts < 0.5 ? body : ts < 1.5 ? shade : ts < 2.5 ? light : CelPalInk(row).rgb;
-                        col = lerp(base, lerp(base, pale, 0.65), 1.0 - Step(0.28 * wd, abs(q.y - 0.18 * wd), pixY));
+                        half3 base = ts < 0.5 ? body : ts < 1.5 ? shade : ts < 2.5 ? light : ts < 3.5 ? CelPalInk(row).rgb : rim;
+                        half3 lit = ts < 1.5 ? lerp(base, light, 0.5) : ts > 3.5 ? shade : lerp(base, pale, 0.65);
+                        col = lerp(base, lit, 1.0 - Step(0.28 * wd, abs(q.y - 0.18 * wd), pixY));
                     }
                     else if (i.shape.y > 0.5)
                     {
@@ -697,8 +698,8 @@ Shader "TW/Cel/AcidBeam"
                     ring *= step(0.45, CelValue2(spoke * 2.2 + floor(ringF) * 3.7 + seed * 5.0)) * step(0.18, rb) * step(rb, 0.88);
                     col = lerp(shade, body, Step(0.68, CelValue2(q * 3.4 + seed * 5.0 + tk * 0.02), pix * 3.4));
                     col = lerp(col, pale, ring);
-                    float band = 1.0 - Step(0.24, inside, pix * 3.0 / max(edge, 0.05));   // (b01's 0.16 drew it thin)
-                    col = lerp(col, CelPalInk(row).rgb, (1.0 - Step(0.34, inside, pix * 3.0 / max(edge, 0.05))) * (1.0 - band));
+                    float band = 1.0 - Step(0.34, inside, pix * 3.0 / max(edge, 0.05));   // (b01's 0.16 and b03's 0.24 drew it thin)
+                    col = lerp(col, CelPalInk(row).rgb, (1.0 - Step(0.46, inside, pix * 3.0 / max(edge, 0.05))) * (1.0 - band));
                     col = lerp(col, pale, band);
                     // only where the ground is: level, and at the height the puddle lies at
                     float3 lie = spot - i.shape3.xyz;

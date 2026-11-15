@@ -29,7 +29,7 @@ namespace TW.Presentation.VFX.Cel
         public const float PuddleReach = 3.6f, PuddleDepth = 0.75f, PuddleRight = 0.7f;
         /// <summary>The mass of goo over the target: the card's width (m) and its height over its width: a see-through
         /// backing (the clip's mass is sheets of goo: the leaves and the core below make it).</summary>
-        public const float MoundWidth = 4.6f, MoundTall = 0.75f;
+        public const float MoundWidth = 5.4f, MoundTall = 0.75f;
 
         // A colour as the shader has to write it (the project is gamma, the palette stores .linear). The values are
         // the clip's colours taken back through the Range's night grade; the comments give what they show as.
@@ -310,19 +310,21 @@ namespace TW.Presentation.VFX.Cel
             // and seen through a little; together they make the clip's mass of sheets
             // (b02's 0.12-0.3 m leaves at 2.5-7 m/s drew 20-40 px and flew off: the clip's sheets are 100-150 px long
             // and 40-60 px wide and stay round the hit)
+            // (b03: a compact one-tone flower, 0.72 of the clip's coverage, solid 0.80 vs 0.63: the clip's mass
+            // spreads up and on the beam's way, in five tones from dark green to pale yellow)
             int sheets = far ? 0 : mid ? 100 : 300;
             for (int i = 0; i < sheets; i++)
             {
                 Vector3 d = rng.OnSphere();
-                d = (d + dir * 0.35f + Vector3.up * 0.25f).normalized;
-                float rad = rng.Range(0.25f, 0.50f);
+                d = (d + dir * 0.6f + Vector3.up * 0.4f).normalized;
+                float rad = rng.Range(0.25f, 0.60f);
                 var r = Rec(now, AtFrame(late, rng.Range(40f, 94f)), rng.Range(0.12f, 0.25f), AcidBeamKind.Drop,
-                    target + Vector3.up * rng.Range(-0.6f, 0.6f) + across * rng.Range(-0.4f, 0.4f) - away * 0.6f, Splash, 0.85f, ref rng);
-                r.Vel = d * rng.Range(2f, 5f);
+                    target + Vector3.up * rng.Range(-0.5f, 1.6f) + across * rng.Range(-0.6f, 0.6f) + dir * rng.Range(0f, 1.0f) - away * 0.6f, Splash, 0.92f, ref rng);
+                r.Vel = d * rng.Range(2f, 6f);
                 r.Motion = new Vector4(3f, 1.5f, 0f, 0f);
                 r.Size = new Vector4(rad * 0.6f, rad, 0.5f, rng.Range(0.15f, 0.25f));
                 float t = rng.Range(0f, 1f);
-                r.Tone.w = t < 0.35f ? 0f : t < 0.60f ? 1f : t < 0.85f ? 2f : 3f;
+                r.Tone.w = t < 0.25f ? 0f : t < 0.55f ? 1f : t < 0.70f ? 4f : t < 0.85f ? 2f : 3f;
                 r.Extra.y = 2f;
                 renderer.Spawn(kind, r);
             }
@@ -356,7 +358,7 @@ namespace TW.Presentation.VFX.Cel
             for (int i = 0; i < ends; i++)
             {
                 float h = rng.Range(0f, 1f);
-                float rad = 0.10f + 0.45f * h * h;
+                float rad = 0.12f + 0.70f * h * h;                       // (the clip's reach 150-200 px near the eye)
                 float at = delay + JetSeconds - BreakUp * rng.Range(0.05f, 1.0f);
                 var r = Rec(now, at, rng.Range(0.5f, 0.9f), AcidBeamKind.Drop, nozzle + Vector3.up * rng.Range(-0.8f, 0.8f), Blob, 1f, ref rng);
                 r.Vel = vel * rng.Range(0.7f, 1.0f) + Vector3.up * rng.Range(-2.5f, 2.5f) + across * rng.Range(-2.5f, 2.5f);
@@ -394,7 +396,7 @@ namespace TW.Presentation.VFX.Cel
             }
 
             // ---- the smoke: a bank of it rising off the beam's top all the while it runs (frames 30-110) ...
-            int bank = far ? 3 : mid ? 16 : 56;                          // (b02's 36 read as separate puffs)
+            int bank = far ? 3 : mid ? 14 : 44;                          // (b02's 36 read as separate puffs, b03's 56 filmed 1.29x the clip's)
             for (int i = 0; i < bank; i++)
             {
                 float u = rng.Range(0.10f, 0.85f);                       // where along the beam (0 the nozzle side, 1 the target)
@@ -408,7 +410,7 @@ namespace TW.Presentation.VFX.Cel
                 r.Motion = new Vector4(0f, 0.6f, 0f, 0f);
                 r.Size = new Vector4(size * 0.5f, size * 1.6f, 0.7f, 1f);
                 r.Extra.y = 0.5f;
-                r.Extra.z = 0.15f;
+                r.Extra.z = 0.35f;                                        // lit by the beam under it longer (the clip's tops: 169,219,125)
                 renderer.Spawn(kind, r);
             }
             // ... and the plume off the target after it, leaning to the eye's right (frames 96-150)
