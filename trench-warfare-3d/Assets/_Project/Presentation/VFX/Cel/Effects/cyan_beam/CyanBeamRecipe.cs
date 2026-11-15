@@ -79,6 +79,13 @@ namespace TW.Presentation.VFX.Cel
             return layer;
         }
 
+        /// <summary>e04: a layer at a lower opacity (the dots multiply their colour by it).</summary>
+        static CelLayer Dimmed(CelLayer layer, float opacity)
+        {
+            layer.Opacity = opacity;
+            return layer;
+        }
+
         static CelLayer Dot(string name, string palette, int mode, float start, float duration, float life,
             int close, int mid, int far, CelCurve size, float softness, float points, float core)
         {
@@ -147,8 +154,10 @@ namespace TW.Presentation.VFX.Cel
             Braided(BeamLayer("held cyan beam", "cyan_beam_shaft", BeamStart, BeamLife, 1.14f, 1f)),
             Dot("impact core", "cyan_beam_hit", 0, BeamStart, 0f, BeamLife, 1, 1, 1,
                 new CelCurve(0.22f, 0.18f), 0f, 5f, 3f),   // e03: the clip's white centre is SMALL
-            Dot("impact bloom", "cyan_beam_hit", 1, BeamStart + 0.05f, 0f, BeamLife - 0.05f, 1, 1, 1,
-                new CelCurve(1.2f, 1.05f), 3.5f, 0f, 0.16f),   // e03: a tighter glow, a smaller white heart
+            // e04: softness back to 2 - the shader finds the impact bloom by softness == 2 (its broken ImpactCuts
+            // heart, the opening reveal); e03's 3.5 had dropped both. Smaller and dimmer instead, behind the dummy.
+            Dimmed(Dot("impact bloom", "cyan_beam_hit", 1, BeamStart + 0.05f, 0f, BeamLife - 0.05f, 1, 1, 1,
+                new CelCurve(0.95f, 0.85f), 2f, 0f, 0.16f), 0.6f),
             // k02: narrow this flash in TIME without moving its centre or its peak. The shader's mode-3
             // pulse is pow(sin(life01 * pi), 1.3) * saturate(age / 0.12) * saturate((1 - life01) * 6), so the
             // flash's brightest instant is Start + Life/2. That centre is BeamStart + 0.33 = 0.58 s today and
@@ -171,8 +180,9 @@ namespace TW.Presentation.VFX.Cel
             // peak_area_ratio to 0.785, outside the 1/1.15 deadband floor, for -1.3 composite.
             Dot("early target energy flash", "cyan_beam_pool", 3, BeamStart + 0.20f, 0f, 0.26f, 1, 1, 0,
                 new CelCurve(6.7f, 7.0f), 1.5f, 1f, 0f),
-            Dot("held target cyan atmosphere", "cyan_beam_pool", 3, BeamStart + 0.05f, 0f, BeamLife, 1, 1, 0,
-                new CelCurve(3.1f, 3.0f), 2.5f, 0f, 0f),
+            // e04: dimmer - it lies in front of the dummy and turned it a ghostly translucent blue
+            Dimmed(Dot("held target cyan atmosphere", "cyan_beam_pool", 3, BeamStart + 0.05f, 0f, BeamLife, 1, 1, 0,
+                new CelCurve(3.1f, 3.0f), 2.5f, 0f, 0f), 0.55f),
             // e03: the clip's point of contact is a shatter of thin ice needles (16 per record, ~2.4 records alive = ~38),
             // redrawn every 0.14 s with a new layout, over a small broken white heart (0.06 of the 3 m card).
             Dot("cyan impact needles", "cyan_beam_hit", 6, BeamStart + 0.1f, 4.75f, 0.14f, 80, 32, 0,

@@ -63,7 +63,8 @@ Shader "TW/Cel/CyanBeam"
                     float2 corner = input.uv * 2.0 - 1.0;
                     // Energy sits just in front of the contact surface, instead of being cut out by the dummy.
                     bool groundPool = mode > 1.5 && mode < 2.5;
-                    bool needles = mode > 5.5 && mode < 6.5;   // e03: just behind the dummy, which stays visible in front
+                    bool needles = (mode > 5.5 && mode < 6.5)   // e03: just behind the dummy, which stays visible in front
+                        || (mode > 0.5 && mode < 1.5 && abs(record.extra.y - 2.0) < 0.01 && far < 0.5);   // e04: the impact bloom too
                     float3 litCenter = center + normalize(_WorldSpaceCameraPos - center) * (groundPool ? radius + 0.6 : (needles ? -0.3 : 0.7));
                     float quadRadius = groundPool && record.extra.z < 0.0 ? radius * 1.35 : radius;
                     float3 world = CelBillboard(litCenter, corner * quadRadius);
@@ -261,19 +262,24 @@ Shader "TW/Cel/CyanBeam"
                         float2 perp = float2(-dir.y, dir.x);
                         // shorter toward the ground, as the clip's (the spray goes up and forward)
                         float reach = lerp(0.45, 1.0, smoothstep(-0.75, 0.2, dir.y));
-                        float root = 0.03 + 0.16 * h1;
-                        float tip = root + (0.12 + 0.88 * pow(h2, 1.8)) * reach * (1.0 - root);
-                        float width = (0.010 + 0.030 * h3) * lerp(0.7, 1.3, h2);
+                        // e04: two populations (the clip: a dense crust of short blades round the centre, a few long
+                        // ones) and every tip inside the card: e03's ran to its square edge and ended blunt.
+                        float h5 = CelHash21(float2(nn, salt + 23.0));
+                        float root = 0.02 + 0.12 * h1;
+                        float span = h5 < 0.55 ? 0.08 + 0.22 * h2 : 0.32 + 0.68 * pow(h2, 1.4);
+                        float tip = root + span * reach * (0.92 - root);
+                        float width = (0.014 + 0.030 * h3) * (h5 < 0.55 ? 0.8 : 1.15);
                         float along01 = (dot(samplePosition, dir) - root) / max(tip - root, 1e-3);
                         float bend = (h4 - 0.5) * 0.30 * (tip - root);
                         float lateral = abs(dot(samplePosition, perp) - bend * along01 * along01);
                         float inside = step(0.0, along01) * step(along01, 1.0);
-                        float halfWidth = width * pow(saturate(1.0 - along01), 0.85) * saturate(along01 * 8.0 + 0.35);
+                        // e04: a blade - widest just off the root, a long straight taper to a sharp point
+                        float halfWidth = width * pow(saturate(1.0 - along01), 1.25) * saturate(along01 * 6.0 + 0.5);
                         float body = (1.0 - CelAAStep(halfWidth, lateral)) * inside;
                         needle = max(needle, body);
-                        needleCore = max(needleCore, (1.0 - CelAAStep(halfWidth * 0.38, lateral)) * inside * step(along01, 0.5));
-                        needleTip = max(needleTip, body * step(0.62, along01));
-                        needleGlow = max(needleGlow, (1.0 - CelAAStep(halfWidth + 0.012, lateral)) * inside);
+                        needleCore = max(needleCore, (1.0 - CelAAStep(halfWidth * 0.42, lateral)) * inside * step(along01, 0.28));
+                        needleTip = max(needleTip, body * max(step(0.55, along01), CelAAStep(halfWidth * 0.55, lateral)));
+                        needleGlow = max(needleGlow, (1.0 - CelAAStep(halfWidth * 1.6 + 0.004, lateral)) * inside);
                     }
                     float heartRadius = input.shape.w;
                     float heart = (1.0 - CelAAStep(heartRadius, radius)) * ImpactCuts(samplePosition / max(heartRadius, 0.01), input.beam.z);
