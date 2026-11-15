@@ -69,7 +69,7 @@ namespace TW.Presentation.VFX.Cel
         // (b11: more saturated - the clip's smoke is #88CA58, #8ED167, #7FB860: #5C8248, #6C9E50, #80C456, #92D460, lit #D5F29E)
         static readonly int Fume = CelPalette.Add("acid_beam_fume",
             S(0.339f, 0.472f, 0.264f), S(0.390f, 0.570f, 0.291f), S(0.470f, 0.738f, 0.318f), S(0.542f, 0.821f, 0.353f), S(0.711f, 1.000f, 0.576f), 1.1f, 4, S(0.363f, 0.488f, 0.293f));
-        const float FumeOpacity = 0.8f;
+        const float FumeOpacity = 0.66f;   // (b16: b11-b15's 0.8 read as a solid bank at f60; the clip's is see-through)
         // a spark: edge #963C28, #CD5F32, body #F09646, #FCC86E, hot #FFEBAA (b05: the clip's few sparks are orange-red
         // lines, b04's were yellow)
         static readonly int Spark = CelPalette.Add("acid_beam_spark",
@@ -461,9 +461,9 @@ namespace TW.Presentation.VFX.Cel
                 var r = Rec(now, AtFrame(late, rng.Range(38f, 96f)), rng.Range(0.25f, 0.45f), AcidBeamKind.Drop,
                     target + Vector3.up * rng.Range(-0.3f, 1.4f) + across * rng.Range(-0.8f, 0.8f) + dir * rng.Range(0f, 1.2f) - away * rng.Range(0.2f, 0.9f),
                     Streak, 1f, ref rng);
-                r.Vel = d * rng.Range(7f, 15f);
+                r.Vel = d * rng.Range(9f, 19f);
                 r.Motion = new Vector4(9f, 0.8f, 0f, 0f);
-                r.Size = new Vector4(rad, rad * 0.8f, 1f, 0.016f);
+                r.Size = new Vector4(rad, rad * 0.8f, 1f, 0.034f);        // (b16: long streaks - the clip's shoot 100-200 px up)
                 r.Extra.y = 4f;
                 renderer.Spawn(kind, r);
             }
@@ -515,7 +515,7 @@ namespace TW.Presentation.VFX.Cel
                 {
                     bool blob = i < ends, rope = !blob && i < ends + ropes;
                     float u = 0.18f + 0.79f * Mathf.Pow(rng.Next(), 1.3f);   // where along the beam (0 the nozzle, 1 the target; more near the eye)
-                    float hw = Mathf.Lerp(HalfNozzle, HalfTarget, u) * (blob || rope ? 1.6f : 2.4f);
+                    float hw = Mathf.Lerp(HalfNozzle, HalfTarget, u) * (blob || rope ? 2.2f : 3.0f) * Mathf.Lerp(1.3f, 0.9f, u);   // (b16: broader near the eye)
                     Vector3 at = Along(nozzle, target, flight * u) + Vector3.up * (hw * rng.Range(-0.7f, 1.0f)) + across * (hw * rng.Range(-0.7f, 0.7f));
                     float when = AtFrame(late, blob ? rng.Range(86f, 92f) : rope ? rng.Range(86f, 94f) : rng.Range(87f, 97f));
                     Vector3 drift = vel * rng.Range(0.02f, 0.06f) + rng.OnSphere() * (blob ? 0.6f : 1.2f) + Vector3.up * rng.Range(-0.5f, 0.8f);

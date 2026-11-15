@@ -151,7 +151,7 @@ Shader "TW/Cel/AcidBeam"
                     float hw;
                     if (r.extra.z > 1.5)
                     {
-                        hw = lerp(r.size.x, r.size.y, kS) * lerp(1.0, 2.10, starve);   // (the clip's lace is broad; b07's 1.7 narrow)
+                        hw = lerp(r.size.x, r.size.y, kS) * lerp(1.0, 2.10 + 0.9 * (1.0 - kS), starve);   // (the clip's lace is broad, broadest near the eye: b16)
                         hw *= 1.0 + 1.0 * smoothstep(0.86, 1.0, kS) * land;   // it fans out into the splash where it lands, once it has (b13)
                         // its broken end is a torn net that spreads a little wider and swings across where the beam was
                         c += side * (beam * 0.30 * starve * sin(e * 23.0 + r.axis.z)) + nrm * (beam * 0.25 * starve * sin(e * 17.0 + r.axis.z * 1.3));
@@ -919,7 +919,7 @@ Shader "TW/Cel/AcidBeam"
                     float f = Puff(q, seed, tk);
                     float n = CelValue2(q * 2.6 + seed * 13.0 + tk * 0.11) * 0.6 + CelValue2(q * 6.5 + seed * 5.0 - tk * 0.07) * 0.4 - 0.5;
                     float strand = CelValue2(float2(q.x * 8.0 + seed * 19.0, q.y * 1.6 - tk * 0.09)) - 0.5;   // upright tatters
-                    float cut = f + 0.20 * n + (0.05 + 0.36 * fray) * strand - fray * 0.30;   // it thins from its rim inward as it ages, into wisps (b11: stronger)
+                    float cut = f + 0.26 * n + (0.08 + 0.36 * fray) * strand - fray * 0.30 - 0.04;   // (b16: more broken)   // it thins from its rim inward as it ages, into wisps (b11: stronger)
                     // smoke: no line round it, a soft ragged edge, a veil the background shows through as it ages (b08:
                     // the clip's goes from a soft lumpy band on the beam at f50-60 to see-through wisps by f84; b02-b07's
                     // were opaque cotton puffs to the end)
