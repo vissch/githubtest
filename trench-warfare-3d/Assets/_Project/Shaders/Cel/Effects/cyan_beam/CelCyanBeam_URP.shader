@@ -268,8 +268,9 @@ Shader "TW/Cel/CyanBeam"
                         float root = 0.02 + 0.12 * h1;
                         float span = h5 < 0.55 ? 0.08 + 0.22 * h2 : 0.32 + 0.68 * pow(h2, 1.4);
                         float tip = root + span * reach * (0.92 - root);
-                        // e06: the clip's blades are 15-30 px at the root (ours were 5-15)
-                        float width = (0.020 + 0.042 * h3) * (h5 < 0.55 ? 0.85 : 1.15);
+                        // e07: back to e04's width - e06's wider blades overlapped into a solid star; density comes
+                        // from the count instead (22 a record, about 3 records alive)
+                        float width = (0.014 + 0.030 * h3) * (h5 < 0.55 ? 0.8 : 1.15);
                         float along01 = (dot(samplePosition, dir) - root) / max(tip - root, 1e-3);
                         float bend = (h4 - 0.5) * 0.30 * (tip - root);
                         float lateral = abs(dot(samplePosition, perp) - bend * along01 * along01);

@@ -96,8 +96,9 @@ namespace TW.Presentation.VFX.Cel
             return new CelLayer
             {
                 Name = "dummy light " + i, Kind = CelKinds.LightName, Anchor = CelAnchor.Target,
-                Offset = new Vector3(0f, -0.15f, -0.9f), Start = BeamStart + 0.08f + i * 0.40f, Life = 0.75f,
-                Close = 1, Mid = 1, Far = 0, Palette = "cyan_beam_hit", Core = 9f, Extra = new Vector4(5.5f, 0f, 0f, 0f),
+                // e07: a third of e06's peak and 1.2 m off - e06 lit the board flat (226,254,230), the clip's is (150,207,200)
+                Offset = new Vector3(0f, -0.15f, -1.2f), Start = BeamStart + 0.08f + i * 0.40f, Life = 0.75f,
+                Close = 1, Mid = 1, Far = 0, Palette = "cyan_beam_hit", Core = 3f, Extra = new Vector4(5.5f, 0f, 0f, 0f),
             };
         }
 
@@ -197,7 +198,7 @@ namespace TW.Presentation.VFX.Cel
                 new CelCurve(6.7f, 7.0f), 1.5f, 1f, 0f),
             // e04: dimmer - it lies in front of the dummy and turned it a ghostly translucent blue
             Dimmed(Dot("held target cyan atmosphere", "cyan_beam_pool", 3, BeamStart + 0.05f, 0f, BeamLife, 1, 1, 0,
-                new CelCurve(3.1f, 3.0f), 2.5f, 0f, 0f), 0.55f),
+                new CelCurve(3.1f, 3.0f), 2.5f, 0f, 0f), 0.35f),   // e07: 0.55 -> 0.35, it greened the dummy
             // e03: the clip's point of contact is a shatter of thin ice needles (16 per record, ~2.4 records alive = ~38),
             // redrawn every 0.14 s with a new layout, over a small broken white heart (0.06 of the 3 m card).
             // e06: denser - 22 blades a record, 0.18 s each (about 3 records alive, ~65 blades) - the e04 film's
