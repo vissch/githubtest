@@ -2,7 +2,8 @@
 // size.xyz: beam width / dot radius over life. size.w >= 0: beam; < 0: dot, magnitude is minimum far radius in px.
 // extra for beams: x arc strength, y style (1 bands, 2 braid: e01), z/w leading end at birth/death (fraction of the span).
 // _TWCyanLens (global; CyanBeamRecipe.Lens, the Range only): the lens vignette, x strength x 3, y falloff power; 0 none.
-// extra for dots: x mode (0 star, 1 bloom, 2 ground pool, 3 atmosphere, 4 spike burst, 5 fleck), y softness/root width, z points or pulse, w core.
+// extra for dots: x mode (0 star, 1 bloom, 2 ground pool, 3 atmosphere, 4 spike burst, 5 fleck, 6 needle shatter: e03),
+// y softness/root width, z points or pulse, w core.
 Shader "TW/Cel/CyanBeam"
 {
     Properties { }
@@ -56,13 +57,14 @@ Shader "TW/Cel/CyanBeam"
                 {
                     float3 center = CelPosition(record, age);
                     float mode = record.extra.x;
-                    if (mode > 4.5) center += record.axis * (0.3 + age * 1.3);
+                    if (mode > 4.5 && mode < 5.5) center += record.axis * (0.3 + age * 1.3);
                     float minPx = mode < 1.5 ? -record.size.w * saturate(_CelLod.x * 0.5) : 0.0;
                     float radius = max(CelCurve(record.size.xyz, life), minPx * PixelMetres(center)) * alive;
                     float2 corner = input.uv * 2.0 - 1.0;
                     // Energy sits just in front of the contact surface, instead of being cut out by the dummy.
                     bool groundPool = mode > 1.5 && mode < 2.5;
-                    float3 litCenter = center + normalize(_WorldSpaceCameraPos - center) * (groundPool ? radius + 0.6 : 0.7);
+                    bool needles = mode > 5.5 && mode < 6.5;   // e03: just behind the dummy, which stays visible in front
+                    float3 litCenter = center + normalize(_WorldSpaceCameraPos - center) * (groundPool ? radius + 0.6 : (needles ? -0.3 : 0.7));
                     float quadRadius = groundPool && record.extra.z < 0.0 ? radius * 1.35 : radius;
                     float3 world = CelBillboard(litCenter, corner * quadRadius);
                     output.positionCS = TransformWorldToHClip(world);
@@ -236,6 +238,52 @@ Shader "TW/Cel/CyanBeam"
                     }
                     color += CelPal(row, 2) * rayGlow * 0.65 * (1.0 - erosion);
                     return half4(AddFog(color, input), 0.0);
+                }
+                if (mode > 5.5 && mode < 6.5)
+                {
+                    // e03: the clip's point of contact is a SHATTER, not a star: 30-40 thin ice needles of very uneven
+                    // length (many short, a few long), starting at uneven distances from the centre, slightly bent,
+                    // white along the root, pale cyan bodies and cyan tips, over a SMALL broken white centre. Each
+                    // record draws `points` needles; two or three records overlap, each with its own layout.
+                    float count = clamp(input.shape.z, 3.0, 16.0);
+                    float salt = input.beam.z * 71.0;
+                    float turn = input.beam.z * 6.28318;
+                    float needle = 0.0, needleCore = 0.0, needleTip = 0.0, needleGlow = 0.0;
+                    [loop] for (int n = 0; n < 16; n++)
+                    {
+                        if (n >= (int)count) break;
+                        float nn = n + 1.0;
+                        float h0 = CelHash21(float2(nn, salt)), h1 = CelHash21(float2(nn, salt + 5.0));
+                        float h2 = CelHash21(float2(nn, salt + 9.0)), h3 = CelHash21(float2(nn, salt + 13.0));
+                        float h4 = CelHash21(float2(nn, salt + 17.0));
+                        float theta = turn + (n + 0.5 + (h0 - 0.5) * 0.9) / count * 6.28318;
+                        float2 dir = float2(cos(theta), sin(theta));
+                        float2 perp = float2(-dir.y, dir.x);
+                        // shorter toward the ground, as the clip's (the spray goes up and forward)
+                        float reach = lerp(0.45, 1.0, smoothstep(-0.75, 0.2, dir.y));
+                        float root = 0.03 + 0.16 * h1;
+                        float tip = root + (0.12 + 0.88 * pow(h2, 1.8)) * reach * (1.0 - root);
+                        float width = (0.010 + 0.030 * h3) * lerp(0.7, 1.3, h2);
+                        float along01 = (dot(samplePosition, dir) - root) / max(tip - root, 1e-3);
+                        float bend = (h4 - 0.5) * 0.30 * (tip - root);
+                        float lateral = abs(dot(samplePosition, perp) - bend * along01 * along01);
+                        float inside = step(0.0, along01) * step(along01, 1.0);
+                        float halfWidth = width * pow(saturate(1.0 - along01), 0.85) * saturate(along01 * 8.0 + 0.35);
+                        float body = (1.0 - CelAAStep(halfWidth, lateral)) * inside;
+                        needle = max(needle, body);
+                        needleCore = max(needleCore, (1.0 - CelAAStep(halfWidth * 0.38, lateral)) * inside * step(along01, 0.5));
+                        needleTip = max(needleTip, body * step(0.62, along01));
+                        needleGlow = max(needleGlow, (1.0 - CelAAStep(halfWidth + 0.012, lateral)) * inside);
+                    }
+                    float heartRadius = input.shape.w;
+                    float heart = (1.0 - CelAAStep(heartRadius, radius)) * ImpactCuts(samplePosition / max(heartRadius, 0.01), input.beam.z);
+                    half3 color = CelPal(row, 2);
+                    color = lerp(color, CelPal(row, 1), needleTip);
+                    color = lerp(color, CelPal(row, 3), max(needleCore, heart));
+                    float cover = max(needle, heart) * (1.0 - erosion);
+                    color *= cover;
+                    color += CelPal(row, 1) * (needleGlow - needle * needleGlow) * 0.55 * (1.0 - erosion);
+                    return half4(AddFog(color * input.tone.z, input), 0.0);
                 }
                 if (mode > 4.5)
                 {

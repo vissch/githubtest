@@ -18,9 +18,12 @@ namespace TW.Presentation.VFX.Cel
         public static readonly int BeamRow = CelPalette.Add("cyan_beam_shaft",
             CelPalette.Hex(0x81B6DB), CelPalette.Hex(0x8EE6EC), CelPalette.Hex(0xCBF6FF), CelPalette.Hex(0xDAE7FC),
             CelPalette.Hex(0xB0D8F0), 0.4f, 4, CelPalette.Hex(0x03111B));
+        // e03: the clip's hit tones as the shader has to write them (e00cal swatch film): c1 needle tips (118,223,234),
+        // c2 needle bodies (197,243,246), c3 white roots and centre; the core is c3 / 2.3 so the dots' Core 2.3 lands on
+        // it instead of clamping to the grade's cream (the old (0.64,1,1.55) x 2.3 showed as (252,254,229)).
         public static readonly int HitRow = CelPalette.Add("cyan_beam_hit",
-            CelPalette.Hex(0x159FC4), CelPalette.Hex(0x45EAF2), CelPalette.Hex(0x85FFFF), CelPalette.Hex(0xC4FFFF),
-            new Color(0.64f, 1f, 1.55f), 0.55f, 4, CelPalette.Hex(0x03151C));
+            CelPalette.Hex(0x7FC9E0), CelPalette.Hex(0xA8E5EB), CelPalette.Hex(0xCBEFF9), CelPalette.Hex(0xDFEAFC),
+            new Color(0.60f, 0.63f, 0.68f), 0.55f, 4, CelPalette.Hex(0x03151C));
         public static readonly int SparkRow = CelPalette.Add("cyan_beam_spark",
             CelPalette.Hex(0xD54B08), CelPalette.Hex(0xFF9D2D), CelPalette.Hex(0xFFC56B), CelPalette.Hex(0xFFE6A5),
             CelPalette.Hex(0xFFE0A0), 0.65f, 4, CelPalette.Hex(0x561A04));
@@ -143,9 +146,9 @@ namespace TW.Presentation.VFX.Cel
             // still far inside the flat [0.8696, 1.15] deadband (STATE.md boundary fact 1).
             Braided(BeamLayer("held cyan beam", "cyan_beam_shaft", BeamStart, BeamLife, 1.14f, 1f)),
             Dot("impact core", "cyan_beam_hit", 0, BeamStart, 0f, BeamLife, 1, 1, 1,
-                new CelCurve(0.38f, 0.30f), 0f, 5f, 3f),
+                new CelCurve(0.22f, 0.18f), 0f, 5f, 3f),   // e03: the clip's white centre is SMALL
             Dot("impact bloom", "cyan_beam_hit", 1, BeamStart + 0.05f, 0f, BeamLife - 0.05f, 1, 1, 1,
-                new CelCurve(1.5f, 1.3f), 2f, 0f, 0.24f),
+                new CelCurve(1.2f, 1.05f), 3.5f, 0f, 0.16f),   // e03: a tighter glow, a smaller white heart
             // k02: narrow this flash in TIME without moving its centre or its peak. The shader's mode-3
             // pulse is pow(sin(life01 * pi), 1.3) * saturate(age / 0.12) * saturate((1 - life01) * 6), so the
             // flash's brightest instant is Start + Life/2. That centre is BeamStart + 0.33 = 0.58 s today and
@@ -170,8 +173,10 @@ namespace TW.Presentation.VFX.Cel
                 new CelCurve(6.7f, 7.0f), 1.5f, 1f, 0f),
             Dot("held target cyan atmosphere", "cyan_beam_pool", 3, BeamStart + 0.05f, 0f, BeamLife, 1, 1, 0,
                 new CelCurve(3.1f, 3.0f), 2.5f, 0f, 0f),
-            Dot("cyan impact spikes", "cyan_beam_hit", 4, BeamStart + 0.1f, 4.75f, 0.16f, 80, 32, 0,
-                new CelCurve(2.7f, 3.45f), 0.05f, 8f, 0.045f),
+            // e03: the clip's point of contact is a shatter of thin ice needles (16 per record, ~2.4 records alive = ~38),
+            // redrawn every 0.14 s with a new layout, over a small broken white heart (0.06 of the 3 m card).
+            Dot("cyan impact needles", "cyan_beam_hit", 6, BeamStart + 0.1f, 4.75f, 0.14f, 80, 32, 0,
+                new CelCurve(2.9f, 3.4f), 0.05f, 16f, 0.06f),
             Dot("cooling target core", "cyan_beam_hit", 1, BeamEnd - 0.08f, 0f, 1.25f, 1, 1, 1,
                 new CelCurve(1.1f, 0.04f, 1.5f), 3f, 0f, 0.25f),
             new CelLayer
