@@ -28,9 +28,13 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>The first bolt lands on frame 22.96, the last on frame 116 (one every 2.2 frames, 4-6 in flight).</summary>
         const float FirstLand = 22.96f, LastLand = 116f;
         const int Bolts = 43;
-        /// <summary>A bolt's length (m) and its head's full width (m): the clip's bolts are 95-120 px long near the eye,
-        /// 70 by the dummy (median of 395), 7 px through their electric part (median), 16 at the p90.</summary>
-        const float BoltLength = 1.25f, BoltWidth = 0.17f;
+        /// <summary>A bolt's length (m) at its launch and at its end, and its head's full width (m) the same: the clip's
+        /// comets (cometprof.py, 377 of them) are 120 px long near the eye, 106 in the middle, 76 by the dummy (longer
+        /// in metres the further they go: 0.99, 1.26, 1.56 m), and as wide at any depth (20 px through their electric
+        /// part at the widest; the body 17 of it), so they grow in metres as they fly away (10 to 20 m from the eye).</summary>
+        const float BoltLength0 = 0.81f, BoltLength1 = 1.66f, BoltWidth0 = 0.126f, BoltWidth1 = 0.252f;
+        /// <summary>A comet's tendrils per metre (the clip's have a hook or two off the body, f33-f35 at 3x).</summary>
+        const float BoltTendrils = 2f;
         /// <summary>How far the bolts' lines spread (half-ranges, m: to the side, up) where they leave and where they land:
         /// the clip's heads fill a corridor 80-90 px wide near the eye and 45 px wide by the dummy (p10-p90), not a lane
         /// or two.</summary>
@@ -46,8 +50,8 @@ namespace TW.Presentation.VFX.Cel
         static readonly Vector3 UpTip = new Vector3(9.05f, -1.707f, 0.008f);          // its flare on the ground behind (1100, 292)
         static readonly Vector3 LowRoot = new Vector3(0.561f, 0.658f, -0.556f);       // the lower arc leaves the board (895, 440)
         static readonly Vector3 LowTip = new Vector3(3.749f, 1.902f, -1.101f);        // its flare on the ground right (1100, 452)
-        static readonly Vector3 FootLight = new Vector3(0.217f, 0.734f, -1.345f);     // the ground light's middle (880, 500)
-        static readonly Vector3 PathLight = new Vector3(-5.825f, -1.224f, -1.768f);   // the light under the bolts (430, 600)
+        static readonly Vector3 FootLight = new Vector3(-0.74f, 0.46f, -1.345f);      // the ground light's middle (822, 507: the clip's
+                                                                                      // median glow f40-100 weighs there, 1.4 m each way)
         static readonly Vector3 Haze = new Vector3(-0.903f, 0.477f, -1.438f);         // the violet haze before the first hit (810, 520)
 
         // ---------------------------------------------------------------- palettes
@@ -72,10 +76,14 @@ namespace TW.Presentation.VFX.Cel
         /// the ground's (26,28,39).</summary>
         public static readonly int ArcRow = CelPalette.Add("electric_bolt_arc",
             S(0.145f, 0.288f, 0.316f), S(0.119f, 0.13f, 0.174f), S(0.377f, 0.532f, 0.623f), S(0.566f, 0.735f, 0.826f), S(0.702f, 0.836f, 1f), 0.62f, 2, S(0f, 0f, 0f));
-        /// <summary>The hit's flickering blob (added on top of the steady glow): with it, the white-hot core (the clip's
-        /// (239,252,255) over the board's (43,45,55)) and (204,241,252) round it.</summary>
+        /// <summary>The hit's flickering soft glow (added on top of the steady one, no core: the burst is the white).</summary>
         public static readonly int HitRow = CelPalette.Add("electric_bolt_hit",
             S(0.05f, 0.1f, 0.12f), S(0.08f, 0.15f, 0.17f), S(0.1f, 0.15f, 0.22f), S(0.064f, 0.084f, 0.126f), S(0.3f, 0.3f, 0.4f), 0.8f, 3, S(0f, 0f, 0f));
+        /// <summary>The hit's white-hot splash and the flares' (added): c2 its glow, c3 the shards' pale cyan edge (the
+        /// clip's (175,224,241) over the dark ground, white over the lit board), the core and the shards' middle white
+        /// (239,252,255).</summary>
+        public static readonly int BurstRow = CelPalette.Add("electric_bolt_burst",
+            S(0.05f, 0.1f, 0.12f), S(0.08f, 0.15f, 0.17f), S(0.12f, 0.22f, 0.26f), S(0.36f, 0.56f, 0.66f), S(0.62f, 0.8f, 0.95f), 0.8f, 3, S(0f, 0f, 0f));
         /// <summary>The arcs' ground flares (added over the ground's (29,33,44)): a white-hot core (240,251,255), and
         /// (148,202,226) round it.</summary>
         public static readonly int FlareRow = CelPalette.Add("electric_bolt_flare",
@@ -96,9 +104,14 @@ namespace TW.Presentation.VFX.Cel
         // ---------------------------------------------------------------- the light on the ground
         /// <summary>The light the bolts throw on the ground round the target: most of it is multiplied into what it falls
         /// on (lit = unlit x (1 + Into) at its heart: the ground keeps its pattern), a little is added on top. The clip's
-        /// lit ground at the foot: (106,173,201) over a plate of (40,46,58), stored 2.35, 3.4, 3.3 times the plate; at
-        /// its edge (51,80,101) over (33,38,49), 1.5, 1.95, 1.8 times (e01 lit 0.73 of the clip's area).</summary>
-        static readonly Vector3 Into = new Vector3(1.35f, 2.38f, 2.3f), Add = new Vector3(0.02f, 0.04f, 0.045f);
+        /// median ground f40-100 at its middle: (78,129,152) over a plate of (37,42,54), stored 2.0, 2.8, 2.55 times the
+        /// plate; e01's light gave 2.03, 2.47, 2.28 at its own middle with Into (1.35, 2.38, 2.3) (the fog and the mist
+        /// take some), so a little more green and blue.</summary>
+        static readonly Vector3 Into = new Vector3(1.35f, 2.75f, 2.6f), Add = new Vector3(0.02f, 0.045f, 0.05f);
+        /// <summary>The light on the target itself: the clip's board goes from brown to pale blue-cyan, (65,54,56) to
+        /// (123,162,198) by the hit (stored 1.75, 2.8, 3.35 times), (67,58,46) to (102,120,139) at its far corner; e01's
+        /// small light gave 1.19, 1.47, 1.56 there. Partly added: a brown board multiplied by a cyan light only greys.</summary>
+        static readonly Vector3 BoardInto = new Vector3(1.0f, 2.6f, 3.8f), BoardAdd = new Vector3(0.08f, 0.2f, 0.3f);
 
         static readonly int LensId = Shader.PropertyToID("_TWBoltLens");
 
@@ -110,24 +123,25 @@ namespace TW.Presentation.VFX.Cel
             Shader.SetGlobalVector(LensId, new Vector4(Mathf.Max(0f, intensity) * 3f, Mathf.Max(0.01f, smoothness) * 5f, 0f, 0f));
 
         // ---------------------------------------------------------------- the sparks (kit Streaks, through CelFx.Play)
-        /// <summary>The hit's spray: short white dashes 3-5 px thick and 10-50 px long thrown out of the blob (the clip's
-        /// f40, f69, f72, f104), out to about 100 px; 15-58 white pieces a frame (e01's were tiny and too many).</summary>
+        /// <summary>The hit's spray: short white dashes 3-6 px thick and 10-35 px long thrown out of the blob (the clip's
+        /// f40, f69, f72, f88, f104), out to 100-130 px; 5-10 a frame early on, 20-40 at f72-f104.</summary>
         public static readonly CelFxRecipe Sparks = new CelFxRecipe("electric_bolt_sparks", 4.5f,
             new CelLayer
             {
                 Name = "spray", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = At(26f), Duration = At(111f) - At(26f), TimeJitter = 0.02f, Life = 0.16f, LifeJitter = 0.4f,
-                Close = 170, Mid = 60, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.18f, 0f, 0f), Aim = CelAim.Radial, Speed = 7.5f, SpeedJitter = 0.55f, UpBias = 0.15f, Gravity = 2f, Drag = 2.2f,
+                Close = 240, Mid = 85, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.18f, 0f, 0f), Aim = CelAim.Radial, Speed = 7.5f, SpeedJitter = 0.55f, UpBias = 0.15f, Gravity = 2f, Drag = 2.2f,
                 Size = new CelCurve(0.05f, 0.022f), SizeJitter = 0.4f, Stretch = 0.07f, Erode = new CelCurve(0.05f, 0.5f), Palette = "electric_bolt_spark", Core = 1f, Extra = new Vector4(0.15f, 0.05f, 0.3f, 0f),
             },
             new CelLayer
             {
                 // a few longer ones, flung further (the clip's spray has a few dashes out past the rest)
                 Name = "spray long", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = At(27f), Duration = At(110f) - At(27f), TimeJitter = 0.03f, Life = 0.22f, LifeJitter = 0.3f,
-                Close = 45, Mid = 15, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.2f, 0f, 0f), Aim = CelAim.Radial, Speed = 10f, SpeedJitter = 0.4f, UpBias = 0.25f, Gravity = 3f, Drag = 1.6f,
+                Close = 70, Mid = 25, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.2f, 0f, 0f), Aim = CelAim.Radial, Speed = 10f, SpeedJitter = 0.4f, UpBias = 0.25f, Gravity = 3f, Drag = 1.6f,
                 Size = new CelCurve(0.06f, 0.028f), SizeJitter = 0.3f, Stretch = 0.09f, Erode = new CelCurve(0.05f, 0.5f), Palette = "electric_bolt_spark", Core = 1f, Extra = new Vector4(0.15f, 0.05f, 0.2f, 0f),
             });
 
-        /// <summary>A ground flare's sparks, played at the flare: white with a trace of orange.</summary>
+        /// <summary>A ground flare's sparks, played at the flare: white, and a fountain of orange ones (the clip's f69-f88:
+        /// welding sparks round a warm-white flame, 20-30 of them a frame about 40 px round it).</summary>
         static CelFxRecipe FlareSparks(string name, float from, float to, int close, int warm)
         {
             return new CelFxRecipe(name, 4.5f,
@@ -135,17 +149,17 @@ namespace TW.Presentation.VFX.Cel
                 {
                     Name = "flare sparks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = At(from), Duration = At(to) - At(from), TimeJitter = 0.03f, Life = 0.2f, LifeJitter = 0.4f,
                     Close = close, Mid = close / 3, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.12f, 0f, 0f), Aim = CelAim.Radial, Speed = 4.5f, SpeedJitter = 0.5f, UpBias = 0.9f, Gravity = 6f, Drag = 1.5f,
-                    Size = new CelCurve(0.02f, 0.01f), SizeJitter = 0.3f, Stretch = 0.05f, Erode = new CelCurve(0.05f, 0.5f), Palette = "electric_bolt_spark", Core = 1f, Extra = new Vector4(0.15f, 0.05f, 0.3f, 0f),
+                    Size = new CelCurve(0.026f, 0.012f), SizeJitter = 0.3f, Stretch = 0.05f, Erode = new CelCurve(0.05f, 0.5f), Palette = "electric_bolt_spark", Core = 1f, Extra = new Vector4(0.15f, 0.05f, 0.3f, 0f),
                 },
                 new CelLayer
                 {
                     Name = "flare warm", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = At(from), Duration = At(to) - At(from), TimeJitter = 0.03f, Life = 0.3f, LifeJitter = 0.3f,
-                    Close = warm, Mid = warm / 3, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.1f, 0f, 0f), Aim = CelAim.Radial, Speed = 3.5f, SpeedJitter = 0.5f, UpBias = 1.2f, Gravity = 7f, Drag = 1.2f,
-                    Size = new CelCurve(0.016f, 0.008f), SizeJitter = 0.3f, Stretch = 0.05f, Erode = new CelCurve(0.05f, 0.5f), Palette = "spark", Core = 2f, Extra = new Vector4(0.2f, 0.05f, 0.2f, 0f),
+                    Close = warm, Mid = warm / 3, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.1f, 0f, 0f), Aim = CelAim.Radial, Speed = 4f, SpeedJitter = 0.5f, UpBias = 1.2f, Gravity = 7f, Drag = 1.2f,
+                    Size = new CelCurve(0.028f, 0.012f), SizeJitter = 0.3f, Stretch = 0.05f, Erode = new CelCurve(0.05f, 0.5f), Palette = "spark", Core = 2f, Extra = new Vector4(0.2f, 0.05f, 0.2f, 0f),
                 });
         }
-        static readonly CelFxRecipe UpFlareSparks = FlareSparks("electric_bolt_flare_up", 30f, 121f, 70, 14);
-        static readonly CelFxRecipe LowFlareSparks = FlareSparks("electric_bolt_flare_low", 72f, 116f, 36, 8);
+        static readonly CelFxRecipe UpFlareSparks = FlareSparks("electric_bolt_flare_up", 30f, 121f, 70, 45);
+        static readonly CelFxRecipe LowFlareSparks = FlareSparks("electric_bolt_flare_low", 72f, 116f, 36, 25);
 
         // ---------------------------------------------------------------- playing it
         /// <summary>
@@ -170,22 +184,21 @@ namespace TW.Presentation.VFX.Cel
             Vector3 side = new Vector3(along.z, 0f, -along.x);
             Vector3 eye = Place(target, along, side, Eye);
 
-            // ---- the light on the ground (under everything): round the foot from the first bolts' approach (frames
-            // 14-26), gone with the last arc (frames 116-122); under the bolts' way while they fly; at the flares
+            // ---- the light on the ground (under everything): round the foot from the first contact (the clip's ground is
+            // still dark at frame 22, lit by 30), gone between frames 112 and 118; at the flares. None under the bolts'
+            // way: the clip's ground stays dark there (its median lift along the corridor is 3-4)
             {
                 Vector3 foot = Place(target, along, side, FootLight);
                 foot.y = GroundAt(foot, ground.y) + 1f;
-                // (its card is a metre over the ground: an up reach as long as its reach keeps most of it on the ground)
-                Light(renderer, kind, now, At(14f), At(121f), foot, side, 4.2f, 4.2f, 1f, 0.75f, far ? 0.6f : 1f, Into, Add, 0.45f, 0.22f, true);
+                // (its card is a metre over the ground: an up reach as long as its reach keeps most of it on the ground;
+                // round, as the clip's is: 1.5 m along the bolts, 1.3 to the side)
+                Light(renderer, kind, now, At(23f), At(116f), foot, side, 3.8f, 3.8f, 1f, 1f, far ? 0.6f : 1f, Into, Add, 0.15f, 0.15f, true);
                 if (!far)
                 {
-                    // the target itself, lit by the hit (not on level ground only): the clip's dummy reads pale cyan-white
-                    // all through the volley (41-47k lit px round it against e01's 30-33k)
-                    Light(renderer, kind, now, At(25f), At(113f), Place(target, along, side, Blob) + (eye - target).normalized * 0.4f, side, 1.2f, 1.5f, 1f, 1f, 0.9f,
-                        new Vector3(1.2f, 2.2f, 2.2f), new Vector3(0.05f, 0.1f, 0.12f), 0.06f, 0.15f, false);
-                    Vector3 path = Place(target, along, side, PathLight);
-                    path.y = GroundAt(path, path.y) + 1f;
-                    Light(renderer, kind, now, At(11f), At(118f), path, along, 6.5f, 1.8f, 1f, 0.3f, 0.45f, Into, Add, 0.2f, 0.2f, true);
+                    // the target itself, lit by the hit (not on level ground only): its whole board and the head over it,
+                    // little of the ground (the light ends 1.5 m down)
+                    Light(renderer, kind, now, At(25f), At(114f), Place(target, along, side, Blob), side, 1.7f, 1.5f, 1f, 1f, 1f,
+                        BoardInto, BoardAdd, 0.06f, 0.12f, false);
                 }
             }
 
@@ -196,20 +209,20 @@ namespace TW.Presentation.VFX.Cel
                 float land = Mathf.Lerp(FirstLand, LastLand, bolts > 1 ? i / (float)(bolts - 1) : 0f) + rng.Range(-0.6f, 0.6f) * (i > 0 ? 1f : 0f);
                 Vector3 start = from + side * rng.Range(-StartSpread.x, StartSpread.x) + Vector3.up * rng.Range(-StartSpread.y, StartSpread.y);
                 Vector3 end = aim + side * rng.Range(-EndSpread.x, EndSpread.x) + Vector3.up * rng.Range(-EndSpread.y, EndSpread.y);
-                float length = rng.Jitter(BoltLength, 0.28f);
+                float jl = rng.Range(0.8f, 1.2f);       // the clip's p25-p75 lengths are 0.8-1.2 x the median
                 float span = (end - start).magnitude;
-                float share = length / Mathf.Max(span, 0.1f);
+                float share0 = BoltLength0 * jl / Mathf.Max(span, 0.1f), share1 = BoltLength1 * jl / Mathf.Max(span, 0.1f);
                 float flight = span / Speed;
-                float life = flight * (1f + share);
+                float life = flight * (1f + share1);
                 var r = Rec(now, At(land) - flight, life, start, BoltRow, 1f, ref rng);
                 r.Vel = (end - start) / life;          // the span is vel x life; the head runs at Speed
-                float w = rng.Jitter(BoltWidth, 0.2f);
-                r.Size = new Vector4(w, w, 1f, share);
-                r.Motion = new Vector4(0f, 0f, 0f, ElectricBoltKind.Comet);
+                float jw = rng.Range(0.85f, 1.15f);
+                r.Size = new Vector4(BoltWidth0 * jw, BoltWidth1 * jw, 1f, share0);
+                r.Motion = new Vector4(share1 / share0, BoltTendrils, 0f, ElectricBoltKind.Comet);
                 r.Erode = new Vector4(0.04f, 0.04f, 1f, 0f);
                 r.Tone.y = 1f; r.Tone.w = 1f;          // white core; the bolt stops at the board
                 // the head runs from the launch (share 0) on past the board until its tail has gone in: from 0 to 1 + share
-                r.Extra = new Vector4(rng.Range(0.6f, 1.1f), rng.Range(0.9f, 1.7f), 0f, 1f + share);
+                r.Extra = new Vector4(rng.Range(0.35f, 0.75f), rng.Range(0.9f, 1.7f), 0f, 1f + share1);
                 renderer.Spawn(kind, r);
             }
 
@@ -228,27 +241,27 @@ namespace TW.Presentation.VFX.Cel
                 renderer.Spawn(kind, hz);
             }
             Dot(renderer, kind, now, At(25.5f), At(112f) - At(25.5f), blob, BoardRow, ElectricBoltKind.Bloom, new Vector3(1f, 1.05f, 1f), 2f, 0f, 0f, 1f, ref rng);
-            if (!far) Dot(renderer, kind, now, At(25.5f), At(112f) - At(25.5f), blob, BoardRow, ElectricBoltKind.Wash, new Vector3(0.78f, 0.78f, 1f), 0.15f, 0.72f, 0.85f, 0.25f, ref rng);
             {
-                // the blob: a new white-hot bloom every frame or so, uneven in size (it flickers). The clip's white blob is
-                // 50-86 px across (1.2-2.6k px), centred (825, 400); e01's 20-40 px
-                int n = Count(110, far ? 0.15f : mid ? 0.5f : 1f, quality);
+                // the splash: a new white-hot burst every frame or so, each laid out anew (it flickers). The clip's (f40,
+                // f96 at 4x) is about 120 px across: a white core 40-45 px with a ragged edge and 10-16 shards 4-7 px at
+                // the root running 20-60 px out of it, wandering 20 px round (825, 400); e01's a round dot 20-40 px
+                int nb = Count(80, far ? 0.15f : mid ? 0.5f : 1f, quality);
                 float t0 = At(25.5f), t1 = At(112f);
+                for (int i = 0; i < nb; i++)
+                {
+                    float t = Mathf.Lerp(t0, t1, nb > 1 ? i / (float)(nb - 1) : 0f) + rng.Range(-0.015f, 0.015f);
+                    float size = rng.Range(0.75f, 1f);
+                    Dot(renderer, kind, now, Mathf.Max(t0, t), rng.Range(0.045f, 0.075f), blob + rng.InSphere() * 0.16f, BurstRow, ElectricBoltKind.Burst,
+                        new Vector3(size, size * 1.05f, 1f), Mathf.Round(rng.Range(11f, 17f)), rng.Range(0.24f, 0.32f), rng.Range(0.045f, 0.065f), 1f, ref rng, 1.2f);
+                }
+                // and a soft glow flickering round it
+                int n = Count(60, far ? 0.15f : mid ? 0.5f : 1f, quality);
                 for (int i = 0; i < n; i++)
                 {
                     float t = Mathf.Lerp(t0, t1, n > 1 ? i / (float)(n - 1) : 0f) + rng.Range(-0.02f, 0.02f);
-                    float size = rng.Range(0.65f, 0.9f);
-                    Dot(renderer, kind, now, Mathf.Max(t0, t), rng.Range(0.04f, 0.08f), blob + rng.InSphere() * 0.08f, HitRow, ElectricBoltKind.Bloom,
-                        new Vector3(size, size * 1.05f, 1f), 1.2f, 0f, rng.Range(0.5f, 0.65f), 0.95f, ref rng);
-                }
-                // and fat white spikes round it (the clip's blob is a jagged burst, not a disc)
-                int m = far ? 0 : Count(80, mid ? 0.5f : 1f, quality);
-                for (int i = 0; i < m; i++)
-                {
-                    float t = Mathf.Lerp(t0, t1, m > 1 ? i / (float)(m - 1) : 0f) + rng.Range(-0.03f, 0.03f);
-                    float size = rng.Range(0.8f, 1.1f);
-                    Dot(renderer, kind, now, Mathf.Max(t0, t), rng.Range(0.04f, 0.07f), blob, HitRow, ElectricBoltKind.Rays,
-                        new Vector3(size, size, 1f), 0.07f, Mathf.Round(rng.Range(7f, 11f)), 0.2f, 0.8f, ref rng, 2f);
+                    float size = rng.Range(0.7f, 1f);
+                    Dot(renderer, kind, now, Mathf.Max(t0, t), rng.Range(0.05f, 0.09f), blob + rng.InSphere() * 0.1f, HitRow, ElectricBoltKind.Bloom,
+                        new Vector3(size, size * 1.05f, 1f), 1.2f, 0f, 0f, 0.9f, ref rng);
                 }
             }
 
@@ -257,18 +270,19 @@ namespace TW.Presentation.VFX.Cel
             Vector3 upRoot = Place(target, along, side, UpRoot), upTip = OnGround(eye, Place(target, along, side, UpTip), ground.y);
             Vector3 lowRoot = Place(target, along, side, LowRoot), lowTip = OnGround(eye, Place(target, along, side, LowTip), ground.y);
             // (one thick arc per lane at a time, re-drawn: the clip's are 8 px through their electric part, 4.5 px of
-            // white core, where e01's bundle of three thin ones was 2.8 and 2)
+            // white core, where e01's bundle of three thin ones was 2.8 and 2; their corners stand 20-40 px off the line
+            // between the ends, 60 at f80)
             float hold = far ? 2.5f : mid ? 1.5f : 1f;
-            Arcs(renderer, kind, now, At(26f), At(121f), upRoot, upTip, eye, ground.y, hold, 0.24f, 0.5f, ref rng);
+            Arcs(renderer, kind, now, At(26f), At(121f), upRoot, upTip, eye, ground.y, hold, 0.24f, 0.75f, ref rng);
             if (!far)
             {
-                Arcs(renderer, kind, now, At(70f), At(117f), lowRoot, lowTip, eye, ground.y, hold, 0.21f, 0.42f, ref rng);
-                Arcs(renderer, kind, now, At(49.5f), At(52f), lowRoot, lowTip, eye, ground.y, hold, 0.15f, 0.35f, ref rng);
+                Arcs(renderer, kind, now, At(70f), At(117f), lowRoot, lowTip, eye, ground.y, hold, 0.21f, 0.6f, ref rng);
+                Arcs(renderer, kind, now, At(49.5f), At(52f), lowRoot, lowTip, eye, ground.y, hold, 0.15f, 0.5f, ref rng);
             }
 
-            // ---- the flares where the arcs touch the ground: a flickering white-hot star with sparks and a little light
-            Flare(renderer, kind, now, At(30f), At(121f), upTip, Count(40, far ? 0.15f : mid ? 0.5f : 1f, quality), 0.42f, ref rng);
-            if (!far) Flare(renderer, kind, now, At(72f), At(116f), lowTip, Count(22, mid ? 0.5f : 1f, quality), 0.36f, ref rng);
+            // ---- the flares where the arcs touch the ground: a flickering white-hot splash with sparks and a little light
+            Flare(renderer, kind, now, At(30f), At(121f), upTip, Count(56, far ? 0.15f : mid ? 0.5f : 1f, quality), 0.5f, ref rng);
+            if (!far) Flare(renderer, kind, now, At(72f), At(116f), lowTip, Count(30, mid ? 0.5f : 1f, quality), 0.42f, ref rng);
             if (!far)
             {
                 Vector3 lu = upTip + Vector3.up * 0.6f, ll = lowTip + Vector3.up * 0.6f;
@@ -325,7 +339,8 @@ namespace TW.Presentation.VFX.Cel
             }
         }
 
-        /// <summary>A ground flare: a flickering white-hot bloom with a small ray star, `n` records over t0..t1.</summary>
+        /// <summary>A ground flare: a flickering glow and, every other one, a small white-hot splash (the clip's far flare
+        /// is a white blob 20-40 px across, shards and sparks round it), `n` records over t0..t1.</summary>
         static void Flare(CelFxRenderer renderer, int kind, float now, float t0, float t1, Vector3 at, int n, float size, ref CelRng rng)
         {
             Vector3 p = at + Vector3.up * 0.12f;
@@ -334,10 +349,10 @@ namespace TW.Presentation.VFX.Cel
                 float t = Mathf.Lerp(t0, t1, n > 1 ? i / (float)(n - 1) : 0f) + rng.Range(-0.02f, 0.02f);
                 float s = rng.Jitter(size, 0.3f);
                 Dot(renderer, kind, now, Mathf.Max(t0, t), rng.Range(0.06f, 0.11f), p + rng.InSphere() * 0.05f, FlareRow, ElectricBoltKind.Bloom,
-                    new Vector3(s, s * 0.9f, 1f), 2f, 0f, 0.4f, 0.9f, ref rng);
+                    new Vector3(s, s * 0.9f, 1f), 2f, 0f, 0f, 0.9f, ref rng);
                 if ((i & 1) == 0)
-                    Dot(renderer, kind, now, Mathf.Max(t0, t), rng.Range(0.05f, 0.08f), p, FlareRow, ElectricBoltKind.Rays,
-                        new Vector3(s * 1.6f, s * 1.6f, 1f), 0.05f, 7f, 0.15f, 0.6f, ref rng);
+                    Dot(renderer, kind, now, Mathf.Max(t0, t), rng.Range(0.05f, 0.08f), p + rng.InSphere() * 0.04f, BurstRow, ElectricBoltKind.Burst,
+                        new Vector3(s * 1.5f, s * 1.5f, 1f), Mathf.Round(rng.Range(7f, 11f)), rng.Range(0.28f, 0.38f), 0.06f, 0.9f, ref rng, 1.1f);
             }
         }
 

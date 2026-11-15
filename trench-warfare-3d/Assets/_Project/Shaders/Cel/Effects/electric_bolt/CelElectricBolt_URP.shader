@@ -5,9 +5,11 @@
 //
 // BEAM records (size.w >= 0): a ribbon along the span pos -> pos + vel x life (CelAim.Target, Speed 0, Arrive 1, no
 // gravity or drag: vel x life is the span). motion.w is the profile:
-//   0 COMET (a bolt in flight): a round white-hot head at the front, a body that waves in a gentle S and runs to a
-//     point at the tail, a white core in pale cyan bands, a wide soft blue bloom round it (no ink).
-//     size.xyz  the head's full width (m) at birth, at death, ease.   size.w the bolt's length (share of the span).
+//   0 COMET (a bolt in flight): the clip's teardrop, widest at 0.8 of its length and rounded to the head, running to
+//     a thin tail; a body that waves in a gentle S with a tendril or two, a white core in pale cyan bands, a wide soft
+//     blue bloom round it (no ink).
+//     size.xyz  the head's full width (m) at birth, at death, ease.   size.w the bolt's length at birth (share of the
+//     span); motion.x its length at death over that (0: the same); motion.y tendrils per metre.
 //     extra     x the wave (half-widths), y bends along the bolt, z the head's share of the span at birth, w at death.
 //     tone.w    the clip: the bolt never reaches past this share of the span (1: it stops at the target).
 //   1 ARC (lightning): the whole span as a jagged line, kinked at sharp corners (2-3 scales; the big ones bend the
@@ -19,6 +21,8 @@
 // DOT records (size.w < 0): a camera-facing quad at CelPosition; extra.x the mode:
 //   1 bloom: soft additive light, y falloff (0: 5), w the white-hot core's radius share.
 //   2 pool: the same lying on the ground.
+//   3 burst: a white-hot core with a ragged edge (z its radius share) and y tapered shards of uneven length thrown out
+//     of it (w their root half-width share), in a soft glow (c2); the shards' edge c3, their middle and the core white.
 //   4 ray star: a white-hot core and z thin spikes of uneven length; y the spikes' root half-width, w the core share.
 //   5 board wash: a soft rounded rectangle of light; y edge softness, z half width, w half height (quad units).
 //   7 light: the bolts' light on whatever stands behind its card (the ground, the target): the lit point is found
@@ -154,7 +158,9 @@ Shader "TW/Cel/ElectricBolt"
                 else
                 {
                     head = lerp(r.extra.z, r.extra.w, k);
-                    winLen = max(r.size.w, 1e-4);
+                    // the bolt grows as it goes (motion.x: its length at the end over its length at the start; the
+                    // clip's are 120 px long near the eye and 76 by the dummy, longer in metres the further they are)
+                    winLen = max(r.size.w * lerp(1.0, r.motion.x > 0.0 ? r.motion.x : 1.0, k), 1e-4);
                     s0 = max(head - winLen, 0.0);
                     s1 = min(head, r.tone.w > 0.0 ? r.tone.w : 1.0);
                 }
@@ -199,6 +205,7 @@ Shader "TW/Cel/ElectricBolt"
                 o.tone = float4(r.tone.x, r.tone.y, r.tone.z, CelCurve(r.erode.xyz, k));
                 o.shape = float4(r.extra.x, r.extra.y * saturate(2.0 - _CelLod.x), r.seed, arc ? lenB : winLen * lenB);
                 o.more = float4(ComputeFogFactor(o.positionCS.z), farK, arc ? 1.0 : 0.0, rate);
+                o.g0 = float4(arc ? 0.0 : max(r.motion.y, 0.0) * saturate(2.0 - _CelLod.x), 0.0, 0.0, 0.0);   // a comet's tendrils per metre
                 return o;
             }
 
@@ -314,6 +321,51 @@ Shader "TW/Cel/ElectricBolt"
                         half3 cw = (CelPal(row, 2) * 0.6 + CelPal(row, 3) * inner * 0.8) * wash * i.tone.z;
                         return half4(Unvignette(AddFog(cw, i.positionWS, i.more.x, i.more.y), i.positionCS.xy, 1.0), 0.0);
                     }
+                    if (mode < 3.5)
+                    {
+                        // a burst (3): the hit's white-hot splash as the clip draws it (f40-f104 at 4x): a white core with
+                        // a ragged edge (z its radius), y tapered shards of uneven length thrown out of it (w their half-
+                        // width at the root), white along the middle and pale cyan at the edge, in a soft cyan glow; each
+                        // record lays them out anew (a record lives a frame or two, so it flickers as the clip's does)
+                        float sdB = i.beam.z;
+                        float turnB = atan2(q.y, q.x) * 0.159155 + 0.5;
+                        float lx = turnB * 9.0;
+                        float l0 = floor(lx);
+                        float rag = lerp(CelHash21(float2(l0, sdB * 17.0)), CelHash21(float2(l0 + 1.0 - 9.0 * step(8.0, l0), sdB * 17.0)),
+                                         smoothstep(0.0, 1.0, lx - l0));
+                        float coreRB = max(i.shape.z, 0.02) * (0.75 + 0.5 * rag) * (1.0 - thrS * 0.5);
+                        float coreB = 1.0 - smoothstep(coreRB * 0.75, coreRB, rr);
+                        float nB = max(i.shape.y, 3.0);
+                        float idB0 = floor(turnB * nB);
+                        float fieldB = 0.0, alongB = 1.0;
+                        [unroll] for (int kB = -1; kB <= 1; kB++)
+                        {
+                            float idB = idB0 + kB;
+                            float idW = idB - nB * floor(idB / nB);                 // the sector, wrapped round
+                            float hA = CelHash21(float2(idW, sdB * 91.0));
+                            float hL = CelHash21(float2(idW, sdB * 53.0 + 7.0));
+                            float hW = CelHash21(float2(idW, sdB * 29.0 + 3.0));
+                            float angB = ((idB + 0.5 + (hA - 0.5) * 0.7) / nB - 0.5) * 6.28318;
+                            float2 dB = float2(cos(angB), sin(angB));
+                            float alB = dot(q, dB);
+                            float latB = abs(q.x * dB.y - q.y * dB.x);
+                            float r0 = coreRB * 0.4;
+                            float tB = (alB - r0) / max(lerp(0.45, 1.0, hL) - r0, 1e-3);
+                            float hwB = max(i.shape.w, 0.005) * lerp(0.6, 1.4, hW) * pow(saturate(1.0 - tB), 0.85);
+                            float fB = saturate(1.0 - latB / max(hwB, 1e-4)) * step(0.0, tB) * step(tB, 1.0);
+                            alongB = lerp(alongB, saturate(tB), step(fieldB, fB));
+                            fieldB = max(fieldB, fB);
+                        }
+                        float shardB = CelAAStep(0.3, fieldB);
+                        float shardW = CelAAStep(0.62, fieldB) * saturate(1.3 - alongB);
+                        float glowB = exp(-rr * rr * 4.0) * 0.6;
+                        half3 whiteB = CelPalCore(row).rgb * i.tone.y;
+                        half3 cb = CelPal(row, 2) * glowB;
+                        cb = lerp(cb, CelPal(row, 3), shardB);
+                        cb = lerp(cb, whiteB, max(shardW, coreB));
+                        cb *= i.tone.z * (1.0 - thrS * 0.6);
+                        return half4(Unvignette(AddFog(cb, i.positionWS, i.more.x, i.more.y), i.positionCS.xy, 1.0), 0.0);
+                    }
                     // a ray star (4): a small white-hot core and z thin spikes of uneven length, each record at its own turn
                     float nR = max(i.shape.z, 3.0);
                     float sdR = i.beam.z;
@@ -356,44 +408,45 @@ Shader "TW/Cel/ElectricBolt"
                 }
                 else
                 {
-                    // the comet: a round cap one half-width long at the head (a = 1), tapering to a point at the tail
-                    float L = max(i.shape.w, 1e-3);
-                    float capA = saturate(i.beam.w / L);
-                    float neck = 1.0 - capA;
-                    float capT = saturate((a - neck) / max(capA, 1e-4));
-                    float cap = sqrt(saturate(1.0 - capT * capT));
-                    float taper = pow(saturate(a / max(neck, 1e-3)), 0.85);
-                    prof = a > neck ? cap : taper;
+                    // the comet: the clip's teardrop (cometprof.py over 377 of its comets: the width rises about straight
+                    // from 0.15 of its most at the tail to the most at 0.8 of the length, then rounds off to the head)
+                    float capT = saturate((a - 0.8) / 0.2);
+                    prof = a > 0.8 ? sqrt(saturate(1.0 - capT * capT)) : lerp(0.15, 1.0, a / 0.8);
                     // the body waves in a gentle S (more toward the tail), re-drawn a little every frame
                     float bends = max(i.shape.y, 0.3);
                     float ph = i.shape.z * 6.2832 + tick * 0.45;
                     centre = i.shape.x * sin(a * bends * 6.2832 + ph) * lerp(1.0, 0.2, a) + 0.18 * Zig(u, 0.07, salt);
-                    // hot at the head, the tail in the cyan bands
-                    bright = lerp(0.55, 1.0, smoothstep(0.05, 0.75, a));
+                    // white-hot all along: the core's share of the width is set by the bands below
+                    bright = 1.0;
                 }
                 float dy = abs(y - centre);
                 float field = saturate(1.0 - dy / max(prof, 1e-3)) * inside;
-                // forks: in some cells along an arc a thin crooked arm leaves the line and runs out to one side
+                // forks: in some cells along an arc a thin crooked arm leaves the line and runs out to one side; a comet
+                // has a tendril or two off its body the same way, short and hair-thin (the clip's f33-f35 at 3x)
                 float br = 0.0;
-                if (arc && i.shape.y > 0.0)
+                float forks = arc ? i.shape.y : i.g0.x;
+                if (forks > 0.0)
                 {
-                    float cell = 0.45;
+                    float cell = arc ? 0.45 : 0.3;
                     float ci = floor(u / cell);
                     [unroll] for (int c = 0; c < 2; c++)
                     {
                         float id = ci - c;
                         float h = CelHash21(float2(id, salt + 31.0));
-                        if (h > saturate(i.shape.y * cell * 0.6)) continue;
+                        if (h > saturate(forks * cell * 0.6)) continue;
                         float x0 = id * cell + CelHash21(float2(id, salt + 2.0)) * cell * 0.5;
                         float lenA = cell * (0.35 + 0.6 * CelHash21(float2(id, salt + 3.0)));
                         float t = (u - x0) / lenA;
                         if (t < 0.0 || t > 1.0) continue;
                         float sgn = CelHash21(float2(id, salt + 4.0)) > 0.5 ? 1.0 : -1.0;
-                        float reach = (BOLT_PAD - 1.5) * (0.35 + 0.55 * CelHash21(float2(id, salt + 6.0)));
-                        float kink = 0.8 * Zig(u, 0.05, salt + id) + 0.4 * Zig(u, 0.02, salt + id + 3.3);
+                        float h6 = CelHash21(float2(id, salt + 6.0));
+                        float reach = (BOLT_PAD - 1.5) * (arc ? 0.35 + 0.55 * h6 : 0.12 + 0.25 * h6);
+                        float kink = arc ? 0.8 * Zig(u, 0.05, salt + id) + 0.4 * Zig(u, 0.02, salt + id + 3.3)
+                                         : 0.35 * Zig(u, 0.03, salt + id);
                         float yb = sgn * (pow(t, 0.8) * reach + kink) + centre;
-                        float bw = max(0.55 * (1.0 - t * 0.6), 1.2 * onePx);
-                        br = max(br, saturate(1.0 - abs(y - yb) / bw) * lerp(0.9, 0.55, t));
+                        float bw = arc ? max(0.55 * (1.0 - t * 0.6), 1.2 * onePx) : max(0.16 * (1.0 - t * 0.5), onePx);
+                        float onBody = arc ? 1.0 : step(0.12, a) * step(a, 0.72);
+                        br = max(br, saturate(1.0 - abs(y - yb) / bw) * lerp(0.9, 0.55, t) * onBody);
                     }
                 }
                 br *= inside;
@@ -403,8 +456,11 @@ Shader "TW/Cel/ElectricBolt"
                 // band about a pixel each at its edge (f36-f100: core, 1 px (174,221,242), 2 px (122,173,209)). The
                 // ramp's two bands split at 0.5 and the core comes at 0.62, so the field is remapped for them to fall on
                 // the outer 1.2 and 2.4 px of the local half-width, however wide the bolt is there
+                // (a comet's: the clip's white core is 0.4-0.5 of its width from the tail to the head, cometprof.py; the
+                // bands keep a pixel each where it is thin)
                 float px = onePx / max(prof, 1e-3);
-                float e1 = min(px * 1.2, 0.3), e2 = min(px * 2.4, 0.5);
+                float e1 = arc ? min(px * 1.2, 0.3) : clamp(px, 0.25, 0.45);
+                float e2 = arc ? min(px * 2.4, 0.5) : clamp(px * 2.0, 0.5, 0.85);
                 float fr = field < e1 ? 0.5 * field / e1
                          : field < e2 ? lerp(0.5, 0.62, (field - e1) / max(e2 - e1, 1e-4))
                          : lerp(0.62, 1.0, (field - e2) / max(1.0 - e2, 1e-4));
@@ -412,14 +468,16 @@ Shader "TW/Cel/ElectricBolt"
                 half3 body = CelRamp(v, row, i.tone.y);
                 body = MixFog(body, i.more.x);
                 float cover = mask * saturate(i.tone.z * 1.4);
-                // the bloom: a pale rim right at the body (c1, falling in a fifth of a half-width) and the wide saturated
-                // blue light round it (c0, over 1.3 half-widths), fading before the ribbon's edge. Fitted to a near bolt
-                // of the clip, 1, 2, 6 and 13 px out of its body: (85,139,187), (54,101,153), (32,62,111), (26,39,72)
+                // the bloom: a pale rim right at the body (c1, falling over 1.2 px) and the wide saturated blue light round
+                // it (c0, over 8.5 px for a bolt, 10 for an arc), fading before the ribbon's edge. Fitted to a near bolt
+                // of the clip, 1, 2, 6 and 13 px out of its body: (85,139,187), (54,101,153), (32,62,111), (26,39,72), and
+                // to an arc's (86,142,178), (61,110,145), (46,77,104), (37,57,80): in pixels, whatever the width
                 // (past an end of the body the distance is taken to that end, so the light closes round it)
                 float outside = length(float2(beyond, max(dy - prof * inside, 0.0)));
+                float dpx = outside * hwPx;
                 float keepB = (1.0 - mask) * saturate((BOLT_PAD - 0.5 - abs(y)) * 0.5) * saturate((BOLT_PADL - beyond) * 0.6);
                 if (!arc) keepB *= smoothstep(0.0, 0.3, a);
-                half3 add = (CelPal(row, 1) * exp(-outside / 0.2) + CelPal(row, 0) * exp(-outside / 1.33)) * keepB * i.tone.z;
+                half3 add = (CelPal(row, 1) * exp(-dpx / 1.2) + CelPal(row, 0) * exp(-dpx / (arc ? 10.0 : 8.5))) * keepB * i.tone.z;
                 add = AddFog(add, i.positionWS, i.more.x, i.more.y);
                 half3 col = body * cover + add;
                 return half4(Unvignette(col, i.positionCS.xy, 1.0), cover);

@@ -9,7 +9,7 @@ namespace TW.Presentation.VFX.Cel
     {
         public const string KindName = "ElectricBolt";
         /// <summary>Extra.x of a dot record (size.w &lt; 0): which of the shader's soft shapes it is.</summary>
-        public const float Bloom = 1f, Pool = 2f, Rays = 4f, Wash = 5f, Light = 7f;
+        public const float Bloom = 1f, Pool = 2f, Burst = 3f, Rays = 4f, Wash = 5f, Light = 7f;
         /// <summary>Motion.w of a beam record (size.w &gt;= 0): a comet in flight or a lightning arc.</summary>
         public const float Comet = 0f, Arc = 1f;
 
