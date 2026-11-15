@@ -66,7 +66,7 @@ namespace TW.Presentation.VFX.Cel
         /// most of it is multiplied in (GlowInto) and the rest added on top (GlowAdd).</summary>
         static readonly Vector3 GlowInto = new Vector3(1.40f, 0.72f, 0.14f), GlowAdd = new Vector3(0.22f, 0.10f, 0.03f);
         /// <summary>The pool that travels under the comet, and the big one under the burst (m).</summary>
-        const float UnderReach = 7.0f, BurstReach = 9.0f;
+        const float UnderReach = 9.0f, BurstReach = 10.0f;   // a34: 7.0 -> 9.0 and 9.0 -> 10.0. The pool lit 37.7/38.5/66.7% of the near-ground box at f14/f24/f44 against the clip's 75.6/80.6/83.9 (tools/_fb_gamma.py cmd_reach); area x1.65 and x1.23, the rest of the reach bought by `strength` at the call sites.
 
         static readonly int LensId = Shader.PropertyToID("_TWAcidLens");
 
@@ -119,11 +119,11 @@ namespace TW.Presentation.VFX.Cel
                 Vector3 under = Vector3.Lerp(from, target, 0.45f);
                 under.y = Ground(under) + 1f;
                 Glow(renderer, kind, now, AtFrame(late, 11f), AtFrame(late, 30f), under, right, UnderReach, UnderReach,
-                    UnderReach, 1f, far ? 0.45f : mid ? 0.7f : 1f, GlowInto, GlowAdd, 0.06f, 0.10f, true, seed);
+                    UnderReach, 1f, far ? 1.17f : mid ? 1.82f : 2.6f, GlowInto, GlowAdd, 0.06f, 0.10f, true, seed);   // a34: strength x2.6, the LOD ratios kept. The travelling pool's gain measured (27,14,4) at f24 against the clip's (75,39,12) - a FLAT 2.8x deficit (channel spread 0.22, where a gamma error would predict 8.62), so this is a LEVEL knob, not a colour one. GlowInto/GlowAdd deliberately untouched: the measured hue is already the clip's (ours 1:0.51:0.13, clip 1:0.52:0.15).
                 Vector3 pool = ground;
                 pool.y = Ground(pool) + 1f;
-                Glow(renderer, kind, now, AtFrame(late, 28f), AtFrame(late, 92f), pool, right, BurstReach, BurstReach,
-                    BurstReach, 1f, 1f, GlowInto, GlowAdd, 0.08f, 1.0f, true, seed);
+                Glow(renderer, kind, now, AtFrame(late, 28f), AtFrame(late, 80f), pool, right, BurstReach, BurstReach,
+                    BurstReach, 1f, 1.6f, GlowInto, GlowAdd, 0.08f, 1.1f, true, seed);   // a34: strength 1 -> 1.6 (gain measured (32,17,5) at f44 against the clip's (51,25,6)), and the pool is brought OUT when the clip's is: gone f92 -> f80 with fall 1.0 -> 1.1, so GlowOn's `down` = (life-age)/fall at f76 goes 0.667 -> 0.152 while f44 stays 1.000 and f60 stays 0.758. Measured: ours still lit 59.6% of the near-ground box at f76, the clip's only 7.1%.
             }
 
             // ---- the comet's head: one round ball of fire with a white core, in frame on the clip's frame 14 and
