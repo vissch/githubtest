@@ -211,7 +211,11 @@ Shader "TW/Cel/ElectricBolt"
                 float3 lin = SRGBToLinear(max(col, 0.0));
                 float top = max(lin.r, max(lin.g, lin.b));
                 float gain = max(min(lift, 1.0 / max(top, 1e-3)), 1.0);
-                return (half3)LinearToSRGB(min(lin * min(lift, gain * 1.2), 1.0));
+                // the bolts' own colours (share 1) take the whole lift, each channel clipped: a white-hot core in a dark
+                // corner goes on to white as the clip's does (capped at 1.2 x its top, it went cyan there); the ground
+                // light's added part keeps its hue
+                float k = share >= 0.999 ? lift : min(lift, gain * 1.2);
+                return (half3)LinearToSRGB(min(lin * k, 1.0));
             }
 
             // the point of the opaque scene behind this pixel (from the camera's depth)

@@ -49,35 +49,46 @@ namespace TW.Presentation.VFX.Cel
         static readonly Vector3 Haze = new Vector3(-0.903f, 0.477f, -1.438f);         // the violet haze before the first hit (810, 520)
 
         // ---------------------------------------------------------------- palettes
-        // A colour as the shader has to write it (the project is gamma, the palette stores .linear): the clip's colour
-        // over the Range grade's gain (a first guess of 0.92; the films correct it).
-        const float Grade = 0.92f;
-        static Color W(int rgb) => new Color(Mathf.Min(1f, ((rgb >> 16) & 255) / 255f / Grade), Mathf.Min(1f, ((rgb >> 8) & 255) / 255f / Grade), Mathf.Min(1f, (rgb & 255) / 255f / Grade), 1f);
-        static Color S(Color lin) => new Color(Mathf.LinearToGammaSpace(lin.r), Mathf.LinearToGammaSpace(lin.g), Mathf.LinearToGammaSpace(lin.b), 1f);
-        static Color P(int rgb) => S(W(rgb));
+        // Colours as the framebuffer has to hold them for the Range's post stack (exposure 1.62, the neutral tonemap,
+        // the LUT) to show the clip's: the clip's colour classes (celfx runs\electric_bolt\_ref\look\colours_ref.json)
+        // taken back through neon_acid's fit of that stack (grade.py inverse). The project is gamma and the palette
+        // stores .linear, so S() hands over a stored value as the colour whose .linear it is. Opaque colours are taken
+        // back at the middle of the frame (the shader's Unvignette undoes the lens elsewhere); added light is what has
+        // to go on top of the clip's plate there.
+        static Color S(float r, float g, float b) => new Color(Mathf.LinearToGammaSpace(r), Mathf.LinearToGammaSpace(g), Mathf.LinearToGammaSpace(b), 1f);
 
-        /// <summary>The bolts and the arcs: c0 the blue bloom's light at its edge (the clip's lift (42,95,145)), c2 the
-        /// cyan-blue edge band (122,173,209), c3 pale cyan (174,221,242), a white core (226,250,253) over 0.62.</summary>
+        /// <summary>The bolts: c0 the blue bloom added round them (the clip's (53,110,174) over a plate of (18,20,28)
+        /// at the eye, (57,108,170) over (34,39,50) by the dummy), c2 the cyan-blue edge band (116,173,219), c3 pale cyan
+        /// (175,226,252), the white core (224,252,255) over 0.62. c1 is unused (two bands).</summary>
         public static readonly int BoltRow = CelPalette.Add("electric_bolt",
-            P(0x2A5F91), P(0x4074AA), P(0x7AADD1), P(0xAEDDF2), P(0xE2FAFD), 0.62f, 2, P(0x000000));
-        /// <summary>The hit: a soft cyan-white light (c2 + c3 at its middle) round a white-hot core.</summary>
+            S(0.095f, 0.23f, 0.37f), S(0.25f, 0.439f, 0.615f), S(0.359f, 0.535f, 0.698f), S(0.509f, 0.757f, 0.876f), S(0.574f, 0.929f, 0.925f), 0.62f, 2, S(0f, 0f, 0f));
+        /// <summary>The arcs: greyer than the bolts (the clip's (119,172,204), (183,223,242), a core of (236,250,255));
+        /// their bloom (61,110,145) over (26,28,39).</summary>
+        public static readonly int ArcRow = CelPalette.Add("electric_bolt_arc",
+            S(0.13f, 0.245f, 0.275f), S(0.25f, 0.42f, 0.53f), S(0.368f, 0.532f, 0.638f), S(0.54f, 0.742f, 0.818f), S(0.611f, 0.915f, 0.925f), 0.62f, 2, S(0f, 0f, 0f));
+        /// <summary>The hit's flickering blob and the flares (all added on top): a white-hot core (the clip's
+        /// (239,252,255) over the board's (43,45,55), with the steady glow under it), c2 + c3 the light round it.</summary>
         public static readonly int HitRow = CelPalette.Add("electric_bolt_hit",
-            P(0x204060), P(0x3A6E96), P(0x5A9CC4), P(0x9ED6EE), P(0xF6FCFF), 0.8f, 3, P(0x000000));
-        /// <summary>The lit board and the steady glow over it (cyan-white, soft).</summary>
+            S(0.05f, 0.1f, 0.12f), S(0.08f, 0.15f, 0.17f), S(0.12f, 0.2f, 0.2f), S(0.08f, 0.1f, 0.08f), S(0.5f, 0.75f, 0.72f), 0.8f, 3, S(0f, 0f, 0f));
+        /// <summary>The steady glow on the board through the volley (added): (124,173,198) at its middle, (52,81,111) at
+        /// its edge.</summary>
         public static readonly int BoardRow = CelPalette.Add("electric_bolt_board",
-            P(0x183650), P(0x2A5878), P(0x4C86A8), P(0x78B4D2), P(0xE8F6FF), 0.9f, 3, P(0x000000));
-        /// <summary>The lavender flash on the board and the violet haze under it before the first hit (frame 24).</summary>
+            S(0.04f, 0.09f, 0.11f), S(0.07f, 0.14f, 0.17f), S(0.1f, 0.2f, 0.24f), S(0.12f, 0.16f, 0.16f), S(0.3f, 0.45f, 0.48f), 0.9f, 3, S(0f, 0f, 0f));
+        /// <summary>The lavender flash on the board (frame 23-25, added): (184,193,234) at its middle, (93,103,143) at its
+        /// edge, over the board's (39,45,56); the violet haze under it uses the same row, faint.</summary>
         public static readonly int LavenderRow = CelPalette.Add("electric_bolt_lavender",
-            P(0x302848), P(0x4A4070), P(0x6E6496), P(0x9A92C0), P(0xE8E4FF), 0.9f, 3, P(0x000000));
-        /// <summary>The sparks: thin white dashes with a pale blue edge.</summary>
+            S(0.1f, 0.1f, 0.15f), S(0.2f, 0.2f, 0.28f), S(0.333f, 0.324f, 0.439f), S(0.389f, 0.385f, 0.449f), S(0.449f, 0.779f, 0.718f), 0.9f, 3, S(0f, 0f, 0f));
+        /// <summary>The sparks (kit Streaks, not unvignetted; they fly by the dummy, near the middle): white (250,252,255)
+        /// with a pale blue edge (175,215,245).</summary>
         public static readonly int SparkRow = CelPalette.Add("electric_bolt_spark",
-            P(0x7CB6E8), P(0xA8D8F8), P(0xD8F0FF), P(0xFFFFFF), P(0xFFFFFF), 0.7f, 3, P(0x0A1830));
+            S(0.25f, 0.44f, 0.62f), S(0.545f, 0.717f, 0.847f), S(0.6f, 0.82f, 0.9f), S(0.619f, 0.897f, 0.939f), S(0.662f, 0.951f, 0.949f), 0.7f, 3, S(0.02f, 0.05f, 0.1f));
 
         // ---------------------------------------------------------------- the light on the ground
         /// <summary>The light the bolts throw on the ground round the target: most of it is multiplied into what it falls
         /// on (lit = unlit x (1 + Into) at its heart: the ground keeps its pattern), a little is added on top. The clip's
-        /// lit ground: (+13, +29, +41) over the plate on average over ~120k px, cyan-white at the foot.</summary>
-        static readonly Vector3 Into = new Vector3(0.55f, 1.25f, 1.45f), Add = new Vector3(0.015f, 0.05f, 0.075f);
+        /// lit ground at the foot: (106,173,201) over a plate of (40,46,58), stored 2.4, 3.2, 2.9 times the plate; at
+        /// its edge (51,80,101) over (33,38,49), 1.7, 2.0, 1.75 times.</summary>
+        static readonly Vector3 Into = new Vector3(1.3f, 2f, 1.7f), Add = new Vector3(0.02f, 0.04f, 0.045f);
 
         static readonly int LensId = Shader.PropertyToID("_TWBoltLens");
 
@@ -96,14 +107,14 @@ namespace TW.Presentation.VFX.Cel
             {
                 Name = "spray", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = At(26f), Duration = At(111f) - At(26f), TimeJitter = 0.02f, Life = 0.16f, LifeJitter = 0.4f,
                 Close = 420, Mid = 140, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.12f, 0f, 0f), Aim = CelAim.Radial, Speed = 6.5f, SpeedJitter = 0.55f, UpBias = 0.15f, Gravity = 2f, Drag = 2.2f,
-                Size = new CelCurve(0.026f, 0.012f), SizeJitter = 0.4f, Stretch = 0.04f, Erode = new CelCurve(0.05f, 0.5f), Palette = "electric_bolt_spark", Core = 1.6f, Extra = new Vector4(0.15f, 0.05f, 0.3f, 0f),
+                Size = new CelCurve(0.026f, 0.012f), SizeJitter = 0.4f, Stretch = 0.04f, Erode = new CelCurve(0.05f, 0.5f), Palette = "electric_bolt_spark", Core = 1f, Extra = new Vector4(0.15f, 0.05f, 0.3f, 0f),
             },
             new CelLayer
             {
                 // a few longer ones, flung further (the clip's spray has a few dashes out past the rest)
                 Name = "spray long", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = At(27f), Duration = At(110f) - At(27f), TimeJitter = 0.03f, Life = 0.22f, LifeJitter = 0.3f,
                 Close = 90, Mid = 30, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.15f, 0f, 0f), Aim = CelAim.Radial, Speed = 9f, SpeedJitter = 0.4f, UpBias = 0.25f, Gravity = 3f, Drag = 1.6f,
-                Size = new CelCurve(0.03f, 0.014f), SizeJitter = 0.3f, Stretch = 0.06f, Erode = new CelCurve(0.05f, 0.5f), Palette = "electric_bolt_spark", Core = 1.8f, Extra = new Vector4(0.15f, 0.05f, 0.2f, 0f),
+                Size = new CelCurve(0.03f, 0.014f), SizeJitter = 0.3f, Stretch = 0.06f, Erode = new CelCurve(0.05f, 0.5f), Palette = "electric_bolt_spark", Core = 1f, Extra = new Vector4(0.15f, 0.05f, 0.2f, 0f),
             });
 
         /// <summary>A ground flare's sparks, played at the flare: white with a trace of orange.</summary>
@@ -114,7 +125,7 @@ namespace TW.Presentation.VFX.Cel
                 {
                     Name = "flare sparks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = At(from), Duration = At(to) - At(from), TimeJitter = 0.03f, Life = 0.2f, LifeJitter = 0.4f,
                     Close = close, Mid = close / 3, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.12f, 0f, 0f), Aim = CelAim.Radial, Speed = 4.5f, SpeedJitter = 0.5f, UpBias = 0.9f, Gravity = 6f, Drag = 1.5f,
-                    Size = new CelCurve(0.02f, 0.01f), SizeJitter = 0.3f, Stretch = 0.05f, Erode = new CelCurve(0.05f, 0.5f), Palette = "electric_bolt_spark", Core = 1.8f, Extra = new Vector4(0.15f, 0.05f, 0.3f, 0f),
+                    Size = new CelCurve(0.02f, 0.01f), SizeJitter = 0.3f, Stretch = 0.05f, Erode = new CelCurve(0.05f, 0.5f), Palette = "electric_bolt_spark", Core = 1f, Extra = new Vector4(0.15f, 0.05f, 0.3f, 0f),
                 },
                 new CelLayer
                 {
@@ -200,14 +211,14 @@ namespace TW.Presentation.VFX.Cel
                 Dot(renderer, kind, now, At(23.2f), 0.1f, blob, LavenderRow, ElectricBoltKind.Wash, new Vector3(0.78f, 0.78f, 1f), 0.15f, 0.72f, 0.85f, 0.9f, ref rng);
                 Vector3 haze = Place(target, along, side, Haze);
                 haze.y = GroundAt(haze, haze.y) + 0.05f;
-                var hz = Rec(now, At(20f), At(26f) - At(20f), haze, LavenderRow, 0.35f, ref rng);
+                var hz = Rec(now, At(20f), At(26f) - At(20f), haze, LavenderRow, 0.15f, ref rng);
                 hz.Size = new Vector4(1.3f, 1.5f, 1f, -0.001f);
                 hz.Extra = new Vector4(ElectricBoltKind.Pool, 3.2f, 0f, 0f);
                 hz.Erode = new Vector4(0f, 0.6f, 2f, 0f);
                 renderer.Spawn(kind, hz);
             }
-            Dot(renderer, kind, now, At(25.5f), At(112f) - At(25.5f), blob, BoardRow, ElectricBoltKind.Bloom, new Vector3(0.75f, 0.8f, 1f), 2.4f, 0f, 0f, 0.4f, ref rng);
-            if (!far) Dot(renderer, kind, now, At(25.5f), At(112f) - At(25.5f), blob, BoardRow, ElectricBoltKind.Wash, new Vector3(0.78f, 0.78f, 1f), 0.15f, 0.72f, 0.85f, 0.45f, ref rng);
+            Dot(renderer, kind, now, At(25.5f), At(112f) - At(25.5f), blob, BoardRow, ElectricBoltKind.Bloom, new Vector3(0.75f, 0.8f, 1f), 2.4f, 0f, 0f, 1f, ref rng);
+            if (!far) Dot(renderer, kind, now, At(25.5f), At(112f) - At(25.5f), blob, BoardRow, ElectricBoltKind.Wash, new Vector3(0.78f, 0.78f, 1f), 0.15f, 0.72f, 0.85f, 0.25f, ref rng);
             {
                 // the blob: a new white-hot bloom every frame or so, uneven in size (it flickers)
                 int n = Count(90, far ? 0.15f : mid ? 0.5f : 1f, quality);
@@ -287,7 +298,7 @@ namespace TW.Presentation.VFX.Cel
                 Vector3 a = root + rng.InSphere() * 0.06f;
                 Vector3 b = tip + new Vector3(rng.Range(-0.45f, 0.45f), 0f, rng.Range(-0.45f, 0.45f));
                 b = OnGround(eye, b + Vector3.up * 0.3f, groundY);
-                var r = Rec(now, born, life, a, BoltRow, 1f, ref rng);
+                var r = Rec(now, born, life, a, ArcRow, 1f, ref rng);
                 r.Vel = (b - a) / life;
                 float w = rng.Jitter(width, 0.25f);
                 r.Size = new Vector4(w, w * 0.8f, 1f, i < 2 ? 0.45f : 0.2f);     // the first ones take longer to reach their tip
