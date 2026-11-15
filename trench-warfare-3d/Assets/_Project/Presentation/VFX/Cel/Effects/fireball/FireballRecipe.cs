@@ -70,7 +70,7 @@ namespace TW.Presentation.VFX.Cel
             C(0xE01802), C(0xE01802), C(0xFA2A04), C(0xFA640F), C(0xFA640F), 1.1f, 4, C(0x401004));
         // the spark rays: white with a pink edge
         static readonly int Ray = CelPalette.Add("fb_ray",
-            C(0xFF8C6E), C(0xFF8C6E), C(0xFF7858), C(0xFFF6EB), C(0xFFF6EB), 1.1f, 4, C(0x401004));
+            C(0xFF8C6E), C(0xFF8C6E), C(0xFF5A46), C(0xFFF6EB), C(0xFFF6EB), 1.1f, 4, C(0x401004));
         // the sparks that fall: orange (250,100,20) with a pale middle
         static readonly int Fall = CelPalette.Add("fb_fall",
             C(0xF03C08), C(0xF03C08), C(0xFA3E0E), C(0xFFD2A0), C(0xFFD2A0), 1.1f, 4, C(0x401004));
@@ -180,8 +180,8 @@ namespace TW.Presentation.VFX.Cel
             // ---- the hit: a white star of spikes over the young cloud for two drawings (clip frames 28-32)
             if (!far)
             {
-                var r = Rec(now, OnTwos(hit + 0.083f), 0.20f, FireballKind.Splat, heart - Vector3.up * 0.35f, Ray, 1f, ref rng);
-                r.Size = new Vector4(1.3f, 1.3f, 1f, 1f);
+                var r = Rec(now, OnTwos(hit + 0.083f), 0.20f, FireballKind.Splat, heart - Vector3.up * 0.45f, Ray, 1f, ref rng);
+                r.Size = new Vector4(2.0f, 2.0f, 1f, 1f);
                 r.Extra.y = CloudPull + 0.3f;    // in front of the cloud's card
                 renderer.Spawn(kind, r);
             }
@@ -199,7 +199,7 @@ namespace TW.Presentation.VFX.Cel
                 {
                     var r = Rec(now, OnTwos(born), 0.24f, FireballKind.Drop, heart + d * (reach + j * rng.Range(0.45f, 0.75f)), Ray, 1f, ref rng);
                     r.Vel = d * speed;
-                    r.Size = new Vector4(0.052f, 0.034f, 1f, rng.Range(0.022f, 0.044f));   // the stretch is seconds of its own motion (half its length)
+                    r.Size = new Vector4(0.060f, 0.040f, 1f, rng.Range(0.022f, 0.046f));   // the stretch is seconds of its own motion (half its length)
                     r.Extra.y = 2f;              // a leaf
                     renderer.Spawn(kind, r);
                 }
@@ -207,7 +207,7 @@ namespace TW.Presentation.VFX.Cel
 
             // ---- the fountain of sparks (clip frames 46-90): thrown out of the cloud's rim in arcs, short bright
             // dashes that fall as long thin embers.
-            int sparks = far ? 0 : mid ? 50 : 120;
+            int sparks = far ? 0 : mid ? 60 : 150;
             for (int i = 0; i < sparks; i++)
             {
                 float turn = rng.Range(-0.05f, 1.05f) * Mathf.PI;
@@ -216,7 +216,7 @@ namespace TW.Presentation.VFX.Cel
                     heart + d * rng.Range(1.6f, 2.6f), Fall, 1f, ref rng);
                 r.Vel = d * rng.Range(3f, 9f) + Vector3.up * rng.Range(1f, 4f);
                 r.Motion = new Vector4(17f, 0.9f, 0f, 0f);
-                r.Size = new Vector4(0.034f, 0.022f, 1f, rng.Range(0.024f, 0.052f));
+                r.Size = new Vector4(0.040f, 0.026f, 1f, rng.Range(0.024f, 0.052f));
                 r.Extra.y = 2f;
                 renderer.Spawn(kind, r);
             }

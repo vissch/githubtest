@@ -292,9 +292,10 @@ Shader "TW/Cel/Fireball"
                     float sl = X - a * 6.0 - ay * lerp(0.5, 0.8, up);
                     float g1 = CelSimplex3(float3(sl * 0.55, tk * 0.31, sd + lerp(7.7, 3.1, up)));
                     float g2 = CelSimplex3(float3(sl * 1.4 + 4.3, tk * 0.47, sd + lerp(5.3, 1.7, up)));
-                    float rows = 0.5 + 0.5 * (g1 * 0.62 + g2 * 0.38);    // a wavy edge of round lobes, not spikes
+                    float g3 = CelSimplex3(float3(sl * 3.1 - 2.0, tk * 0.71, sd + lerp(2.9, 6.1, up)));
+                    float rows = 0.5 + 0.5 * (g1 * 0.52 + g2 * 0.33 + g3 * 0.15);    // a wavy edge of round lobes, not spikes
                     float grow = smoothstep(0.2 * R, 2.2 * R, X);       // the head is smooth, the tail licks
-                    float edge = h * (0.86 + (lerp(0.62, 0.78, up) * rows - 0.30) * grow);
+                    float edge = h * (0.86 + (lerp(0.84, 1.00, up) * rows - 0.42) * grow);
                     float fTail = X > 0.0 ? (edge - ay) / max(edge, 1e-3) : -1.0;
                     fTail = min(fTail, (L - X) / (1.5 * R) + (rows - 0.6) * 0.5);
                     float fHead = 1.0 - length(float2(X, Y)) / R;
@@ -304,21 +305,21 @@ Shader "TW/Cel/Fireball"
                     float breakX = lerp(0.46, 0.20, saturate(a / T)) * L - after * 20.0;
                     float past = (X - breakX) / L;
                     float thr = saturate(past / 0.5) * 0.55 + after * 1.5;   // 0 whole .. 1 gone
-                    const float CellL = 0.46;
+                    const float CellL = 0.36;
                     float ci = floor(P / CellL), fb = -1.0;
                     [unroll] for (int n = -1; n <= 1; n++)
                     {
                         float id = ci + n;
                         float b1 = CelHash21(float2(id, sd + 1.0)), b2 = CelHash21(float2(id + 13.0, sd + 5.0)), b3 = CelHash21(float2(id + 29.0, sd + 9.0));
-                        float2 bc = float2((id + 0.3 + 0.4 * b1) * CellL, (b2 - 0.5) * 1.3 * h);
+                        float2 bc = float2((id + 0.3 + 0.4 * b1) * CellL, (b2 - 0.5) * 1.5 * h);
                         float rb = CellL * (0.86 - 0.76 * saturate(thr)) * (0.60 + 0.55 * b3);
-                        fb = max(fb, 1.0 - length(float2(P, Y) - bc) / max(rb, 1e-3));
+                        fb = max(fb, 1.0 - length(float2(P, Y) - bc) / max(rb, 1e-3) - 0.22 * (CelValue2(float2(P, Y) * 7.0 + id * 3.1) - 0.5));
                     }
                     float mixB = saturate(past / 0.10 + after * 4.0);
                     float f2 = max(f - mixB * 1.5, min(f + 0.25, fb));
                     al = saturate(f2 / max(fwidth(f2), 1e-4) + 0.5);
                     // bands: red rim, orange, yellow, and cream and white patches along it; cooler toward the end
-                    float heat = f2 * (1.0 - 0.80 * pow(u, 0.8)) * (1.0 - 0.35 * mixB);
+                    float heat = f2 * (1.0 - 0.80 * pow(u, 0.65)) * (1.0 - 0.50 * mixB);
                     float streak = CelValue2(float2((X - a * 9.0) * 0.50 + sd, Y / R * 1.9 + tk * 0.13)) * 0.7
                         + CelValue2(float2((X - a * 9.0) * 1.3 - sd, Y / R * 3.1 - tk * 0.21)) * 0.3 - 0.5;
                     float behind = exp(-pow((X - 0.9 * R) / (0.8 * R), 2.0)) * saturate(1.0 - ay / max(h, 1e-3));   // white behind the nose
@@ -367,7 +368,7 @@ Shader "TW/Cel/Fireball"
                 else if (mode < 2.5)
                 {
                     float tk = i.shape.x;
-                    al = Star(q, seed + tk * 0.137, 0.16, 0.80, 0.035, pix);
+                    al = Star(q, seed + tk * 0.137, 0.20, 0.92, 0.050, pix);
                     col = pale;
                 }
                 else if (mode < 6.5)
@@ -434,21 +435,21 @@ Shader "TW/Cel/Fireball"
                     float cool = saturate((Fl - 50.0) / 8.0);
                     float capT = smoothstep(45.0, 74.0, Fl);
                     float capA = (hb - 0.5) * 1.5;
-                    float dCap = length(nq - 0.45 * float2(sin(capA), cos(capA))) - 1.05 * capT + 0.30 * pop2 * cool;
+                    float dCap = length(nq - 0.45 * float2(sin(capA), cos(capA))) - 0.96 * capT + 0.36 * pop2 * cool;
                     float gain = lerp(1.0, 3.2, smoothstep(0.50, 1.0, capT));   // the crescent keeps its bands as it thins
                     float open = 1.0 - capT; open *= open; open *= open;
-                    float hv = min(dRim - 0.13 * cool, 1.4 * dCap + 3.0 * open) * gain + pop2 * smoothstep(0.0, 0.30, dRim) * 0.6;
+                    float hv = min(dRim - 0.10 * cool, 1.4 * dCap + 3.0 * open) * gain + pop2 * smoothstep(0.0, 0.30, dRim) * 0.6;
                     float hw2 = min(dOut, hv) + pop2 * smoothstep(0.0, 0.25, dOut);   // the white: each lobe's own middle, ragged
                     float ends = saturate((Fl - 80.0) / 9.0);                    // the last of the fire goes out
                     float tw = lerp(0.55, 0.26, saturate((Fl - 30.0) / 6.0)) + 0.74 * saturate((Fl - 45.0) / 12.0);
-                    float ty = 0.09 + 0.36 * saturate((Fl - 45.0) / 11.0) + 0.17 * saturate((Fl - 56.0) / 10.0) + ends;
+                    float ty = 0.09 + 0.36 * saturate((Fl - 45.0) / 11.0) + 0.17 * saturate((Fl - 56.0) / 10.0) + 0.50 * saturate((Fl - 63.0) / 8.0) + ends;   // the yellow licks are gone by f70: the crescents burn red
                     float to = 0.02 + 0.22 * saturate((Fl - 45.0) / 10.0) + 0.32 * saturate((Fl - 64.0) / 20.0) + ends;
                     float tr = min(to - 0.11 * saturate((Fl - 45.0) / 5.0) - 0.09 * saturate((Fl - 55.0) / 6.0), 0.24) + ends;
                     // what is not burning: a red-brown line while it is hot, then char, then brown smoke
                     uint rowB = CelRowB(i.tone.x);
                     half3 charC = CelPal(rowB, 0), crease = CelPal(rowB, 1), smokeA = CelPal(rowB, 2), smokeB = CelPal(rowB, 3);
                     half3 shell = lerp(ink, charC, saturate((Fl - 50.0) / 6.0));
-                    shell = lerp(shell, smokeA, saturate((Fl - 61.0) / 10.0));
+                    shell = lerp(shell, smokeA, saturate((Fl - 63.0) / 10.0));
                     shell = lerp(shell, smokeB, saturate((Fl - 76.0) / 12.0));
                     // smoke is lumpy: soft darker hollows in each lobe, and a crease of uneven width where it lies
                     // on the next
