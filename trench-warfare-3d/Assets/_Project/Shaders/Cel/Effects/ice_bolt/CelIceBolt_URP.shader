@@ -250,7 +250,7 @@ Shader "TW/Cel/IceBolt"
                         // small dark gaps between them
                         float n4 = CelValue2(qv * 23.0 + float2(sd * 17.0 + tick * 0.21, sd * 5.0 - tick * 0.13));
                         float grain = 0.6 * n3 + 0.4 * n4;
-                        cloud *= lerp(0.55, 1.25, grain);
+                        cloud *= lerp(1.0, lerp(0.55, 1.25, grain), smoothstep(0.0, 0.4, t));
                         cloud *= saturate((grain + 0.55 - t * 0.75) * 3.0);
                         float holes = saturate((0.6 * n2 + 0.4 * n3 + 0.75 - thr * 1.3) * 4.0);
                         cloud = saturate(cloud) * (1.0 - thr) * holes;
