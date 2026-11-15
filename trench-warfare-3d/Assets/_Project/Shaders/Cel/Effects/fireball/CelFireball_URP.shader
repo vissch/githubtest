@@ -858,8 +858,33 @@ Shader "TW/Cel/Fireball"
                     float tk = i.shape.x, fray = i.shape.y, lit = i.shape.z;
                     float f = Puff(q, seed, tk);
                     float n = CelValue2(q * 2.6 + seed * 13.0 + tk * 0.11) * 0.6 + CelValue2(q * 6.5 + seed * 5.0 - tk * 0.07) * 0.4 - 0.5;
-                    float strand = CelValue2(float2(q.x * 8.0 + seed * 19.0, q.y * 1.6 - tk * 0.09)) - 0.5;   // upright tatters
-                    float cut = f + 0.20 * n + (0.05 + 0.22 * fray) * strand - fray * 0.34;   // it thins from its rim inward as it ages
+                    // a35: the PUFF'S SILHOUETTE, shape only - the one defect a32's reader marked [worse].
+                    // MEASURED first, on a plate-difference mask with NO luminance floor (tools/_fb_puff.py):
+                    // our late puff outline is too SMOOTH and too CONVEX, not too rough. circ = 4*pi*A/P^2 on
+                    // isolated puffs, clip | a34: f100 0.324 | 0.505, f104 0.390 | 0.639 - the clip's outline
+                    // carries about 1.4x the perimeter for the same area - and fill-over-convex-hull 0.785 |
+                    // 0.836 and 0.805 | 0.929. The clip's puff is a CHAIN OF CONVEX FLORETS with narrow notches
+                    // cut between them; ours is one rounded blob. Two terms, both in the cut field only.
+                    // (a) `strand` was float2(q.x * 8.0, q.y * 1.6): eight cycles ACROSS the puff against 1.6
+                    // DOWN it, so over a puff whose q.y spans about -1..1 it is nearly constant down the frame
+                    // and varies only across it - a vertical-STRIPE field, which at the cut = 0 threshold slices
+                    // the outline into STRAIGHT VERTICAL CHORDS. Near-isotropic now, so the tatters stop
+                    // aligning; its weight (0.05 + 0.22 * fray) is unchanged.
+                    // (b) `groove`: a ONE-SIDED cut at the floret scale, zero over about 60 % of the field and
+                    // never able to add (a25 proved a symmetric term inside a rectified field biases the wrong
+                    // way; a26's coreCut is one-sided for the same reason), weighted by `rimw` so it bites only
+                    // near the outline. Notches between arcs, never a hole through the middle of a puff - a hole
+                    // would show night sky and make the reader's "holes punched in the sky" reading WORSE.
+                    // NOT TOUCHED, deliberately: the edge width of `al`. The same measurement reads edge_px
+                    // 1.07/1.00/1.11 on the clip against our 1.14/1.01/0.92 - our rim is ALREADY as hard as the
+                    // clip's, so the reader's "hard-edged" is refuted as a difference and the diagnosis's third
+                    // knob has no measured basis. Nor is anything here a colour: `n` keeps its coefficient, and
+                    // `strand`, `groove` and `rimw` appear in `cut` and nowhere else. The smoke's DARKNESS
+                    // (mean luminance 24.5 against the clip's 65.0) is the gamma fault and the OWNER'S CALL.
+                    float strand = CelValue2(float2(q.x * 5.0 + seed * 19.0, q.y * 4.2 - tk * 0.09)) - 0.5;   // tatters, no longer stripes
+                    float groove = saturate((CelValue2(q * 7.6 + seed * 43.0) - 0.60) / 0.40);                // the floret notches, one-sided
+                    float rimw = 1.0 - saturate(f / 0.22);                                                    // 1 at the outline, 0 deep inside
+                    float cut = f + 0.20 * n + (0.05 + 0.22 * fray) * strand - 0.15 * groove * rimw - fray * 0.34;   // it thins from its rim inward as it ages
                     al = smoothstep(0.0, 0.06, cut);                    // smoke: no line round it, a ragged edge
                     // lit from below in its first moments (the acid under it), then its own green, a tone down as it
                     // ages; one that stays lit keeps the light tone, its underside its own green
