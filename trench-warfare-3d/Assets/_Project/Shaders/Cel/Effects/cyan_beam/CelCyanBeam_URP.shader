@@ -296,25 +296,31 @@ Shader "TW/Cel/CyanBeam"
                     float t = tick / 12.0;
                     float up = (across - centerline) * input.centerRadius.x;
                     float braidSalt = input.shape.z * 61.0;
-                    float bunch = lerp(0.35, 1.0, saturate((1.0 - along) * 5.0));
+                    // e02: e01's strands twisted like a tight rope (a crossing every ~150 px near the eye, kinks from the
+                    // second harmonic) and looped into rings near the dummy. The clip's run long and smooth across the
+                    // whole width and MERGE into one white core over the last stretch toward the dummy.
+                    float merge = smoothstep(0.50, 0.90, along);
                     float strand = 0.0, sheen = 0.0;
                     [unroll] for (int k = 0; k < 4; k++)
                     {
                         float kk = k + 1.0;
-                        float wavelength = 1.3 + 1.5 * CelHash21(float2(kk, braidSalt + 3.0));
-                        float amp = (0.32 + 0.42 * CelHash21(float2(kk, braidSalt + 7.0))) * bunch;
+                        float wavelength = 4.0 + 4.0 * CelHash21(float2(kk, braidSalt + 3.0));
+                        float amp = (0.45 + 0.40 * CelHash21(float2(kk, braidSalt + 7.0))) * (1.0 - 0.92 * merge);
                         float phase = 6.28318 * CelHash21(float2(kk, braidSalt + 11.0));
                         float drift = (0.6 + 0.9 * CelHash21(float2(kk, braidSalt + 13.0))) * ((k % 2) == 0 ? 1.0 : -1.0);
-                        float wave = sin(6.28318 * metres / wavelength + phase + t * drift * 2.2)
-                            + 0.35 * sin(6.28318 * metres / (wavelength * 0.41) + phase * 1.7 - t * 3.1);
-                        float track = amp * wave / 1.35;
-                        float pinch = 0.5 + 0.5 * sin(6.28318 * metres / (wavelength * 0.77) + phase * 2.3 + t * 1.3);
-                        float thick = 0.07 + 0.09 * pinch;
+                        float wave = sin(6.28318 * metres / wavelength + phase + t * drift * 1.6)
+                            + 0.12 * sin(6.28318 * metres / (wavelength * 0.37) + phase * 1.7 - t * 2.4);
+                        float track = amp * wave / 1.12;
+                        float pinch = 0.5 + 0.5 * sin(6.28318 * metres / (wavelength * 0.61) + phase * 2.3 + t * 1.1);
+                        float thick = 0.10 + 0.10 * pinch;
                         float strandDistance = abs(across - centerline - track);
                         strand = max(strand, 1.0 - CelAAStep(thick, strandDistance));
-                        sheen = max(sheen, 1.0 - CelAAStep(thick + 0.09 + 0.07 * pinch, strandDistance));
+                        sheen = max(sheen, 1.0 - CelAAStep(thick + 0.10 + 0.06 * pinch, strandDistance));
                     }
-                    float patchNoise = CelValue2(float2(metres * 0.85 - t * 1.4, up * 2.4 + braidSalt));
+                    // the merged core toward the dummy: one white band about a third of the width, a pale sheen round it
+                    strand = max(strand, (1.0 - CelAAStep(0.34 * merge, distanceAxis)) * step(0.02, merge));
+                    sheen = max(sheen, (1.0 - CelAAStep(0.55 * merge, distanceAxis)) * step(0.02, merge));
+                    float patchNoise = CelValue2(float2(metres * 0.45 - t * 1.1, up * 2.2 + braidSalt));
                     float lowEdge = smoothstep(-0.30, -0.85, up);
                     float deep = max(CelAAStep(0.55, lowEdge + 0.35 * patchNoise), CelAAStep(0.70, patchNoise)) * (1.0 - sheen);
                     float fill = 1.0 - CelAAStep(halfWidth, distanceAxis);

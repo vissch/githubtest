@@ -12,10 +12,11 @@ namespace TW.Presentation.VFX.Cel
 
         // e01: the braid's tones, as the shader has to write them for the Range to show the clip's (e00cal swatch
         // film): c0 deep blue (58,145,212), c1 cyan fill (88,215,235), c2 pale sheen (199,246,248), c3 white
-        // (248,250,251); the core (the arcs) a cool white. Was 3061EA/267CFF/54F5F7/79FAFF + (0.64,1,1.55) x 2.3,
+        // (248,250,251); the core (the arcs) a cool white. e02 from the e01 film: fill 97DFE8 -> 8EE6EC (showed
+        // (99,194,226)), sheen CBEFF9 -> CBF6FF (showed (202,230,226)), white DFEAFC -> DAE7FC (showed (239,249,227)). Was 3061EA/267CFF/54F5F7/79FAFF + (0.64,1,1.55) x 2.3,
         // which showed as cream (226,235,219) and a cyan of (30,202,221).
         public static readonly int BeamRow = CelPalette.Add("cyan_beam_shaft",
-            CelPalette.Hex(0x81B6DB), CelPalette.Hex(0x97DFE8), CelPalette.Hex(0xCBEFF9), CelPalette.Hex(0xDFEAFC),
+            CelPalette.Hex(0x81B6DB), CelPalette.Hex(0x8EE6EC), CelPalette.Hex(0xCBF6FF), CelPalette.Hex(0xDAE7FC),
             CelPalette.Hex(0xB0D8F0), 0.4f, 4, CelPalette.Hex(0x03111B));
         public static readonly int HitRow = CelPalette.Add("cyan_beam_hit",
             CelPalette.Hex(0x159FC4), CelPalette.Hex(0x45EAF2), CelPalette.Hex(0x85FFFF), CelPalette.Hex(0xC4FFFF),
