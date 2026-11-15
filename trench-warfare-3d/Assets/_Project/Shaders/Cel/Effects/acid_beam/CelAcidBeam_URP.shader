@@ -604,10 +604,12 @@ Shader "TW/Cel/AcidBeam"
                         d = lerp(d, 0.80 - 0.62 * border, smoothstep(0.0, 0.45, starve));
                         // (b07) its end pales into a fan of yellow where it goes in (the clip's pale-yellow heart, f40-84)
                         d *= 1.0 - 0.55 * smoothstep(0.86, 1.0, kS) * (1.0 - starve);
-                        col = lerp(rim, shade, 1.0 - Step(0.75, d, pd));
-                        col = lerp(col, body, 1.0 - Step(0.45, d, pd));
-                        col = lerp(col, light, 1.0 - Step(0.30, d, pd));
-                        col = lerp(col, hot, 1.0 - Step(0.10, d, pd));
+                        // (b10: a thin lime band only - the clip's streaks are yellow against green; b09's broad lime
+                        // band took the contrast out)
+                        col = lerp(rim, shade, 1.0 - Step(0.72, d, pd));
+                        col = lerp(col, body, 1.0 - Step(0.33, d, pd));
+                        col = lerp(col, light, 1.0 - Step(0.26, d, pd));
+                        col = lerp(col, hot, 1.0 - Step(0.08, d, pd));
                         // pale streaks in its yellow, flowing with it
                         float sk = Streaks(float2(u * 7.0 + seed * 3.0, e / 0.045 + seed * 5.0), seed, 0.55, 0.30, pixX * 3.5);
                         col = lerp(col, streak, sk * (1.0 - smoothstep(0.18, 0.32, d)));

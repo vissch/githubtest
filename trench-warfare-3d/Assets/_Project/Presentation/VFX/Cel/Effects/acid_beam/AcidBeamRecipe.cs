@@ -246,15 +246,37 @@ namespace TW.Presentation.VFX.Cel
 
             // ---- glossy blobs that bud off the beam's top near its head and hang back as it goes on (frames 20-48)
             // (b02's trailed at the frame's edge as small balls: the clip's are big and sit on the beam's top)
-            int blobs = Count(18, n);
+            // (b10: budding all along its top as the head goes by, light green inside, the big ones near the eye - b02-b09's
+            // came out of the nozzle and clumped at the frame's left edge like peas in a pod)
+            int blobs = Count(24, n);
             for (int i = 0; i < blobs; i++)
             {
-                float rad = rng.Range(0.25f, 0.60f);
-                var r = Rec(now, delay + rng.Range(0.02f, 0.45f), rng.Range(0.6f, 1.1f), AcidBeamKind.Drop, nozzle + Vector3.up * HalfNozzle * 0.75f, Bubble, 1f, ref rng);
-                r.Vel = vel * rng.Range(0.85f, 1.0f) + Vector3.up * rng.Range(0.5f, 2.0f) + across * rng.Range(-1.0f, 1.0f);
-                r.Motion = new Vector4(3f, 3.2f, 0f, 0f);
-                r.Size = new Vector4(rad * 0.7f, rad, 0.6f, 0.012f);
+                float u = rng.Range(0.18f, 0.85f);
+                float rad = rng.Range(0.22f, 0.50f) * Mathf.Lerp(1.4f, 0.7f, u);
+                Vector3 at = Along(nozzle, target, flight * u) + Vector3.up * (Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.55f + rad * 0.3f) + across * rng.Range(-0.3f, 0.3f);
+                var r = Rec(now, delay + flight * u + rng.Range(0.03f, 0.30f), rng.Range(0.5f, 0.9f), AcidBeamKind.Drop, at, LumpBubble, 1f, ref rng);
+                r.Vel = vel * rng.Range(0.04f, 0.10f) + Vector3.up * rng.Range(0.3f, 1.2f) + across * rng.Range(-0.5f, 0.5f);
+                r.Motion = new Vector4(1.5f, 2.0f, 0f, 0f);
+                r.Size = new Vector4(rad * 0.6f, rad, 0.6f, 0.05f);
+                r.Erode = new Vector4(rng.Next() < 0.4f ? 1f : 0f, 0f, 0f, 0f);
                 r.Extra.y = 3f;
+                renderer.Spawn(kind, r);
+            }
+            // ... and goo dripping under it near the eye as the head goes by (frames 24-48; b10: the clip's hang 100-150 px)
+            int drips = Count(14, n);
+            for (int i = 0; i < drips; i++)
+            {
+                float u = rng.Range(0.18f, 0.6f);
+                float rad = rng.Range(0.18f, 0.40f) * Mathf.Lerp(1.3f, 0.8f, u);
+                Vector3 at = Along(nozzle, target, flight * u) - Vector3.up * (Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.55f) + across * rng.Range(-0.3f, 0.3f);
+                var r = Rec(now, delay + flight * u + rng.Range(0.05f, 0.50f), rng.Range(0.35f, 0.6f), AcidBeamKind.Drop, at, Splash, 1f, ref rng);
+                r.Vel = vel * rng.Range(0.08f, 0.15f) + Vector3.down * rng.Range(0.3f, 1.2f);
+                r.Motion = new Vector4(4f, 1.5f, 0f, 0f);
+                r.Size = new Vector4(rad * 0.8f, rad * 0.5f, 0.6f, rng.Range(0.12f, 0.2f));
+                float t = rng.Next();
+                r.Tone.w = t < 0.4f ? 1f : t < 0.8f ? 2f : 3f;
+                r.Erode = new Vector4(rng.Next() < 0.3f ? 1f : 0f, 0f, 0f, 0f);
+                r.Extra.y = 6f;
                 renderer.Spawn(kind, r);
             }
 
@@ -355,7 +377,7 @@ namespace TW.Presentation.VFX.Cel
                 d -= away * (Vector3.Dot(d, away) * 0.5f);
                 d = (d + dir * 0.7f + Vector3.up * 0.45f).normalized;
                 float rad = 0.30f + 0.55f * rng.Next();
-                Vector3 at = target + Vector3.up * rng.Range(-0.6f, 1.0f) + right * rng.Range(-1.2f, 1.6f) + dir * rng.Range(0f, 0.6f) - away * rng.Range(-0.3f, 0.8f);
+                Vector3 at = target + Vector3.up * rng.Range(-0.6f, 1.0f) + right * rng.Range(-1.0f, 1.3f) + dir * rng.Range(0f, 0.6f) - away * rng.Range(-0.3f, 0.8f);
                 Vector3 o = at - target;
                 o -= away * Vector3.Dot(o, away);
                 bool green = rng.Next() < (Vector3.Dot(o, right) > 0.3f ? 0.6f : 0.2f);
@@ -375,9 +397,16 @@ namespace TW.Presentation.VFX.Cel
             int tongues = far ? 0 : mid ? 80 : 200;
             for (int i = 0; i < tongues; i++)
             {
-                Vector3 at = target + Vector3.up * rng.Range(-0.5f, 0.9f) + right * rng.Range(-1.0f, 1.4f) + dir * rng.Range(0f, 0.5f) - away * rng.Range(-0.2f, 0.7f);
+                Vector3 at = target + Vector3.up * rng.Range(-0.5f, 0.9f) + right * rng.Range(-0.8f, 1.1f) + dir * rng.Range(0f, 0.5f) - away * rng.Range(-0.2f, 0.7f);
                 bool green = rng.Next() < (Vector3.Dot(at - target, right) > 0.3f ? 0.45f : 0.15f);
                 Tongue(renderer, kind, now, AtFrame(late, rng.Range(40f, 94f)), at, target, away, green, ref rng);
+            }
+            // ... and late in it, tongues shooting up out of the mass (frames 74-96: the clip's splash grows 4-5 m tall; b10)
+            int rising = far ? 0 : mid ? 30 : 70;
+            for (int i = 0; i < rising; i++)
+            {
+                Vector3 at = target + Vector3.up * rng.Range(0.4f, 2.4f) + right * rng.Range(-1.0f, 1.2f) - away * rng.Range(-0.2f, 0.6f);
+                Tongue(renderer, kind, now, AtFrame(late, rng.Range(74f, 96f)), at, target - Vector3.up * 1.5f, away, rng.Next() < 0.3f, ref rng);
             }
             // ... round a hot core where the beam goes in: a small pale star, new on every drawing (frames 35-93)
             if (!far)
@@ -539,10 +568,10 @@ namespace TW.Presentation.VFX.Cel
                 // (b08: the clip's first smoke is low on the beam's top at frame 40 and small, a soft band on it by f60,
                 // big see-through wisps by f84; b02-b07's rose as opaque puffs from the head's pass, 1 m over the beam)
                 float lo = Mathf.Max(pass + 0.25f, AtFrame(late, 40f));
-                float at = rng.Range(lo, Mathf.Max(lo, AtFrame(late, 80f)));
+                float at = rng.Range(lo, Mathf.Max(lo, AtFrame(late, 74f)));
                 Vector3 on = Vector3.Lerp(nozzle, target, u) + Vector3.up * (Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.6f + 0.35f);
                 float size = rng.Range(0.8f, 1.3f);
-                var r = Rec(now, at, rng.Range(1.0f, 1.5f), AcidBeamKind.Puff, on, Fume, FumeOpacity * 0.9f, ref rng);
+                var r = Rec(now, at, rng.Range(0.8f, 1.2f), AcidBeamKind.Puff, on, Fume, FumeOpacity * 0.9f, ref rng);   // (b10: done by f100)
                 r.Vel = Vector3.up * rng.Range(1.4f, 2.2f) + dir * rng.Range(0.0f, 0.5f);   // (b09: b08's 0.7-1.5 hugged the beam)
                 r.Motion = new Vector4(0f, 0.6f, 0f, 0f);
                 r.Size = new Vector4(size * 0.45f, size * 2.0f, 0.7f, 1f);
