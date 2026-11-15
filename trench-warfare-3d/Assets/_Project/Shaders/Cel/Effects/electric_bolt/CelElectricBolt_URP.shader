@@ -386,16 +386,26 @@ Shader "TW/Cel/ElectricBolt"
                 }
                 float thr = max(i.tone.w, 0.02);
                 float mask = max(CelAAStep(thr, field), CelAAStep(0.3, br));
-                float v = max(field * bright, br * 0.8);
+                // the clip's cross-section: a white core over most of the width with a pale cyan band and a cyan-blue
+                // band about a pixel each at its edge (f36-f100: core, 1 px (174,221,242), 2 px (122,173,209)). The
+                // ramp's two bands split at 0.5 and the core comes at 0.62, so the field is remapped for them to fall on
+                // the outer 1.2 and 2.4 px of the local half-width, however wide the bolt is there
+                float px = onePx / max(prof, 1e-3);
+                float e1 = min(px * 1.2, 0.3), e2 = min(px * 2.4, 0.5);
+                float fr = field < e1 ? 0.5 * field / e1
+                         : field < e2 ? lerp(0.5, 0.62, (field - e1) / max(e2 - e1, 1e-4))
+                         : lerp(0.62, 1.0, (field - e2) / max(1.0 - e2, 1e-4));
+                float v = max(fr * bright, br * 0.8);
                 half3 body = CelRamp(v, row, i.tone.y);
                 body = MixFog(body, i.more.x);
                 float cover = mask * saturate(i.tone.z * 1.4);
-                // the bloom: saturated blue light round it, a slow fall over ~3 half-widths (the clip's lift at 1, 5 and
-                // 12 px out of a near bolt: (38,86,131), (16,47,89), (10,24,50)), fading before the ribbon's edge
+                // the bloom: a pale rim right at the body (c1, falling in a fifth of a half-width) and the wide saturated
+                // blue light round it (c0, over 1.3 half-widths), fading before the ribbon's edge. Fitted to a near bolt
+                // of the clip, 1, 2, 6 and 13 px out of its body: (85,139,187), (54,101,153), (32,62,111), (26,39,72)
                 float outside = max(dy - prof, 0.0);
-                float bloom = exp(-outside / 2.0) * (1.0 - mask) * saturate((BOLT_PAD - 0.5 - abs(y)) * 0.5) * step(0.02, prof);
-                if (!arc) bloom *= smoothstep(0.0, 0.3, a);
-                half3 add = CelPal(row, 0) * bloom * i.tone.z;
+                float keepB = (1.0 - mask) * saturate((BOLT_PAD - 0.5 - abs(y)) * 0.5) * step(0.02, prof);
+                if (!arc) keepB *= smoothstep(0.0, 0.3, a);
+                half3 add = (CelPal(row, 1) * exp(-outside / 0.2) + CelPal(row, 0) * exp(-outside / 1.33)) * keepB * i.tone.z;
                 add = AddFog(add, i.positionWS, i.more.x, i.more.y);
                 half3 col = body * cover + add;
                 return half4(Unvignette(col, i.positionCS.xy, 1.0), cover);

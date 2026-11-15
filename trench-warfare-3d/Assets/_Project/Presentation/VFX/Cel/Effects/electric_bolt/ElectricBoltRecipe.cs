@@ -57,15 +57,16 @@ namespace TW.Presentation.VFX.Cel
         // to go on top of the clip's plate there.
         static Color S(float r, float g, float b) => new Color(Mathf.LinearToGammaSpace(r), Mathf.LinearToGammaSpace(g), Mathf.LinearToGammaSpace(b), 1f);
 
-        /// <summary>The bolts: c0 the blue bloom added round them (the clip's (53,110,174) over a plate of (18,20,28)
-        /// at the eye, (57,108,170) over (34,39,50) by the dummy), c2 the cyan-blue edge band (116,173,219), c3 pale cyan
-        /// (175,226,252), the white core (224,252,255) over 0.62. c1 is unused (two bands).</summary>
+        /// <summary>The bolts: c2 the cyan-blue edge band (116,173,219), c3 pale cyan (175,226,252), the white core
+        /// (224,252,255) over 0.62; the bloom added round them is c1, a pale rim right at the body, and c0, the wide
+        /// saturated blue (fitted to a near bolt's glow over the clip's plate of (16,15,22): see the shader's bloom).</summary>
         public static readonly int BoltRow = CelPalette.Add("electric_bolt",
-            S(0.095f, 0.23f, 0.37f), S(0.25f, 0.439f, 0.615f), S(0.359f, 0.535f, 0.698f), S(0.509f, 0.757f, 0.876f), S(0.574f, 0.929f, 0.925f), 0.62f, 2, S(0f, 0f, 0f));
+            S(0.082f, 0.232f, 0.406f), S(0.239f, 0.253f, 0.148f), S(0.359f, 0.535f, 0.698f), S(0.509f, 0.757f, 0.876f), S(0.574f, 0.929f, 0.925f), 0.62f, 2, S(0f, 0f, 0f));
         /// <summary>The arcs: greyer than the bolts (the clip's (119,172,204), (183,223,242), a core of (236,250,255));
-        /// their bloom (61,110,145) over (26,28,39).</summary>
+        /// their bloom (c1 the rim, c0 the wide part) fitted to (86,142,178) next to them, (46,77,104) further out, over
+        /// the ground's (26,28,39).</summary>
         public static readonly int ArcRow = CelPalette.Add("electric_bolt_arc",
-            S(0.13f, 0.245f, 0.275f), S(0.25f, 0.42f, 0.53f), S(0.368f, 0.532f, 0.638f), S(0.54f, 0.742f, 0.818f), S(0.611f, 0.915f, 0.925f), 0.62f, 2, S(0f, 0f, 0f));
+            S(0.145f, 0.288f, 0.316f), S(0.119f, 0.13f, 0.174f), S(0.368f, 0.532f, 0.638f), S(0.54f, 0.742f, 0.818f), S(0.611f, 0.915f, 0.925f), 0.62f, 2, S(0f, 0f, 0f));
         /// <summary>The hit's flickering blob and the flares (all added on top): a white-hot core (the clip's
         /// (239,252,255) over the board's (43,45,55), with the steady glow under it), c2 + c3 the light round it.</summary>
         public static readonly int HitRow = CelPalette.Add("electric_bolt_hit",
