@@ -169,12 +169,14 @@ namespace TW.Presentation.VFX.Cel
             {
                 Vector3 foot = ground - dir * 1.6f;
                 foot.y = Ground(foot) + 1f;
-                Glow(renderer, kind, now, AtFrame(late, 24f), AtFrame(late, 100f), foot, across, 6.5f, 6.5f, 6.5f, 0.8f, 0.75f, GlowInto, GlowAdd, 0.25f, 0.20f, true, seed);
+                // (b13: from frame 29 and tighter, little on the far side - the clip's ground is dark at f26 and its pool at
+                // f42 lies under the hit with a dark patch right of the target; b01-b12 washed the whole ground from f24)
+                Glow(renderer, kind, now, AtFrame(late, 29f), AtFrame(late, 100f), foot, across, 4.8f, 4.8f, 4.8f, 0.35f, 0.8f, GlowInto, GlowAdd, 0.25f, 0.20f, true, seed);
                 // ... under the near half of the beam while it runs (frames 23-96; b01 lit the near ground too much,
                 // too soon) ...
                 Vector3 under = Vector3.Lerp(nozzle, target, 0.70f);
                 under.y = Ground(under) + 1f;
-                Glow(renderer, kind, now, AtFrame(late, 23f), AtFrame(late, 96f), under, across, 6f, 6f, 6f, 1f, far ? 0.2f : mid ? 0.3f : 0.4f, GlowInto, GlowAdd * 1.3f, 0.20f, 0.15f, true, seed);
+                Glow(renderer, kind, now, AtFrame(late, 26f), AtFrame(late, 96f), under, across, 6f, 6f, 6f, 1f, far ? 0.2f : mid ? 0.25f : 0.32f, GlowInto, GlowAdd * 1.3f, 0.20f, 0.15f, true, seed);
                 // ... the puddle's own glow after it, kept low so it does not light the target's head (frames 98-165) ...
                 Vector3 after = ground + right * PuddleRight;
                 after.y = Ground(after) + 0.4f;
@@ -254,12 +256,14 @@ namespace TW.Presentation.VFX.Cel
             int blobs = Count(14, n);                                    // (b11: b10's 24 equal ones read as a caterpillar)
             for (int i = 0; i < blobs; i++)
             {
-                float u = rng.Range(0.18f, 0.85f);
+                float u = 0.16f + 0.70f * Mathf.Pow(rng.Next(), 1.4f);   // (more near the eye)
                 float hb = rng.Next();
-                float rad = (0.15f + 0.45f * hb * hb) * Mathf.Lerp(1.4f, 0.7f, u);
-                Vector3 at = Along(nozzle, target, flight * u) + Vector3.up * (Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.55f + rad * 0.3f) + across * rng.Range(-0.3f, 0.3f);
-                var r = Rec(now, delay + flight * u + rng.Range(0.03f, 0.30f), rng.Range(0.5f, 0.9f), AcidBeamKind.Drop, at, LumpBubble, 1f, ref rng);
-                r.Vel = vel * rng.Range(0.04f, 0.10f) + Vector3.up * rng.Range(0.3f, 2.2f) + across * rng.Range(-0.5f, 0.5f);   // (some lift off it)
+                float rad = (0.18f + 0.50f * hb * hb) * Mathf.Lerp(1.5f, 0.7f, u);
+                Vector3 at = Along(nozzle, target, flight * u) + Vector3.up * (Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.45f + rad * 0.2f) + across * rng.Range(-0.3f, 0.3f);
+                // (b13: born as the head goes by and sitting on its top, bulging out of it - b10-b12's came late, small,
+                // floating over it; the clip's are 100+ px near the eye on f23-27)
+                var r = Rec(now, delay + flight * u + rng.Range(0.0f, 0.12f), rng.Range(0.5f, 0.9f), AcidBeamKind.Drop, at, LumpBubble, 1f, ref rng);
+                r.Vel = vel * rng.Range(0.04f, 0.10f) + Vector3.up * (hb < 0.7f ? rng.Range(0.1f, 0.7f) : rng.Range(1.2f, 2.2f)) + across * rng.Range(-0.5f, 0.5f);   // (a few lift off it)
                 r.Motion = new Vector4(1.5f, 2.0f, 0f, 0f);
                 r.Size = new Vector4(rad * 0.6f, rad, 0.6f, 0.05f);
                 r.Erode = new Vector4(rng.Next() < 0.4f ? 1f : 0f, 0f, 0f, 0f);
@@ -270,8 +274,8 @@ namespace TW.Presentation.VFX.Cel
             int drips = Count(14, n);
             for (int i = 0; i < drips; i++)
             {
-                float u = rng.Range(0.18f, 0.6f);
-                float rad = rng.Range(0.18f, 0.40f) * Mathf.Lerp(1.3f, 0.8f, u);
+                float u = rng.Range(0.16f, 0.5f);
+                float rad = rng.Range(0.28f, 0.60f) * Mathf.Lerp(1.3f, 0.8f, u);   // (b13: the clip's hang 100-150 px near the eye)
                 Vector3 at = Along(nozzle, target, flight * u) - Vector3.up * (Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.55f) + across * rng.Range(-0.3f, 0.3f);
                 var r = Rec(now, delay + flight * u + rng.Range(0.05f, 0.50f), rng.Range(0.35f, 0.6f), AcidBeamKind.Drop, at, Splash, 1f, ref rng);
                 r.Vel = vel * rng.Range(0.08f, 0.15f) + Vector3.down * rng.Range(0.3f, 1.2f);
@@ -414,11 +418,11 @@ namespace TW.Presentation.VFX.Cel
             }
             // ... and big slow sheets of goo over the target as the beam runs out (frames 84-96: the clip's mass turns from
             // spikes to flowing green goo before it sinks to the lump; b12)
-            int goo = far ? 0 : mid ? 24 : 60;
+            int goo = far ? 0 : mid ? 12 : 30;                           // (b13: b12's 60 light ones read as a pale bush)
             for (int i = 0; i < goo; i++)
             {
                 float rad = rng.Range(0.5f, 0.9f);
-                bool green = rng.Next() < 0.5f;
+                bool green = rng.Next() < 0.85f;
                 Vector3 at = target + Vector3.up * rng.Range(-0.6f, 2.4f) + right * rng.Range(-1.4f, 1.6f) - away * rng.Range(-0.2f, 0.8f);
                 var r = Rec(now, AtFrame(late, rng.Range(84f, 96f)), rng.Range(0.25f, 0.45f), AcidBeamKind.Drop, at, green ? Sheet : Splash, 1f, ref rng);
                 Vector3 o = at - target;
@@ -427,7 +431,7 @@ namespace TW.Presentation.VFX.Cel
                 r.Motion = new Vector4(1.5f, 1.5f, 0f, 0f);
                 r.Size = new Vector4(rad * 0.8f, rad, 0.6f, rng.Range(0.2f, 0.4f));
                 float t = rng.Next();
-                r.Tone.w = green ? (t < 0.4f ? 1f : t < 0.85f ? 2f : 3f) : (t < 0.3f ? 1f : t < 0.65f ? 2f : t < 0.9f ? 3f : 4f);
+                r.Tone.w = green ? (t < 0.45f ? 1f : t < 0.9f ? 2f : 3f) : (t < 0.3f ? 1f : t < 0.65f ? 2f : t < 0.9f ? 3f : 4f);
                 r.Erode = new Vector4(rng.Next() < 0.4f ? 1f : 0f, 0f, 0f, 0f);
                 r.Extra.y = 6f;
                 renderer.Spawn(kind, r);

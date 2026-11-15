@@ -146,12 +146,13 @@ Shader "TW/Cel/AcidBeam"
                     side *= side.y >= 0.0 ? 1.0 : -1.0;                 // up the screen
                     float3 nrm = normalize(cross(side, tangent));
                     float kS = s / T;
+                    float land = smoothstep(T, T + 0.20, a);            // (b13) how far the head has landed: the splash fan comes after it
                     float beam = lerp(r.erode.x, r.erode.y, kS);        // the beam's half-width here (a line is placed in it)
                     float hw;
                     if (r.extra.z > 1.5)
                     {
                         hw = lerp(r.size.x, r.size.y, kS) * lerp(1.0, 2.10, starve);   // (the clip's lace is broad; b07's 1.7 narrow)
-                        hw *= 1.0 + 1.0 * smoothstep(0.86, 1.0, kS);   // it fans out into the splash where it lands (b07: wider)
+                        hw *= 1.0 + 1.0 * smoothstep(0.86, 1.0, kS) * land;   // it fans out into the splash where it lands, once it has (b13)
                         // its broken end is a torn net that spreads a little wider and swings across where the beam was
                         c += side * (beam * 0.30 * starve * sin(e * 23.0 + r.axis.z)) + nrm * (beam * 0.25 * starve * sin(e * 17.0 + r.axis.z * 1.3));
                     }
@@ -163,7 +164,7 @@ Shader "TW/Cel/AcidBeam"
                     }
                     w = c + side * cq.y * hw;
                     q = float2(cq.y, v.uv.x);
-                    flow = float4(e, kS, starve, 0.0);
+                    flow = float4(e, kS, starve, land);
                     shape = float4(D, r.erode.z, max(r.erode.w, 0.02), r.extra.z);
                     shape2 = float4(max(r.motion.y, 0.004), max(r.motion.z, 0.004), win, 0.0);
                 }
@@ -564,8 +565,9 @@ Shader "TW/Cel/AcidBeam"
                         // (the head: a long cone - the first fluid is thin and it widens over its first 0.45 s, steeply
                         // at the point: the clip's beam is 0.36 of its full width 0.02 s behind the point, 0.78 at 0.21 s)
                         float ends = pow(saturate(e / i.shape2.x), 0.33) * pow(saturate((D - e) / i.shape2.y), 0.5);
-                        float lt = CelValue2(float2(e * 24.0 + seed * 31.0, 0.5)) * 0.65 + CelValue2(float2(e * 61.0 + seed * 13.0, 2.5)) * 0.35;
-                        float lb = CelValue2(float2(e * 21.0 + seed * 17.0, 7.5)) * 0.65 + CelValue2(float2(e * 55.0 + seed * 7.0, 9.5)) * 0.35;
+                        // (b13: slower along it - b09-b12's quick lumps read as saw teeth)
+                        float lt = CelValue2(float2(e * 18.0 + seed * 31.0, 0.5)) * 0.75 + CelValue2(float2(e * 30.0 + seed * 13.0, 2.5)) * 0.25;
+                        float lb = CelValue2(float2(e * 16.0 + seed * 17.0, 7.5)) * 0.75 + CelValue2(float2(e * 28.0 + seed * 7.0, 9.5)) * 0.25;
                         float edge = (q.x > 0.0 ? 0.68 + 0.32 * lt : 0.70 + 0.30 * lb) * ends;
                         al = (1.0 - Step(edge, abs(q.x), pixX)) * step(0.02, edge);
                         // breaking up: ROUND holes open in the sheet, each its own size, and grow until they meet, so
@@ -604,7 +606,7 @@ Shader "TW/Cel/AcidBeam"
                         // green-rimmed holes in a lime sheet, a leopard)
                         d = lerp(d, 0.80 - 0.62 * border, smoothstep(0.0, 0.45, starve));
                         // (b07) its end pales into a fan of yellow where it goes in (the clip's pale-yellow heart, f40-84)
-                        d *= 1.0 - 0.55 * smoothstep(0.86, 1.0, kS) * (1.0 - starve);
+                        d *= 1.0 - 0.55 * smoothstep(0.86, 1.0, kS) * (1.0 - starve) * i.flow.w;
                         // (b10: a thin lime band only - the clip's streaks are yellow against green; b09's broad lime
                         // band took the contrast out)
                         col = lerp(rim, shade, 1.0 - Step(0.72, d, pd));
@@ -797,10 +799,10 @@ Shader "TW/Cel/AcidBeam"
                     col = lerp(col, shade, (1.0 - Step(0.0, fs, mp)) * 0.9);
                     float pn = CelValue2(float2(m.x * 6.5 + seed * 5.0 + tk * 0.05, m.y * 6.5 + seed * 3.0));
                     float deep = Step(0.05, f, mp);
-                    col = lerp(col, light, Step(0.68, pn, mp * 6.5) * deep);
-                    col = lerp(col, lerp(light, pale, 0.6), Step(0.80, pn, mp * 6.5) * deep);
-                    col = lerp(col, shade, Step(0.60, 1.0 - pn, mp * 6.5) * deep * 0.9);
-                    col = lerp(col, rim, Step(0.80, 1.0 - pn, mp * 6.5) * deep * 0.5);   // (b08: the clip's lump has pale and dark patches)
+                    col = lerp(col, light, Step(0.70, pn, mp * 6.5) * deep);
+                    col = lerp(col, lerp(light, pale, 0.75), Step(0.76, pn, mp * 6.5) * deep);   // (b13: more contrast - the clip's 11 % pale, 8 % dark)
+                    col = lerp(col, shade, Step(0.58, 1.0 - pn, mp * 6.5) * deep * 0.9);
+                    col = lerp(col, rim, Step(0.74, 1.0 - pn, mp * 6.5) * deep * 0.6);   // (b08: the clip's lump has pale and dark patches)
                     // goo lying over goo inside it (b12): seven big lobes, each its own tone with a lit rim and a dark line
                     // on its shade side (the clip's lump is sheets of goo over each other; b11's fold line read as a mouth)
                     [loop] for (int lb = 0; lb < 7; lb++)
@@ -814,7 +816,7 @@ Shader "TW/Cel/AcidBeam"
                         float2 dp = m - c;
                         float dl = length(dp * float2(1.0, 1.15)) - rl + 0.04 * (CelValue2(dp * 5.0 + seed * 3.0 + lb) - 0.5);
                         float inL = (1.0 - Step(0.0, dl, mp)) * deep;
-                        half3 lc = l3 < 0.33 ? shade : l3 < 0.66 ? body : light;
+                        half3 lc = l3 < 0.45 ? shade : l3 < 0.85 ? body : light;
                         lc = lerp(lc, light, Step(0.0, length((dp + L * 0.07) * float2(1.0, 1.15)) - rl, mp) * 0.8);
                         col = lerp(col, lc, inL);
                         col = lerp(col, rim, (1.0 - Step(1.6 * mp, -dl, mp)) * inL * step(dot(dp, L), 0.0) * 0.8);
@@ -840,7 +842,7 @@ Shader "TW/Cel/AcidBeam"
                         col = lerp(col, c2, (1.0 - Step(rb * 0.94, d, mp)) * step(0.02, rb) * Step(0.0, f, mp));
                     }
                     float fy = CelValue2(float2(m.x * 7.0 + seed * 13.0, m.y * 1.5 - tk * 0.2));
-                    col = lerp(col, CelPalInk(row).rgb, Step(0.50, fy, mp * 7.0) * smoothstep(0.20, 0.60, abs(m.x)) * (1.0 - smoothstep(0.45, 1.25, m.y)) * Step(0.02, f, mp));
+                    col = lerp(col, CelPalInk(row).rgb, Step(0.44, fy, mp * 7.0) * smoothstep(0.20, 0.60, abs(m.x)) * (1.0 - smoothstep(0.45, 1.25, m.y)) * Step(0.02, f, mp));
                     col = lerp(col, rim, 1.0 - Step(1.8 * mp, f, mp));
                 }
                 else if (mode < 4.5)
