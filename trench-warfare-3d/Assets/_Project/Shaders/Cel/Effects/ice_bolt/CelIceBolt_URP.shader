@@ -46,6 +46,7 @@ Shader "TW/Cel/IceBolt"
             #pragma fragment frag
             #pragma multi_compile_fog
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
             #include "Assets/_Project/Shaders/Cel/CelFx.hlsl"
 
             // the quad is this many half-widths to each side of a dart (its barbs reach 1) and of a ribbon (room for
