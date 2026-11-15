@@ -45,6 +45,9 @@ Shader "TW/Cel/ElectricBolt"
 
             // the ribbon is this many half-widths to each side: room for the wave, the kinks' small jags and the bloom
             #define BOLT_PAD 7.0
+            // and runs on this many half-widths past each end of the body, for the bloom to close round the head and
+            // the tail (cut off where the body ended, it drew a lit box round each bolt)
+            #define BOLT_PADL 4.0
 
             float4 _TWBoltLens;
 
@@ -61,6 +64,7 @@ Shader "TW/Cel/ElectricBolt"
                 nointerpolation float4 g1 : TEXCOORD6;           // light: reach along, near reach across, up x down, into.r
                 nointerpolation float4 g2 : TEXCOORD7;           // light: add rgb, into.g
                 nointerpolation float4 g3 : TEXCOORD8;           // light: pos, into.b
+                nointerpolation float2 ends : TEXCOORD9;         // beam: metres along where the body begins and ends
             };
 
             // metres per screen pixel at a world point (perspective)
@@ -156,7 +160,10 @@ Shader "TW/Cel/ElectricBolt"
                 }
                 float open = (s1 > s0 + 1e-4) ? 1.0 : 0.0;
                 float width = CelCurve(r.size.xyz, k) * alive * open;
-                float s = lerp(s0, s1, v.uv.x);
+                // the ribbon runs on BOLT_PADL half-widths past both ends for the bloom; the fragment cuts the body at them
+                float padS = width * 0.5 * BOLT_PADL / lenB;
+                float s = lerp(s0 - padS, s1 + padS, v.uv.x);
+                o.ends = float2(s0, s1) * lenB;
                 float3 p = r.pos + span * s;
                 float3 toEye = normalize(_WorldSpaceCameraPos - p);
                 float3 side = cross(dir, toEye);
@@ -186,7 +193,8 @@ Shader "TW/Cel/ElectricBolt"
                 o.positionWS = wb;
                 o.positionCS = TransformWorldToHClip(wb);
                 // the comet's own 0..1 is measured against its full length, so a bolt clipped at the target keeps its head
-                float a = arc ? s : saturate((s - (head - winLen)) / winLen);
+                // (not clamped here: the pads run past 0 and 1, the fragment clamps it)
+                float a = arc ? s : (s - (head - winLen)) / winLen;
                 o.beam = float4(a, across * BOLT_PAD, s * lenB, max(halfW, 1e-4));
                 o.tone = float4(r.tone.x, r.tone.y, r.tone.z, CelCurve(r.erode.xyz, k));
                 o.shape = float4(r.extra.x, r.extra.y * saturate(2.0 - _CelLod.x), r.seed, arc ? lenB : winLen * lenB);
@@ -327,8 +335,11 @@ Shader "TW/Cel/ElectricBolt"
                 }
 
                 // ---- a bolt or an arc
-                float a = i.beam.x, y = i.beam.y, u = i.beam.z;
+                float a = saturate(i.beam.x), y = i.beam.y, u = i.beam.z;
                 bool arc = i.more.z > 0.5;
+                // half-widths past either end of the body (0 on it): the pads only carry the bloom
+                float beyond = max(max(i.ends.x - u, u - i.ends.y), 0.0) / max(i.beam.w, 1e-4);
+                float inside = step(beyond, 0.0);
                 float tick = floor(_CelNow * i.more.w);
                 float salt = i.shape.z * 97.0 + tick * 13.7;
                 float hwPx = i.beam.w / max(PixelMetres(i.positionWS), 1e-6);
@@ -337,8 +348,9 @@ Shader "TW/Cel/ElectricBolt"
                 if (arc)
                 {
                     // small jags on the kinked line (the vertex shader bent the ribbon for the big ones); the width
-                    // wanders along it and narrows over the last of it into the flare
-                    centre = 0.55 * Zig(u, 0.09, salt + 3.0) + 0.3 * Zig(u, 0.03, salt + 5.0);
+                    // wanders along it and narrows over the last of it into the flare. Half-widths: kept small, the
+                    // clip's arcs are thick lines with sharp corners, not a scribble
+                    centre = 0.25 * Zig(u, 0.12, salt + 3.0) + 0.1 * Zig(u, 0.04, salt + 5.0);
                     prof = (0.7 + 0.6 * CelHash21(float2(floor(u / 0.3), salt + 9.0))) * lerp(1.0, 0.6, smoothstep(0.8, 1.0, a));
                     bright = 0.85 + 0.15 * CelHash21(float2(salt, 0.71));
                 }
@@ -360,7 +372,7 @@ Shader "TW/Cel/ElectricBolt"
                     bright = lerp(0.55, 1.0, smoothstep(0.05, 0.75, a));
                 }
                 float dy = abs(y - centre);
-                float field = saturate(1.0 - dy / max(prof, 1e-3));
+                float field = saturate(1.0 - dy / max(prof, 1e-3)) * inside;
                 // forks: in some cells along an arc a thin crooked arm leaves the line and runs out to one side
                 float br = 0.0;
                 if (arc && i.shape.y > 0.0)
@@ -384,6 +396,7 @@ Shader "TW/Cel/ElectricBolt"
                         br = max(br, saturate(1.0 - abs(y - yb) / bw) * lerp(0.9, 0.55, t));
                     }
                 }
+                br *= inside;
                 float thr = max(i.tone.w, 0.02);
                 float mask = max(CelAAStep(thr, field), CelAAStep(0.3, br));
                 // the clip's cross-section: a white core over most of the width with a pale cyan band and a cyan-blue
@@ -402,8 +415,9 @@ Shader "TW/Cel/ElectricBolt"
                 // the bloom: a pale rim right at the body (c1, falling in a fifth of a half-width) and the wide saturated
                 // blue light round it (c0, over 1.3 half-widths), fading before the ribbon's edge. Fitted to a near bolt
                 // of the clip, 1, 2, 6 and 13 px out of its body: (85,139,187), (54,101,153), (32,62,111), (26,39,72)
-                float outside = max(dy - prof, 0.0);
-                float keepB = (1.0 - mask) * saturate((BOLT_PAD - 0.5 - abs(y)) * 0.5) * step(0.02, prof);
+                // (past an end of the body the distance is taken to that end, so the light closes round it)
+                float outside = length(float2(beyond, max(dy - prof * inside, 0.0)));
+                float keepB = (1.0 - mask) * saturate((BOLT_PAD - 0.5 - abs(y)) * 0.5) * saturate((BOLT_PADL - beyond) * 0.6);
                 if (!arc) keepB *= smoothstep(0.0, 0.3, a);
                 half3 add = (CelPal(row, 1) * exp(-outside / 0.2) + CelPal(row, 0) * exp(-outside / 1.33)) * keepB * i.tone.z;
                 add = AddFog(add, i.positionWS, i.more.x, i.more.y);
