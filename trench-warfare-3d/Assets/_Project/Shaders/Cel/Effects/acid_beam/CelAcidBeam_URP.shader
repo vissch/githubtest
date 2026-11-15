@@ -10,19 +10,20 @@
 // Extra.x is the mode, Extra.w the seconds from the effect's start to Born (all modes). Per mode:
 //  0 strand   the beam, or a thin line beside it. Pos the nozzle, Vel the launch velocity, Motion.x gravity (m/s2):
 //             the fluid that left s seconds ago is at Pos + Vel s - g s2 / 2. Life = seconds the beam is on + the
-//             flight. Size x half-width at the nozzle (m), y at the target (linear between), z unused, w the flight
-//             seconds. Axis x, y a line's place across the beam (1 is the beam's edge: up the screen, toward the
+//             flight. Size x half-width at the nozzle (m), y at the target (linear between), z the age at which
+//             the whole of it breaks up (s; 0: the fluid of its last Motion.w seconds breaks up as it flies), w the
+//             flight seconds. Axis x, y a line's place across the beam (1 is the beam's edge: up the screen, toward the
 //             eye), z its weave phase. Erode x the beam's half-width at the nozzle (m), y at the target (a line is
 //             placed in those units), z dash duty 0..1, w dash seconds.
 //             Extra y seconds the beam is on, z what it is: 0 a line (a ribbon broken into long dashes), 1 a line
 //             with light streaks, 2 the beam: lumpy edges that flow with it, a yellow core with pale streaks, lime
-//             and green round it, a spear point at its head; its last Motion.w seconds of fluid break into a
-//             wavy rope of beads and necks.
-//             Motion y the head's taper (seconds of fluid), z the tail's, w (the beam) the seconds of fluid at its
-//             end that break up.
+//             and green round it, a spear point at its head; from the age Size.z the whole of it slows to a stop
+//             and tears into a lace (yellow round its holes, green between) that thins away over Motion.w seconds.
+//             Motion y the head's taper (seconds of fluid), z the tail's, w the seconds it takes to break up.
 //  1 drop     a ballistic drop. Pos, Vel, Motion.x gravity, Motion.y drag. Size x radius at birth (m), y at death,
 //             w its stretch (seconds of its own motion). Extra y 0 a teardrop, 1 a round fleck, 2 a leaf (a point
-//             at both ends), 3 a glossy blob (drawn like a bubble: its light side, a glint, a dark rim), 4 a spark
+//             at both ends), 3 a glossy blob (a ring of the light tone round the shade, a glint of the core; Erode x
+//             a dark line on its shade side, y a big one opening into a C late in its life), 4 a spark
 //             (a teardrop, hot along its middle), 5 a blade of goo (a round root and a long point: the root holds
 //             where it was thrown from for Motion.z seconds, then follows the point; no stretch), 6 a sheet of goo
 //             (round lobes along its flight run into one body with a tail behind; stretched like any drop).
@@ -30,13 +31,12 @@
 //             5 ink), Erode x a dark line round it (0..1), y a blade's bend (-1..1), z a blade's paleness toward its
 //             root / a sheet's holes (0..1).
 //  2 splat    the first hit: a star of spikes facing the eye. Size x its half-extent (m). Extra y metres toward the eye.
-//  3 mound    the goo standing over the target (a pillar pushed over the way the jet goes, thick tongues at its
-//             top), and the last splash at its foot. Pos its foot. Size x width (m), w height / width. Axis the
-//             jet's level direction. Motion x seconds it takes to stand up, y the share of its height it starts
-//             at, z metres it is drawn toward the eye (it stands on the target's foot and hides the target).
-//             Extra y its heat (0 the heap: it keeps its height and thins to hanging strands as it goes, its
-//             middle first; 1 the last splash: a broad flame torn as it comes up, hot at its heart), z seconds
-//             before its end at which it starts to go.
+//  3 lump     the bubbly lump the goo sinks to over the target after the beam: a round mass on a low foot, lobes
+//             that boil round its outline, bays torn in it, bubbles set in it (Tone.y their palette row), yellow
+//             flows down its flanks. Pos its foot. Size x width (m), w height / width. Axis the jet's level
+//             direction. Motion x seconds it takes to swell up, y the share of its size it starts at, z metres it
+//             is drawn toward the eye (it stands on the target's foot and hides the target). Extra z seconds
+//             before its end at which it starts to go (it flattens, opens into a C, its bubbles shrink away).
 //  4 puddle   a splat lying on the ground: painted on whatever level ground the scene shows behind its card (found
 //             from the scene's depth, like the glow), so uneven ground cannot cut it and nothing that stands in
 //             it is painted. Pos its middle, Axis the eye's level right. Size x half-extent across (m), w depth /
@@ -57,7 +57,7 @@
 //             lens). Extra y seconds it takes to come up, z seconds it takes to go at the end of its life.
 //             Needs the camera's depth texture.
 // Tone: x the palette row, y unused (a glow: 1 if it falls on level ground only and leaves what stands on it
-// alone), z opacity (a glow: its strength), w unused.
+// alone; a lump: its bubbles' palette row), z opacity (a glow: its strength), w a drop's tone (its kind's).
 // Palette rows: c0 rim, c1 shade, c2 body, c3 light, core hot, ink pale (the beam: c3 its yellow, core its hot
 // yellow, ink the pale streaks; the puddle: core its yellow rim).
 // A splat (mode 2): Extra z the spikes' half-width (0: 0.055), Axis x its turn per drawing.
@@ -115,10 +115,29 @@ Shader "TW/Cel/AcidBeam"
                 float wholeFrame = 0.0;
                 if (mode < 0.5)
                 {
-                    float T = max(r.size.w, 0.01), D = r.extra.y;
-                    float sHead = min(a, T), sTail = clamp(a - D, 0.0, T);
-                    float s = lerp(sTail, sHead, v.uv.x);
-                    float e = a - s;                                    // when this fluid left the nozzle
+                    float T = max(r.size.w, 0.01), D = r.extra.y, B0 = r.size.z;
+                    float win = max(r.motion.w, 0.01);
+                    float s, e, starve;                                 // e: when this fluid left the nozzle
+                    if (B0 > 0.0)
+                    {
+                        // (b06) the whole of it breaks up at once from the age B0, and its fluid stops flowing as it
+                        // does: what left before B0 flies on 0.1 s more, then drifts at 4 % of its speed (the clip's
+                        // beam turns to a lace end to end on frames 85-88 and hangs there as blobs; b02-b05 broke the
+                        // last of its fluid up as it flew on, so its holed end swept into the target until frame 100)
+                        float g = a > B0 ? 0.10 * (1.0 - exp(-(a - B0) / 0.10)) + 0.04 * (a - B0) : 0.0;
+                        float eT = min(a, D);                           // the newest fluid
+                        float eH = clamp(a > B0 ? B0 + g - T : a - T, 0.0, eT);   // the oldest still short of the target
+                        e = lerp(eT, eH, v.uv.x);
+                        s = a <= B0 ? a - e : e < B0 ? B0 - e + g : 0.10 * (1.0 - exp(-(a - e) / 0.10)) + 0.04 * (a - e);
+                        starve = smoothstep(B0, B0 + win, a + 0.05 * sin(e * 13.0 + r.axis.z) - 0.03);
+                    }
+                    else
+                    {
+                        float sHead = min(a, T), sTail = clamp(a - D, 0.0, T);
+                        s = lerp(sTail, sHead, v.uv.x);
+                        e = a - s;
+                        starve = smoothstep(D - win, D - 0.35 * win, e);   // the last of the beam breaks up
+                    }
                     float3 G = float3(0.0, -r.motion.x, 0.0);
                     float3 c = r.pos + r.vel * s + 0.5 * G * s * s;
                     float3 tangent = normalize(r.vel + G * s);
@@ -127,13 +146,11 @@ Shader "TW/Cel/AcidBeam"
                     side *= side.y >= 0.0 ? 1.0 : -1.0;                 // up the screen
                     float3 nrm = normalize(cross(side, tangent));
                     float kS = s / T;
-                    float win = max(r.motion.w, 0.01);
-                    float starve = smoothstep(D - win, D - 0.35 * win, e);   // the last of the beam breaks up
                     float beam = lerp(r.erode.x, r.erode.y, kS);        // the beam's half-width here (a line is placed in it)
                     float hw;
                     if (r.extra.z > 1.5)
                     {
-                        hw = lerp(r.size.x, r.size.y, kS) * lerp(1.0, 1.50, starve);
+                        hw = lerp(r.size.x, r.size.y, kS) * lerp(1.0, 1.70, starve);   // (the clip's lace is broad)
                         hw *= 1.0 + 0.6 * smoothstep(0.88, 1.0, kS);   // it fans out into the splash where it lands
                         // its broken end is a torn net that spreads a little wider and swings across where the beam was
                         c += side * (beam * 0.30 * starve * sin(e * 23.0 + r.axis.z)) + nrm * (beam * 0.25 * starve * sin(e * 17.0 + r.axis.z * 1.3));
@@ -146,7 +163,7 @@ Shader "TW/Cel/AcidBeam"
                     }
                     w = c + side * cq.y * hw;
                     q = float2(cq.y, v.uv.x);
-                    flow = float4(e, kS, 0.0, 0.0);
+                    flow = float4(e, kS, starve, 0.0);
                     shape = float4(D, r.erode.z, max(r.erode.w, 0.02), r.extra.z);
                     shape2 = float4(max(r.motion.y, 0.004), max(r.motion.z, 0.004), win, 0.0);
                 }
@@ -321,6 +338,30 @@ Shader "TW/Cel/AcidBeam"
                     f = min(f, length(m - c) - (0.10 + 0.12 * CelHash21(float2(7.0, seed * 31.0))) * holes);
                 }
                 return f;
+            }
+
+            // the lump's mass of goo in its half-widths (x across, y up from its foot): a round body, eight lobes
+            // round its outline that boil (new on every drawing), a low foot, bays torn in its outline (two on its far
+            // side; never a round hole inside it: one reads as an eye), and a hollow off its middle as it goes (`opn`
+            // 0..1: it opens into a C); above 0 inside
+            float Lump(float2 m, float seed, float tk, float opn)
+            {
+                float f = (1.0 - length(float2(m.x / 0.80, (m.y - 0.80) / 0.74))) * 0.74;
+                [unroll] for (int n = 0; n < 8; n++)
+                {
+                    float h1 = CelHash21(float2(n + 31.0, seed * 13.0 + 2.0)), h2 = CelHash21(float2(n + 37.0, seed * 19.0 + 6.0));
+                    float an = 6.2831853 * (n + 0.25 + 0.5 * h1) / 8.0;
+                    float r = (0.16 + 0.18 * h2) * (1.0 + 0.18 * (CelValue2(float2(tk * 0.5 + n * 2.3, seed * 5.0)) - 0.5));
+                    f = SMax(f, r - length(m - float2(0.704 * cos(an), 0.80 + 0.651 * sin(an))), 0.10);
+                }
+                f = SMax(f, (1.0 - length(float2(m.x / 0.92, (m.y - 0.03) / 0.20))) * 0.20, 0.12);
+                [unroll] for (int b = 0; b < 3; b++)
+                {
+                    float an = 0.9 * (CelHash21(float2(b + 41.0, seed * 23.0 + 1.0)) - 0.5) + (b < 2 ? 0.0 : 3.1415927);
+                    float2 c = float2(0.816 * cos(an), 0.80 + 0.755 * sin(an));
+                    f = min(f, length((m - c) * float2(1.0, 0.8)) - (0.10 + 0.10 * CelHash21(float2(b + 47.0, seed * 7.0 + 3.0))));
+                }
+                return min(f, length((m - float2(0.30, 0.85)) * float2(1.0, 0.85)) - 0.62 * opn);
             }
 
             // the colour as it has to be written for the lens vignette to leave it as it is (the header)
@@ -512,10 +553,8 @@ Shader "TW/Cel/AcidBeam"
 
                 if (mode < 0.5)
                 {
-                    float e = i.flow.x, kS = i.flow.y;
+                    float e = i.flow.x, kS = i.flow.y, starve = i.flow.z;   // (the vertex's: how far it has broken up)
                     float D = i.shape.x, duty = i.shape.y, period = i.shape.z, kind = i.shape.w;
-                    float win = i.shape2.z;
-                    float starve = smoothstep(D - win, D - 0.35 * win, e);   // the last of the beam breaks up
                     if (kind > 1.5)
                     {
                         // the beam: lumpy edges that ride with the fluid (a lump keeps its place in the fluid as it
@@ -543,10 +582,11 @@ Shader "TW/Cel/AcidBeam"
                                 float2 o2 = float2(xx, yy);
                                 float2 cid = wc + o2;
                                 float2 pt = o2 + float2(CelHash21(cid + 3.1), CelHash21(cid + 17.7)) * 0.8 + 0.1 - wf;
-                                float hr = (0.18 + 0.42 * CelHash21(cid + 29.3)) * starve * 1.15;   // (b03's 1.5 left thin strands)
+                                float hr = (0.18 + 0.42 * CelHash21(cid + 29.3)) * (0.25 + 1.25 * starve);   // (they grow until they meet)
                                 gap = min(gap, length(pt) - hr);
                             }
-                            al *= Step(0.0, gap, pixX * 2.0);
+                            // its ropes thin and part, then its islands go (b06: it is gone when it has broken up)
+                            al *= Step(0.18 * smoothstep(0.5, 1.0, starve), gap, pixX * 2.0) * (1.0 - smoothstep(0.85, 1.0, starve));
                             border = saturate(1.0 - gap / 0.30);         // 1 at a hole's rim, 0 deep in the fluid
                         }
                         // across it: a yellow core with a hot heart, lime round it, then green, a dark lip at its edge;
@@ -554,7 +594,9 @@ Shader "TW/Cel/AcidBeam"
                         float pd = pixX / max(edge, 0.05);
                         float wob = CelValue2(float2(e * 17.0 + seed * 5.0, q.x * 2.0 + 4.5)) - 0.5;
                         float d = abs(q.x) / max(edge, 0.02) + 0.16 * wob;
-                        d = max(d, lerp(d, 0.35 + 0.65 * border, smoothstep(0.0, 0.5, starve)));   // (round a hole: green, then lime)
+                        // (the lace: yellow round its holes, lime, then green deep in it - the clip's; b03-b05 drew
+                        // green-rimmed holes in a lime sheet, a leopard)
+                        d = lerp(d, 0.85 - 0.50 * border, smoothstep(0.0, 0.45, starve));
                         col = lerp(rim, shade, 1.0 - Step(0.92, d, pd));
                         col = lerp(col, body, 1.0 - Step(0.74, d, pd));
                         col = lerp(col, light, 1.0 - Step(0.56, d, pd));
@@ -658,15 +700,27 @@ Shader "TW/Cel/AcidBeam"
                     }
                     else if (i.shape.y > 2.5)
                     {
-                        // a glossy blob: round (stretched a little along its flight), its lit side up and to the
-                        // left, a glint, a shade low on its right and a dark rim
+                        // a glossy blob (the clip's, on the beam's top f22-48 and where it breaks up f86-110): a ring
+                        // of the light tone, thicker toward the light and the ink on its shade side, the shade inside
+                        // it, a glint of the core a little toward the light and a pale arc inside the ring on its lit
+                        // side, a dark line on its shade side (Erode.x), an outline that wobbles a little; a big one
+                        // opens into a C on its shade side late in its life (Erode.y) (b02-b05: a pale ball with a dark
+                        // ring, lit from the card's own axes, which turn with its flight)
+                        float2 L = i.shape.zw;
                         float2 p = float2(q.x * max(i.shape.x, 1.0) / max(i.shape.x * 0.5 + 0.5, 1.0), q.y);
-                        float r1 = length(p);
+                        float tk = i.shape3.x, an = atan2(p.y, p.x);
+                        float r1 = length(p) * (1.0 + 0.045 * sin(an * 3.0 + seed * 40.0 + tk * 0.35) + 0.025 * sin(an * 5.0 + seed * 23.0 - tk * 0.5));
+                        float cl = dot(p, L) / max(length(p), 1e-4);   // 1 toward the light, -1 away
                         al = 1.0 - Step(0.92, r1, pix);
-                        col = lerp(shade, body, 1.0 - Step(0.80, length(p - float2(-0.10, 0.10)), pix));
-                        col = lerp(col, light, 1.0 - Step(0.50, length(p - float2(-0.18, 0.24)), pix));
-                        col = lerp(col, rim, Step(0.84, r1, pix) * 0.85);
-                        col = lerp(col, pale, 1.0 - Step(0.20, length((p - float2(-0.34, 0.40)) * float2(1.0, 1.3)), pix));
+                        float ringIn = 0.77 - 0.07 * cl;
+                        float ring = Step(ringIn, r1, pix);
+                        col = lerp(shade, light, ring);
+                        col = lerp(col, CelPalInk(row).rgb, ring * (1.0 - smoothstep(-0.65, -0.15, cl)));
+                        col = lerp(col, pale, (1.0 - Step(0.04, abs(r1 - ringIn + 0.085), pix)) * smoothstep(0.56, 0.68, cl));
+                        col = lerp(col, pale, 1.0 - Step(0.21, length(p - L * 0.16), pix));
+                        col = lerp(col, rim, Step(0.86, r1, pix) * (1.0 - smoothstep(-0.6, -0.25, cl)) * i.shape2.x);
+                        if (i.shape2.y > 0.01)
+                            al *= Step(0.72 * smoothstep(0.55, 0.95, k) * i.shape2.y, length((p + L * 0.28) * float2(1.0, 1.15)), pix);
                     }
                     else if (i.shape.y > 1.5)
                     {
@@ -710,91 +764,52 @@ Shader "TW/Cel/AcidBeam"
                 }
                 else if (mode < 3.5)
                 {
-                    float tk = i.shape.x, rise = i.shape.y, sink = i.shape.z, heat = i.shape.w;
-                    float h = max(rise * lerp(0.75 + 0.25 * sink, 0.22 + 0.78 * sink, heat), 0.05);   // its height now, of the card's: the heap keeps it and thins, the last splash sinks
-                    float y = q.y / h;
-                    float py = pixY / h;
-                    // a pillar of goo pushed over the way the jet goes, more toward its top, a little differently on
-                    // every drawing
-                    float x = q.x - i.shape2.x * (0.02 + 0.05 * CelHash21(float2(tk * 1.3 + 2.0, seed * 17.0))) * y * y;
-                    // its flanks: each side with its own lumps, drawn anew every time, flaring out into the puddle
-                    // where it stands (the last splash is a broader one, and spreads as it comes down); in its first
-                    // moments the heap is a broad mass
-                    float young = (1.0 - heat) * (1.0 - smoothstep(0.15, 0.6, i.state.y));
-                    float sd = seed + step(0.0, x) * 0.37;
-                    float n1 = CelValue2(float2(y * 2.6 + sd * 9.0, tk * 0.71)) - 0.5;
-                    float n2 = CelValue2(float2(y * 6.5 + sd * 3.0, tk * 0.93 + 5.0)) - 0.5;
-                    float wave = CelValue2(float2(x * 8.0 + seed * 19.0, y * 9.0 + tk * 0.8)) - 0.5;   // its outline is wavy all round
-                    float halfW = lerp(0.37, 0.50, heat) + 0.20 * exp(-y * 8.0) * (1.0 - 0.6 * young) + 0.22 * n1 + 0.09 * n2 + 0.07 * wave;
-                    halfW *= (1.25 - 0.25 * sink) * (1.0 + 0.6 * young);
-                    // its top: round lumps side by side and two or three thick thorns standing on them, the whole of
-                    // it swaying, thrown a little higher on the side the jet goes to
-                    float xs = x + (0.09 * sin(y * 6.0 + seed * 40.0 + tk * 1.3) + 0.04 * sin(y * 15.0 + seed * 17.0 + tk * 2.1)) * smoothstep(0.35, 0.9, y);
-                    float sky = 0.54 + 0.12 * (CelValue2(float2(xs * 3.0 + seed * 5.0, tk * 1.3)) - 0.5) - 0.5 * xs * xs;
-                    sky += 0.08 * i.shape2.x * clamp(xs / 0.35, -1.0, 1.0);
-                    sky += 0.15 * Tongues(xs * 3.1 + seed * 3.0, seed, tk, 0.6) + 0.03 * Tongues(xs * 8.0 + seed * 11.0, seed + 0.5, tk, 1.4) + 0.10 * wave;
-                    [unroll] for (int p = 0; p < 2; p++)
+                    // the bubbly lump the goo sinks to after the beam (the clip's frames 94-110; Lump): a tone up
+                    // toward the light and down away from it, patches, the bubbles set in it each over the last
+                    // (their own row, Tone.y: a light inside, a pale crescent toward the light, a glint, a dark line
+                    // on the shade side of some; each shrinks away at its own time as it goes), yellow flows down its
+                    // lower flanks, a dark line round it (b02-b05: a pillar of goo with tongues at its top - it read
+                    // as a tuft of grass and a tent, a third of the clip's size)
+                    float tk = i.shape.x, rise = i.shape.y, sink = i.shape.z, Hh = i.shape2.y;
+                    float2 L = float2(-0.6, 0.8);                       // the light, from the frame's upper left (the card faces the eye)
+                    float grow = 0.45 + 0.55 * smoothstep(0.0, 1.0, rise), flt = 0.40 + 0.60 * smoothstep(0.0, 1.0, sink);
+                    float sx = grow * (0.85 + 0.15 * flt), sy = grow * flt;
+                    float2 m = float2(q.x / sx, q.y * Hh / sy);        // in its half-widths: it swells up from its foot, flattens as it goes
+                    float mp = max(pixX / sx, pixY * Hh / sy);
+                    float opn = 1.0 - smoothstep(0.15, 0.75, sink);
+                    float wob = 0.03 * (CelValue2(float2(atan2(m.y - 0.80, m.x) * 2.5 + seed * 9.0, tk * 0.7)) - 0.5);
+                    float f = Lump(m, seed, tk, opn) + wob;
+                    al = Step(0.0, f, mp) * step(0.0, q.y);
+                    float fl = Lump(m + L * 0.06, seed, tk, opn) + wob, fs = Lump(m - L * 0.13, seed, tk, opn) + wob;
+                    col = lerp(body, light, 1.0 - Step(0.0, fl, mp));
+                    col = lerp(col, shade, (1.0 - Step(0.0, fs, mp)) * 0.9);
+                    float pn = CelValue2(float2(m.x * 6.5 + seed * 5.0 + tk * 0.05, m.y * 6.5 + seed * 3.0));
+                    float deep = Step(0.05, f, mp);
+                    col = lerp(col, light, Step(0.72, pn, mp * 6.5) * deep);
+                    col = lerp(col, shade, Step(0.66, 1.0 - pn, mp * 6.5) * deep * 0.9);
+                    uint row2 = CelRowA(i.tone.y);
+                    half3 bRim = CelPal(row2, 0), bShade = CelPal(row2, 1), bIn = CelPal(row2, 2), bLit = CelPal(row2, 3), bGlint = CelPalCore(row2).rgb;
+                    [loop] for (int j = 0; j < 20; j++)
                     {
-                        float pa = CelHash21(float2(p + 4.0, tk * 1.1 + seed * 23.0)), pb = CelHash21(float2(p + 9.0, tk * 2.3 + seed * 61.0));
-                        float pc = CelHash21(float2(p + 15.0, tk * 3.3 + seed * 43.0));
-                        sky += (0.03 + 0.17 * pb * pb) * pow(saturate(1.0 - abs(xs - (pa - 0.5) * 0.8) / (0.06 + 0.09 * pc)), 1.6);
+                        float h1 = CelHash21(float2(j + 1.0, seed * 91.0 + 3.0)), h2 = CelHash21(float2(j + 7.0, seed * 37.0 + 5.0));
+                        float h3 = CelHash21(float2(j + 13.0, seed * 53.0 + 1.0));
+                        float rb = j < 2 ? 0.20 + 0.10 * h3 : 0.05 + 0.11 * h3 * h3;
+                        float rho = j < 2 ? 0.10 + 0.35 * h2 : 0.20 + 0.75 * h2;
+                        float2 c = float2(0.80 * rho * cos(6.2831853 * h1), max(0.80 + 0.74 * rho * sin(6.2831853 * h1), 0.25));
+                        c += 0.035 * (float2(CelValue2(float2(tk * 0.45 + j * 3.1, seed * 7.0)), CelValue2(float2(tk * 0.45 + j * 5.3, seed * 11.0 + 4.0))) - 0.5);
+                        rb *= (1.0 + 0.12 * (CelValue2(float2(tk * 0.6 + j * 1.7, seed * 3.0 + 8.0)) - 0.5))
+                            * (1.0 - smoothstep(0.0, 1.0, (1.0 - sink) * 1.7 - CelHash21(float2(j + 19.0, seed * 29.0))));
+                        float2 dp = m - c;
+                        float d = length(dp);
+                        half3 c2 = lerp(bIn, bLit, Step(rb * 0.78, length(dp + L * rb * 0.18), mp));
+                        c2 = lerp(c2, bShade, Step(rb * 0.86, length(dp - L * rb * 0.16), mp) * 0.8);
+                        c2 = lerp(c2, bGlint, 1.0 - Step(rb * 0.17, length(dp - L * rb * 0.42), mp));
+                        c2 = lerp(c2, bRim, Step(rb * 0.94 - 1.6 * mp, d, mp) * step(dot(dp, L), 0.15 * rb) * step(CelHash21(float2(j + 23.0, seed * 17.0)), 0.55));
+                        col = lerp(col, c2, (1.0 - Step(rb * 0.94, d, mp)) * step(0.02, rb) * Step(0.0, f, mp));
                     }
-                    float heap = (1.0 - Step(halfW, abs(x), pix)) * (1.0 - Step(sky, y, py));
-                    // holes open in its upper half once it stands
-                    float hole = Step(0.70, CelValue2(float2(x * 7.0 + seed * 3.0 + tk * 0.9, y * 4.0 - tk * 0.5)), pix * 7.0);
-                    heap *= 1.0 - hole * smoothstep(0.30, 0.45, y) * (1.0 - heat) * (1.0 - young);
-                    // one or two thin ones flung high, curling outward
-                    float crown = 0.0;
-                    [unroll] for (int j = 0; j < 1; j++)
-                    {
-                        float hh = CelHash21(float2(j + 3.0, tk * 1.7 + seed * 50.0)), h2 = CelHash21(float2(j + 11.0, tk * 2.3 + seed * 20.0));
-                        float h3 = CelHash21(float2(j + 19.0, tk * 3.1 + seed * 70.0));
-                        float cx = (hh - 0.5) * 0.7;
-                        float y0 = 0.50 - 0.5 * cx * cx;
-                        float tt = (y - y0) / (0.16 + 0.30 * h2);
-                        float dx = abs(x - cx - (cx * 2.2 + (h3 - 0.5) * 1.6) * (y - y0) * (0.5 + 0.9 * tt));
-                        crown = max(crown, (1.0 - Step((0.020 + 0.022 * h3) * pow(saturate(1.0 - tt), 0.7), dx, pix)) * step(0.0, tt) * step(tt, 1.0));
-                    }
-                    // and leaves of it thrown out of the heap to either side: each goes up and over and comes down
-                    // in the puddle, over three drawings
-                    float ropes = 0.0;
-                    [unroll] for (int n = 0; n < 3; n++)
-                    {
-                        float turn = floor((tk + n) / 3.0), ph = tk + n - turn * 3.0;
-                        float ha = CelHash21(float2(n + 5.0, turn * 1.7 + seed * 30.0)), hb = CelHash21(float2(n + 13.0, turn * 2.9 + seed * 60.0));
-                        float hc = CelHash21(float2(n + 23.0, turn * 3.7 + seed * 80.0));
-                        float reach = 0.40 + 0.42 * hb, over = 0.06 + 0.10 * hc, from = 0.25 + 0.25 * frac(ha * 2.0);
-                        float u = ((ha < 0.5 ? -x : x) - 0.12) / reach;
-                        float ya = from * (1.0 - u) + 4.0 * over * u * (1.0 - u);
-                        float slope = (4.0 * over * (1.0 - 2.0 * u) - from) / reach * h * i.shape2.y;
-                        float lo = ph * 0.34, hi = lo + 0.32;
-                        float th = (0.030 + 0.025 * hc) * pow(saturate(1.0 - abs((u - lo) / (hi - lo) * 2.0 - 1.0)), 0.6);
-                        ropes = max(ropes, (1.0 - Step(th, abs(y - ya) * h * i.shape2.y / sqrt(1.0 + slope * slope), pix)) * step(lo, u) * step(u, hi) * step(0.004, th));
-                    }
-                    // (it stands in the puddle on a round foot)
-                    al = max(heap, max(crown, ropes * (1.0 - heat))) * step(0.10 * saturate(x * x * 3.0), y) * step(0.0, q.y);
-                    // as it goes it thins to strands that hang from its top, its middle (where the target stands)
-                    // first; the last splash is torn into flames as it comes up, and again as it sinks
-                    float torn = max(pow(1.0 - sink, 1.6) * lerp(1.25, 0.70, heat) - 0.10, heat * (0.5 - i.state.y * 5.0));
-                    torn += (1.0 - heat) * (1.0 - sink) * 0.35 * (1.0 - smoothstep(0.06, 0.24, abs(x))) * smoothstep(0.04, 0.16, y) * (1.0 - smoothstep(0.45, 0.62, y));
-                    al *= Step(torn, CelValue2(float2(x * lerp(11.0, 4.0, heat) + seed * 13.0, y * lerp(0.9, 2.4, heat) + tk * 0.5)), pix * 9.0);
-                    al *= smoothstep(0.0, 0.2, sink);
-                    // the goo pours down it: its own green with streaks of light running down it, thin pale ones in
-                    // them and the palest low in its middle, its flanks a tone down; all of it stepping down on every
-                    // drawing (the last splash is the light tone all over)
-                    float flank = smoothstep(0.55, 1.0, abs(x) / max(halfW, 0.05));
-                    col = lerp(body, light, max(Streaks(float2(x * 5.5 + seed * 7.0 + 0.5 * sin(y * 7.0 + seed * 9.0), y * 2.6 + tk * 0.37), seed, 0.42, 0.31, pix * 5.5), heat));
-                    col = lerp(col, shade, max(flank * 0.3, Streaks(float2(x * 7.0 + seed * 7.0 + 17.0, y * 2.8 + tk * 0.29 + 17.0), seed, 0.12, 0.24, pix * 7.0) * 0.7));
-                    float2 ps = float2(x * 8.0 + seed * 7.0 + 0.7 * sin(y * 8.0 + seed * 21.0), y * 3.2 + tk * 0.41);
-                    col = lerp(col, pale, Streaks(ps, seed + 0.3, 0.42, 0.26, pix * 8.0) * (1.0 - flank));
-                    half3 palest = lerp(pale, half3(1.0, 1.0, 0.80), 0.35);
-                    col = lerp(col, palest, Streaks(ps, seed + 0.3, 0.42, 0.15, pix * 8.0) * (1.0 - flank) * (1.0 - smoothstep(0.35, 0.85, y)));
-                    // the last splash is hot at its heart: a clump of flames of the palest tone standing in its foot
-                    float hx = x / 0.24;
-                    float hotTop = (0.38 + 0.36 * Tongues(x * 9.0 + seed * 5.0, seed + 0.7, tk, 1.0)) * saturate(1.0 - hx * hx);
-                    float hot = heat * (1.0 - Step(hotTop, y, py)) * step(0.03, y) * smoothstep(0.6, 0.9, rise);
-                    col = lerp(col, lerp(pale, half3(1.0, 1.0, 0.80), 0.35), hot);
-                    col = lerp(body, col, saturate(heat + smoothstep(0.0, 0.08, y)));   // where it stands in the puddle it is the puddle's green
+                    float fy = CelValue2(float2(m.x * 7.0 + seed * 13.0, m.y * 1.5 - tk * 0.2));
+                    col = lerp(col, CelPalInk(row).rgb, Step(0.58, fy, mp * 7.0) * smoothstep(0.30, 0.70, abs(m.x)) * (1.0 - smoothstep(0.25, 0.85, m.y)) * Step(0.02, f, mp));
+                    col = lerp(col, rim, 1.0 - Step(1.8 * mp, f, mp));
                 }
                 else if (mode < 4.5)
                 {
