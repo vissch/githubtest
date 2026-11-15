@@ -151,7 +151,7 @@ Shader "TW/Cel/AcidBeam"
                     if (r.extra.z > 1.5)
                     {
                         hw = lerp(r.size.x, r.size.y, kS) * lerp(1.0, 1.70, starve);   // (the clip's lace is broad)
-                        hw *= 1.0 + 0.6 * smoothstep(0.88, 1.0, kS);   // it fans out into the splash where it lands
+                        hw *= 1.0 + 1.0 * smoothstep(0.86, 1.0, kS);   // it fans out into the splash where it lands (b07: wider)
                         // its broken end is a torn net that spreads a little wider and swings across where the beam was
                         c += side * (beam * 0.30 * starve * sin(e * 23.0 + r.axis.z)) + nrm * (beam * 0.25 * starve * sin(e * 17.0 + r.axis.z * 1.3));
                     }
@@ -354,14 +354,14 @@ Shader "TW/Cel/AcidBeam"
                     float r = (0.16 + 0.18 * h2) * (1.0 + 0.18 * (CelValue2(float2(tk * 0.5 + n * 2.3, seed * 5.0)) - 0.5));
                     f = SMax(f, r - length(m - float2(0.704 * cos(an), 0.80 + 0.651 * sin(an))), 0.10);
                 }
-                f = SMax(f, (1.0 - length(float2(m.x / 0.92, (m.y - 0.03) / 0.20))) * 0.20, 0.12);
+                f = SMax(f, (1.0 - length(float2(m.x / 0.72, (m.y - 0.16) / 0.18))) * 0.18, 0.12);   // (b07: inside its card)
                 [unroll] for (int b = 0; b < 3; b++)
                 {
                     float an = 0.9 * (CelHash21(float2(b + 41.0, seed * 23.0 + 1.0)) - 0.5) + (b < 2 ? 0.0 : 3.1415927);
                     float2 c = float2(0.816 * cos(an), 0.80 + 0.755 * sin(an));
                     f = min(f, length((m - c) * float2(1.0, 0.8)) - (0.10 + 0.10 * CelHash21(float2(b + 47.0, seed * 7.0 + 3.0))));
                 }
-                return min(f, length((m - float2(0.30, 0.85)) * float2(1.0, 0.85)) - 0.62 * opn);
+                return min(f, length((m - float2(0.62, 0.95)) * float2(1.0, 0.85)) - 0.58 * opn);   // (b07: a bay, b06's read as a donut)
             }
 
             // the colour as it has to be written for the lens vignette to leave it as it is (the header)
@@ -597,6 +597,8 @@ Shader "TW/Cel/AcidBeam"
                         // (the lace: yellow round its holes, lime, then green deep in it - the clip's; b03-b05 drew
                         // green-rimmed holes in a lime sheet, a leopard)
                         d = lerp(d, 0.85 - 0.50 * border, smoothstep(0.0, 0.45, starve));
+                        // (b07) its end pales into a fan of yellow where it goes in (the clip's pale-yellow heart, f40-84)
+                        d *= 1.0 - 0.55 * smoothstep(0.86, 1.0, kS) * (1.0 - starve);
                         col = lerp(rim, shade, 1.0 - Step(0.92, d, pd));
                         col = lerp(col, body, 1.0 - Step(0.74, d, pd));
                         col = lerp(col, light, 1.0 - Step(0.56, d, pd));
@@ -774,13 +776,15 @@ Shader "TW/Cel/AcidBeam"
                     float2 L = float2(-0.6, 0.8);                       // the light, from the frame's upper left (the card faces the eye)
                     float grow = 0.45 + 0.55 * smoothstep(0.0, 1.0, rise), flt = 0.40 + 0.60 * smoothstep(0.0, 1.0, sink);
                     float sx = grow * (0.85 + 0.15 * flt), sy = grow * flt;
-                    float2 m = float2(q.x / sx, q.y * Hh / sy);        // in its half-widths: it swells up from its foot, flattens as it goes
-                    float mp = max(pixX / sx, pixY * Hh / sy);
+                    // in its half-widths: it swells up from its foot, flattens as it goes, and keeps inside its card
+                    // (b06's lobes ran out of its card's side and foot: straight cuts)
+                    float2 m = float2(q.x / sx, q.y * Hh / sy) / 0.86;
+                    float mp = max(pixX / sx, pixY * Hh / sy) / 0.86;
                     float opn = 1.0 - smoothstep(0.15, 0.75, sink);
                     float wob = 0.03 * (CelValue2(float2(atan2(m.y - 0.80, m.x) * 2.5 + seed * 9.0, tk * 0.7)) - 0.5);
                     float f = Lump(m, seed, tk, opn) + wob;
                     al = Step(0.0, f, mp) * step(0.0, q.y);
-                    float fl = Lump(m + L * 0.06, seed, tk, opn) + wob, fs = Lump(m - L * 0.13, seed, tk, opn) + wob;
+                    float fl = Lump(m + L * 0.10, seed, tk, opn) + wob, fs = Lump(m - L * 0.22, seed, tk, opn) + wob;   // (b07: deeper)
                     col = lerp(body, light, 1.0 - Step(0.0, fl, mp));
                     col = lerp(col, shade, (1.0 - Step(0.0, fs, mp)) * 0.9);
                     float pn = CelValue2(float2(m.x * 6.5 + seed * 5.0 + tk * 0.05, m.y * 6.5 + seed * 3.0));
