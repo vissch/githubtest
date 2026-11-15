@@ -241,11 +241,11 @@ Shader "TW/Cel/IceBolt"
                         float n1 = CelValue2(qv * 2.1 + float2(sd * 37.0, sd * 11.0));
                         float n2 = CelValue2(qv * 4.7 + float2(sd * 13.0 + tick * 0.37, sd * 29.0 - tick * 0.23));
                         float n3 = CelValue2(qv * 11.0 + float2(sd * 7.0 - tick * 0.11, sd * 3.0 + tick * 0.17));
-                        float lumpR = rr * (1.0 + 0.22 * (n1 - 0.5) + 0.12 * (n2 - 0.5));
+                        float lumpR = rr * (1.0 + 0.34 * (n1 - 0.5) + 0.2 * (n2 - 0.5));
                         float zc = max(i.shape.z, 0.0) * (1.0 - BLOOM_SHRINK * thr);
                         float t = saturate((lumpR - zc) / max(1.0 - zc, 1e-3));
                         float cloud = pow(1.0 - t, max(i.shape.y, 0.2));
-                        cloud *= 1.0 + 0.5 * (n3 - 0.5) * t;
+                        cloud *= 1.0 + 0.9 * (n3 - 0.5) * t;
                         float holes = saturate((0.6 * n2 + 0.4 * n3 + 0.75 - thr * 1.3) * 4.0);
                         cloud = saturate(cloud) * (1.0 - thr) * holes;
                         float coreM = (1.0 - smoothstep(zc * 0.55, zc * 1.05, rr * (1.0 + 0.16 * (n2 - 0.5)))) * (1.0 - thr);
