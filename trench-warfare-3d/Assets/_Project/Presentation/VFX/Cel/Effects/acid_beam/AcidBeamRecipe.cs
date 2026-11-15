@@ -406,11 +406,31 @@ namespace TW.Presentation.VFX.Cel
                 Tongue(renderer, kind, now, AtFrame(late, rng.Range(40f, 94f)), at, target, away, green, ref rng);
             }
             // ... and late in it, tongues shooting up out of the mass (frames 74-96: the clip's splash grows 4-5 m tall; b10)
-            int rising = far ? 0 : mid ? 30 : 70;
+            int rising = far ? 0 : mid ? 16 : 40;                        // (b12: b10's 70 to f96 read as a porcupine at f84-90)
             for (int i = 0; i < rising; i++)
             {
                 Vector3 at = target + Vector3.up * rng.Range(0.4f, 2.4f) + right * rng.Range(-1.0f, 1.2f) - away * rng.Range(-0.2f, 0.6f);
-                Tongue(renderer, kind, now, AtFrame(late, rng.Range(74f, 96f)), at, target - Vector3.up * 1.5f, away, rng.Next() < 0.3f, ref rng);
+                Tongue(renderer, kind, now, AtFrame(late, rng.Range(70f, 86f)), at, target - Vector3.up * 1.5f, away, rng.Next() < 0.3f, ref rng);
+            }
+            // ... and big slow sheets of goo over the target as the beam runs out (frames 84-96: the clip's mass turns from
+            // spikes to flowing green goo before it sinks to the lump; b12)
+            int goo = far ? 0 : mid ? 24 : 60;
+            for (int i = 0; i < goo; i++)
+            {
+                float rad = rng.Range(0.5f, 0.9f);
+                bool green = rng.Next() < 0.5f;
+                Vector3 at = target + Vector3.up * rng.Range(-0.6f, 2.4f) + right * rng.Range(-1.4f, 1.6f) - away * rng.Range(-0.2f, 0.8f);
+                var r = Rec(now, AtFrame(late, rng.Range(84f, 96f)), rng.Range(0.25f, 0.45f), AcidBeamKind.Drop, at, green ? Sheet : Splash, 1f, ref rng);
+                Vector3 o = at - target;
+                o -= away * Vector3.Dot(o, away);
+                r.Vel = o.normalized * rng.Range(0.5f, 2.0f) + Vector3.up * rng.Range(-0.5f, 1.0f);
+                r.Motion = new Vector4(1.5f, 1.5f, 0f, 0f);
+                r.Size = new Vector4(rad * 0.8f, rad, 0.6f, rng.Range(0.2f, 0.4f));
+                float t = rng.Next();
+                r.Tone.w = green ? (t < 0.4f ? 1f : t < 0.85f ? 2f : 3f) : (t < 0.3f ? 1f : t < 0.65f ? 2f : t < 0.9f ? 3f : 4f);
+                r.Erode = new Vector4(rng.Next() < 0.4f ? 1f : 0f, 0f, 0f, 0f);
+                r.Extra.y = 6f;
+                renderer.Spawn(kind, r);
             }
             // ... round a hot core where the beam goes in: a small pale star, new on every drawing (frames 35-93)
             if (!far)
