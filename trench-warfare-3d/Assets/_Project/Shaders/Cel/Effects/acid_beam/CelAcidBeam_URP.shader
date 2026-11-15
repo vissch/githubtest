@@ -23,7 +23,12 @@
 //  1 drop     a ballistic drop. Pos, Vel, Motion.x gravity, Motion.y drag. Size x radius at birth (m), y at death,
 //             w its stretch (seconds of its own motion). Extra y 0 a teardrop, 1 a round fleck, 2 a leaf (a point
 //             at both ends), 3 a glossy blob (drawn like a bubble: its light side, a glint, a dark rim), 4 a spark
-//             (a teardrop, hot along its middle).
+//             (a teardrop, hot along its middle), 5 a blade of goo (a round root and a long point: the root holds
+//             where it was thrown from for Motion.z seconds, then follows the point; no stretch), 6 a sheet of goo
+//             (round lobes along its flight run into one body with a tail behind; stretched like any drop).
+//             A blade and a sheet: Tone.w their tone on the row's ladder (0 rim, 1 shade, 2 body, 3 light, 4 core,
+//             5 ink), Erode x a dark line round it (0..1), y a blade's bend (-1..1), z a blade's paleness toward its
+//             root / a sheet's holes (0..1).
 //  2 splat    the first hit: a star of spikes facing the eye. Size x its half-extent (m). Extra y metres toward the eye.
 //  3 mound    the goo standing over the target (a pillar pushed over the way the jet goes, thick tongues at its
 //             top), and the last splash at its foot. Pos its foot. Size x width (m), w height / width. Axis the
@@ -150,13 +155,30 @@ Shader "TW/Cel/AcidBeam"
                     float3 G = float3(0.0, -r.motion.x, 0.0);
                     float3 p = r.pos + r.vel * CelDragInt(r.motion.y, a) + 0.5 * G * a * a;
                     float3 vel = r.vel * exp(-r.motion.y * a) + G * a;
-                    float3 vV = mul((float3x3)UNITY_MATRIX_V, vel);
-                    float sp = length(vV.xy);
-                    float2 d2 = sp > 1e-3 ? vV.xy / sp : float2(0.0, -1.0);
                     float rad = CelCurve(r.size.xyz, k);
-                    float len = max(rad, sp * r.size.w);
+                    float2 span;
+                    float len;
+                    if (abs(r.extra.y - 5.0) < 0.5)
+                    {
+                        // a blade: its root holds where it was thrown from, then lets go and follows its point
+                        float b = max(a - r.motion.z, 0.0);
+                        float3 root = r.pos + r.vel * CelDragInt(r.motion.y, b) + 0.5 * G * b * b;
+                        span = mul((float3x3)UNITY_MATRIX_V, p - root).xy;
+                        len = max(0.5 * length(span), rad);
+                        p = 0.5 * (p + root);
+                    }
+                    else
+                    {
+                        span = mul((float3x3)UNITY_MATRIX_V, vel).xy;
+                        len = max(rad, length(span) * r.size.w);
+                    }
+                    float sp = length(span);
+                    float2 d2 = sp > 1e-4 ? span / sp : float2(0.0, -1.0);
                     w = p + (vr * d2.x + vu * d2.y) * cq.x * len + (vu * d2.x - vr * d2.y) * cq.y * rad;
-                    shape = float4(len / max(rad, 1e-4), r.extra.y, 0.0, 0.0);
+                    float2 ls = float2(-0.6, 0.8);                      // the light falls from the frame's upper left
+                    shape = float4(len / max(rad, 1e-4), r.extra.y, dot(ls, d2), dot(ls, float2(-d2.y, d2.x)));   // (in the card's own axes)
+                    shape2 = r.erode;
+                    shape3 = float4(tick, 0.0, 0.0, 0.0);
                 }
                 else if (mode < 2.5)
                 {
@@ -249,6 +271,57 @@ Shader "TW/Cel/AcidBeam"
 
             // a step at edge, w wide (the derivative is taken once, outside every branch)
             float Step(float edge, float v, float w) { return smoothstep(edge - w, edge + w, v); }
+
+            // a tone of a palette row's ladder, dark to light: 0 rim, 1 shade, 2 body, 3 light, 4 core; 5 the row's ink
+            half3 Ladder(uint row, float t)
+            {
+                return t < 0.5 ? CelPal(row, 0) : t < 1.5 ? CelPal(row, 1) : t < 2.5 ? CelPal(row, 2) : t < 3.5 ? CelPal(row, 3)
+                    : t < 4.5 ? CelPalCore(row).rgb : CelPalInk(row).rgb;
+            }
+
+            // a smooth union of two fields that are above 0 inside (k: how far they run together)
+            float SMax(float a, float b, float k)
+            {
+                float h = saturate(0.5 + 0.5 * (b - a) / k);
+                return lerp(a, b, h) + k * h * (1.0 - h);
+            }
+
+            // a sheet of goo in its own half-widths (x along its flight; the card runs from -aspect to aspect): three
+            // round lobes run together from its head back, a thick tail from the last of them to the card's back end,
+            // two horns trailing off its flanks (three in four), a hole when `holes` > 0; above 0 inside
+            // (b05: the tail stops at the body - run through it, it cut the head flat at the card's edge)
+            float GooSheet(float2 m, float aspect, float seed, float holes)
+            {
+                float f = -1.0;
+                float head = aspect - 0.95, back = head - 0.55 * max(aspect - 0.6, 0.0);
+                [unroll] for (int j = 0; j < 3; j++)
+                {
+                    float h = CelHash21(float2(j + 1.0, seed * 91.0 + 7.0)), h2 = CelHash21(float2(j + 9.0, seed * 37.0 + 3.0));
+                    float2 c = float2(lerp(head, back, j * 0.5), (h2 - 0.5) * 0.30);
+                    f = SMax(f, (0.60 - 0.10 * j) * (0.82 + 0.30 * h) - length(m - c), 0.25);
+                }
+                float tx = saturate((m.x + aspect) / max(back + aspect, 0.3));
+                f = SMax(f, 0.42 * pow(tx, 0.8) - abs(m.y - 0.20 * sin(tx * 3.5 + seed * 19.0) * (1.0 - tx)) - 2.0 * max(m.x - back, 0.0), 0.2);
+                [unroll] for (int n = 0; n < 2; n++)
+                {
+                    float h = CelHash21(float2(n + 13.0, seed * 47.0 + 1.0)), h2 = CelHash21(float2(n + 17.0, seed * 23.0 + 2.0));
+                    float h3 = CelHash21(float2(n + 19.0, seed * 61.0 + 3.0));
+                    float sd = n == 0 ? 1.0 : -1.0;
+                    float2 p = m - float2(back + 0.15, sd * (0.30 + 0.20 * h));
+                    float ang = 2.7 + 0.45 * h2;                         // backward and out
+                    float2 d = float2(cos(ang), sd * sin(ang));
+                    float t = dot(p, d) / max(min(0.5 + 0.9 * h3, (back + 0.15 + aspect) * 0.9), 1e-3);
+                    float horn = t >= 0.0 && t <= 1.0 && h3 > 0.25 ? (0.16 + 0.10 * h) * pow(saturate(1.0 - t), 0.9) - abs(p.x * d.y - p.y * d.x) : -1.0;
+                    f = max(f, horn);
+                }
+                if (holes > 0.01)
+                {
+                    float h = CelHash21(float2(3.0, seed * 77.0 + 1.0)), h2 = CelHash21(float2(5.0, seed * 59.0 + 2.0));
+                    float2 c = float2(lerp(head, back, 0.3 + 0.5 * h), (h2 - 0.5) * 0.35);
+                    f = min(f, length(m - c) - (0.10 + 0.12 * CelHash21(float2(7.0, seed * 31.0))) * holes);
+                }
+                return f;
+            }
 
             // the colour as it has to be written for the lens vignette to leave it as it is (the header)
             // (share: how much of what the lens takes is made up, 1 all of it)
@@ -390,6 +463,7 @@ Shader "TW/Cel/AcidBeam"
                 float across = d.x * i.flow.x + d.z * i.flow.y, back = d.z * i.flow.x - d.x * i.flow.y;   // metres along its axis, and square to it on the far side
                 float t = length(float3(across / i.shape.x, back / (i.shape.y * (back > 0.0 ? i.flow.z : 1.0)), d.y / i.flow.w));
                 float level = smoothstep(0.30, 0.55, abs(facing.y) / max(length(facing), 1e-20));
+                level *= 1.0 - smoothstep(0.35, 0.70, d.y);       // and low: not the top of the target's head (b04 lit it from frame 30)
                 return exp(-3.0 * t * t) * (1.0 - smoothstep(0.8, 1.0, t)) * i.shape.z * i.tone.z * lerp(1.0, level, i.tone.y);
             }
 
@@ -513,7 +587,63 @@ Shader "TW/Cel/AcidBeam"
                 }
                 else if (mode < 1.5)
                 {
-                    if (i.shape.y > 3.5)
+                    float ts = i.tone.w;
+                    if (i.shape.y > 4.5)
+                    {
+                        float aspect = max(i.shape.x, 1.0), tk = i.shape3.x;
+                        float2 L = i.shape.zw;                          // the light, in the card's axes (x along it, y across)
+                        half3 base = Ladder(row, ts), up1 = Ladder(row, min(ts + 1.0, 4.0)), dn1 = Ladder(row, max(min(ts, 4.0) - 1.0, 0.0));
+                        float f;
+                        if (i.shape.y > 5.5)
+                        {
+                            // a sheet of goo flying (GooSheet); its outline wobbles as it flies (a little new on every
+                            // drawing)
+                            float2 m = float2(q.x * aspect, q.y);       // in its half-widths
+                            m += 0.16 * (float2(CelValue2(m * 1.6 + seed * 23.0 + tk * 0.23), CelValue2(m * 1.6 + seed * 41.0 - tk * 0.19)) - 0.5);
+                            f = GooSheet(m, aspect, seed, i.shape2.z);
+                            al = Step(0.0, f, pixY);
+                            // its tone, a tone up where it faces the light and a tone down where it faces away (its own
+                            // outline moved toward the light and away from it: the bands follow its shape), a pale
+                            // glint on its head on one in two (b05's first try split the tones along straight lines)
+                            float fl = GooSheet(m + L * 0.38, aspect, seed, i.shape2.z), fs = GooSheet(m - L * 0.26, aspect, seed, i.shape2.z);
+                            col = base;
+                            col = lerp(col, up1, 1.0 - Step(0.0, fl, pixY));
+                            col = lerp(col, dn1, (1.0 - Step(0.0, fs, pixY)) * 0.9);
+                            float2 g = m - float2(aspect - 0.95, (CelHash21(float2(9.0, seed * 37.0 + 3.0)) - 0.5) * 0.30) - L * 0.30;
+                            col = lerp(col, pale, (1.0 - Step(0.13, length(g * float2(1.0, 1.5)), pixY)) * step(0.5, CelHash21(float2(seed * 13.0, 5.0))));
+                        }
+                        else
+                        {
+                            // a blade of goo: a round root, a long point, bent a little to one side, its flanks a
+                            // little ragged (new every second drawing), one in two with a short spike off a flank;
+                            // pale toward its root where it leaves the hot heart (Erode.z), a lighter streak along
+                            // its lit flank, its other flank a tone down
+                            float u = q.x * 0.5 + 0.5;                  // 0 its root .. 1 its point
+                            float yb = q.y - i.shape2.y * 0.36 * u * u;
+                            float side = yb >= 0.0 ? 1.0 : -1.0;
+                            float rag = CelValue2(float2(u * aspect * 2.2 + seed * 17.0, side * 3.0 + seed * 5.0 + floor(tk / 2.0) * 0.61)) - 0.5;
+                            float wd = 0.62 * pow(saturate(1.0 - u), 0.8) * sqrt(saturate((q.x + 1.0) * aspect / 0.55)) * (1.0 + 0.35 * rag);   // (a round root whatever its length)
+                            f = wd - abs(yb);
+                            float hs = CelHash21(float2(seed * 53.0, 7.0));
+                            float u0 = 0.25 + 0.3 * CelHash21(float2(seed * 29.0, 3.0));
+                            float sideS = hs < 0.25 ? -1.0 : 1.0;
+                            float w0 = 0.62 * pow(1.0 - u0, 0.8);
+                            float2 pS = float2(q.x * aspect, yb) - float2((u0 * 2.0 - 1.0) * aspect, sideS * w0 * 0.6);
+                            float2 dS = float2(0.876, sideS * 0.482);
+                            float tS = dot(pS, dS) / max(min((1.0 - u0) * aspect * 0.55, 0.9), 1e-3);
+                            float spike = tS >= 0.0 && tS <= 1.0 && hs < 0.5 ? w0 * 0.45 * pow(saturate(1.0 - tS), 0.9) - abs(pS.x * dS.y - pS.y * dS.x) : -1.0;
+                            f = max(f, spike);
+                            al = Step(0.0, f, pixY);
+                            float lit = L.y >= 0.0 ? 1.0 : -1.0;        // the flank the light falls on
+                            float yn = yb / max(wd, 0.05), pn = pixY / max(wd, 0.05);
+                            col = base;
+                            col = lerp(col, dn1, Step(0.35, -yn * lit, pn) * 0.9);
+                            col = lerp(col, up1, (1.0 - Step(0.28, abs(yn - 0.30 * lit), pn)) * step(0.12, u) * (1.0 - step(0.9, u)));
+                            col = lerp(col, pale, (1.0 - smoothstep(0.08, 0.45, u)) * i.shape2.z);
+                        }
+                        col = lerp(col, rim * 0.55, (1.0 - Step(1.6 * pixY, f, pixY)) * i.shape2.x);   // a dark line round it
+                    }
+                    else if (i.shape.y > 3.5)
                     {
                         // a spark: a teardrop (its head ahead), hot along its middle and at its head
                         float aspect = max(i.shape.x, 1.0);
@@ -544,15 +674,13 @@ Shader "TW/Cel/AcidBeam"
                         al = (1.0 - Step(wd * 0.92, abs(q.y), pixY)) * step(0.03, wd);
                         // its tone (Tone.w: 0 body, 1 shade, 2 light, 3 the row's ink, 4 rim), a lighter streak down
                         // its middle, a little off to one side (pale on the light ones, a tone up on the dark ones)
-                        float ts = i.tone.w;
                         half3 base = ts < 0.5 ? body : ts < 1.5 ? shade : ts < 2.5 ? light : ts < 3.5 ? CelPalInk(row).rgb : rim;
                         half3 lit = ts < 1.5 ? lerp(base, light, 0.5) : ts > 3.5 ? shade : lerp(base, pale, 0.65);
                         col = lerp(base, lit, 1.0 - Step(0.28 * wd, abs(q.y - 0.18 * wd), pixY));
                     }
                     else if (i.shape.y > 0.5)
                     {
-                        al = 1.0 - Step(0.9, length(q), pix);
-                        float ts = i.tone.w;                            // its tone, as a leaf's
+                        al = 1.0 - Step(0.9, length(q), pix);           // (its tone, as a leaf's)
                         col = ts < 0.5 ? body : ts < 1.5 ? shade : ts < 2.5 ? light : CelPalInk(row).rgb;
                         col = lerp(col, pale, 1.0 - Step(0.35, length(q - float2(-0.25, 0.3)), pix));
                     }

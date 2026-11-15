@@ -60,7 +60,7 @@ namespace TW.Tests
             AcidBeamRecipe.Play(Nozzle, Target, Vector3.zero, Vector3.right, 1917u);
             int kind = renderer.KindId(AcidBeamKind.KindName);
             Assert.That(kind, Is.GreaterThanOrEqualTo(0));
-            Assert.That(renderer.SpawnedOf(kind), Is.GreaterThan(400), "the beam, blobs, beads, sparks, leaves, starbursts and smoke");
+            Assert.That(renderer.SpawnedOf(kind), Is.GreaterThan(400), "the beam, blobs, beads, sparks, blades, sheets of goo, spray and smoke");
             Assert.That(renderer.SpawnedOf(kind), Is.LessThanOrEqualTo(renderer.CapacityOf(kind) / 2),
                 "everything is queued up front: two beams at once must not overwrite each other's first");
         }
