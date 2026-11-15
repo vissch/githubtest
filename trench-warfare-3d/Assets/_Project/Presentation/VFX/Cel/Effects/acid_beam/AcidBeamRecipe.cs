@@ -34,9 +34,10 @@ namespace TW.Presentation.VFX.Cel
         // the clip's colours taken back through the Range's night grade; the comments give what they show as.
         static Color S(float r, float g, float b) => new Color(Mathf.LinearToGammaSpace(r), Mathf.LinearToGammaSpace(g), Mathf.LinearToGammaSpace(b), 1f);
 
-        // the beam: rim #48913E, green #5BBE52, lime #9DD957, yellow #DEF14B, hot yellow #F8F26A, pale streaks #E5F794
+        // the beam: rim #427C38 (b09: the clip's dark-green streaks; b02-b08 #48913E), green #5BBE52, lime #9DD957,
+        // yellow #DEF14B, hot yellow #F8F26A, pale streaks #E5F794
         static readonly int Jet = CelPalette.Add("acid_beam_jet",
-            S(0.227f, 0.448f, 0.227f), S(0.287f, 0.595f, 0.283f), S(0.488f, 0.708f, 0.302f), S(0.628f, 0.844f, 0.286f), S(0.698f, 0.855f, 0.361f), 1.1f, 4, S(0.620f, 0.887f, 0.474f));
+            S(0.212f, 0.392f, 0.211f), S(0.287f, 0.595f, 0.283f), S(0.488f, 0.708f, 0.302f), S(0.628f, 0.844f, 0.286f), S(0.698f, 0.855f, 0.361f), 1.1f, 4, S(0.620f, 0.887f, 0.474f));
         // the splash over the target, its lime half: #679952, #85C260, #99E46E, #C3F26F, pale #DCF88F, yellow #D4F65C (b05:
         // the clip's mass measured in seven tones, frames 46-90 over the target: 22 % #99E46E, 16 % #C3F26F, 15 % each
         // #679952 and #85C260, 11 % #DCF88F; b04 drew 38 % yellow where the clip has 22 %)
@@ -524,19 +525,9 @@ namespace TW.Presentation.VFX.Cel
                     r.Extra.y = 1f;
                     renderer.Spawn(kind, r);
                 }
-                for (int i = 0; i < ribbons; i++)
-                {
-                    float rad = rng.Range(0.18f, 0.40f);
-                    var r = Rec(now, AtFrame(late, rng.Range(100f, 110f)), rng.Range(0.22f, 0.38f), AcidBeamKind.Drop,
-                        heart + right * rng.Range(0.8f, 2.0f) + Vector3.up * rng.Range(-1.2f, 1.2f) - away * 0.8f, Splash, 1f, ref rng);
-                    r.Vel = right * rng.Range(3f, 6f) + Vector3.up * rng.Range(0.5f, 2.5f);
-                    r.Motion = new Vector4(2f, 1.0f, 0f, 0f);
-                    r.Size = new Vector4(rad, rad * 0.6f, 0.6f, rng.Range(0.18f, 0.28f));
-                    r.Tone.w = rng.Next() < 0.6f ? 5f : 3f;
-                    r.Erode = Vector4.zero;
-                    r.Extra.y = 6f;
-                    renderer.Spawn(kind, r);
-                }
+                for (int i = 0; i < ribbons; i++)   // (b09: as tongues - b06-b08's stretched sheets read as comet arrows)
+                    Tongue(renderer, kind, now, AtFrame(late, rng.Range(98f, 110f)),
+                        heart + right * rng.Range(0.8f, 2.0f) + Vector3.up * rng.Range(-1.2f, 1.2f) - away * 0.8f, heart, away, false, ref rng);
             }
 
             // ---- the smoke: a bank of it rising off the beam's top all the while it runs (frames 30-110) ...
@@ -547,12 +538,12 @@ namespace TW.Presentation.VFX.Cel
                 float pass = delay + flight * u;                         // the head goes over it
                 // (b08: the clip's first smoke is low on the beam's top at frame 40 and small, a soft band on it by f60,
                 // big see-through wisps by f84; b02-b07's rose as opaque puffs from the head's pass, 1 m over the beam)
-                float lo = Mathf.Max(pass + 0.25f, AtFrame(late, 38f));
+                float lo = Mathf.Max(pass + 0.25f, AtFrame(late, 40f));
                 float at = rng.Range(lo, Mathf.Max(lo, AtFrame(late, 80f)));
-                Vector3 on = Vector3.Lerp(nozzle, target, u) + Vector3.up * (Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.6f + 0.2f);
+                Vector3 on = Vector3.Lerp(nozzle, target, u) + Vector3.up * (Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.6f + 0.35f);
                 float size = rng.Range(0.8f, 1.3f);
                 var r = Rec(now, at, rng.Range(1.0f, 1.5f), AcidBeamKind.Puff, on, Fume, FumeOpacity * 0.9f, ref rng);
-                r.Vel = Vector3.up * rng.Range(0.7f, 1.5f) + dir * rng.Range(0.0f, 0.5f);
+                r.Vel = Vector3.up * rng.Range(1.4f, 2.2f) + dir * rng.Range(0.0f, 0.5f);   // (b09: b08's 0.7-1.5 hugged the beam)
                 r.Motion = new Vector4(0f, 0.6f, 0f, 0f);
                 r.Size = new Vector4(size * 0.45f, size * 2.0f, 0.7f, 1f);
                 r.Extra.y = 0.45f;

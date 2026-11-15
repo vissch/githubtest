@@ -573,7 +573,9 @@ Shader "TW/Cel/AcidBeam"
                         float border = 1.0;
                         if (starve > 0.001)
                         {
-                            float2 wp = float2(q.x * 2.0, e / 0.040) + seed * 7.0;
+                            // (b09: warped and fewer - b08's round holes in rows read as a leopard band)
+                            float2 wp = float2(q.x * 1.6, e / 0.055) + seed * 7.0;
+                            wp += 0.45 * (float2(CelValue2(wp * 0.9 + seed * 3.0), CelValue2(wp * 0.9 + seed * 5.0 + 7.0)) - 0.5);
                             float2 wc = floor(wp), wf = frac(wp);
                             float gap = 8.0;                             // how far this point is outside every hole
                             [unroll] for (int yy = -1; yy <= 1; yy++)
@@ -589,26 +591,29 @@ Shader "TW/Cel/AcidBeam"
                             al *= Step(0.18 * smoothstep(0.5, 1.0, starve), gap, pixX * 2.0) * (1.0 - smoothstep(0.85, 1.0, starve));
                             border = saturate(1.0 - gap / 0.30);         // 1 at a hole's rim, 0 deep in the fluid
                         }
-                        // across it: a yellow core with a hot heart, lime round it, then green, a dark lip at its edge;
-                        // the bands waver along it (in the net: each rope green with a yellow middle)
-                        float pd = pixX / max(edge, 0.05);
-                        float wob = CelValue2(float2(e * 17.0 + seed * 5.0, q.x * 2.0 + 4.5)) - 0.5;
-                        float d = abs(q.x) / max(edge, 0.02) + 0.16 * wob;
-                        // (the lace: yellow round its holes, lime, then green deep in it - the clip's; b03-b05 drew
+                        // across it (b09): long thin streaks of yellow, lime, green and dark green that flow with it,
+                        // 2-4 m long and slanted a little, the yellow low in it and the green high (the clip's beam is a
+                        // bundle of streaks about a fifth yellow; b02-b08 drew concentric bands, 57 % yellow)
+                        float pd = pixX / max(edge, 0.05) * 1.6;
+                        float u = q.x * 0.5 + 0.5;
+                        float st = 0.55 * CelValue2(float2(u * 9.0 + e * 3.0 + seed * 3.0, e * 6.0 + seed * 5.0))
+                            + 0.45 * CelValue2(float2(u * 24.0 - e * 5.0 + seed * 7.0, e * 11.0 + seed * 11.0));
+                        float d = abs(q.x + 0.20) / max(edge + 0.10, 0.02) + 1.10 * (st - 0.5);
+                        // (the lace: yellow round its holes, then green deep in it - the clip's; b03-b05 drew
                         // green-rimmed holes in a lime sheet, a leopard)
-                        d = lerp(d, 0.85 - 0.50 * border, smoothstep(0.0, 0.45, starve));
+                        d = lerp(d, 0.80 - 0.62 * border, smoothstep(0.0, 0.45, starve));
                         // (b07) its end pales into a fan of yellow where it goes in (the clip's pale-yellow heart, f40-84)
                         d *= 1.0 - 0.55 * smoothstep(0.86, 1.0, kS) * (1.0 - starve);
-                        col = lerp(rim, shade, 1.0 - Step(0.92, d, pd));
-                        col = lerp(col, body, 1.0 - Step(0.74, d, pd));
-                        col = lerp(col, light, 1.0 - Step(0.56, d, pd));
-                        col = lerp(col, hot, 1.0 - Step(0.30, d, pd));
-                        // long pale streaks in the core and lime ones in the green, flowing with it
-                        float u = q.x * 0.5 + 0.5;
+                        col = lerp(rim, shade, 1.0 - Step(0.75, d, pd));
+                        col = lerp(col, body, 1.0 - Step(0.45, d, pd));
+                        col = lerp(col, light, 1.0 - Step(0.30, d, pd));
+                        col = lerp(col, hot, 1.0 - Step(0.10, d, pd));
+                        // pale streaks in its yellow, flowing with it
                         float sk = Streaks(float2(u * 7.0 + seed * 3.0, e / 0.045 + seed * 5.0), seed, 0.55, 0.30, pixX * 3.5);
-                        col = lerp(col, streak, sk * (1.0 - smoothstep(0.40, 0.58, d)));
-                        float sk2 = Streaks(float2(u * 10.0 + seed * 7.0, e / 0.032 + seed * 9.0), seed + 0.4, 0.45, 0.26, pixX * 5.0);
-                        col = lerp(col, lerp(body, light, 0.5), sk2 * smoothstep(0.56, 0.62, d) * (1.0 - smoothstep(0.86, 0.92, d)));
+                        col = lerp(col, streak, sk * (1.0 - smoothstep(0.18, 0.32, d)));
+                        // its edges fray into strands with the night between them (b09)
+                        float fray = CelValue2(float2(u * 18.0 + seed * 9.0, e * 10.0 + seed * 2.0));
+                        al *= Step(0.0, 0.40 * fray + 0.80 - abs(q.x) / max(edge, 0.02), pixX * 2.0 / max(edge, 0.05));
                     }
                     else
                     {
