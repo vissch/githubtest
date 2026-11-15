@@ -14,7 +14,7 @@ namespace TW.Presentation.VFX.Cel
         public override string Name => KindName;
         public override Shader FindShader() => Shader.Find("TW/Cel/IceBolt");
         public override Mesh BuildMesh() => CelMeshes.Strip(48, "Cel IceBolt");
-        public override int Capacity => 1024;
+        public override int Capacity => 2048;
         public override int Order => 22;
     }
 }
