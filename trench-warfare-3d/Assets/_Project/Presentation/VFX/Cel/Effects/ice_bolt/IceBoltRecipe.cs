@@ -113,7 +113,7 @@ namespace TW.Presentation.VFX.Cel
                     Vector3 lane = centre + (d == 0 ? Vector3.zero : (right * rng.Range(-1f, 1f) + up * rng.Range(-1f, 1f)) * 0.12f);
                     float life = rng.Jitter(DartLife, 0.06f), width = rng.Jitter(DartWidth, 0.3f), dseed = rng.Next();
                     bool glance = f >= GlanceFrom && f <= GlanceTo && rng.Next() < GlanceShare;
-                    Vector3 end = glance ? to + right * rng.Range(3.2f, 4.5f) + up * rng.Range(1.8f, 2.6f) : to;
+                    Vector3 end = glance ? to + right * rng.Range(3.0f, 4.2f) + up * rng.Range(2.2f, 3.0f) : to;
                     int wakes = far ? 0 : mid ? (rng.Next() < 0.5f ? 1 : 0) : (rng.Next() < 0.2f ? 1 : 2);
                     if (on && darts) renderer.Spawn(kind, Dart(now + at, from + lane, end, life, width, dseed));
                     for (int w = 0; w < 2; w++)
@@ -218,14 +218,14 @@ namespace TW.Presentation.VFX.Cel
             {
                 // glitter: tiny white points that wink in and out over the cloud through the holds
                 Name = "glitter", Kind = IceBoltKind.KindName, Anchor = CelAnchor.Target, Offset = HitOffset, Start = AtFrame(18f), Duration = AtFrame(72f) - AtFrame(18f), TimeJitter = 0.04f, Life = 0.18f, LifeJitter = 0.4f,
-                Close = 90, Mid = 20, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.25f, 0f, 0f), Aim = CelAim.None, Speed = 0f,
+                Close = 50, Mid = 12, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.7f, 0f, 0f), Aim = CelAim.None, Speed = 0f,
                 Size = new CelCurve(0.018f, 0.014f), SizeJitter = 0.5f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.5f, 2f), Feather = 1.4f,
                 Palette = "ice_hit", Core = 1f, Opacity = 1f, Extra = new Vector4(IceBoltKind.Speck, 0f, 0f, 0f),
             },
             new CelLayer
             {
                 Name = "glitter 2", Kind = IceBoltKind.KindName, Anchor = CelAnchor.Target, Offset = HitOffset, Start = AtFrame(92f), Duration = AtFrame(128f) - AtFrame(92f), TimeJitter = 0.04f, Life = 0.18f, LifeJitter = 0.4f,
-                Close = 60, Mid = 14, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.35f, 0f, 0f), Aim = CelAim.None, Speed = 0f,
+                Close = 34, Mid = 8, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.75f, 0f, 0f), Aim = CelAim.None, Speed = 0f,
                 Size = new CelCurve(0.018f, 0.014f), SizeJitter = 0.5f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.5f, 2f), Feather = 1.4f,
                 Palette = "ice_hit", Core = 1f, Opacity = 1f, Extra = new Vector4(IceBoltKind.Speck, 0f, 0f, 0f),
             },
