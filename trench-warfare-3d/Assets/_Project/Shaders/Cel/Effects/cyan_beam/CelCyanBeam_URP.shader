@@ -246,11 +246,11 @@ Shader "TW/Cel/CyanBeam"
                     // length (many short, a few long), starting at uneven distances from the centre, slightly bent,
                     // white along the root, pale cyan bodies and cyan tips, over a SMALL broken white centre. Each
                     // record draws `points` needles; two or three records overlap, each with its own layout.
-                    float count = clamp(input.shape.z, 3.0, 16.0);
+                    float count = clamp(input.shape.z, 3.0, 24.0);
                     float salt = input.beam.z * 71.0;
                     float turn = input.beam.z * 6.28318;
                     float needle = 0.0, needleCore = 0.0, needleTip = 0.0, needleGlow = 0.0;
-                    [loop] for (int n = 0; n < 16; n++)
+                    [loop] for (int n = 0; n < 24; n++)
                     {
                         if (n >= (int)count) break;
                         float nn = n + 1.0;
@@ -268,7 +268,8 @@ Shader "TW/Cel/CyanBeam"
                         float root = 0.02 + 0.12 * h1;
                         float span = h5 < 0.55 ? 0.08 + 0.22 * h2 : 0.32 + 0.68 * pow(h2, 1.4);
                         float tip = root + span * reach * (0.92 - root);
-                        float width = (0.014 + 0.030 * h3) * (h5 < 0.55 ? 0.8 : 1.15);
+                        // e06: the clip's blades are 15-30 px at the root (ours were 5-15)
+                        float width = (0.020 + 0.042 * h3) * (h5 < 0.55 ? 0.85 : 1.15);
                         float along01 = (dot(samplePosition, dir) - root) / max(tip - root, 1e-3);
                         float bend = (h4 - 0.5) * 0.30 * (tip - root);
                         float lateral = abs(dot(samplePosition, perp) - bend * along01 * along01);

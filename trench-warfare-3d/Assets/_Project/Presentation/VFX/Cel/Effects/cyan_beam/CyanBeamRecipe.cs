@@ -88,6 +88,19 @@ namespace TW.Presentation.VFX.Cel
             return layer;
         }
 
+        /// <summary>e06: one of the lights on the dummy - a URP point light (NightLights' flash pool), 0.9 m in front of
+        /// the target on the beam's side; its colour is the palette's c3. A flash fades as (1 - age/life)^2, so the
+        /// held light is a chain of them.</summary>
+        static CelLayer DummyLight(int i)
+        {
+            return new CelLayer
+            {
+                Name = "dummy light " + i, Kind = CelKinds.LightName, Anchor = CelAnchor.Target,
+                Offset = new Vector3(0f, -0.15f, -0.9f), Start = BeamStart + 0.08f + i * 0.40f, Life = 0.75f,
+                Close = 1, Mid = 1, Far = 0, Palette = "cyan_beam_hit", Core = 9f, Extra = new Vector4(5.5f, 0f, 0f, 0f),
+            };
+        }
+
         static CelLayer Dot(string name, string palette, int mode, float start, float duration, float life,
             int close, int mid, int far, CelCurve size, float softness, float points, float core)
         {
@@ -187,10 +200,14 @@ namespace TW.Presentation.VFX.Cel
                 new CelCurve(3.1f, 3.0f), 2.5f, 0f, 0f), 0.55f),
             // e03: the clip's point of contact is a shatter of thin ice needles (16 per record, ~2.4 records alive = ~38),
             // redrawn every 0.14 s with a new layout, over a small broken white heart (0.06 of the 3 m card).
-            Dot("cyan impact needles", "cyan_beam_hit", 6, BeamStart + 0.1f, 4.75f, 0.14f, 80, 32, 0,
-                new CelCurve(2.9f, 3.4f), 0.05f, 16f, 0.06f),
+            // e06: denser - 22 blades a record, 0.18 s each (about 3 records alive, ~65 blades) - the e04 film's
+            // shatter held 30-35k cyan px in box 620,180,420,320 against the clip's 44-53k.
+            Dot("cyan impact needles", "cyan_beam_hit", 6, BeamStart + 0.1f, 4.75f, 0.18f, 80, 32, 0,
+                new CelCurve(2.9f, 3.4f), 0.05f, 22f, 0.06f),
             Dot("cooling target core", "cyan_beam_hit", 1, BeamEnd - 0.08f, 0f, 1.25f, 1, 1, 1,
                 new CelCurve(1.1f, 0.04f, 1.5f), 3f, 0f, 0.25f),
+            DummyLight(0), DummyLight(1), DummyLight(2), DummyLight(3), DummyLight(4), DummyLight(5),
+            DummyLight(6), DummyLight(7), DummyLight(8), DummyLight(9), DummyLight(10), DummyLight(11),
             new CelLayer
             {
                 Name = "orange impact sparks", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target,
