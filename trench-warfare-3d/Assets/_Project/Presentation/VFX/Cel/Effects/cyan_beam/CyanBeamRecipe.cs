@@ -10,9 +10,13 @@ namespace TW.Presentation.VFX.Cel
         public const float BeamLife = 5.0f;
         public const float BeamEnd = BeamStart + BeamLife;
 
+        // e01: the braid's tones, as the shader has to write them for the Range to show the clip's (e00cal swatch
+        // film): c0 deep blue (58,145,212), c1 cyan fill (88,215,235), c2 pale sheen (199,246,248), c3 white
+        // (248,250,251); the core (the arcs) a cool white. Was 3061EA/267CFF/54F5F7/79FAFF + (0.64,1,1.55) x 2.3,
+        // which showed as cream (226,235,219) and a cyan of (30,202,221).
         public static readonly int BeamRow = CelPalette.Add("cyan_beam_shaft",
-            CelPalette.Hex(0x3061EA), CelPalette.Hex(0x267CFF), CelPalette.Hex(0x54F5F7), CelPalette.Hex(0x79FAFF),
-            new Color(0.64f, 1f, 1.55f), 0.4f, 4, CelPalette.Hex(0x03111B));
+            CelPalette.Hex(0x81B6DB), CelPalette.Hex(0x97DFE8), CelPalette.Hex(0xCBEFF9), CelPalette.Hex(0xDFEAFC),
+            CelPalette.Hex(0xB0D8F0), 0.4f, 4, CelPalette.Hex(0x03111B));
         public static readonly int HitRow = CelPalette.Add("cyan_beam_hit",
             CelPalette.Hex(0x159FC4), CelPalette.Hex(0x45EAF2), CelPalette.Hex(0x85FFFF), CelPalette.Hex(0xC4FFFF),
             new Color(0.64f, 1f, 1.55f), 0.55f, 4, CelPalette.Hex(0x03151C));
@@ -62,6 +66,13 @@ namespace TW.Presentation.VFX.Cel
                 Erode = new CelCurve(0f, 0f), Feather = 0f, Palette = palette, Core = 2.3f, Opacity = 1f,
                 Extra = new Vector4(arcs, 1f, 1f, 1f),
             };
+        }
+
+        /// <summary>e01: the held beam drawn as the clip's braid (Extra.y 2 in the shader).</summary>
+        static CelLayer Braided(CelLayer layer)
+        {
+            layer.Extra = new Vector4(layer.Extra.x, 2f, layer.Extra.z, layer.Extra.w);
+            return layer;
         }
 
         static CelLayer Dot(string name, string palette, int mode, float start, float duration, float life,
@@ -129,7 +140,7 @@ namespace TW.Presentation.VFX.Cel
             // .900) so they move toward it; rim's mass is already 1.057x the reference and its mass term
             // weighs .070, at most ~0.7 part points. peak_area_ratio .9637 rises about 6% to ~1.02,
             // still far inside the flat [0.8696, 1.15] deadband (STATE.md boundary fact 1).
-            BeamLayer("held cyan beam", "cyan_beam_shaft", BeamStart, BeamLife, 1.14f, 1f),
+            Braided(BeamLayer("held cyan beam", "cyan_beam_shaft", BeamStart, BeamLife, 1.14f, 1f)),
             Dot("impact core", "cyan_beam_hit", 0, BeamStart, 0f, BeamLife, 1, 1, 1,
                 new CelCurve(0.38f, 0.30f), 0f, 5f, 3f),
             Dot("impact bloom", "cyan_beam_hit", 1, BeamStart + 0.05f, 0f, BeamLife - 0.05f, 1, 1, 1,
@@ -251,6 +262,16 @@ namespace TW.Presentation.VFX.Cel
 
         public static readonly CelFxRecipe Ground = GroundRecipe();
         public static readonly CelFxRecipe OpeningGround = OpeningGroundRecipe();
+
+        static readonly int LensId = Shader.PropertyToID("_TWCyanLens");
+
+        // the lens handed over is a global of the shader: a session that ends puts it back to none
+        static CyanBeamRecipe() { SceneStatics.Register(nameof(CyanBeamRecipe), () => Shader.SetGlobalVector(LensId, Vector4.zero)); }
+
+        /// <summary>e01: the scene's lens vignette (URP Vignette intensity and smoothness; 0 none), handed over by
+        /// whoever shows the effect: the braid is written brighter where the vignette will darken it.</summary>
+        public static void Lens(float intensity, float smoothness) =>
+            Shader.SetGlobalVector(LensId, new Vector4(Mathf.Max(0f, intensity) * 3f, Mathf.Max(0.01f, smoothness) * 5f, 0f, 0f));
 
         public static void Play(Vector3 from, Vector3 to, Vector3 ground, uint seed)
         {

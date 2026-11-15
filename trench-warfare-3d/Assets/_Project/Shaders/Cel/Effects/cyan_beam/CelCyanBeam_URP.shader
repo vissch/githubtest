@@ -1,6 +1,7 @@
 // Phase: CelFx cyan-beam lab effect, adapted from the blue-laser lane's ribbon and billboard modes.
 // size.xyz: beam width / dot radius over life. size.w >= 0: beam; < 0: dot, magnitude is minimum far radius in px.
-// extra for beams: x arc strength, y unused, z/w leading end at birth/death (fraction of the span).
+// extra for beams: x arc strength, y style (1 bands, 2 braid: e01), z/w leading end at birth/death (fraction of the span).
+// _TWCyanLens (global; CyanBeamRecipe.Lens, the Range only): the lens vignette, x strength x 3, y falloff power; 0 none.
 // extra for dots: x mode (0 star, 1 bloom, 2 ground pool, 3 atmosphere, 4 spike burst, 5 fleck), y softness/root width, z points or pulse, w core.
 Shader "TW/Cel/CyanBeam"
 {
@@ -21,9 +22,12 @@ Shader "TW/Cel/CyanBeam"
             #pragma multi_compile_fog
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
             #include "Assets/_Project/Shaders/Cel/CelFx.hlsl"
 
             #define BEAM_PAD 8.0
+
+            float4 _TWCyanLens;
 
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; };
             struct Varyings
@@ -91,7 +95,8 @@ Shader "TW/Cel/CyanBeam"
                 output.tone = float4(record.tone.xyz, CelCurve(record.erode.xyz, life));
                 output.shape = float4(record.extra.x * max(0.18, 1.0 - _CelLod.x * 0.65), lengthB, record.seed, record.extra.y);
                 output.more = float4(ComputeFogFactor(output.positionCS.z), far, life, age);
-                output.centerRadius = 0.0;
+                // e01: x = +1 where +across is up on the screen (the braid's deep-blue edge is the LOWER one)
+                output.centerRadius = float4(dot(side, UNITY_MATRIX_V[1].xyz) >= 0.0 ? 1.0 : -1.0, 0.0, 0.0, 0.0);
                 return output;
             }
 
@@ -100,6 +105,19 @@ Shader "TW/Cel/CyanBeam"
                 float cell = along * cells;
                 float index = floor(cell), part = frac(cell);
                 return lerp(CelHash21(float2(index, salt)), CelHash21(float2(index + 1.0, salt)), part) * 2.0 - 1.0;
+            }
+
+            // e01: the colour as it has to be written for the Range's lens vignette to leave it as the clip shows it
+            // (neon_acid's Unvignette, a01-a29: as far as white allows, the hue kept).
+            half3 Unvignette(half3 col, float2 pixel)
+            {
+                if (_TWCyanLens.x <= 0.0) return col;
+                float2 d = abs(pixel / _ScaledScreenParams.xy - 0.5) * _TWCyanLens.x;
+                float keep = lerp(0.08, 1.0, pow(saturate(1.0 - dot(d, d)), max(_TWCyanLens.y, 0.01)));
+                float3 lin = SRGBToLinear(max((float3)col, 0.0));
+                float top = max(lin.r, max(lin.g, lin.b));
+                float lift = min(1.0 / keep, 1.0 / max(top, 1e-3));
+                return (half3)LinearToSRGB(min(lin * max(lift, 1.0), 1.0));
             }
 
             half3 AddFog(half3 color, Varyings input)
@@ -266,6 +284,48 @@ Shader "TW/Cel/CyanBeam"
                 body = lerp(body, CelPalCore(row).rgb * input.tone.y, core);
                 float cover = outer * input.tone.z;
                 half3 added = 0.0;
+                // e01: the clip's held beam is a BRAID (spec/eye/cyan_beam.md): 3-6 white strands, each a soft tube
+                // with a pale-cyan sheen, weaving smoothly (wavelength 1-2 beam widths, amplitude ~ the half width)
+                // and crossing, over a cyan fill with deep-blue patches between them and a deep-blue lower edge. They
+                // drift coherently (on twos), they do not re-randomise. The old bands drew one flat cream core 0.52
+                // of the width wide: 'too white, hides the detail' (owner 2026-11-13).
+                bool braid = input.shape.w > 1.5;
+                if (braid)
+                {
+                    float metres = input.beam.z;
+                    float t = tick / 12.0;
+                    float up = (across - centerline) * input.centerRadius.x;
+                    float braidSalt = input.shape.z * 61.0;
+                    float bunch = lerp(0.35, 1.0, saturate((1.0 - along) * 5.0));
+                    float strand = 0.0, sheen = 0.0;
+                    [unroll] for (int k = 0; k < 4; k++)
+                    {
+                        float kk = k + 1.0;
+                        float wavelength = 1.3 + 1.5 * CelHash21(float2(kk, braidSalt + 3.0));
+                        float amp = (0.32 + 0.42 * CelHash21(float2(kk, braidSalt + 7.0))) * bunch;
+                        float phase = 6.28318 * CelHash21(float2(kk, braidSalt + 11.0));
+                        float drift = (0.6 + 0.9 * CelHash21(float2(kk, braidSalt + 13.0))) * ((k % 2) == 0 ? 1.0 : -1.0);
+                        float wave = sin(6.28318 * metres / wavelength + phase + t * drift * 2.2)
+                            + 0.35 * sin(6.28318 * metres / (wavelength * 0.41) + phase * 1.7 - t * 3.1);
+                        float track = amp * wave / 1.35;
+                        float pinch = 0.5 + 0.5 * sin(6.28318 * metres / (wavelength * 0.77) + phase * 2.3 + t * 1.3);
+                        float thick = 0.07 + 0.09 * pinch;
+                        float strandDistance = abs(across - centerline - track);
+                        strand = max(strand, 1.0 - CelAAStep(thick, strandDistance));
+                        sheen = max(sheen, 1.0 - CelAAStep(thick + 0.09 + 0.07 * pinch, strandDistance));
+                    }
+                    float patchNoise = CelValue2(float2(metres * 0.85 - t * 1.4, up * 2.4 + braidSalt));
+                    float lowEdge = smoothstep(-0.30, -0.85, up);
+                    float deep = max(CelAAStep(0.55, lowEdge + 0.35 * patchNoise), CelAAStep(0.70, patchNoise)) * (1.0 - sheen);
+                    float fill = 1.0 - CelAAStep(halfWidth, distanceAxis);
+                    body = lerp(CelPal(row, 1), CelPal(row, 0), deep);
+                    body = lerp(body, CelPal(row, 2), sheen);
+                    body = lerp(body, CelPal(row, 3), strand);
+                    body = Unvignette(body, input.positionCS.xy);
+                    core = strand;
+                    outer = fill;
+                    cover = fill * input.tone.z;
+                }
 
                 if (input.shape.x > 0.0)
                 {
@@ -349,7 +409,7 @@ Shader "TW/Cel/CyanBeam"
                         }
                         ink = max(ink, inkPiece);
                     }
-                    ink *= (1.0 - core) * (1.0 - arcMask);
+                    ink *= (1.0 - core) * (1.0 - arcMask) * (braid ? 0.0 : 1.0);   // e01: the clip's ink lies on the ground, not on the beam
                     body = lerp(body, CelPalInk(row).rgb, ink);
                     cover = max(cover, ink);
                     added *= 1.0 - ink;
