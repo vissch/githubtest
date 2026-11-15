@@ -15,8 +15,10 @@ namespace TW.Presentation.VFX.Cel
         // (248,250,251); the core (the arcs) a cool white. e02 from the e01 film: fill 97DFE8 -> 8EE6EC (showed
         // (99,194,226)), sheen CBEFF9 -> CBF6FF (showed (202,230,226)), white DFEAFC -> DAE7FC (showed (239,249,227)). Was 3061EA/267CFF/54F5F7/79FAFF + (0.64,1,1.55) x 2.3,
         // which showed as cream (226,235,219) and a cyan of (30,202,221).
+        // e05: c0 81B6DB -> 79A6DF, the clip's royal blue (52,119,220) through the e00cal grade model; c3 DAE7FC -> D7E5F6:
+        // whites written over ~0.8 turn cream in the grade (highlight tint + warm bloom), so the strands stay a cool white.
         public static readonly int BeamRow = CelPalette.Add("cyan_beam_shaft",
-            CelPalette.Hex(0x81B6DB), CelPalette.Hex(0x8EE6EC), CelPalette.Hex(0xCBF6FF), CelPalette.Hex(0xDAE7FC),
+            CelPalette.Hex(0x79A6DF), CelPalette.Hex(0x8EE6EC), CelPalette.Hex(0xCBF6FF), CelPalette.Hex(0xD7E5F6),
             CelPalette.Hex(0xB0D8F0), 0.4f, 4, CelPalette.Hex(0x03111B));
         // e03: the clip's hit tones as the shader has to write them (e00cal swatch film): c1 needle tips (118,223,234),
         // c2 needle bodies (197,243,246), c3 white roots and centre; the core is c3 / 2.3 so the dots' Core 2.3 lands on
@@ -294,8 +296,8 @@ namespace TW.Presentation.VFX.Cel
             Vector3 direction = to - from;
             Vector3 charge = Vector3.Lerp(from, to, 0.23f) + Vector3.up * 0.1f;
             bool traveling = CelFx.LodBlend(CelFx.Zoom) < 1.5f;
-            CelFx.Play(traveling ? TravelingCharge : Charge, from, direction, traveling ? to : charge, seed);
-            CelFx.Play(Beam, from, direction, to, seed + 1u);
+            // e05: the light on the ground is spawned FIRST so its records draw before the beam's (one ring per kind,
+            // drawn in ring order): drawn after, its additive cards added cyan onto the beam's own pixels.
             Vector3 lightStart = Vector3.Lerp(from, ground, 0.2f);
             lightStart.y = ground.y + 0.08f;
             CelFx.Play(Ground, lightStart, ground - lightStart, ground + Vector3.up * 0.08f, seed + 2u);
@@ -304,6 +306,8 @@ namespace TW.Presentation.VFX.Cel
                 Vector3 lightOrigin = new Vector3(from.x, ground.y + 0.08f, from.z);
                 CelFx.Play(OpeningGround, lightOrigin, ground - lightOrigin, ground + Vector3.up * 0.08f, seed + 3u);
             }
+            CelFx.Play(traveling ? TravelingCharge : Charge, from, direction, traveling ? to : charge, seed);
+            CelFx.Play(Beam, from, direction, to, seed + 1u);
         }
     }
 }

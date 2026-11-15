@@ -369,13 +369,14 @@ Shader "TW/Cel/CyanBeam"
                         float thick = 0.10 + 0.10 * pinch;
                         float strandDistance = abs(across - centerline - track);
                         strand = max(strand, 1.0 - CelAAStep(thick, strandDistance));
-                        sheen = max(sheen, 1.0 - CelAAStep(thick + 0.10 + 0.06 * pinch, strandDistance));
+                        // e05: a thin glow round a white tube (e02's sheen was as wide as the strand: pale ribbons)
+                        sheen = max(sheen, 1.0 - CelAAStep(thick + 0.045 + 0.03 * pinch, strandDistance));
                     }
                     // the merged core toward the dummy: one white band about a third of the width, a pale sheen round it
                     strand = max(strand, (1.0 - CelAAStep(0.34 * merge, distanceAxis)) * step(0.02, merge));
-                    sheen = max(sheen, (1.0 - CelAAStep(0.55 * merge, distanceAxis)) * step(0.02, merge));
+                    sheen = max(sheen, (1.0 - CelAAStep(0.44 * merge, distanceAxis)) * step(0.02, merge));
                     float patchNoise = CelValue2(float2(metres * 0.45 - t * 1.1, up * 2.2 + braidSalt));
-                    float lowEdge = smoothstep(-0.30, -0.85, up);
+                    float lowEdge = smoothstep(-0.18, -0.70, up);   // e05: the clip's royal-blue lower band is wider
                     float deep = max(CelAAStep(0.55, lowEdge + 0.35 * patchNoise), CelAAStep(0.70, patchNoise)) * (1.0 - sheen);
                     float fill = 1.0 - CelAAStep(halfWidth, distanceAxis);
                     body = lerp(CelPal(row, 1), CelPal(row, 0), deep);
