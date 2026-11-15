@@ -842,7 +842,7 @@ Shader "TW/Cel/AcidBeam"
                         col = lerp(col, c2, (1.0 - Step(rb * 0.94, d, mp)) * step(0.02, rb) * Step(0.0, f, mp));
                     }
                     float fy = CelValue2(float2(m.x * 7.0 + seed * 13.0, m.y * 1.5 - tk * 0.2));
-                    col = lerp(col, CelPalInk(row).rgb, Step(0.40, fy, mp * 7.0) * smoothstep(0.10, 0.45, abs(m.x)) * (1.0 - smoothstep(0.60, 1.40, m.y)) * Step(0.02, f, mp));
+                    col = lerp(col, CelPalInk(row).rgb, Step(0.44, fy, mp * 7.0) * smoothstep(0.20, 0.60, abs(m.x)) * (1.0 - smoothstep(0.45, 1.25, m.y)) * Step(0.02, f, mp));
                     col = lerp(col, rim, 1.0 - Step(1.8 * mp, f, mp));
                 }
                 else if (mode < 4.5)
