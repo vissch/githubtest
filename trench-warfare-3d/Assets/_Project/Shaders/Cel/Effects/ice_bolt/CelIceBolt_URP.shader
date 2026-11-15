@@ -23,7 +23,8 @@
 //           4  FLECK: a small hard chip stretched along its screen velocity; y length over width
 //           5  SHARD: a crystal shard (a short barbed dart) along its screen velocity, tumbling at motion.z; y length
 //              over width
-//           6  FROST: a soft frosty mist patch with crystalline veins; y vein scale, z density
+//           6  FROST: a cluster of soft bright clumps with dark gaps (snow on glass) over a faint mist; y clump cells
+//              per quad radius, z density
 //           7  SPECK: a tiny twinkling white dot
 //           8  PUFF: a soft translucent mist puff; y lumpiness
 // Colours: c0 deep rim, c1 lower facet / halo, c2 body, c3 light facet; core = the highlight (x tone.y). The palette is
@@ -309,17 +310,31 @@ Shader "TW/Cel/IceBolt"
                     }
                     else if (mode < 6.5)
                     {
-                        // FROST: a soft mist patch laced with crystalline veins
-                        float base = exp(-rr * rr * 2.5) * saturate(1.0 - rr);
+                        // FROST (i03, the clip at 3x f104-f144): a cluster of small soft bright clumps with dark gaps
+                        // between them (snow on glass) over a faint mist, inside a lumpy envelope that thins from its
+                        // edge as it erodes; y clump cells per quad radius, z density
                         float sc = max(i.shape.y, 1.0);
-                        float n1 = CelValue2(qv * sc + sd * 19.0);
-                        float n2 = CelValue2(qv * sc * 2.3 + sd * 7.0 + 3.3);
-                        float vein = pow(saturate(1.0 - abs(n1 * 2.0 - 1.0)), 6.0);
-                        float vein2 = pow(saturate(1.0 - abs(n2 * 2.0 - 1.0)), 6.0);
-                        float crys = saturate(vein * 0.8 + vein2 * 0.6);
-                        float dens = base * lerp(0.35, 1.0, crys) * (1.0 - thr) * max(i.shape.z, 0.1);
-                        cover = smoothstep(0.05, 0.45, dens) * i.tone.z;
-                        col = lerp(CelPal(row, 2), CelPal(row, 3), crys);
+                        float2 cp = qv * sc;
+                        float2 ci = floor(cp);
+                        float clump = 0.0;
+                        [unroll] for (int cy = -1; cy <= 1; cy++)
+                        {
+                            [unroll] for (int cx = -1; cx <= 1; cx++)
+                            {
+                                float2 c = ci + float2(cx, cy);
+                                float h = CelHash21(c + sd * 19.0);
+                                float2 o = float2(CelHash21(c + sd * 23.0 + 1.7), CelHash21(c + sd * 29.0 + 3.1));
+                                float r0 = lerp(0.3, 0.62, CelHash21(c + sd * 31.0));
+                                float d = length(cp - (c + o)) / r0;
+                                clump = max(clump, (h > 0.3 ? 1.0 : 0.0) * saturate(1.0 - d * d));
+                            }
+                        }
+                        float lumpR = rr * (1.0 + 0.34 * (CelValue2(qv * 2.0 + sd * 7.0) - 0.5));
+                        float env = 1.0 - smoothstep(0.4 * (1.0 - 0.4 * thr), 1.0 - 0.3 * thr, lumpR);
+                        float dens = saturate(clump * 1.4) * env;
+                        float mist = env * env * 0.22;
+                        cover = saturate(max(dens * 0.85, mist) * max(i.shape.z, 0.1)) * (1.0 - thr) * i.tone.z;
+                        col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(clump));
                     }
                     else if (mode < 7.5)
                     {
@@ -404,7 +419,7 @@ Shader "TW/Cel/IceBolt"
                     {
                         float px0 = (pcell + 0.2 + 0.6 * CelHash21(float2(pcell, sd * 47.0))) * pc;
                         float py0 = (CelHash21(float2(pcell, sd * 53.0)) - 0.5) * 2.0;
-                        float pr = lerp(2.5, 4.5, CelHash21(float2(pcell, sd * 59.0)));
+                        float pr = lerp(2.0, 3.5, CelHash21(float2(pcell, sd * 59.0)));
                         float2 dP = float2((u - px0) / max(i.q.w, 1e-5), y - py0) / pr;
                         float puff = exp(-dot(dP, dP) * 2.2) * 0.45;
                         alpha = max(alpha, puff);

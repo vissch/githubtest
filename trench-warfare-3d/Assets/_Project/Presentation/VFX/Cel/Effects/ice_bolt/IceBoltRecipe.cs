@@ -86,6 +86,9 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>A wake's life (s), its width (m: 8-13 px soft strands near the camera), its wave's amplitude (m)
         /// and its opacity.</summary>
         const float WakeLife = 0.62f, WakeWidth = 0.13f, WakeAmp = 0.12f, WakeOpacity = 0.6f;
+        /// <summary>The gap (f66-f90): the bloom is gone and the darts glance off the board, so a share of the wakes
+        /// runs on past the dummy to the upper right (the clip's f80 strands reach ~(1100, 250)).</summary>
+        const float GlanceFrom = 66f, GlanceTo = 90f, GlanceShare = 0.45f;
 
         /// <summary>Every shot of the volley: the wakes in one pass (drawn under), the darts in the next (on top); both
         /// draw the same numbers, so a dart and its wakes share a lane. Thinned by the zoom and the quality like a
@@ -117,7 +120,9 @@ namespace TW.Presentation.VFX.Cel
                         Vector3 wo = (right * rng.Range(-1f, 1f) + up * rng.Range(-1f, 1f)) * 0.06f;
                         float wLife = rng.Jitter(WakeLife, 0.25f), wWidth = rng.Jitter(WakeWidth, 0.4f), wAmp = rng.Jitter(WakeAmp, 0.4f);
                         float wDrift = rng.Jitter(0.8f, 0.5f), wSeed = rng.Next();
-                        if (on && !darts && w < wakes) renderer.Spawn(kind, Wake(now + wAt, from + lane + wo, to, wLife, wWidth, wAmp, wDrift, wSeed));
+                        bool glance = f >= GlanceFrom && f <= GlanceTo && rng.Next() < GlanceShare;
+                        Vector3 end = to + right * rng.Range(3.2f, 4.5f) + up * rng.Range(1.8f, 2.6f);
+                        if (on && !darts && w < wakes) renderer.Spawn(kind, Wake(now + wAt, from + lane + wo, glance ? end : to, wLife, wWidth, wAmp, wDrift, wSeed));
                     }
                 }
             }
@@ -234,8 +239,8 @@ namespace TW.Presentation.VFX.Cel
                 Palette = "ice_dart", Core = 1f, Opacity = 1f, Extra = new Vector4(IceBoltKind.Shard, 3.2f, 0f, 0f),
             },
             // frost mist left of the dummy as the second bloom holds (f104-f132) and right of it as it fades (f120-f152)
-            At(Dot("frost left", "ice_frost", new Vector4(IceBoltKind.Frost, 4.5f, 1.4f, 0f), AtFrame(102f), 0.1f, 1.25f, 2, 1, new CelCurve(0.45f, 0.62f, 0.5f), 0.5f), new Vector3(-1.2f, 0.05f, -0.2f)),
-            At(Dot("frost right", "ice_frost", new Vector4(IceBoltKind.Frost, 4.5f, 1.4f, 0f), AtFrame(118f), 0.15f, 1.5f, 2, 1, new CelCurve(0.42f, 0.6f, 0.5f), 0.5f), new Vector3(0.9f, 0.05f, 0f)),
+            At(Dot("frost left", "ice_frost", new Vector4(IceBoltKind.Frost, 4.5f, 1.4f, 0f), AtFrame(100f), 0.1f, 1.3f, 2, 1, new CelCurve(0.45f, 0.58f, 0.5f), 0.5f), new Vector3(-1.45f, 0.55f, -0.2f)),
+            At(Dot("frost right", "ice_frost", new Vector4(IceBoltKind.Frost, 4.5f, 1.4f, 0f), AtFrame(120f), 0.12f, 1.3f, 2, 1, new CelCurve(0.42f, 0.56f, 0.5f), 0.5f), new Vector3(1.05f, 0.05f, 0f)),
             Around(Dot("frost rim", "ice_frost", new Vector4(IceBoltKind.Frost, 5.5f, 1.2f, 0f), AtFrame(98f), AtFrame(112f) - AtFrame(98f), 0.9f, 6, 2, new CelCurve(0.3f, 0.42f, 0.5f), 0.6f), 0.45f));
 
         /// <summary>Fire it: the volley from the muzzle to the target (its sheets, then every shot's wakes, then its
