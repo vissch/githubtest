@@ -481,8 +481,11 @@ Shader "TW/Cel/AcidBeam"
                 float f = Splat(m, aspect, seed, tk);
                 if (thr > 0.001)
                 {
-                    float hn = 0.6 * CelValue2(m * 1.5 + seed * 31.0) + 0.4 * CelValue2(m * 3.3 + seed * 17.0 + tk * 0.05);
-                    f = min(f, (hn - thr) * 1.2);
+                    // (b33: a band round the noise's mid level - wavy irregular holes, a web at its end; b26-b32's were pits)
+                    float2 hw = m * 1.3 + seed * 31.0;
+                    hw += 0.8 * (float2(CelValue2(hw * 0.8 + 3.0), CelValue2(hw * 0.8 + float2(9.0, 5.0))) - 0.5);
+                    float hn = 0.62 * CelValue2(hw) + 0.38 * CelValue2(hw * 2.3 + float2(11.0, 7.0) + tk * 0.03);
+                    f = min(f, (0.50 - 0.62 * thr - abs(hn - 0.5)) * 1.5);
                 }
                 return f;
             }
@@ -640,26 +643,18 @@ Shader "TW/Cel/AcidBeam"
                         // breaking up: ROUND holes open in the sheet, each its own size, and grow until they meet, so
                         // the fluid between them is blobby ropes of every thickness that tear apart (cells of the
                         // fluid, so the holes fly with it; b02's cell borders drew a honeycomb of straight ropes)
-                        float border = 1.0;
+                        float border = 1.0, gr = 0.0;
+                        float2 gw = 0.0;
                         if (starve > 0.001)
                         {
-                            // (b09: warped and fewer - b08's round holes in rows read as a leopard band)
-                            float2 wp = float2(q.x * 1.8, e / 0.050) + seed * 7.0;   // (b31: between b29's big ovals and b30's cow print)
-                            wp += 0.80 * (float2(CelValue2(wp * 0.9 + seed * 3.0), CelValue2(wp * 0.9 + seed * 5.0 + 7.0)) - 0.5);   // (b18: harder - b17's round holes read as cheese)
-                            float2 wc = floor(wp), wf = frac(wp);
-                            float gap = 8.0;                             // how far this point is outside every hole
-                            [unroll] for (int yy = -1; yy <= 1; yy++)
-                            [unroll] for (int xx = -1; xx <= 1; xx++)
-                            {
-                                float2 o2 = float2(xx, yy);
-                                float2 cid = wc + o2;
-                                float2 pt = o2 + float2(CelHash21(cid + 3.1), CelHash21(cid + 17.7)) * 0.8 + 0.1 - wf;
-                                float hr = (0.30 + 0.36 * CelHash21(cid + 29.3)) * (0.55 + 0.50 * starve);   // (b31: ropes left at the end)   // (b27: more hole than fluid by f88 - the clip's is a web)   // (they grow until they meet; b23: and stop there - b22's grew until nothing was left by f89)
-                                gap = min(gap, length(pt) - hr);
-                            }
-                            // its ropes thin and part, then its islands go (b06: it is gone when it has broken up)
-                            al *= Step(0.08 * smoothstep(0.5, 1.0, starve), gap, pixX * 2.0) * (1.0 - smoothstep(0.85, 1.0, starve));   // (b23: thinned less)
-                            border = saturate(1.0 - gap / 0.30);         // 1 at a hole's rim, 0 deep in the fluid
+                            // (b33) the fluid is a band round the mid level of warped noise that narrows as it starves: irregular
+                            // holes open and grow until wavy ropes are left, thick in places (b02-b32 cut round cell holes: cheese)
+                            float2 wp = float2(q.x * 2.1, e / 0.043) + seed * 7.0;
+                            gw = wp + 0.9 * (float2(CelValue2(wp * 0.8 + 3.0), CelValue2(wp * 0.8 + float2(9.0, 5.0))) - 0.5);
+                            float gn = 0.62 * CelValue2(gw) + 0.38 * CelValue2(gw * 2.3 + float2(11.0, 7.0));
+                            float ghw = (0.50 - 0.43 * starve) * (0.6 + 0.9 * CelValue2(gw * 0.7 + float2(21.0, 13.0)));
+                            gr = abs(gn - 0.5) / ghw;                     // 0 a rope's middle .. 1 its edge
+                            al *= (1.0 - Step(1.0, gr, 0.06)) * (1.0 - smoothstep(0.85, 1.0, starve));
                         }
                         // across it (b09): long thin streaks of yellow, lime, green and dark green that flow with it,
                         // 2-4 m long and slanted a little, the yellow low in it and the green high (the clip's beam is a
@@ -669,6 +664,8 @@ Shader "TW/Cel/AcidBeam"
                         // f36-80; b09-b24 thresholded one smooth noise: broad bands, a bar)
                         float pd = pixX / max(edge, 0.05) * 1.6;
                         float u = q.x * 0.5 + 0.5;
+                        // (b33: its slivers undulate - b25-b32's lay ruler-straight, hay)
+                        float uw = u + 0.08 * (CelValue2(float2(e * 6.0 + seed * 3.0, u * 2.5)) - 0.5) + 0.04 * (CelValue2(float2(e * 15.0, u * 5.0 + seed)) - 0.5);
                         float fan = 0.55 * smoothstep(0.86, 1.0, kS) * (1.0 - starve) * i.flow.w;   // (b07) its end pales into a fan of yellow where it goes in
                         float ax = abs(q.x + 0.05) / max(edge, 0.02);
                         float d = (ax + 0.35 * (CelValue2(float2(u * 5.0 + e * 2.0 + seed, e * 9.0)) - 0.5)) * (1.0 - fan);
@@ -681,7 +678,7 @@ Shader "TW/Cel/AcidBeam"
                             // (b26: broader and fewer - b25's read as hay)
                             float N = li == 0 ? 3.0 : li == 1 ? 5.0 : li == 2 ? 9.0 : 16.0;
                             float ln = li == 0 ? 0.26 : li == 1 ? 0.19 : li == 2 ? 0.13 : 0.09;
-                            float2 sv = Sliv(u, e, N, ln, seed + 1.7 * li, li == 0 ? 0.70 : 0.80 - 0.10 * li, 0.36 - 0.02 * li, pixX * N * 0.6, li == 1 ? -3.5 : 2.5 + li);
+                            float2 sv = Sliv(uw, e, N, ln, seed + 1.7 * li, li == 0 ? 0.70 : 0.80 - 0.10 * li, 0.36 - 0.02 * li, pixX * N * 0.6, li == 1 ? -3.5 : 2.5 + li);
                             float g = sv.y + 0.45 * (ax - 0.45) - 0.6 * fan + (li == 0 ? 0.30 : 0.08);   // (the broad ones: green)
                             half3 tc = g < 0.44 ? hot : g < 0.52 ? light : g < 0.60 ? body : g < 0.97 ? shade : rim;   // (b27: yellow and green, little lime - the clip's mix)
                             col = lerp(col, tc, sv.x);
@@ -690,13 +687,15 @@ Shader "TW/Cel/AcidBeam"
                         float sk = Streaks(float2(u * 7.0 + seed * 3.0, e / 0.045 + seed * 5.0), seed, 0.30, 0.30, pixX * 3.5);
                         col = lerp(col, streak, sk * (1.0 - smoothstep(0.40, 0.55, ax)) * step(0.5, col.r));   // (b29: in its yellow only)
                         // (the lace: yellow-lime down the middle of its ropes, green toward their rims, a thin dark rim)
-                        float b2 = border * border;
-                        half3 lace = b2 < 0.55 ? lerp(col, light, 0.5) : b2 < 0.85 ? body : shade;   // (b29: bright lime-yellow ropes - b27-b28's were dark green)   // (b27: lime ropes with the beam's yellow in them, green rims - b25-b26's went yellow away from its holes: a yellow sheet)
-                        col = lerp(col, lace, smoothstep(0.0, 0.45, starve));
+                        // (b33) goo: green, darker inside in patches, a lit lime rim, yellow ribbons flowing through it (the clip's f84-96)
+                        half3 goo = lerp(shade, rim, Step(0.55, CelValue2(gw * 1.7 + float2(31.0, 17.0)), 0.03) * (1.0 - Step(0.62, gr, 0.05)));
+                        goo = lerp(goo, body, Step(0.70, gr, 0.04));
+                        goo = lerp(goo, light, (1.0 - Step(0.11, abs(CelValue2(gw * float2(1.1, 0.6) + float2(41.0, 23.0)) - 0.5), 0.015)) * (1.0 - Step(0.85, gr, 0.05)));
+                        col = lerp(col, goo, smoothstep(0.0, 0.45, starve));
                         // its edges: solid to about half its half-width, strands with the night between them beyond (the
                         // clip's edges are torn; b12-b24's were a ruler's)
-                        float2 s1 = Sliv(u, e, 8.0, 0.18, seed + 7.0, 0.75, 0.34, pixX * 5.0, 2.5);   // (b26: broader - b25's read as bristles)
-                        float2 s2 = Sliv(u, e, 15.0, 0.12, seed + 9.0, 0.60, 0.30, pixX * 9.0, -3.0);
+                        float2 s1 = Sliv(uw, e, 8.0, 0.18, seed + 7.0, 0.75, 0.34, pixX * 5.0, 2.5);   // (b26: broader - b25's read as bristles)
+                        float2 s2 = Sliv(uw, e, 15.0, 0.12, seed + 9.0, 0.60, 0.30, pixX * 9.0, -3.0);
                         float solid = 1.0 - Step(0.56 + 0.30 * (CelValue2(float2(u * 3.0, e * 14.0 + seed)) - 0.5), abs(q.x) / max(edge, 0.02), pixX * 2.0 / max(edge, 0.05));
                         float laced = smoothstep(0.0, 0.3, starve);          // (the lace: its holes shape it, no straight strands)
                         al *= max(lerp(solid, 1.0, laced), max(s1.x, s2.x) * (1.0 - laced));
@@ -745,7 +744,15 @@ Shader "TW/Cel/AcidBeam"
                             col = lerp(col, dn1, (1.0 - Step(0.0, fs, pixY)) * 0.9);
                             col = lerp(col, pale, (1.0 - Step(0.0, fl + 0.14, pixY)) * Step(0.06, f, pixY) * step(CelHash21(float2(seed * 13.0, 9.0)), 0.33));
                             // (b31: a big sheet carries lighter patches - b26-b30's flat ones read as lily pads)
-                            col = lerp(col, up1, Step(0.56, CelValue2(m * 1.9 + seed * 9.0 + 3.0), 0.03) * step(0.5, i.shape2.x) * 0.85);
+                            if (i.shape2.x > 0.5)
+                            {
+                                // (b33) goo: darker inside in patches, a lit rim all round it and its holes, pale ribbons through it
+                                float2 gm = m * 1.3 + seed * 13.0;
+                                gm += 0.8 * (float2(CelValue2(gm * 0.8 + 3.0), CelValue2(gm * 0.8 + float2(9.0, 5.0))) - 0.5);
+                                col = lerp(col, dn1, Step(0.55, CelValue2(gm * 1.7 + float2(31.0, 17.0)), 0.03) * Step(0.10, f, 0.02) * 0.9);
+                                col = lerp(col, up1, 1.0 - Step(0.055, f, 0.012));
+                                col = lerp(col, pale, (1.0 - Step(0.08, abs(CelValue2(gm * float2(1.1, 0.6) + float2(41.0, 23.0)) - 0.5), 0.015)) * Step(0.04, f, 0.012));
+                            }
                         }
                         else if (i.shape.y > 5.5)
                         {
@@ -849,9 +856,13 @@ Shader "TW/Cel/AcidBeam"
                     }
                     else if (i.shape.y > 0.5)
                     {
-                        al = 1.0 - Step(0.9, length(q), pix);           // (its tone, as a leaf's)
+                        // (b33: an irregular bean with a shade side - b01-b32's were perfect discs, polka dots)
+                        float an = atan2(q.y, q.x);
+                        float rr = length(q) / (0.74 + 0.13 * sin(an * 2.0 + seed * 31.0) + 0.08 * sin(an * 3.0 + seed * 17.0));
+                        al = 1.0 - Step(1.0, rr, pix * 1.3);
                         col = ts < 0.5 ? body : ts < 1.5 ? shade : ts < 2.5 ? light : CelPalInk(row).rgb;
-                        col = lerp(col, pale, 1.0 - Step(0.35, length(q - float2(-0.25, 0.3)), pix));
+                        col = lerp(col, lerp(col, rim, 0.45), Step(0.50, length(q - float2(-0.22, 0.26)), pix) * step(0.5, frac(seed * 7.0)));
+                        col = lerp(col, pale, 1.0 - Step(0.30, length(q - float2(-0.22, 0.26)), pix));
                     }
                     else
                     {
