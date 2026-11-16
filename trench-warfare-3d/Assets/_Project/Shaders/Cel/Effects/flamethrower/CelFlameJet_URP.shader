@@ -387,6 +387,10 @@ Shader "TW/Cel/FlameJet"
         float3 BallField(CelRecord r, float2 q)
         {
             float t = CelAge(r), k = CelLife01(r), sd = r.seed * 23.0;
+            // k01: erode.z (the layer's Erode.Pow, 1 on every ring before k01) squashes the ball vertically about a point
+            // low in the disc, so a catch can be a wide low billow sitting on the ground (REF f30-f36) instead of a tall drop
+            float squash = max(r.erode.z, 1.0);
+            q.y = (q.y + 0.55 * (squash - 1.0)) * squash;
             q.x += 0.13 * sin(q.y * 3.0 + t * 2.0 + sd);
             q.y -= 0.11 * sin(q.x * 3.0 - t * 1.6 + sd);
             float rho = length(q);

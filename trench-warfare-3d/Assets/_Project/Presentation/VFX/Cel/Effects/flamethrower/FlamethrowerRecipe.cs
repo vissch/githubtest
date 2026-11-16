@@ -92,7 +92,7 @@ namespace TW.Presentation.VFX.Cel
                 Size = new CelCurve(0.55f, 2.0f, 1.2f), SizeJitter = 0f, Stretch = 0f,   // b07 (new approach): the main jet is only the hot spine; its width comes from separate tongues   // b06: 2.9 -> 3.3 at the dummy (peak area 0.71)
                 // b05: wider (2.1 -> 2.9 at the dummy, pow 1.8 -> 1.5: the mid-jet was ~2/3 of the clip's height, peak area 0.71),
                 // the front out of the nozzle in 1.0 s, eased so its screen length grows evenly (the near half is foreshortened less)
-                Erode = new CelCurve(1.0f, 0.32f, 0.85f), Feather = 0.3f,
+                Erode = new CelCurve(0.88f, 0.32f, 0.85f), Feather = 0.3f,   // k01: grow 1.0 -> 0.88 s (REF front on the dummy at f27, ours f30)
                 Palette = Flame, Core = 3.5f, Ink = 1.6f, Extra = new Vector4(9f, 2.2f, 0.5f, 1f),   // b07: fewer, bigger licks (3.6 -> 2.2 /m)
             },
             new CelLayer
@@ -274,11 +274,11 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // Broad rolling flame catches the target before the late fireball grows.
-                Name = "target curls", Kind = "FlameJet", Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.2f, -0.3f),
-                Start = 0.85f, Duration = 1.9f, Life = 0.75f, LifeJitter = 0.15f, Close = 6, Mid = 2, Far = 0,
+                Name = "target curls", Kind = "FlameJet", Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.2f, -1.2f),   // k01: 0.9 m toward the eye (the dummy drew through the ball as a dark 'pupil') and lower
+                Start = 0.75f, Duration = 1.9f, Life = 0.75f, LifeJitter = 0.15f, Close = 6, Mid = 2, Far = 0,
                 Shape = CelShape.Sphere, ShapeSize = new Vector3(0.15f, 0f, 0f), Aim = CelAim.Up, Speed = 1.4f, Drag = 0.8f, Buoyancy = 0.3f,
-                Size = new CelCurve(1.1f, 2.0f, 0.5f), SizeJitter = 0.15f, Erode = new CelCurve(0.25f, 0.45f, 1f),
-                Palette = Burn, CoolTo = SmokeInk, Core = 2.5f, Ink = 0.5f, Extra = new Vector4(0.9f, 3f, 0.8f, -2f),
+                Size = new CelCurve(1.3f, 2.3f, 0.5f), SizeJitter = 0.15f, Erode = new CelCurve(0.25f, 0.45f, 1.35f),   // k01: squash 1.35 (wide low billow), a little wider
+                Palette = Flame, CoolTo = SmokeInk, Core = 3.0f, Ink = 0.5f, Extra = new Vector4(0.9f, 3f, 0.8f, -2f),   // k01: Burn -> Flame (REF's catch is the jet's own pale yellow-white with a thin orange rim)
             },
             new CelLayer
             {
@@ -304,10 +304,10 @@ namespace TW.Presentation.VFX.Cel
             {
                 // A broad initial catch at the target precedes the sustained curls.
                 Name = "ignition curl", Kind = "FlameJet", Anchor = CelAnchor.Target,
-                Offset = new Vector3(0f, 0.2f, -0.3f), Start = 0.85f, Life = 0.7f, LifeJitter = 0f,
+                Offset = new Vector3(0f, -0.3f, -1.2f), Start = 0.72f, Life = 0.7f, LifeJitter = 0f,   // k01: in front of the dummy, lower, earlier
                 Close = 1, Mid = 1, Far = 0, Aim = CelAim.Up, Speed = 0.3f, Drag = 0.8f,
                 Size = new CelCurve(1.5f, 3.2f, 0.5f), SizeJitter = 0f,
-                Erode = new CelCurve(0.2f, 0.45f, 1f), Palette = Flame, CoolTo = SmokeInk,
+                Erode = new CelCurve(0.0f, 0.45f, 1.5f), Palette = Flame, CoolTo = SmokeInk,   // k01: no smoke hole in the catch, squash 1.5
                 Core = 3.5f, Ink = 0.4f, Extra = new Vector4(0.9f, 3f, 0.8f, -2f),
             },
             new CelLayer
@@ -336,9 +336,9 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // A rounded leading curl grows with the opening jet and joins the target ignition.
-                Name = "travelling front", Kind = "FlameJet", Start = 0.02f, Life = 0.85f, LifeJitter = 0f,
+                Name = "travelling front", Kind = "FlameJet", Start = 0.02f, Life = 0.78f, LifeJitter = 0f,
                 Offset = new Vector3(0f, 0.1f, 0.7f), Close = 1, Mid = 1, Far = 0,
-                Aim = CelAim.Dir, Speed = 12f, SpeedJitter = 0f, Spread = 0f,
+                Aim = CelAim.Dir, Speed = 13.2f, SpeedJitter = 0f, Spread = 0f,   // k01: 12 -> 13.2 m/s, life 0.85 -> 0.78 (same reach, on the dummy ~0.1 s sooner)
                 Size = new CelCurve(0.3f, 1.5f, 0.5f), SizeJitter = 0f,
                 Erode = new CelCurve(0f, 0.35f, 1f), Palette = Flame, Core = 3.5f, Ink = 0.3f,
                 Extra = new Vector4(0.9f, 3f, 0.8f, -3f),
