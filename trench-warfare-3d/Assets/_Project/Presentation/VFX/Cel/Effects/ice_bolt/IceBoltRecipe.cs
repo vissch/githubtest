@@ -110,8 +110,9 @@ namespace TW.Presentation.VFX.Cel
         // i11's at (107, 128, 160)
         // i13 0.55: with i12's denser volley the near-camera bundle filmed 1.6x the clip's px
         // i16 0.8 on a peaked profile: the clip's strands peak ~1.45x i15's over the ground (lum +90 for +62)
-        // (i17 0.75 on the hard/soft profile: its plateau runs at full height where i16's peak sat at 0.8)
-        const float WakeLife = 0.62f, WakeWidth = 0.21f, WakeAmp = 0.09f, WakeOpacity = 0.75f;
+        // (i17 0.75 on the hard/soft profile: its plateau runs at full height where i16's peak sat at 0.8; i18 0.78
+        // without the plateau: i17 filmed the clip's peak, +95 for +96)
+        const float WakeLife = 0.62f, WakeWidth = 0.21f, WakeAmp = 0.09f, WakeOpacity = 0.78f;
         /// <summary>The gap (f66-f90): the bloom is gone and the darts glance off the board, so a share of the wakes
         /// runs on past the dummy to the upper right (the clip's f80 strands reach ~(1100, 250)); the darts themselves
         /// fly on down the corridor into the board (i12: i11's flew the glancing path and left the corridor empty) and
