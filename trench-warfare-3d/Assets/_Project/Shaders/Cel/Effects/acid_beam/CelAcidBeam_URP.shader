@@ -629,11 +629,11 @@ Shader "TW/Cel/AcidBeam"
                                 float2 o2 = float2(xx, yy);
                                 float2 cid = wc + o2;
                                 float2 pt = o2 + float2(CelHash21(cid + 3.1), CelHash21(cid + 17.7)) * 0.8 + 0.1 - wf;
-                                float hr = (0.22 + 0.42 * CelHash21(cid + 29.3)) * (0.32 + 1.35 * starve);   // (they grow until they meet; b17: sooner; b18-b19: bigger - the clip's lace is mostly gaps)
+                                float hr = (0.24 + 0.34 * CelHash21(cid + 29.3)) * (0.40 + 0.70 * starve);   // (they grow until they meet; b23: and stop there - b22's grew until nothing was left by f89)
                                 gap = min(gap, length(pt) - hr);
                             }
                             // its ropes thin and part, then its islands go (b06: it is gone when it has broken up)
-                            al *= Step(0.18 * smoothstep(0.5, 1.0, starve), gap, pixX * 2.0) * (1.0 - smoothstep(0.85, 1.0, starve));
+                            al *= Step(0.08 * smoothstep(0.5, 1.0, starve), gap, pixX * 2.0) * (1.0 - smoothstep(0.85, 1.0, starve));   // (b23: thinned less)
                             border = saturate(1.0 - gap / 0.30);         // 1 at a hole's rim, 0 deep in the fluid
                         }
                         // across it (b09): long thin streaks of yellow, lime, green and dark green that flow with it,
@@ -902,8 +902,9 @@ Shader "TW/Cel/AcidBeam"
                         c2 = lerp(c2, bRim, Step(rb * 0.94 - 1.6 * mp, d, mp) * step(dot(dp, L), 0.15 * rb) * step(CelHash21(float2(j + 23.0, seed * 17.0)), 0.55));
                         col = lerp(col, c2, (1.0 - Step(rb * 0.94, d, mp)) * step(0.02, rb) * Step(0.0, f, mp));
                     }
-                    float fy = CelValue2(float2(m.x * 7.0 + seed * 13.0, m.y * 1.5 - tk * 0.2));
-                    col = lerp(col, CelPalInk(row).rgb, Step(0.44, fy, mp * 7.0) * smoothstep(0.20, 0.60, abs(m.x)) * (1.0 - smoothstep(0.45, 1.25, m.y)) * Step(0.02, f, mp));
+                    // (b23: curved and fewer - b12-b22's straight vertical streaks read as pillars, the lump a box)
+                    float fy = CelValue2(float2(m.x * 5.0 + 1.3 * sin(m.y * 3.2 + seed * 7.0) + 0.9 * (CelValue2(m * 2.2 + seed * 3.0) - 0.5) + seed * 13.0, m.y * 1.5 - tk * 0.2));
+                    col = lerp(col, CelPalInk(row).rgb, Step(0.54, fy, mp * 6.0) * smoothstep(0.20, 0.60, abs(m.x)) * (1.0 - smoothstep(0.45, 1.25, m.y)) * Step(0.02, f, mp));
                     col = lerp(col, rim, 1.0 - Step(1.8 * mp, f, mp));
                 }
                 else if (mode < 4.5)

@@ -586,8 +586,8 @@ namespace TW.Presentation.VFX.Cel
                 // (b22: in the streaks' pale lime-yellow - the clip's sparkles are its brightest dots, b14-b21's lime were dim)
                 var r = Rec(now, AtFrame(late, i < fine * 3 / 5 ? rng.Range(70f, 90f) : rng.Range(44f, 70f)), rng.Range(0.25f, 0.5f), AcidBeamKind.Drop,
                     target + Vector3.up * rng.Range(-0.4f, 1.2f) + right * rng.Range(-0.6f, 0.8f) - away * rng.Range(0.0f, 0.8f), Streak, 1f, ref rng);
-                r.Vel = d * rng.Range(6f, 16f);
-                r.Motion = new Vector4(9f, 1.2f, 0f, 0f);
+                r.Vel = d * rng.Range(3f, 9f);                            // (b23: slower - b14-b22's flew out far and thin)
+                r.Motion = new Vector4(7f, 2.0f, 0f, 0f);
                 r.Size = new Vector4(rad, rad * 0.8f, 1f, 0.006f);
                 r.Tone.w = i % 3 == 0 ? 2f : i % 3 == 1 ? 3f : 0f;
                 r.Extra.y = 1f;
