@@ -31,7 +31,8 @@ namespace TW.Presentation.VFX.Cel
         // i11: 0.28 m at the barbs (0.22): i10's darts read twice the clip's slenderness near the camera (~15:1 for
         // its ~8:1); i12 a 0.145 window (i11 0.135) for the barbed arrow
         // i16: 0.135 and 0.26 (i15 0.145, 0.28): the clip's darts median 104 x 18 px, i15's 129 x 24
-        public const float DartWindow = 0.135f, DartLife = 0.32f, DartWidth = 0.26f;
+        // (i17 0.24: i16 filmed 124 x 23)
+        public const float DartWindow = 0.135f, DartLife = 0.32f, DartWidth = 0.24f;
         const float DartHeadStart = -0.05f, DartHeadEnd = 1f + DartWindow * 1.3f;
         /// <summary>Shares a second a ribbon's head flies (the darts' speed) and the ribbons' wavelength (m: the clip's
         /// strands bend once over 200-300 px; i12 5.5: through the holds f30-f60 they run nearly straight).</summary>
@@ -58,7 +59,8 @@ namespace TW.Presentation.VFX.Cel
         // i16: the mid tones less blue (i15 filmed lum p50 (156,189,234) and p75 (177,209,249) for the clip's
         // (153,180,213) and (169,199,233); p10 and p90 matched)
         public static readonly int DartRow = CelPalette.Add("ice_dart",
-            W(0.345f, 0.46f, 0.675f), W(0.465f, 0.575f, 0.8f), W(0.55f, 0.68f, 0.86f), W(0.625f, 0.78f, 0.92f),
+            // (i17: i16 filmed the lower half (152,181,221) for the clip's (152,179,210))
+            W(0.345f, 0.46f, 0.675f), W(0.465f, 0.575f, 0.77f), W(0.55f, 0.68f, 0.83f), W(0.625f, 0.78f, 0.92f),
             W(0.74f, 0.925f, 1f), 1.1f, 4, W(0.30f, 0.38f, 0.50f));
         // the ribbons, as they are before their opacity lays them over the ground (the clip shows (96,116,141) there;
         // i10 a little greyer: i09 filmed them sat 0.36 for the clip's 0.31, and the darts are the blue thing)
@@ -108,7 +110,8 @@ namespace TW.Presentation.VFX.Cel
         // i11's at (107, 128, 160)
         // i13 0.55: with i12's denser volley the near-camera bundle filmed 1.6x the clip's px
         // i16 0.8 on a peaked profile: the clip's strands peak ~1.45x i15's over the ground (lum +90 for +62)
-        const float WakeLife = 0.62f, WakeWidth = 0.21f, WakeAmp = 0.09f, WakeOpacity = 0.8f;
+        // (i17 0.75 on the hard/soft profile: its plateau runs at full height where i16's peak sat at 0.8)
+        const float WakeLife = 0.62f, WakeWidth = 0.21f, WakeAmp = 0.09f, WakeOpacity = 0.75f;
         /// <summary>The gap (f66-f90): the bloom is gone and the darts glance off the board, so a share of the wakes
         /// runs on past the dummy to the upper right (the clip's f80 strands reach ~(1100, 250)); the darts themselves
         /// fly on down the corridor into the board (i12: i11's flew the glancing path and left the corridor empty) and
@@ -198,8 +201,9 @@ namespace TW.Presentation.VFX.Cel
 
         /// <summary>The volley's layers beside the shots: the wide faint sheets the strands lie in.</summary>
         public static readonly CelFxRecipe Volley = new CelFxRecipe("ice_bolt_volley", 6f,
-            // (i16 0.14: the clip's corridor glows between its strands, i15's far end 0.16 covered for its 0.27)
-            Sheets("ribbon sheets", 16, 5, AtFrame(9) - 0.04f, AtFrame(112) - AtFrame(9), 0.6f, 0.3f, 0.1f, 0.14f, 0.25f));
+            // (i16 0.14: the clip's corridor glows between its strands; i17 0.1 again - the strands' soft sides
+            // now glow past their edges)
+            Sheets("ribbon sheets", 16, 5, AtFrame(9) - 0.04f, AtFrame(112) - AtFrame(9), 0.6f, 0.3f, 0.1f, 0.1f, 0.25f));
 
         // ---------------------------------------------------------------- the hit (played at the chest)
         /// <summary>A dot of the IceBolt kind at the hit (Stretch is minus its minimum px at Far; 0.001 = none).</summary>
