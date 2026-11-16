@@ -26,7 +26,9 @@
 //             a dark line on its shade side, y a big one opening into a C late in its life), 4 a spark
 //             (a teardrop, hot along its middle), 5 a blade of goo (a round root and a long point: the root holds
 //             where it was thrown from for Motion.z seconds, then follows the point; no stretch), 6 a sheet of goo
-//             (round lobes along its flight run into one body with a tail behind; stretched like any drop).
+//             (round lobes along its flight run into one body with a tail behind; stretched like any drop), 7 a
+//             splat of goo (a broad body, its outline pulled about, fingers out of its front and flanks ending in
+//             beads; stretched like any drop; Tone.w as a sheet's).
 //             A blade and a sheet: Tone.w their tone on the row's ladder (0 rim, 1 shade, 2 body, 3 light, 4 core,
 //             5 ink), Erode x a dark line round it (0..1), y a blade's bend (-1..1), z a blade's paleness toward its
 //             root / a sheet's holes (0..1).
@@ -342,6 +344,34 @@ Shader "TW/Cel/AcidBeam"
                 return f;
             }
 
+            // a splat of goo flying (b18, drop kind 7) in its own half-widths (x along its flight; the card runs from
+            // -aspect to aspect): a body with its outline pulled about, fingers out of its front and flanks ending in
+            // beads, never out to its card's edge; above 0 inside (the clip's mass f44-68 is these: b05-b17's sheets and
+            // blades read as clubs, leaves and thorns)
+            float Splat(float2 m, float aspect, float seed, float tk)
+            {
+                float2 m0 = m;
+                m += 0.30 * (float2(CelValue2(m * 1.3 + seed * 23.0 + tk * 0.15), CelValue2(m * 1.3 + seed * 41.0 - tk * 0.12)) - 0.5);
+                float2 e = float2(m.x / aspect, m.y);
+                float an = atan2(e.y, e.x);
+                float rad = 0.50 + 0.10 * sin(an * 3.0 + seed * 17.0) + 0.07 * sin(an * 5.0 + seed * 29.0) + 0.05 * sin(an * 7.0 + seed * 5.0 + tk * 0.4);
+                float f = (rad - length(e)) * min(aspect, 1.6) * 0.8;
+                [unroll] for (int j = 0; j < 5; j++)
+                {
+                    float h = CelHash21(float2(j + 1.0, seed * 91.0 + 7.0)), h2 = CelHash21(float2(j + 9.0, seed * 37.0 + 3.0));
+                    float h3 = CelHash21(float2(j + 17.0, seed * 53.0 + 5.0));
+                    float a = (h - 0.5) * 3.4;                          // out of its front and flanks
+                    float2 d = float2(cos(a), sin(a));
+                    float2 p = m - float2(0.21 * aspect * d.x, 0.21 * d.y);
+                    float L = (0.28 + 0.36 * h2) * (0.6 + 0.4 * aspect);
+                    float t = saturate(dot(p, d) / L);
+                    float finger = (0.22 - 0.13 * t) - length(p - d * (t * L));
+                    float bead = (0.09 + 0.07 * h) - length(p - d * (L * 1.05));
+                    f = h3 < 0.2 ? f : max(SMax(f, finger, 0.12), bead);
+                }
+                return min(f, 0.5 * (0.96 - length(float2(m0.x / aspect, m0.y))));
+            }
+
             // the lump's mass of goo in its half-widths (x across, y up from its foot): a round body, eight lobes
             // round its outline that boil (new on every drawing), a low foot, bays torn in its outline (two on its far
             // side; never a round hole inside it: one reads as an eye), and a hollow off its middle as it goes (`opn`
@@ -587,7 +617,7 @@ Shader "TW/Cel/AcidBeam"
                         {
                             // (b09: warped and fewer - b08's round holes in rows read as a leopard band)
                             float2 wp = float2(q.x * 1.6, e / 0.055) + seed * 7.0;
-                            wp += 0.45 * (float2(CelValue2(wp * 0.9 + seed * 3.0), CelValue2(wp * 0.9 + seed * 5.0 + 7.0)) - 0.5);
+                            wp += 0.80 * (float2(CelValue2(wp * 0.9 + seed * 3.0), CelValue2(wp * 0.9 + seed * 5.0 + 7.0)) - 0.5);   // (b18: harder - b17's round holes read as cheese)
                             float2 wc = floor(wp), wf = frac(wp);
                             float gap = 8.0;                             // how far this point is outside every hole
                             [unroll] for (int yy = -1; yy <= 1; yy++)
@@ -596,7 +626,7 @@ Shader "TW/Cel/AcidBeam"
                                 float2 o2 = float2(xx, yy);
                                 float2 cid = wc + o2;
                                 float2 pt = o2 + float2(CelHash21(cid + 3.1), CelHash21(cid + 17.7)) * 0.8 + 0.1 - wf;
-                                float hr = (0.20 + 0.40 * CelHash21(cid + 29.3)) * (0.30 + 1.30 * starve);   // (they grow until they meet; b17: sooner)
+                                float hr = (0.24 + 0.44 * CelHash21(cid + 29.3)) * (0.35 + 1.40 * starve);   // (they grow until they meet; b17: sooner; b18: bigger - the clip's lace is mostly gaps)
                                 gap = min(gap, length(pt) - hr);
                             }
                             // its ropes thin and part, then its islands go (b06: it is gone when it has broken up)
@@ -659,7 +689,20 @@ Shader "TW/Cel/AcidBeam"
                         float2 L = i.shape.zw;                          // the light, in the card's axes (x along it, y across)
                         half3 base = Ladder(row, ts), up1 = Ladder(row, min(ts + 1.0, 4.0)), dn1 = Ladder(row, max(min(ts, 4.0) - 1.0, 0.0));
                         float f;
-                        if (i.shape.y > 5.5)
+                        if (i.shape.y > 6.5)
+                        {
+                            // a splat of goo (Splat): a tone up along its lit edge and down along its shade edge (its own
+                            // outline moved off the light and toward it), a pale line inside its lit edge on one in three
+                            float2 m = float2(q.x * aspect, q.y);       // in its half-widths
+                            f = Splat(m, aspect, seed, tk);
+                            al = Step(0.0, f, pixY);
+                            float fl = Splat(m + L * 0.22, aspect, seed, tk), fs = Splat(m - L * 0.18, aspect, seed, tk);
+                            col = base;
+                            col = lerp(col, up1, 1.0 - Step(0.0, fl, pixY));
+                            col = lerp(col, dn1, (1.0 - Step(0.0, fs, pixY)) * 0.9);
+                            col = lerp(col, pale, (1.0 - Step(0.0, fl + 0.14, pixY)) * Step(0.06, f, pixY) * step(CelHash21(float2(seed * 13.0, 9.0)), 0.33));
+                        }
+                        else if (i.shape.y > 5.5)
                         {
                             // a sheet of goo flying (GooSheet); its outline wobbles as it flies (a little new on every
                             // drawing)
@@ -948,8 +991,8 @@ Shader "TW/Cel/AcidBeam"
                     float rib = 1.0 - Step(0.0, min(Puff(p + float2(-0.040, 0.080), seed, tk) + tear, hem), pix * 1.5);
                     float cv = Curl(p, seed, tk);
                     float cl = max(length(float2(Curl(p + float2(0.02, 0.0), seed, tk), Curl(p + float2(0.0, 0.02), seed, tk)) - cv) / 0.02, 1e-3);
-                    float curl = max(1.0 - Step(0.026 + 0.012 * (1.0 - fray), abs(cv - 0.5) / cl, pix * 1.2), 1.0 - Step(0.022, abs(cv - 0.32) / cl, pix * 1.2));
-                    rib = max(rib, curl * Step(0.42, CelValue2(p * 2.2 + seed * 21.0 + 3.0), 0.04)) * inside;
+                    float curl = 1.0 - Step(0.026 + 0.012 * (1.0 - fray), abs(cv - 0.5) / cl, pix * 1.2);   // (b18: one line - b17's two read as lettuce)
+                    rib = max(rib, curl * Step(0.55, CelValue2(p * 2.2 + seed * 21.0 + 3.0), 0.04)) * inside;
                     // lit by the acid under it in its first moments (the clip's smoke over the beam, f50-60)
                     float glow = 1.0 - smoothstep(lit * 0.6, lit * 1.4, k);
                     half3 veil = lerp(shade, body, Step(0.45, CelValue2(p * 3.0 + seed), 0.03));

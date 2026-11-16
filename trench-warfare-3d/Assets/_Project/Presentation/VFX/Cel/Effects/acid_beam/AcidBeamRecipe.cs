@@ -66,11 +66,11 @@ namespace TW.Presentation.VFX.Cel
         // #FBFAF6, the ring's shade side #67D06B
         static readonly int LumpBubble = CelPalette.Add("acid_beam_lump_bubble",
             S(0.159f, 0.299f, 0.217f), S(0.285f, 0.618f, 0.318f), S(0.356f, 0.771f, 0.399f), S(0.481f, 0.832f, 0.391f), S(0.656f, 0.917f, 0.870f), 1.1f, 4, S(0.325f, 0.667f, 0.348f));
-        // the smoke (b17: a veil and its ribbons, the clip's f56-104): the veil, shown at 0.46 over the night, #3A5036,
-        // #506F44 and patches of #679350; its ribbons, at 0.92, #96D965, lit by the acid #E0F699, #7CB259 as they age
-        // (b02-b16: one see-through tone, #5F834C to #91CD6A)
+        // the smoke (b17: a veil and its ribbons, the clip's f56-104): the veil #5A7E48 with patches of #7CB259 (#3A5036 to
+        // #506F44 where one or two lie over the night), its ribbons #96D965, lit by the acid #E0F699, #6FA052 as they age
+        // (b02-b16: one see-through tone, #5F834C to #91CD6A; b17 stored a single 0.46 veil's lime, and stacked veils showed it)
         static readonly int Fume = CelPalette.Add("acid_beam_fume",
-            S(0.303f, 0.417f, 0.205f), S(0.448f, 0.607f, 0.288f), S(0.574f, 0.815f, 0.356f), S(0.498f, 0.757f, 0.347f), S(0.652f, 0.944f, 0.513f), 1.1f, 4, S(0.407f, 0.587f, 0.307f));
+            S(0.194f, 0.269f, 0.203f), S(0.287f, 0.396f, 0.251f), S(0.382f, 0.552f, 0.299f), S(0.466f, 0.708f, 0.336f), S(0.608f, 0.880f, 0.488f), 1.1f, 4, S(0.341f, 0.491f, 0.278f));
         const float FumeOpacity = 1f;   // (b17: the shader sees it through itself - its veil at 0.46, its ribbons at 0.92)
         // a spark: edge #963C28, #CD5F32, body #F09646, #FCC86E, hot #FFEBAA (b05: the clip's few sparks are orange-red
         // lines, b04's were yellow)
@@ -203,6 +203,61 @@ namespace TW.Presentation.VFX.Cel
                 r.Motion.z = 1f;
                 r.Extra.y = 0.45f;
                 r.Extra.z = AtFrame(late, 138f) - born;
+                renderer.Spawn(kind, r);
+            }
+
+            // ---- the smoke (b18: drawn first, behind the lump, the beam and the splash - b17's lay over the splash - and
+            // from its own draws): a bank of it rising off the beam's top all the while it runs (frames 30-110) ...
+            var fume = new CelRng(seed ^ 0x51ED5u);
+            int bank = far ? 3 : mid ? 8 : 22;   // (b18: b17's 28 to f125 a wall)                          // (b11: a few big billows, not a bank of cotton)                          // (b02's 36 read as separate puffs, b03's 56 filmed 1.29x the clip's)
+            for (int i = 0; i < bank; i++)
+            {
+                float u = fume.Range(0.10f, 0.85f);                       // where along the beam (0 the nozzle side, 1 the target)
+                float pass = delay + flight * u;                         // the head goes over it
+                // (b08: the clip's first smoke is low on the beam's top at frame 40 and small, a soft band on it by f60,
+                // big see-through wisps by f84; b02-b07's rose as opaque puffs from the head's pass, 1 m over the beam)
+                float lo = Mathf.Max(pass + 0.25f, AtFrame(late, 40f));
+                float at = fume.Range(lo, Mathf.Max(lo, AtFrame(late, 70f)));
+                Vector3 on = Vector3.Lerp(nozzle, target, u) + Vector3.up * (Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.6f + 0.35f);
+                float size = fume.Range(0.75f, 1.2f);
+                // (b17: wisps to f110-125 and up to the frame's top - the clip's smoke still covers a third of the sky over the
+                // beam's end at f80; b16's were gone by f84)
+                var r = Rec(now, at, fume.Range(1.3f, 1.8f), AcidBeamKind.Puff, on, Fume, FumeOpacity, ref fume);
+                r.Vel = Vector3.up * fume.Range(1.5f, 2.2f) + dir * fume.Range(0.2f, 0.9f);   // (b09: b08's 0.7-1.5 hugged the beam)
+                r.Motion = new Vector4(0f, 0.6f, 0f, 0.5f);
+                r.Size = new Vector4(size * 0.45f, size * 2.2f, 0.7f, 1f);
+                r.Extra.y = 0.30f;
+                r.Extra.z = 0.3f;                                         // lit by the beam under it longer (the clip's tops: 169,219,125)
+                renderer.Spawn(kind, r);
+            }
+            // ... and off the splash itself, rising over the target to the frame's top (b17: the clip's f72-96)
+            int over = far ? 0 : mid ? 2 : 6;
+            for (int i = 0; i < over; i++)
+            {
+                var r = Rec(now, AtFrame(late, fume.Range(54f, 90f)), fume.Range(1.2f, 1.8f), AcidBeamKind.Puff,
+                    target + Vector3.up * fume.Range(0.8f, 2.2f) + right * fume.Range(-1.2f, 1.2f) - away * fume.Range(0.2f, 0.8f), Fume, FumeOpacity, ref fume);
+                r.Vel = Vector3.up * fume.Range(1.8f, 2.6f) + right * fume.Range(-0.3f, 0.8f);
+                r.Motion = new Vector4(0f, 0.6f, 0f, 0.4f);
+                r.Size = new Vector4(0.40f, fume.Range(1.4f, 2.0f), 0.7f, 1f);
+                r.Extra.y = 0.30f;
+                r.Extra.z = 0.25f;
+                renderer.Spawn(kind, r);
+            }
+            // ... and the plume off the target after it: a tall column off the lump's top right, leaning to the eye's right
+            // (b17: the clip's rises to the frame's top f100-130 and is gone by f145; b08-b16's a small wisp)
+            int plume = far ? 2 : mid ? 8 : 20;
+            float end = AtFrame(late, 150f);
+            for (int i = 0; i < plume; i++)
+            {
+                float u = i / (float)(plume - 1);
+                float at = AtFrame(late, Mathf.Lerp(90f, 128f, u));
+                var r = Rec(now, at, Mathf.Min(fume.Range(1.2f, 1.7f), end - at), AcidBeamKind.Puff,
+                    ground + Vector3.up * fume.Range(2.4f, 3.4f) + right * fume.Range(0.3f, 0.9f) - away * 0.4f, Fume, FumeOpacity, ref fume);
+                r.Vel = Vector3.up * fume.Range(2.4f, 3.2f) + right * fume.Range(0.8f, 1.4f);
+                r.Motion = new Vector4(0f, 0.6f, 0f, 0.3f);
+                r.Size = new Vector4(0.5f, 1.5f * (1f - 0.3f * u), 0.7f, 1f);
+                r.Extra.y = 0.35f;
+                r.Extra.z = 0.2f;
                 renderer.Spawn(kind, r);
             }
 
@@ -365,8 +420,8 @@ namespace TW.Presentation.VFX.Cel
                 r.Motion = new Vector4(2f, 3.5f, 0f, 0f);
                 r.Size = new Vector4(rad * 0.7f, rad, 0.6f, rng.Range(0.10f, 0.18f));
                 r.Tone.w = rng.Next() < 0.5f ? 2f : 1f;
-                r.Erode = new Vector4(rng.Next() < 0.4f ? 1f : 0f, 0f, 0f, 0f);          // (no hole: one reads as an eye)
-                r.Extra.y = 6f;
+                r.Erode = Vector4.zero;                                   // (no hole: one reads as an eye; no line)
+                r.Extra.y = 7f;                                           // (b18: a splat)
                 renderer.Spawn(kind, r);
             }
 
@@ -398,8 +453,8 @@ namespace TW.Presentation.VFX.Cel
                 float t = rng.Next();
                 r.Tone.w = green ? (t < 0.45f ? 1f : t < 0.85f ? 2f : 3f)
                                  : (t < 0.18f ? 0f : t < 0.40f ? 1f : t < 0.70f ? 2f : t < 0.88f ? 3f : 4f);
-                r.Erode = new Vector4(rng.Next() < 0.08f ? 1f : 0f, 0f, 0f, 0f);   // (b17: hardly any line round them)
-                r.Extra.y = 6f;
+                r.Erode = Vector4.zero;                                   // (b17: no line round them)
+                r.Extra.y = 7f;                                           // (b18: a splat - b05-b17's sheets read as clubs)
                 renderer.Spawn(kind, r);
             }
             // ... and tongues of goo thrown out of the hit among them (b08: the clip's mass is flame tongues pointing out of the
@@ -409,7 +464,8 @@ namespace TW.Presentation.VFX.Cel
             {
                 Vector3 at = target + Vector3.up * rng.Range(-0.5f, 0.9f) + right * rng.Range(-0.6f, 0.9f) + dir * rng.Range(0f, 0.5f) - away * rng.Range(-0.2f, 0.7f);
                 bool green = rng.Next() < (Vector3.Dot(at - target, right) > 0.3f ? 0.55f : 0.30f) + 0.25f * Mathf.Clamp01((at - target).magnitude - 0.7f);   // (b15: more green; b17: green round its rim)
-                Tongue(renderer, kind, now, AtFrame(late, rng.Range(40f, 94f)), at, target, away, green, ref rng);
+                if (i % 3 == 0) Splat(renderer, kind, now, AtFrame(late, rng.Range(40f, 94f)), at, target, away, green, rng.Range(0.25f, 0.50f), ref rng);   // (b18)
+                else Tongue(renderer, kind, now, AtFrame(late, rng.Range(40f, 94f)), at, target, away, green, ref rng);
             }
             // ... and late in it, tongues shooting up out of the mass (frames 74-96: the clip's splash grows 4-5 m tall; b10)
             int rising = far ? 0 : mid ? 16 : 40;                        // (b12: b10's 70 to f96 read as a porcupine at f84-90)
@@ -597,59 +653,6 @@ namespace TW.Presentation.VFX.Cel
                         heart + right * rng.Range(0.8f, 2.0f) + Vector3.up * rng.Range(-1.2f, 1.2f) - away * 0.8f, heart, away, false, ref rng);
             }
 
-            // ---- the smoke: a bank of it rising off the beam's top all the while it runs (frames 30-110) ...
-            int bank = far ? 3 : mid ? 10 : 28;                          // (b11: a few big billows, not a bank of cotton)                          // (b02's 36 read as separate puffs, b03's 56 filmed 1.29x the clip's)
-            for (int i = 0; i < bank; i++)
-            {
-                float u = rng.Range(0.10f, 0.85f);                       // where along the beam (0 the nozzle side, 1 the target)
-                float pass = delay + flight * u;                         // the head goes over it
-                // (b08: the clip's first smoke is low on the beam's top at frame 40 and small, a soft band on it by f60,
-                // big see-through wisps by f84; b02-b07's rose as opaque puffs from the head's pass, 1 m over the beam)
-                float lo = Mathf.Max(pass + 0.25f, AtFrame(late, 40f));
-                float at = rng.Range(lo, Mathf.Max(lo, AtFrame(late, 70f)));
-                Vector3 on = Vector3.Lerp(nozzle, target, u) + Vector3.up * (Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.6f + 0.35f);
-                float size = rng.Range(0.9f, 1.4f);
-                // (b17: wisps to f110-125 and up to the frame's top - the clip's smoke still covers a third of the sky over the
-                // beam's end at f80; b16's were gone by f84)
-                var r = Rec(now, at, rng.Range(1.6f, 2.3f), AcidBeamKind.Puff, on, Fume, FumeOpacity, ref rng);
-                r.Vel = Vector3.up * rng.Range(1.5f, 2.2f) + dir * rng.Range(0.2f, 0.9f);   // (b09: b08's 0.7-1.5 hugged the beam)
-                r.Motion = new Vector4(0f, 0.6f, 0f, 0.5f);
-                r.Size = new Vector4(size * 0.45f, size * 2.2f, 0.7f, 1f);
-                r.Extra.y = 0.30f;
-                r.Extra.z = 0.3f;                                         // lit by the beam under it longer (the clip's tops: 169,219,125)
-                renderer.Spawn(kind, r);
-            }
-            // ... and off the splash itself, rising over the target to the frame's top (b17: the clip's f72-96)
-            int over = far ? 0 : mid ? 4 : 12;
-            for (int i = 0; i < over; i++)
-            {
-                var r = Rec(now, AtFrame(late, rng.Range(54f, 90f)), rng.Range(1.2f, 1.8f), AcidBeamKind.Puff,
-                    target + Vector3.up * rng.Range(0.8f, 2.2f) + right * rng.Range(-1.2f, 1.2f) - away * rng.Range(0.2f, 0.8f), Fume, FumeOpacity, ref rng);
-                r.Vel = Vector3.up * rng.Range(1.8f, 2.6f) + right * rng.Range(-0.3f, 0.8f);
-                r.Motion = new Vector4(0f, 0.6f, 0f, 0.4f);
-                r.Size = new Vector4(0.40f, rng.Range(1.4f, 2.0f), 0.7f, 1f);
-                r.Extra.y = 0.30f;
-                r.Extra.z = 0.25f;
-                renderer.Spawn(kind, r);
-            }
-            // ... and the plume off the target after it: a tall column off the lump's top right, leaning to the eye's right
-            // (b17: the clip's rises to the frame's top f100-130 and is gone by f145; b08-b16's a small wisp)
-            int plume = far ? 2 : mid ? 8 : 20;
-            float end = AtFrame(late, 150f);
-            for (int i = 0; i < plume; i++)
-            {
-                float u = i / (float)(plume - 1);
-                float at = AtFrame(late, Mathf.Lerp(90f, 128f, u));
-                var r = Rec(now, at, Mathf.Min(rng.Range(1.2f, 1.7f), end - at), AcidBeamKind.Puff,
-                    ground + Vector3.up * rng.Range(2.4f, 3.4f) + right * rng.Range(0.3f, 0.9f) - away * 0.4f, Fume, FumeOpacity, ref rng);
-                r.Vel = Vector3.up * rng.Range(2.4f, 3.2f) + right * rng.Range(0.8f, 1.4f);
-                r.Motion = new Vector4(0f, 0.6f, 0f, 0.3f);
-                r.Size = new Vector4(0.5f, 1.5f * (1f - 0.3f * u), 0.7f, 1f);
-                r.Extra.y = 0.35f;
-                r.Extra.z = 0.2f;
-                renderer.Spawn(kind, r);
-            }
-
             // ---- the fizz: flecks rising round the target as the goo sinks (frames 106-136), and a few glossy bubbles
             // floating up with them
             int fizz = mid ? 0 : 32;
@@ -710,11 +713,10 @@ namespace TW.Presentation.VFX.Cel
             Vector3 o = from - target;
             o -= away * Vector3.Dot(o, away);
             Vector3 d = (o.normalized * 0.7f + rng.OnSphere() * 0.3f + Vector3.up * 0.25f).normalized;
-            // (b17: longer and narrower - the clip's flames are 80-200 px long and 20-50 px wide, b16's 40-60 by 25-40)
-            float rad = rng.Range(0.17f, 0.34f);
+            float rad = rng.Range(0.22f, 0.42f);                      // (b18: b17's 0.17-0.34 at 8-12 m/s read as thorns)
             var r = Rec(now, at, rng.Range(0.22f, 0.38f), AcidBeamKind.Drop, from, green ? Sheet : Splash, 1f, ref rng);
-            r.Vel = d * rng.Range(8f, 12f);
-            r.Motion = new Vector4(3f, 1.4f, rng.Range(0.12f, 0.19f), 0f);
+            r.Vel = d * rng.Range(6f, 10f);
+            r.Motion = new Vector4(3f, 1.8f, rng.Range(0.10f, 0.16f), 0f);
             r.Size = new Vector4(rad, rad * 0.6f, 1.5f, 0f);
             float t = rng.Next();
             // (b15: less pale - b14's mass was 34 % pale yellow-lime where the clip's is 16 %; b17: pale where it leaves the
@@ -724,6 +726,28 @@ namespace TW.Presentation.VFX.Cel
                 : t < mid * 0.6f ? (t < mid * 0.3f ? 4f : 5f) : (t < 0.15f ? 1f : t < 0.55f ? 2f : t < 0.88f ? 3f : 4f);
             r.Erode = new Vector4(0f, rng.Range(-1f, 1f), green ? 0.15f : 0.35f + 0.4f * mid, 0f);   // (b17: no line round it - the clip's have none)
             r.Extra.y = 5f;
+            renderer.Spawn(kind, r);
+        }
+
+        /// <summary>A splat of goo thrown out of the splash (b18): a broad body with fingers out of its front ending in
+        /// beads, flying out from the hit at 3-7 m/s and slowing, stretched along its flight 1.1-2 times at first; pale
+        /// where it leaves the middle of the hit, its green ones vivid (the clip's mass f44-68 is these).</summary>
+        static void Splat(CelFxRenderer renderer, int kind, float now, float at, Vector3 from, Vector3 target, Vector3 away, bool green, float rad, ref CelRng rng)
+        {
+            Vector3 o = from - target;
+            o -= away * Vector3.Dot(o, away);
+            Vector3 d = (o.normalized * 0.75f + rng.OnSphere() * 0.25f + Vector3.up * 0.2f).normalized;
+            float speed = rng.Range(3f, 7f);
+            var r = Rec(now, at, rng.Range(0.20f, 0.34f), AcidBeamKind.Drop, from, green ? Sheet : Splash, 1f, ref rng);
+            r.Vel = d * speed;
+            r.Motion = new Vector4(3f, 2.2f, 0f, 0f);
+            r.Size = new Vector4(rad, rad * 1.15f, 1f, rng.Range(1.1f, 2.0f) * rad / speed);
+            float t = rng.Next();
+            float mid = Mathf.Clamp01(1.3f - o.magnitude / 0.8f);
+            r.Tone.w = green ? (t < 0.40f ? 1f : t < 0.80f ? 2f : 3f)
+                : t < mid * 0.6f ? (t < mid * 0.3f ? 4f : 5f) : (t < 0.15f ? 1f : t < 0.55f ? 2f : t < 0.88f ? 3f : 4f);
+            r.Erode = Vector4.zero;
+            r.Extra.y = 7f;
             renderer.Spawn(kind, r);
         }
 
