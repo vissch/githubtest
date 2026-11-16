@@ -257,11 +257,11 @@ namespace TW.Presentation.VFX.Cel
                 // d47 (NEW PRIMITIVE, fracture 9): the fireball at the dummy as a few FIREBALL RING discs (CelFlameJet_URP
                 // BallField, extra.w -2): a round ring of curling inked tongues wrapping the dummy that opens a dark smoke
                 // hole late (REF f101-f111), in place of the Lobe kind's lumpy yellow chunks. Last in the list (no seed shift).
-                Name = "fireball ring", Kind = "FlameJet", Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.6f, -1.0f), Start = 2.6f, Duration = 0.4f, Life = 1.5f, LifeJitter = 0.15f,
-                Close = 3, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.15f, 0f, 0f), Aim = CelAim.None, Speed = 0f, Buoyancy = 0.3f,
-                Size = new CelCurve(1.4f, 2.1f, 0.5f), SizeJitter = 0.15f,
-                Erode = new CelCurve(0.45f, 0.45f, 1f),
-                Palette = Burn, CoolTo = SmokeInk, Core = 2.5f, Ink = 0.6f, Extra = new Vector4(0.9f, 4f, 0.8f, -2.0f),
+                Name = "fireball ring", Kind = "FlameJet", Anchor = CelAnchor.Target, Offset = new Vector3(0.35f, 0.4f, -0.6f), Start = 2.6f, Duration = 0.5f, Life = 1.5f, LifeJitter = 0.15f,   // k04: centred on the dummy (k03's ring sat left of it)
+                Close = 6, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.7f, 0f, 0f),   // k04: 3 -> 6 rings spread 0.7 m (REF f108: several loops of orange outline in the smoke) Aim = CelAim.None, Speed = 0f, Buoyancy = 0.3f,
+                Size = new CelCurve(1.5f, 2.5f, 0.5f), SizeJitter = 0.25f,
+                Erode = new CelCurve(0.62f, 0.45f, 1f),   // k04: hole 0.45 -> 0.62 of the radius (the loop reads as a rim round smoke)
+                Palette = Burn, CoolTo = SmokeInk, Core = 2.5f, Ink = 1.2f,   // k04: ink 0.6 -> 1.2 Extra = new Vector4(0.9f, 4f, 0.8f, -2.0f),
             },
             new CelLayer
             {
@@ -277,14 +277,14 @@ namespace TW.Presentation.VFX.Cel
                 Name = "target curls", Kind = "FlameJet", Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.2f, -1.2f),   // k01: 0.9 m toward the eye (the dummy drew through the ball as a dark 'pupil') and lower
                 Start = 0.75f, Duration = 1.95f, Life = 0.8f, LifeJitter = 0.15f, Close = 10, Mid = 2, Far = 0,   // k02: 6 -> 10 curls (they carry the fire at the dummy now the lobes are off)
                 Shape = CelShape.Sphere, ShapeSize = new Vector3(0.6f, 0f, 0f), Aim = CelAim.Up, Speed = 1.8f, Drag = 0.8f, Buoyancy = 0.9f,   // k02: spread 0.6 m, climb (REF tongues curl up into the smoke, f44-f88)
-                Size = new CelCurve(1.3f, 2.3f, 0.5f), SizeJitter = 0.25f, Erode = new CelCurve(0.0f, 0.45f, 1.15f), Feather = 0.13f,   /* k03: lift 0.17 -> 0.05 (k02 overexposed to flat cream) */   // k02: no smoke hole (it drew a dark dot in the fire, f33/f48), squash 1.35 -> 1.15, heat lift   // k01: squash 1.35 (wide low billow), a little wider
-                Palette = Flame, CoolTo = SmokeInk, Core = 3.0f, Ink = 0.5f, Extra = new Vector4(0.9f, 3f, 0.8f, -2f),   // k01: Burn -> Flame (REF's catch is the jet's own pale yellow-white with a thin orange rim)
+                Size = new CelCurve(1.3f, 2.3f, 0.5f), SizeJitter = 0.25f, Erode = new CelCurve(0.0f, 0.45f, 1.15f), Feather = 0.16f,   /* k03: lift 0.17 -> 0.05 (k02 overexposed to flat cream) */   // k02: no smoke hole (it drew a dark dot in the fire, f33/f48), squash 1.35 -> 1.15, heat lift   // k01: squash 1.35 (wide low billow), a little wider
+                Palette = Burn, CoolTo = SmokeInk, Core = 2.5f, Ink = 0.5f, Extra = new Vector4(0.9f, 3f, 0.8f, -2f),   // k04: back to Burn (Flame's two pale bands merged into one flat cream mass f36-f72), the heat lift keeps its orange rim thin; k01: Burn -> Flame (REF's catch is the jet's own pale yellow-white with a thin orange rim)
             },
             new CelLayer
             {
                 Name = "residual curls", Kind = "FlameJet", Anchor = CelAnchor.Target,
-                Offset = new Vector3(0f, 0.2f, -0.3f), Start = 3.7f, Duration = 0.45f, Life = 0.6f, LifeJitter = 0.1f,
-                Close = 4, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0f, 0f),
+                Offset = new Vector3(0f, 0.2f, -0.3f), Start = 3.6f, Duration = 0.3f, Life = 0.45f, LifeJitter = 0.1f,   // k04: out by ~4.35 s (a yellow blob still burned at f116)
+                Close = 3, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0f, 0f),
                 Aim = CelAim.Up, Speed = 0.7f, Drag = 0.8f, Buoyancy = 0.2f,
                 Size = new CelCurve(0.8f, 0.4f, 0.6f), SizeJitter = 0.15f, Erode = new CelCurve(0.3f, 0.45f, 1f),
                 Palette = Burn, CoolTo = SmokeInk, Core = 1.8f, Ink = 0.5f, Extra = new Vector4(0.9f, 3f, 0.8f, -2f),
