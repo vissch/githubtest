@@ -30,6 +30,8 @@ namespace TW.Presentation.VFX.Cel
         public virtual int Capacity => 1024;
         /// <summary>Lower draws first among the kinds (after the queue the shader asks for).</summary>
         public virtual int Order => 100;
+        /// <summary>Pack emitter-specific data once before a recipe record enters its pool. Direct Spawn accepts already prepared records.</summary>
+        public virtual void PrepareRecord(ref CelRecord record, Vector3 origin, Vector3 target, float now) { }
         /// <summary>Set anything the material needs once, after it is made.</summary>
         public virtual void Configure(Material material) { }
     }

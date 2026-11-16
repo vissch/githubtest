@@ -678,18 +678,27 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   layers on their frame), `Presentation/VFX/Cel/CelFxRecipe.cs` (layers: kind, timeline, counts per tier, shape, aim,
   curves, palette), `Presentation/VFX/Cel/CelFxRenderer.cs` (a ring of 128-byte records per kind in one GPU buffer, one
   indirect draw per live kind through `FrameBudget`), `Presentation/VFX/Cel/CelKind.cs` (the extension point: a kind
-  is one shader plus one `CelKind` class; Streak, Lobe, Glow built in), `Presentation/VFX/Cel/CelPalette.cs`,
+  is one shader plus one `CelKind` class, with `PrepareRecord` for emitter data at spawn; Streak, Lobe, Glow built in), `Presentation/VFX/Cel/CelPalette.cs`,
   `Presentation/VFX/Cel/CelRecord.cs`, `Presentation/VFX/Cel/CelDemo.cs` (a recipe using every primitive),
   `Shaders/Cel/CelFx.hlsl` (bands, ink, erosion, camera-as-light, noise, SDFs) and `Shaders/Cel/Cel*_URP.shader`,
   keepers `Resources/ShaderKeep/KeepCel*.mat`, `Editor/Cel/CelFxStill.cs` (a contact sheet of a recipe in an empty scene).
 - **Tests:** CelFxTests (`Tests/Cel`: 0 B per spawn, frame and play; counts never rise going out; every TW/Cel shader
-  found and kept; draws through FrameBudget; statics put back).
+  found and kept; emitter frames stay independent; draws through FrameBudget; statics put back).
 - **See it:** `Unity.exe -batchmode -projectPath trench-warfare-3d -executeMethod TW.Editor.CelFxStill.Batch -celOut <dir>`
   (with graphics) writes a sheet of eight moments, the peak frame and a json of the draws into that folder.
 - **Flamethrower (cel):** `Presentation/VFX/Cel/Effects/flamethrower/FlamethrowerRecipe.cs` (the layers and palettes
-  after flamethrower_nolora: jet, tongues, splash, fireball, smoke column, ground pools, sparks, embers, light),
+  after flamethrower_nolora: jet, tongues, splash, fireball, smoke column, ground wash, sparks and embers;
+  a brief ignition curl, target afterglow and late smoke bridge connect the opening and decay),
   `Presentation/VFX/Cel/Effects/flamethrower/FlameJetKind.cs` + `Shaders/Cel/Effects/flamethrower/CelFlameJet_URP.shader`
-  (the jet as one banded, flowing ribbon nozzle to target; keeper `KeepCelFlameJet.mat`),
+  (flowing tongues share their emitter's color field; main jet and ribbons share a depth plane to suppress internal
+  InkLines seams, with matching forward/depth coverage; keeper `KeepCelFlameJet.mat`),
+  `Presentation/VFX/Cel/Effects/flamethrower/FlameWashKind.cs` + `Shaders/Cel/Effects/flamethrower/CelFlameWash_URP.shader`
+  (depth-projected premultiplied warm tint plus emission; keeper `KeepCelFlameWash.mat`). User stencil bit 4 is written
+  by FlameJet's forward pass and both `Shaders/Cel/CelLobe_URP.shader` color passes, including ink; the later wash skips
+  these visible effect pixels without a terrain-normal gate. DepthOnly passes do not write this mask; unit bit 8 is preserved.
+  `Presentation/VFX/Cel/Effects/flamethrower/FlameSmokeKind.cs` reuses the Lobe mesh/shader/keeper in a separate
+  pool for column and bridge smoke; negative `Extra.w` opts into emitter-time warm, dark-cool and lighter-cool
+  body stages, with an unscaled ink blend. The emitter start and `TimeScaled` delay are packed per record.
   `Presentation/VFX/Cel/Effects/flamethrower/FlamethrowerRange.cs` (Range effect id `flamethrower`).
 
 ### Debris and destruction of props and houses
@@ -1101,6 +1110,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   - AnimationPinTests: the pin holds, replays a one-shot, lets go on a new generation, and loses to a death.
   - GymPlayTests: a pinned clip is drawn, and a barrage called through the gym is accepted.
   - GymExitCodeTests: a run that never entered Play exits the batch editor non-zero, not idle.
+  - GymRequestTests: ordinary Play starts no unsolicited gym; queued options, including empty defaults, are consumed once.
   - GymLessonsTests: a gym run inside a relay leg (TW_RELAY) leaves lessons.md on the board alone; outside a leg it still writes recurring flags.
 - **See it:** in Play in GreyboxCorridor, **TW > Gym** (Quiet, a tab, Play, a band button). Unattended:
   `Tools/tw eval 'return TW.Editor.Gym.Run("tabs=clips max=20");'`, or `-executeMethod TW.Editor.Gym.CommandLine -twgym
@@ -1157,7 +1167,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 - **Cel:** CelFxTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, ScriptedEnemySlotTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** AnimClockPlayTests, CaptureRigPlayTests, DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudMinimapPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
-- **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
+- **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, GymRequestTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
 - **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BannerFireFitTests, BannerFireInkTests, BannerFrontLegsTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BullfrogLegsTests, BurstRecipeTests, CameraCloseFitTests, CampaignProfileTests, CaptureRigMeasureTests, ColumnLightTests, ColumnPlayTests, ColumnWidthTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, EventPumpDispatchTests, FallenFlightTests, FarGrowTests, FigurePartsTests, FlipbookOrdinalTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GoreScaleTests, GrenadeLookTests, GunFxTests, GunMuzzleLookTests, GymCatalogueTests, HitMarkSizeTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, ImpactDustFeetTests, InfantryFiringTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineMuzzleTests, MachineSocketTests, ModelCutTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RealLampSetTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, SimHostCatchUpTests, StaticLifecycleTests, StormThunderTests, TacticalCameraSeatTests, TankDiscRingTests, TerrainChunkPassTests, TickAllocationTests, TracerGlowTests, TracerMuzzleTests, TracerSideBySideTests, TrackDustTests, TrenchSectionTests, UnitOneSizeTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatFallenReuseTests, VatTintTests, VehicleDeathTests, ViewEyeTests, ViewGroundTests, WalkerJointTests, WalkerUnchangedTests, WreckModelTests
 - **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, BurstOptionsTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DataBakerTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, LockstepFrameValidationTests, LockstepHashLabelTests, LockstepSteppedTickTests, MeleeTests, MineTests, OfficerTests, PerfMarkersTests, PlaytestMapTests, PropIndexTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, ReplayGuardTests, SapperTests, SectorControlTests, ShieldTests, SimHashTests, SimMathTests, SimStubTests, SlotHashBoundTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckDecayTests, WreckRecordTests
 - **Stills:** BenchRuns, DeathStills, EffectFilmStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills

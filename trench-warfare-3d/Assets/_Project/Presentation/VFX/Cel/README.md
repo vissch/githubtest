@@ -68,9 +68,34 @@ One shader + one class, no edit to the kit:
    ```
    The renderer finds every `CelKind` in the TW assemblies when it starts; built-ins keep ids 0-2, the rest follow in
    name order. Recipes use it by `Kind = "Bolt"`.
+   A kind can override `PrepareRecord(ref CelRecord record, Vector3 origin, Vector3 target, float now)` to pack
+   per-emitter data once during `CelFx.Play`. The renderer's context-aware `Spawn` overload applies this hook;
+   direct `Spawn(kind, record)` preserves an already prepared record. Keep preparation allocation-free.
 3. A keeper material `Resources/ShaderKeep/KeepCel<Kind>.mat` for your shader (copy `KeepCelStreak.mat`, put your
    shader's GUID in `m_Shader`), or a player build has no shader. `CelFxTests.Every_Cel_Shader_Is_Found_And_Kept_For_A_Build` fails until you do.
 Kit changes you need (a new shared function, a record field) go to the kit owner via `stage/kit-requests.md`.
+
+## Flamethrower rendering
+
+`Effects/flamethrower/` combines the main jet, moving ribbons, target curls and smoke with a projected ground wash.
+The recipe includes a brief ignition curl, target afterglow and late smoke bridge. Jet and ribbon records retain
+their own nozzle, target and start time; their shared color field and depth plane prevent another emitter from
+changing their appearance and suppress internal InkLines seams. Forward and DepthOnly use the same geometry and coverage.
+The rounded travelling front (`FlameJet Extra.w = -3`) shares that field and plane, with constant-velocity travel;
+ordinary target rings (`-2`) retain physical motion. The disconnected main jet tapers its rear geometry to a point.
+
+`FlameWash` reconstructs scene positions from depth and blends a premultiplied warm tint plus emission after the
+opaque effects. Its `Core * Opacity` controls emission strength; tint alpha comes from the projected field and
+life envelope. User stencil bit 4 marks visible fragments in FlameJet's forward pass and both CelLobe color
+passes (body and ink hull); the wash rejects that bit. DepthOnly does not mark it. This protects flame and smoke
+without filtering terrain normals, and preserves the existing unit stencil bit 8. Each wash record draws one quad;
+the target afterglow is a separate record in the same pool.
+
+`FlameSmoke` reuses the Lobe mesh, shader and keeper in a separate pool for the column and smoke bridge.
+Negative `Extra.w` opts into emitter-time warm-to-dark-cool-to-light-cool body staging; its magnitude is the
+time scale. Ink follows the warm/cool blend without the temporary brightness reduction. Layer `Opacity`
+encodes `1 + phase delay` before preparation; the kind replaces that slot with the absolute phase start.
+`TimeScaled` composes both duration and delay. Nonnegative Lobe `Extra.w` retains per-particle cooling.
 
 ## LOD rules
 

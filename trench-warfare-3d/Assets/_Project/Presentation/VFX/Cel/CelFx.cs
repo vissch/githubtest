@@ -82,7 +82,7 @@ namespace TW.Presentation.VFX.Cel
         public static float QualityShare(FxTier tier) => tier == FxTier.Low ? 0.5f : tier == FxTier.Medium ? 0.75f : tier == FxTier.Epic ? 1.25f : 1f;
 
         // ------------------------------------------------------------------ spawning
-        /// <summary>One primitive by kind id (CelKinds.Streak / Lobe / Glow, or Renderer.KindId(name)). No allocation.</summary>
+        /// <summary>One already prepared primitive by kind id. Recipes use Play to apply kind-specific emitter data. No allocation.</summary>
         public static void Spawn(int kind, in CelRecord r) => Renderer.Spawn(kind, r);
 
         /// <summary>
@@ -113,7 +113,7 @@ namespace TW.Presentation.VFX.Cel
                 for (int j = 0; j < n; j++)
                 {
                     Make(l, j, n, origin, fwd, right, up, target, now, ref rng, out CelRecord rec);
-                    r.Spawn(l.kindId, rec);
+                    r.Spawn(l.kindId, rec, origin, target, now);
                 }
             }
         }
