@@ -449,7 +449,9 @@ Shader "TW/Cel/IceBolt"
                     // two flat tones with a few white patches)
                     // (i24: the lower facet 0.6 and the frost 0.15: i23's dark frost patches dulled the darts grey-blue,
                     // the clip's are bright white to light blue)
-                    float shade = saturate((upper ? 0.74 : 0.6) + (mn - 0.5) * 0.5 + (fr - 0.5) * 0.15) * 3.0;
+                    // (i25 0.85 / 0.42: i24's 0.74 / 0.6 rounded both facets into one flat white band; the clip's are
+                    // white over light blue)
+                    float shade = saturate((upper ? 0.85 : 0.42) + (mn - 0.5) * 0.5 + (fr - 0.5) * 0.15) * 3.0;
                     // i21: in hard half-band steps - the clip's chunks are hard white snow patches over blue-grey shadow
                     shade = min(floor(shade + 0.5), 3.0);
                     col = shade < 1.0 ? lerp(CelPal(row, 0), CelPal(row, 1), shade) : shade < 2.0 ? lerp(CelPal(row, 1), CelPal(row, 2), shade - 1.0) : lerp(CelPal(row, 2), CelPal(row, 3), shade - 2.0);
@@ -493,6 +495,9 @@ Shader "TW/Cel/IceBolt"
                     // along the stroke; i23's smooth faces read as tape), long along the strand, ~1/6 of it across
                     float streak = CelValue2(float2(u / 0.9, tA * 3.0) + float2(sd * 29.0, sd * 13.0));
                     g *= lerp(0.55, 1.15, streak);
+                    // i25: thinner over the muzzle end (the first 15 % of the span): near the camera i24 drew twice the
+                    // clip's px
+                    g *= lerp(0.5, 1.0, smoothstep(0.0, 0.15, i.more.z));
                     // (i22: the edge line at 0.82, on the profile's bright line)
                     float eP = (tA - 0.82) / 0.1, eM = (-tA - 0.82) / 0.1;
                     float edge = lerp(exp(-eM * eM), exp(-eP * eP), flip) * (1.0 - tw * 0.6);
@@ -530,7 +535,8 @@ Shader "TW/Cel/IceBolt"
                     float si = floor(u / sc);
                     float sh = CelHash21(float2(si, sd * 61.0));
                     float speck = 0.0;
-                    if (sh > lerp(0.55, 0.15, spray))
+                    // (i25: more by the darts - the clip throws dozens of white specks round them)
+                    if (sh > lerp(0.55, 0.05, spray))
                     {
                         float sx = (si + 0.2 + 0.6 * CelHash21(float2(si, sd * 67.0))) * sc;
                         float sgn = CelHash21(float2(si, sd * 71.0)) > 0.5 ? 1.0 : -1.0;

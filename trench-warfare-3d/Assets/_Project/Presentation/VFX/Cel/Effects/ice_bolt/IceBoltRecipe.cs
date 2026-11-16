@@ -24,7 +24,8 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>Metres the Range's muzzle is raised: the clip's corridor enters the frame's left edge at y 722 and
         /// runs through (517, 523) to the chest (i09: its bright pixels f20-f60 lie 8-28 px below the 0.38 m of i01-i08,
         /// most near the camera).</summary>
-        public const float MuzzleLift = 0.24f;
+        // (i25 0.1: i24's bundle sat 45 px high near the camera, x 0-120 p50 -17 for the clip's +28)
+        public const float MuzzleLift = 0.1f;
         /// <summary>A dart's length (share of the 12.9 m corridor: ~1.9 m, 90-240 px near the camera), its life and
         /// its width at the barbs (m; 12-30 px near the camera): its head runs from -0.05 to DartHeadEnd, so it flies
         /// at ~3.9 shares (50 m/s) a second and crosses the frame in six frames (clip: in at f8, on the board at f14).</summary>
