@@ -43,10 +43,11 @@
 //             width. Motion x, y the ground's slope there, z the side its longest fingers run to (1 the eye's
 //             right, -1 its left). Extra y seconds it takes to spread, z the age at which it drains.
 //  5 bubble   Pos on the ground. Size x radius it swells to (m). Extra y seconds of the pop at the end of its life.
-//  6 puff     smoke: no line round it, a ragged edge, seen through; it frays into upright tatters. Pos, Vel,
-//             Motion (gravity, drag, -, buoyancy). Size x, y, z its size over the life (m). Extra y the life
-//             fraction at which it starts to thin, z the share of its life it is lit by the acid under it (core,
-//             c3, then its own c2, and c1 as it ages; from 1 up it stays light all its life, its underside c2).
+//  6 puff     smoke: a see-through veil (c1, patches of c2; 0.46 thinning to 0.20) traced with ribbons (c3,
+//             then ink as it ages; core where the acid under it lights it) along its edge toward the light and
+//             in curls through it (0.92), a crisp ragged edge; it swirls and rises into tall wisps as it goes.
+//             Pos, Vel, Motion (gravity, drag, -, buoyancy). Size x, y, z its size over the life (m). Extra y the
+//             life fraction at which it starts to thin, z the share of its life it is lit by the acid under it.
 //  7 glow     the acid's light on whatever stands behind it (the ground, the target, a crate): the lit point is
 //             found from the scene's depth, so the card itself is never hidden. Pos the light (a metre over the
 //             ground), Axis a level axis of its own (the recipe: square to the jet's track). Size x its reach
@@ -431,6 +432,14 @@ Shader "TW/Cel/AcidBeam"
                 return f;
             }
 
+            // the field a puff's curls are the iso-lines of: value noise warped round on itself (b17)
+            float Curl(float2 p, float seed, float tk)
+            {
+                float2 c = p * 1.7 + seed * 3.0;
+                c += 0.9 * (float2(CelValue2(c * 1.3 + tk * 0.03), CelValue2(c * 1.3 + 5.2 - tk * 0.03)) - 0.5);
+                return CelValue2(c * 1.6 + seed * 11.0);
+            }
+
             // thin lens-shaped streaks standing in a grid of cells (x across them, y along them), each column of
             // cells set at its own height: 1 inside a streak. share of the cells hold one; thick its half-width.
             float Streaks(float2 p, float seed, float share, float thick, float w)
@@ -587,7 +596,7 @@ Shader "TW/Cel/AcidBeam"
                                 float2 o2 = float2(xx, yy);
                                 float2 cid = wc + o2;
                                 float2 pt = o2 + float2(CelHash21(cid + 3.1), CelHash21(cid + 17.7)) * 0.8 + 0.1 - wf;
-                                float hr = (0.18 + 0.42 * CelHash21(cid + 29.3)) * (0.25 + 1.25 * starve);   // (they grow until they meet)
+                                float hr = (0.20 + 0.40 * CelHash21(cid + 29.3)) * (0.30 + 1.30 * starve);   // (they grow until they meet; b17: sooner)
                                 gap = min(gap, length(pt) - hr);
                             }
                             // its ropes thin and part, then its islands go (b06: it is gone when it has broken up)
@@ -604,7 +613,9 @@ Shader "TW/Cel/AcidBeam"
                         float d = abs(q.x + 0.20 * (1.0 - kS)) / max(edge + 0.10, 0.02) + 1.10 * (st - 0.5);   // (b12: into the chest at the target)
                         // (the lace: yellow round its holes, then green deep in it - the clip's; b03-b05 drew
                         // green-rimmed holes in a lime sheet, a leopard)
-                        d = lerp(d, 0.80 - 0.62 * border, smoothstep(0.0, 0.45, starve));
+                        // (b17: yellow-lime down the middle of its ropes, green at their edges - the clip's f88-96; b03-b16's
+                        // green sheet, yellow round its holes, read as a sheet with dark holes in it)
+                        d = lerp(d, 0.04 + 0.66 * border * border, smoothstep(0.0, 0.45, starve));
                         // (b07) its end pales into a fan of yellow where it goes in (the clip's pale-yellow heart, f40-84)
                         d *= 1.0 - 0.55 * smoothstep(0.86, 1.0, kS) * (1.0 - starve) * i.flow.w;
                         // (b10: a thin lime band only - the clip's streaks are yellow against green; b09's broad lime
@@ -675,8 +686,10 @@ Shader "TW/Cel/AcidBeam"
                             float u = q.x * 0.5 + 0.5;                  // 0 its root .. 1 its point
                             float yb = q.y - i.shape2.y * 0.36 * u * u;
                             float side = yb >= 0.0 ? 1.0 : -1.0;
-                            float rag = CelValue2(float2(u * aspect * 2.2 + seed * 17.0, side * 3.0 + seed * 5.0 + floor(tk / 2.0) * 0.61)) - 0.5;
-                            float wd = 0.62 * pow(saturate(1.0 - u), 0.8) * sqrt(saturate((q.x + 1.0) * aspect / 0.55)) * (1.0 + 0.35 * rag);   // (a round root whatever its length)
+                            // (b17: torn flanks, new on every drawing - the clip's flames; b08-b16's smooth ones read as leaves)
+                            float rag = 0.65 * (CelValue2(float2(u * aspect * 2.2 + seed * 17.0, side * 3.0 + seed * 5.0 + tk * 0.37)) - 0.5)
+                                + 0.35 * (CelValue2(float2(u * aspect * 3.8 + seed * 29.0, side * 5.0 + seed * 3.0 + tk * 0.53)) - 0.5);
+                            float wd = 0.62 * pow(saturate(1.0 - u), 0.8) * sqrt(saturate((q.x + 1.0) * aspect / 0.55)) * (1.0 + 0.60 * rag);   // (a round root whatever its length)
                             f = wd - abs(yb);
                             float hs = CelHash21(float2(seed * 53.0, 7.0));
                             float u0 = 0.25 + 0.3 * CelHash21(float2(seed * 29.0, 3.0));
@@ -691,8 +704,9 @@ Shader "TW/Cel/AcidBeam"
                             float lit = L.y >= 0.0 ? 1.0 : -1.0;        // the flank the light falls on
                             float yn = yb / max(wd, 0.05), pn = pixY / max(wd, 0.05);
                             col = base;
-                            col = lerp(col, dn1, Step(0.35, -yn * lit, pn) * 0.9);
-                            col = lerp(col, up1, (1.0 - Step(0.28, abs(yn - 0.30 * lit), pn)) * step(0.12, u) * (1.0 - step(0.9, u)));
+                            col = lerp(col, dn1, Step(0.30, -yn * lit, pn) * 0.9);
+                            // (b17: its lit flank a tone up out to its edge - b08-b16's streak inside it read as a leaf's midrib)
+                            col = lerp(col, up1, Step(0.15, yn * lit + 0.25 * rag, pn) * step(0.06, u));
                             col = lerp(col, pale, (1.0 - smoothstep(0.08, 0.45, u)) * i.shape2.z);
                         }
                         col = lerp(col, rim * 0.55, (1.0 - Step(1.6 * pixY, f, pixY)) * i.shape2.x);   // a dark line round it
@@ -915,27 +929,36 @@ Shader "TW/Cel/AcidBeam"
                 }
                 else if (mode < 6.5)
                 {
+                    // (b17) smoke as the clip draws it (f50-130): a dark see-through veil traced with bright lime
+                    // ribbons that curl - along its edge toward the light and through it - and a crisp edge; it swirls
+                    // and rises into tall wisps as it goes, its veil thinning first and its ribbons last (b02-b16: pale
+                    // cotton balls with a soft edge; b16's were gone by f84, the clip's still cover a third of the sky
+                    // over the target at f80-104)
                     float tk = i.shape.x, fray = i.shape.y, lit = i.shape.z;
-                    float f = Puff(q, seed, tk);
-                    float n = CelValue2(q * 2.6 + seed * 13.0 + tk * 0.11) * 0.6 + CelValue2(q * 6.5 + seed * 5.0 - tk * 0.07) * 0.4 - 0.5;
-                    float strand = CelValue2(float2(q.x * 8.0 + seed * 19.0, q.y * 1.6 - tk * 0.09)) - 0.5;   // upright tatters
-                    float cut = f + 0.26 * n + (0.08 + 0.36 * fray) * strand - fray * 0.30 - 0.04;   // (b16: more broken)   // it thins from its rim inward as it ages, into wisps (b11: stronger)
-                    // smoke: no line round it, a soft ragged edge, a veil the background shows through as it ages (b08:
-                    // the clip's goes from a soft lumpy band on the beam at f50-60 to see-through wisps by f84; b02-b07's
-                    // were opaque cotton puffs to the end)
-                    al = smoothstep(0.0, 0.14, cut) * lerp(1.0, 0.45, smoothstep(0.35, 1.0, k));
-                    // lit from below in its first moments (the acid under it), then its own green, a tone down as it
-                    // ages; one that stays lit keeps the light tone, its underside its own green
-                    float glow = saturate(lit);
-                    float age = k + 0.25 * n;
-                    col = lerp(pale, light, smoothstep(0.0, lit * 0.6, age));
-                    col = lerp(col, body, smoothstep(lit * 0.5, lit * 1.4, age));
-                    col = lerp(col, shade, smoothstep(0.5, 1.0, k + 0.20 * n) * 0.8 * (1.0 - 0.6 * glow));
-                    float under = smoothstep(-0.15, 0.55, dot(q, float2(0.45, -0.85)) + 0.5 * n);
-                    col = lerp(col, lerp(shade, body, glow), under * 0.8);   // its underside a tone down,
-                    col = lerp(col, rim, smoothstep(0.55, 0.95, under + 0.6 * n) * 0.5 * (1.0 - 0.7 * glow));   // its hollows two
-                    col = lerp(col, rim, (1.0 - smoothstep(0.0, 0.02, abs(n + 0.10 * strand - 0.10))) * smoothstep(0.08, 0.20, cut) * 0.3);   // dark curls in it (b12: fainter)
-                    al *= (1.0 - smoothstep(0.35, 1.0, fray)) * smoothstep(0.0, 0.08, k);
+                    float sw = 1.4 * (0.6 - length(q)) * (0.6 + 0.8 * fray) + 1.2 * (CelValue2(q * 1.8 + float2(seed * 5.0, seed * 9.0 + tk * 0.02)) - 0.5);
+                    float2 p = float2(q.x * cos(sw) - q.y * sin(sw), q.x * sin(sw) + q.y * cos(sw));
+                    p.y /= 1.0 + 0.35 * fray;                               // it rises into tall wisps
+                    float n = CelValue2(p * 2.6 + seed * 13.0 + tk * 0.11) * 0.6 + CelValue2(p * 6.5 + seed * 5.0 - tk * 0.07) * 0.4 - 0.5;
+                    float strand = CelValue2(float2(p.x * 8.0 + seed * 19.0, p.y * 1.6 - tk * 0.09)) - 0.5;   // upright tatters
+                    float tear = 0.26 * n + (0.08 + 0.30 * fray) * strand - fray * 0.18 - 0.04;   // it thins from its rim inward as it ages
+                    float hem = (0.98 - length(q)) * 0.5;                   // (never out to its card's edge: a straight cut)
+                    float inside = Step(0.0, min(Puff(p, seed, tk) + tear, hem), pix * 1.5);
+                    // its ribbons: along its edge toward the light (what its outline moved away from the light leaves
+                    // of it), and curls through it (the iso-lines of a field warped round on itself, broken into arcs)
+                    float rib = 1.0 - Step(0.0, min(Puff(p + float2(-0.040, 0.080), seed, tk) + tear, hem), pix * 1.5);
+                    float cv = Curl(p, seed, tk);
+                    float cl = max(length(float2(Curl(p + float2(0.02, 0.0), seed, tk), Curl(p + float2(0.0, 0.02), seed, tk)) - cv) / 0.02, 1e-3);
+                    float curl = max(1.0 - Step(0.026 + 0.012 * (1.0 - fray), abs(cv - 0.5) / cl, pix * 1.2), 1.0 - Step(0.022, abs(cv - 0.32) / cl, pix * 1.2));
+                    rib = max(rib, curl * Step(0.42, CelValue2(p * 2.2 + seed * 21.0 + 3.0), 0.04)) * inside;
+                    // lit by the acid under it in its first moments (the clip's smoke over the beam, f50-60)
+                    float glow = 1.0 - smoothstep(lit * 0.6, lit * 1.4, k);
+                    half3 veil = lerp(shade, body, Step(0.45, CelValue2(p * 3.0 + seed), 0.03));
+                    veil = lerp(veil, body, glow * 0.6);
+                    half3 ribbon = lerp(CelPalInk(row).rgb, light, 1.0 - smoothstep(0.4, 0.9, k));   // darker as it goes
+                    ribbon = lerp(ribbon, pale, glow * Step(0.55, CelValue2(p * 4.0 + seed * 7.0), 0.03));
+                    col = lerp(veil, ribbon, rib);
+                    al = max((lerp(0.46, 0.20, smoothstep(0.3, 1.0, k)) + 0.16 * glow) * inside, rib * 0.92);
+                    al *= (1.0 - smoothstep(0.55, 1.0, fray)) * smoothstep(0.0, 0.08, k);
                     col = MixFog(col, i.fog);
                 }
                 else
