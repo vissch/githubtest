@@ -89,9 +89,7 @@ namespace TW.Presentation.VFX.Cel
         static readonly float[] Lines =
         {
              1.20f,  0.2f, 0.026f, 0.020f, 0.40f, 0.20f,
-            -1.08f, -0.1f, 0.075f, 0.040f, 0.72f, 0.26f,   // (b24: strands peeling off under it, the clip's f39-80)
-            -1.30f,  0.3f, 0.060f, 0.032f, 0.62f, 0.21f,
-            -1.56f, -0.3f, 0.045f, 0.026f, 0.50f, 0.17f,
+            -1.12f, -0.1f, 0.075f, 0.040f, 0.72f, 0.26f,   // (b24: strands peeling off under it, the clip's f39-80; b36: one - three read as spears)
         };
 
         // bursts of blades out of the hit: the clip's frame it starts on, the drawings it throws over, how many blades
@@ -269,7 +267,7 @@ namespace TW.Presentation.VFX.Cel
                 float lb = AtFrame(late, 88f), lg = AtFrame(late, 119f);   // (b29: the clip's still stands 200 px wide at f110)
                 var lump = Rec(now, lb, lg - lb, AcidBeamKind.Mound, stand, Lump, 1f, ref rng);
                 lump.Axis = dir;
-                lump.Size = new Vector4(5.6f, 5.6f, 1f, 0.90f);   // (b07: the lump keeps to 0.86 of its card)
+                lump.Size = new Vector4(4.8f, 4.8f, 1f, 0.90f);   // (b36: smaller under sheets of goo)   // (b07: the lump keeps to 0.86 of its card)
                 lump.Motion = new Vector4(0.30f, 0.3f, 0.6f, 0f);
                 lump.Tone.y = CelRecord.PackPalette(LumpBubble);
                 lump.Extra.z = 0.40f;
@@ -418,7 +416,7 @@ namespace TW.Presentation.VFX.Cel
             {
                 for (int b = 0; b < Bursts.Length; b += BurstStride)
                 {
-                    int count = Count((int)Bursts[b + 2], b == 0 ? n : n * 0.45f);   // (b29: the hit's first starburst whole)   // (b27: the clip has a few thin spikes; b07-b26's read as darts)
+                    int count = Count((int)Bursts[b + 2], b == 0 ? n : b < 3 * BurstStride ? n * 0.45f : n * 0.15f);   // (b29: the hit's first starburst whole)   // (b27: the clip has a few thin spikes; b07-b26's read as darts)
                     for (int i = 0; i < count; i++)
                         Blade(renderer, kind, now, AtFrame(late, Bursts[b] + rng.Range(0f, Bursts[b + 1])), target, dir, away,
                             rng.Range(Bursts[b + 3], Bursts[b + 4]), b == 0, ref rng);
@@ -514,7 +512,22 @@ namespace TW.Presentation.VFX.Cel
             // spreads low and wide on the ground before the lump; b19 - b18's stood tall)
             // (b35) ... and late in it, holed sheets of goo thrown low and wide round the target (frames 74-93: the clip's
             // splash is a green web of strands then; b18-b34's was a pile of small pale chunks)
-            int web = far ? 0 : mid ? 8 : 22;
+            // (b36) ... as a splatter: thin wavy strands of goo running out low and wide from the target's foot (drop kind 8)
+            int splatters = far ? 0 : mid ? 3 : 7;
+            for (int i = 0; i < splatters; i++)
+            {
+                var r = Rec(now, AtFrame(late, 72f + 3f * i + rng.Range(0f, 2f)), rng.Range(0.45f, 0.65f), AcidBeamKind.Drop,
+                    ground + Vector3.up * rng.Range(0.5f, 0.9f) + right * rng.Range(-0.3f, 0.3f) - away * 0.3f, i % 3 == 2 ? Sheet : Splash, 1f, ref rng);
+                r.Vel = Vector3.zero;
+                r.Motion = Vector4.zero;
+                float rad = rng.Range(2.8f, 3.6f);
+                r.Size = new Vector4(rad, rad, 1f, 0f);
+                r.Tone.w = i % 3 == 2 ? 2f : rng.Next() < 0.5f ? 2f : 3f;
+                r.Erode = Vector4.zero;
+                r.Extra.y = 8f;
+                renderer.Spawn(kind, r);
+            }
+            int web = far ? 0 : mid ? 3 : 8;
             for (int i = 0; i < web; i++)
             {
                 Vector3 d = (Vector3.up * rng.Range(0.0f, 0.7f) + right * rng.Range(-1.0f, 1.0f) - away * rng.Range(-0.2f, 0.5f)).normalized;
@@ -531,7 +544,7 @@ namespace TW.Presentation.VFX.Cel
                 r.Extra.y = 7f;
                 renderer.Spawn(kind, r);
             }
-            int low = far ? 0 : mid ? 16 : 46;                           // (b30: the clip's f78-92 splash is these, low and wide)
+            int low = far ? 0 : mid ? 8 : 20;                           // (b30: the clip's f78-92 splash is these, low and wide)
             for (int i = 0; i < low; i++)
             {
                 float side = rng.Next() < 0.5f ? -1f : 1f;
@@ -695,6 +708,23 @@ namespace TW.Presentation.VFX.Cel
             if (!far)
             {
                 Vector3 heart = stand + Vector3.up * 1.8f;
+                // (b36) sheets of goo sinking over it, holed and lit at their rims (the clip's lump is irregular gappy goo; b06-b35's a neat dome)
+                int sinks = Count(12, n);
+                for (int i = 0; i < sinks; i++)
+                {
+                    float a = rng.Range(0f, Mathf.PI);
+                    Vector3 o = right * (Mathf.Cos(a) * rng.Range(0.3f, 1.5f)) + Vector3.up * (Mathf.Sin(a) * rng.Range(0.2f, 1.4f));
+                    float rad = rng.Range(1.0f, 1.7f);
+                    var r = Rec(now, AtFrame(late, rng.Range(90f, 108f)), rng.Range(0.55f, 0.85f), AcidBeamKind.Drop, heart + o - away * 0.9f, Sheet, 1f, ref rng);
+                    r.Vel = o.normalized * rng.Range(0.3f, 0.9f) + Vector3.down * rng.Range(0.6f, 1.4f);
+                    float speed = Mathf.Max(r.Vel.magnitude, 0.5f);
+                    r.Motion = new Vector4(2f, 0.6f, 0f, 0f);
+                    r.Size = new Vector4(rad * 0.7f, rad * 1.1f, 0.6f, rng.Range(1.2f, 1.8f) * rad / speed);
+                    r.Tone.w = rng.Next() < 0.5f ? 1f : 2f;
+                    r.Erode = new Vector4(1.1f, 0f, 0f, 0f);
+                    r.Extra.y = 7f;
+                    renderer.Spawn(kind, r);
+                }
                 int bubbles = Count(8, n), hangs = Count(130, n), ribbons = Count(3, n);   // (b29: more drops round it to f118, hardly a dart)
                 for (int i = 0; i < bubbles; i++)
                 {
