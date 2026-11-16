@@ -348,8 +348,11 @@ Shader "TW/Cel/ElectricBolt"
                             float angB = ((idB + 0.5 + (hA - 0.5) * 0.7) / nB - 0.5) * 6.28318;
                             float2 dB = float2(cos(angB), sin(angB));
                             float alB = dot(q, dB);
-                            float latB = abs(q.x * dB.y - q.y * dB.x);
-                            float r0 = coreRB * 0.4;
+                            // (e06: crooked slivers, as the clip's: the shard's line jags sideways along its length)
+                            float hK = CelHash21(float2(idW, sdB * 13.0 + 1.0));
+                            float latB = abs(q.x * dB.y - q.y * dB.x + (hK - 0.5) * 0.12 * sin(alB * (18.0 + 14.0 * hK) + hK * 6.28) + (hK - 0.5) * 0.25 * alB * alB);
+                            // (e04: the clip's shards are loose flakes, most start well out of the core, not a star)
+                            float r0 = coreRB * 0.4 + 0.45 * CelHash21(float2(idW, sdB * 71.0 + 5.0)) * step(0.3, hL);
                             float tB = (alB - r0) / max(lerp(0.45, 1.0, hL) - r0, 1e-3);
                             float hwB = max(i.shape.w, 0.005) * lerp(0.6, 1.4, hW) * pow(saturate(1.0 - tB), 0.85);
                             float fB = saturate(1.0 - latB / max(hwB, 1e-4)) * step(0.0, tB) * step(tB, 1.0);
@@ -358,7 +361,7 @@ Shader "TW/Cel/ElectricBolt"
                         }
                         float shardB = CelAAStep(0.3, fieldB);
                         float shardW = CelAAStep(0.62, fieldB) * saturate(1.3 - alongB);
-                        float glowB = exp(-rr * rr * 4.0) * 0.6;
+                        float glowB = exp(-rr * rr * 3.0) * 0.8;
                         half3 whiteB = CelPalCore(row).rgb * i.tone.y;
                         half3 cb = CelPal(row, 2) * glowB;
                         cb = lerp(cb, CelPal(row, 3), shardB);
@@ -402,7 +405,7 @@ Shader "TW/Cel/ElectricBolt"
                     // small jags on the kinked line (the vertex shader bent the ribbon for the big ones); the width
                     // wanders along it and narrows over the last of it into the flare. Half-widths: kept small, the
                     // clip's arcs are thick lines with sharp corners, not a scribble
-                    centre = 0.25 * Zig(u, 0.12, salt + 3.0) + 0.1 * Zig(u, 0.04, salt + 5.0);
+                    centre = 0.1 * Zig(u, 0.12, salt + 3.0) + 0.04 * Zig(u, 0.04, salt + 5.0);
                     prof = (0.7 + 0.6 * CelHash21(float2(floor(u / 0.3), salt + 9.0))) * lerp(1.0, 0.6, smoothstep(0.8, 1.0, a));
                     bright = 0.85 + 0.15 * CelHash21(float2(salt, 0.71));
                 }
@@ -410,12 +413,13 @@ Shader "TW/Cel/ElectricBolt"
                 {
                     // the comet: the clip's teardrop (cometprof.py over 377 of its comets: the width rises about straight
                     // from 0.15 of its most at the tail to the most at 0.8 of the length, then rounds off to the head)
-                    float capT = saturate((a - 0.8) / 0.2);
-                    prof = a > 0.8 ? sqrt(saturate(1.0 - capT * capT)) : lerp(0.15, 1.0, a / 0.8);
-                    // the body waves in a gentle S (more toward the tail), re-drawn a little every frame
+                    // (e03: the clip's at 2x is a needle: a hair-thin tail swelling late into a bright head, then a
+                    // pointed nose; straight, not a wave)
+                    float capT = saturate((a - 0.82) / 0.18);
+                    prof = a > 0.82 ? pow(saturate(1.0 - capT), 0.55) : lerp(0.04, 1.0, pow(a / 0.82, 1.6));
                     float bends = max(i.shape.y, 0.3);
                     float ph = i.shape.z * 6.2832 + tick * 0.45;
-                    centre = i.shape.x * sin(a * bends * 6.2832 + ph) * lerp(1.0, 0.2, a) + 0.18 * Zig(u, 0.07, salt);
+                    centre = i.shape.x * sin(a * bends * 6.2832 + ph) * lerp(1.0, 0.2, a) + 0.06 * Zig(u, 0.07, salt);
                     // white-hot all along: the core's share of the width is set by the bands below
                     bright = 1.0;
                 }
@@ -459,8 +463,8 @@ Shader "TW/Cel/ElectricBolt"
                 // (a comet's: the clip's white core is 0.4-0.5 of its width from the tail to the head, cometprof.py; the
                 // bands keep a pixel each where it is thin)
                 float px = onePx / max(prof, 1e-3);
-                float e1 = arc ? min(px * 1.2, 0.3) : clamp(px, 0.25, 0.45);
-                float e2 = arc ? min(px * 2.4, 0.5) : clamp(px * 2.0, 0.5, 0.85);
+                float e1 = arc ? min(px * 1.2, 0.3) : clamp(px, 0.3, 0.5);
+                float e2 = arc ? min(px * 2.4, 0.5) : clamp(px * 2.0, 0.62, 0.85);
                 float fr = field < e1 ? 0.5 * field / e1
                          : field < e2 ? lerp(0.5, 0.62, (field - e1) / max(e2 - e1, 1e-4))
                          : lerp(0.62, 1.0, (field - e2) / max(1.0 - e2, 1e-4));
@@ -477,7 +481,7 @@ Shader "TW/Cel/ElectricBolt"
                 float dpx = outside * hwPx;
                 float keepB = (1.0 - mask) * saturate((BOLT_PAD - 0.5 - abs(y)) * 0.5) * saturate((BOLT_PADL - beyond) * 0.6);
                 if (!arc) keepB *= smoothstep(0.0, 0.3, a);
-                half3 add = (CelPal(row, 1) * exp(-dpx / 1.2) + CelPal(row, 0) * exp(-dpx / (arc ? 10.0 : 8.5))) * keepB * i.tone.z;
+                half3 add = (CelPal(row, 1) * exp(-dpx / 1.2) + CelPal(row, 0) * exp(-dpx / (arc ? 6.0 : 11.0))) * keepB * i.tone.z;
                 add = AddFog(add, i.positionWS, i.more.x, i.more.y);
                 half3 col = body * cover + add;
                 return half4(Unvignette(col, i.positionCS.xy, 1.0), cover);
