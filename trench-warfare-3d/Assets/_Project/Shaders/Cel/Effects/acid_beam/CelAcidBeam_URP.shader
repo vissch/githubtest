@@ -989,7 +989,7 @@ Shader "TW/Cel/AcidBeam"
                     float inside = Step(0.0, min(Puff(p, seed, tk) + tear, hem), pix * 1.5);
                     // its ribbons: along its edge toward the light (what its outline moved away from the light leaves
                     // of it), and curls through it (the iso-lines of a field warped round on itself, broken into arcs)
-                    float rib = (1.0 - Step(0.0, min(Puff(p + float2(-0.040, 0.080), seed, tk) + tear, hem), pix * 1.5))
+                    float rib = (1.0 - Step(0.0, min(Puff(p + float2(-0.085, 0.165), seed, tk) + tear, hem), pix * 1.5))   // (b20: broad - b17-b19's thin lines bunched its tones in the middle)
                         * Step(0.42, CelValue2(p * 1.6 + seed * 17.0 + 5.0), 0.05);   // (b19: in places - b18's traced every puff: a cabbage)
                     float cv = Curl(p, seed, tk);
                     float cl = max(length(float2(Curl(p + float2(0.02, 0.0), seed, tk), Curl(p + float2(0.0, 0.02), seed, tk)) - cv) / 0.02, 1e-3);
@@ -1002,7 +1002,7 @@ Shader "TW/Cel/AcidBeam"
                     half3 ribbon = lerp(CelPalInk(row).rgb, light, 1.0 - smoothstep(0.4, 0.9, k));   // darker as it goes
                     ribbon = lerp(ribbon, pale, glow * Step(0.55, CelValue2(p * 4.0 + seed * 7.0), 0.03));
                     col = lerp(veil, ribbon, rib);
-                    al = max((lerp(0.46, 0.20, smoothstep(0.3, 1.0, k)) + 0.16 * glow) * inside, rib * 0.92);
+                    al = max((lerp(0.36, 0.16, smoothstep(0.3, 1.0, k)) + 0.16 * glow) * inside, rib * 0.95);   // (b20: the veil thinner)
                     al *= (1.0 - smoothstep(0.55, 1.0, fray)) * smoothstep(0.0, 0.08, k);
                     col = MixFog(col, i.fog);
                 }

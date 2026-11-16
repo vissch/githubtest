@@ -70,7 +70,7 @@ namespace TW.Presentation.VFX.Cel
         // #506F44 where one or two lie over the night), its ribbons #96D965, lit by the acid #E0F699, #6FA052 as they age
         // (b02-b16: one see-through tone, #5F834C to #91CD6A; b17 stored a single 0.46 veil's lime, and stacked veils showed it)
         static readonly int Fume = CelPalette.Add("acid_beam_fume",
-            S(0.194f, 0.269f, 0.203f), S(0.304f, 0.428f, 0.267f), S(0.408f, 0.596f, 0.313f), S(0.466f, 0.708f, 0.336f), S(0.608f, 0.880f, 0.488f), 1.1f, 4, S(0.341f, 0.491f, 0.278f));   // (b19: the veil #618A4E, #84BE5E - b18's a little dull)
+            S(0.194f, 0.269f, 0.203f), S(0.287f, 0.396f, 0.251f), S(0.382f, 0.552f, 0.299f), S(0.466f, 0.708f, 0.336f), S(0.608f, 0.880f, 0.488f), 1.1f, 4, S(0.341f, 0.491f, 0.278f));
         const float FumeOpacity = 1f;   // (b17: the shader sees it through itself - its veil at 0.46, its ribbons at 0.92)
         // a spark: edge #963C28, #CD5F32, body #F09646, #FCC86E, hot #FFEBAA (b05: the clip's few sparks are orange-red
         // lines, b04's were yellow)
@@ -311,11 +311,11 @@ namespace TW.Presentation.VFX.Cel
             // (b10: budding all along its top as the head goes by, light green inside, the big ones near the eye - b02-b09's
             // came out of the nozzle and clumped at the frame's left edge like peas in a pod)
             // (b19: four big ones near the eye and a crest of goo along the rest - b10-b18's 14 read as a row of pearls)
-            int blobs = Count(4, n);
+            int blobs = Count(9, n);                                     // (b20: b19's crest read as a hedge; the clip's are a few big blobs)
             for (int i = 0; i < blobs; i++)
             {
-                float u = 0.16f + 0.26f * rng.Next();
-                float hb = 0.55f + 0.45f * rng.Next();
+                float u = 0.16f + 0.62f * Mathf.Pow(rng.Next(), 1.3f);   // (more near the eye)
+                float hb = 0.25f + 0.75f * rng.Next();
                 float rad = (0.18f + 0.50f * hb * hb) * Mathf.Lerp(1.5f, 0.7f, u);
                 Vector3 at = Along(nozzle, target, flight * u) + Vector3.up * (Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.45f + rad * 0.2f) + across * rng.Range(-0.3f, 0.3f);
                 // (b13: born as the head goes by and sitting on its top, bulging out of it - b10-b12's came late, small,
@@ -330,7 +330,7 @@ namespace TW.Presentation.VFX.Cel
             }
             // ... and a wavy crest of goo along its top as the head goes by: light splats lying along it, rising a little off
             // it (frames 22-46: the clip's beam top is a crest of goo, b19)
-            int crest = Count(18, n);
+            int crest = Count(0, n);                                     // (b20: none - b19's read as a hedge)
             for (int i = 0; i < crest; i++)
             {
                 float u = 0.16f + 0.72f * Mathf.Pow(rng.Next(), 1.2f);
@@ -454,14 +454,14 @@ namespace TW.Presentation.VFX.Cel
             // (b07: b06's 430 sheets up to 2.2 m over the target read as a dark bush as wide at its top as at its foot -
             // the clip's mass is a cone, 282/234/130 px wide from its foot up, thrown out from the hit; its darker
             // sheets lie on the far side)
-            int sheets = far ? 0 : mid ? 50 : 130;                       // (b08: most of the mass is tongues now, below)
+            int sheets = far ? 0 : mid ? 60 : 170;                       // (b08: most of the mass is tongues now, below; b20: 170 splats)
             for (int i = 0; i < sheets; i++)
             {
                 float when = rng.Range(40f, 94f);
                 Vector3 d = rng.OnSphere();
                 d -= away * (Vector3.Dot(d, away) * 0.5f);
                 d = (d + dir * 0.7f + Vector3.up * 0.45f).normalized;
-                float rad = 0.30f + 0.55f * rng.Next();
+                float rad = 0.35f + 0.60f * rng.Next();                  // (b20: bigger)
                 Vector3 at = target + Vector3.up * rng.Range(-0.6f, 1.0f) + right * rng.Range(-1.0f, 1.3f) + dir * rng.Range(0f, 0.6f) - away * rng.Range(-0.3f, 0.8f);
                 Vector3 o = at - target;
                 o -= away * Vector3.Dot(o, away);
@@ -472,7 +472,7 @@ namespace TW.Presentation.VFX.Cel
                 r.Size = new Vector4(rad * 0.8f, rad, 0.6f, rng.Range(0.18f, 0.30f));
                 float t = rng.Next();
                 r.Tone.w = green ? (t < 0.45f ? 1f : t < 0.85f ? 2f : 3f)
-                                 : (t < 0.18f ? 0f : t < 0.40f ? 1f : t < 0.70f ? 2f : t < 0.88f ? 3f : 4f);
+                                 : (t < 0.10f ? 1f : t < 0.40f ? 2f : t < 0.75f ? 3f : 4f);   // (b20: brighter - the clip's mass is lime-yellow at its heart)
                 r.Erode = Vector4.zero;                                   // (b17: no line round them)
                 r.Extra.y = 7f;                                           // (b18: a splat - b05-b17's sheets read as clubs)
                 renderer.Spawn(kind, r);
@@ -597,7 +597,7 @@ namespace TW.Presentation.VFX.Cel
             // droplets hanging where it was, drifting a little on and falling slowly as they go (b06; b02-b05's blobs
             // and beads were thrown from the nozzle and flew on after the beam's end)
             {
-                int ends = Count(12, n), ropes = Count(36, n), endDrops = Count(150, n);   // (b08: b07's 40 blobs read as bubble wrap, its ropes as comets; b19: 12 big ones, goo bits)
+                int ends = Count(18, n), ropes = Count(40, n), endDrops = Count(150, n);   // (b08: b07's 40 blobs read as bubble wrap, its ropes as comets; b19-b20: big ones, lime drops)
                 for (int i = 0; i < ends + ropes + endDrops; i++)
                 {
                     bool blob = i < ends, rope = !blob && i < ends + ropes;
@@ -609,7 +609,7 @@ namespace TW.Presentation.VFX.Cel
                     if (blob)
                     {
                         float h = rng.Next();
-                        float rad = 0.24f + 0.70f * h * h;                // (the clip's reach 150 px near the eye; b19: no small ones - they read as eyes)
+                        float rad = 0.20f + 0.70f * h * h;                // (the clip's reach 150 px near the eye; b19: no small ones - they read as eyes)
                         var r = Rec(now, when, rng.Range(0.45f, 0.8f), AcidBeamKind.Drop, at, Bubble, 1f, ref rng);
                         r.Vel = drift;
                         r.Motion = new Vector4(2.5f, 1.2f, 0f, 0f);
@@ -620,17 +620,17 @@ namespace TW.Presentation.VFX.Cel
                     }
                     else if (rope)
                     {
-                        // (b19: bits of goo, lime and yellow splats, the clip's f92-100 between its blobs)
-                        float rad = rng.Range(0.12f, 0.34f);
+                        // (b20: round lime drops of every size with pale hearts, the clip's f92-100 between its blobs - b19's
+                        // splats read as little stars)
+                        float rad = rng.Range(0.08f, 0.24f);
                         var r = Rec(now, when, rng.Range(0.35f, 0.6f), AcidBeamKind.Drop, at, Splash, 1f, ref rng);
                         r.Vel = drift * 0.7f;
-                        float speed = Mathf.Max(r.Vel.magnitude, 0.5f);
                         r.Motion = new Vector4(3f, 1.0f, 0f, 0f);
-                        r.Size = new Vector4(rad, rad * 0.7f, 1f, rng.Range(1.2f, 2.2f) * rad / speed);
+                        r.Size = new Vector4(rad, rad * 0.8f, 1f, 0.02f);
                         float t = rng.Next();
-                        r.Tone.w = t < 0.30f ? 5f : t < 0.65f ? 3f : t < 0.85f ? 2f : 4f;   // yellow and lime
+                        r.Tone.w = t < 0.45f ? 2f : t < 0.80f ? 0f : 3f;     // light, lime, yellow
                         r.Erode = Vector4.zero;
-                        r.Extra.y = 7f;
+                        r.Extra.y = 1f;
                         renderer.Spawn(kind, r);
                     }
                     else
