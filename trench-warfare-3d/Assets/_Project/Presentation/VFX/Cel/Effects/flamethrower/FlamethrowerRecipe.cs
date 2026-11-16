@@ -257,11 +257,11 @@ namespace TW.Presentation.VFX.Cel
                 // d47 (NEW PRIMITIVE, fracture 9): the fireball at the dummy as a few FIREBALL RING discs (CelFlameJet_URP
                 // BallField, extra.w -2): a round ring of curling inked tongues wrapping the dummy that opens a dark smoke
                 // hole late (REF f101-f111), in place of the Lobe kind's lumpy yellow chunks. Last in the list (no seed shift).
-                Name = "fireball ring", Kind = "FlameJet", Anchor = CelAnchor.Target, Offset = new Vector3(0.35f, 0.4f, -0.6f), Start = 2.6f, Duration = 0.5f, Life = 1.5f, LifeJitter = 0.15f,   // k04: centred on the dummy (k03's ring sat left of it)
-                Close = 6, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.7f, 0f, 0f), Aim = CelAim.None, Speed = 0f, Buoyancy = 0.3f,   // k04: 3 -> 6 rings spread 0.7 m (REF f108: several loops of orange outline in the smoke)
-                Size = new CelCurve(1.5f, 2.5f, 0.5f), SizeJitter = 0.25f,
-                Erode = new CelCurve(0.5f, 0.45f, 1f), Feather = 0.14f,   // k05: hole 0.62 -> 0.5 and a little heat lift (REF f100-f104 loops are yellow inside, ours red-black); k04: hole 0.45 -> 0.62 of the radius (the loop reads as a rim round smoke)
-                Palette = Burn, CoolTo = SmokeInk, Core = 2.5f, Ink = 1.2f, Extra = new Vector4(0.9f, 4f, 0.8f, -2.0f),   // k04: ink 0.6 -> 1.2
+                Name = "fireball ring", Kind = "FlameJet", Anchor = CelAnchor.Target, Offset = new Vector3(0.35f, 0.7f, -0.6f), Start = 2.6f, Duration = 0.5f, Life = 1.5f, LifeJitter = 0.15f,   // k04: centred on the dummy (k03's ring sat left of it)
+                Close = 8, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.1f, 0f, 0f), Aim = CelAim.None, Speed = 0f, Buoyancy = 0.3f,   // k09: 8 smaller rings spread 1.1 m, a cluster of loops (k08: one swirling crescent); k04: 3 -> 6 rings spread 0.7 m (REF f108: several loops of orange outline in the smoke)
+                Size = new CelCurve(1.0f, 1.7f, 0.5f), SizeJitter = 0.3f,
+                Erode = new CelCurve(0.7f, 0.45f, 1f), Feather = 0.14f,   // k09: hole 0.5 -> 0.7 (thin outline loops round dark smoke, REF f108)   // k05: hole 0.62 -> 0.5 and a little heat lift (REF f100-f104 loops are yellow inside, ours red-black); k04: hole 0.45 -> 0.62 of the radius (the loop reads as a rim round smoke)
+                Palette = Burn, CoolTo = SmokeInk, Core = 2.5f, Ink = 1.2f, Extra = new Vector4(0.4f, 4f, 0.8f, -2.0f),   // k09: swirl 0.9 -> 0.4 (rounder loops); k04: ink 0.6 -> 1.2
             },
             new CelLayer
             {
