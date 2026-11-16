@@ -444,7 +444,8 @@ Shader "TW/Cel/IceBolt"
                     float lit = lerp(0.6, 1.0, saturate(0.5 + 0.5 * y * side / max(hw, 1e-3)));
                     float fresh = lerp(0.7, 1.0, smoothstep(0.6, 1.0, i.q.x));
                     float alpha = (g * lit * 0.9 + edge * 0.2) * fresh * lerp(1.1, 0.9, tw);
-                    col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(edge * 0.8 + (1.0 - tw) * 0.3));
+                    // (i13: its lit edge no longer whitened - i12's read as the darts' white at the film's size)
+                    col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(edge * 0.3 + (1.0 - tw) * 0.2));
                     // its head fades in over the last 0.7 m (i09's wakes ended in a hard cut behind their darts);
                     // metres behind the head = u (1/a - 1), a running 0..1 from the tail (share 0) to the head
                     float behindM = i.q.z * (1.0 / max(i.q.x, 1e-3) - 1.0);

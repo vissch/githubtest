@@ -51,10 +51,12 @@ namespace TW.Presentation.VFX.Cel
         // the darts (i09, the clip's at 3x f11-f48: a sky-blue crystal, bluer than the pale grey-white of the strands,
         // which i08's pale lavender darts melted into; i12 whiter - at the film's size the clip's read as white-blue
         // ice, i11's deep-blue lower facet dulled ours): deep (118,158,215), lower facet (158,198,243), mid
-        // (188,224,252), upper facet (208,237,255), glint (232,248,255)
+        // (188,224,252), upper facet (208,237,255), glint (232,248,255); i13 halfway back to i11's sky blue: i12's
+        // filmed (179,206,235) with tops (221,238,242), as white as the streaks' lit edges, for the clip's
+        // (170,198,229) and (211,234,254)
         public static readonly int DartRow = CelPalette.Add("ice_dart",
-            W(0.37f, 0.49f, 0.69f), W(0.49f, 0.62f, 0.93f), W(0.59f, 0.74f, 0.98f), W(0.665f, 0.835f, 1f),
-            W(0.77f, 0.95f, 1f), 1.1f, 4, W(0.30f, 0.38f, 0.50f));
+            W(0.345f, 0.46f, 0.675f), W(0.46f, 0.592f, 0.905f), W(0.56f, 0.705f, 0.975f), W(0.637f, 0.805f, 1f),
+            W(0.74f, 0.925f, 1f), 1.1f, 4, W(0.30f, 0.38f, 0.50f));
         // the ribbons, as they are before their opacity lays them over the ground (the clip shows (96,116,141) there;
         // i10 a little greyer: i09 filmed them sat 0.36 for the clip's 0.31, and the darts are the blue thing)
         public static readonly int RibbonRow = CelPalette.Add("ice_ribbon",
@@ -97,12 +99,14 @@ namespace TW.Presentation.VFX.Cel
         /// overlapping ones burned to (200, 222, 252) round the darts).</summary>
         // i12: straighter (amp 0.09) and brighter (0.62): the clip's streaks top out at (147-166, 165-182, 189-211),
         // i11's at (107, 128, 160)
-        const float WakeLife = 0.62f, WakeWidth = 0.21f, WakeAmp = 0.09f, WakeOpacity = 0.62f;
+        // i13 0.55: with i12's denser volley the near-camera bundle filmed 1.6x the clip's px
+        const float WakeLife = 0.62f, WakeWidth = 0.21f, WakeAmp = 0.09f, WakeOpacity = 0.55f;
         /// <summary>The gap (f66-f90): the bloom is gone and the darts glance off the board, so a share of the wakes
         /// runs on past the dummy to the upper right (the clip's f80 strands reach ~(1100, 250)); the darts themselves
         /// fly on down the corridor into the board (i12: i11's flew the glancing path and left the corridor empty) and
         /// the shards layer throws the pieces off.</summary>
-        const float GlanceFrom = 64f, GlanceTo = 88f, GlanceShare = 0.8f;
+        // (i13 0.45: i12's 0.8 of a denser volley streamed heavily over the dummy)
+        const float GlanceFrom = 64f, GlanceTo = 88f, GlanceShare = 0.45f;
 
         /// <summary>Every shot of the volley: the wakes in one pass (drawn under), the darts in the next (on top); both
         /// draw the same numbers, so a dart and its wakes share a lane. Thinned by the zoom and the quality like a
@@ -129,7 +133,7 @@ namespace TW.Presentation.VFX.Cel
                     bool glance = f >= GlanceFrom && f <= GlanceTo && rng.Next() < GlanceShare;
                     Vector3 land = (right * rng.Range(-1f, 1f) + up * rng.Range(-1f, 1f)) * LandSpread;
                     Vector3 end = to + land, wEnd = glance ? to + right * rng.Range(3.0f, 4.2f) + up * rng.Range(2.2f, 3.0f) : end;
-                    int wakes = far ? 0 : mid ? (rng.Next() < 0.5f ? 1 : 0) : (rng.Next() < 0.65f ? 1 : 2);
+                    int wakes = far ? 0 : mid ? (rng.Next() < 0.5f ? 1 : 0) : (rng.Next() < 0.9f ? 1 : 2);
                     float speed = (DartHeadEnd - DartHeadStart) / life;
                     if (on && darts) renderer.Spawn(kind, Dart(now + at, from + lane, end, life, width, dseed));
                     for (int w = 0; w < 2; w++)
