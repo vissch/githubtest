@@ -447,7 +447,9 @@ Shader "TW/Cel/IceBolt"
                     // (i20 frost 0.5: the clip's chunks are white mottled over deeper blue at 2x)
                     // (i22 frost 0.3 in whole-band steps: i21's 0.7 in half bands made blotchy lumps; the clip's are
                     // two flat tones with a few white patches)
-                    float shade = saturate((upper ? 0.74 : 0.48) + (mn - 0.5) * 0.5 + (fr - 0.5) * 0.3) * 3.0;
+                    // (i24: the lower facet 0.6 and the frost 0.15: i23's dark frost patches dulled the darts grey-blue,
+                    // the clip's are bright white to light blue)
+                    float shade = saturate((upper ? 0.74 : 0.6) + (mn - 0.5) * 0.5 + (fr - 0.5) * 0.15) * 3.0;
                     // i21: in hard half-band steps - the clip's chunks are hard white snow patches over blue-grey shadow
                     shade = min(floor(shade + 0.5), 3.0);
                     col = shade < 1.0 ? lerp(CelPal(row, 0), CelPal(row, 1), shade) : shade < 2.0 ? lerp(CelPal(row, 1), CelPal(row, 2), shade - 1.0) : lerp(CelPal(row, 2), CelPal(row, 3), shade - 2.0);
@@ -487,6 +489,10 @@ Shader "TW/Cel/IceBolt"
                     float tA = y / max(hw, 1e-3);
                     float flip = smoothstep(-0.3, 0.3, twc);
                     float g = lerp(StrandProfile(-tA), StrandProfile(tA), flip);
+                    // i24: dry-brush streaks along the face (the clip's ribbons at 1:1: light and dark streaks running
+                    // along the stroke; i23's smooth faces read as tape), long along the strand, ~1/6 of it across
+                    float streak = CelValue2(float2(u / 0.9, tA * 3.0) + float2(sd * 29.0, sd * 13.0));
+                    g *= lerp(0.55, 1.15, streak);
                     // (i22: the edge line at 0.82, on the profile's bright line)
                     float eP = (tA - 0.82) / 0.1, eM = (-tA - 0.82) / 0.1;
                     float edge = lerp(exp(-eM * eM), exp(-eP * eP), flip) * (1.0 - tw * 0.6);

@@ -117,7 +117,8 @@ namespace TW.Presentation.VFX.Cel
         // peaks +71-82 for +80-98)
         // (i20 amp 0.12: the clip's strands wave and cross more through the first hold)
         // (i23 0.8 with the ribbon face 0.7)
-        const float WakeLife = 0.62f, WakeWidth = 0.24f, WakeAmp = 0.12f, WakeOpacity = 0.8f;
+        // (i24 0.19 m: the clip's are many narrow strokes, i23's fewer wider tape)
+        const float WakeLife = 0.62f, WakeWidth = 0.19f, WakeAmp = 0.12f, WakeOpacity = 0.8f;
         /// <summary>The gap (f66-f90): the bloom is gone and the darts glance off the board, so a share of the wakes
         /// runs on past the dummy to the upper right (the clip's f80 strands reach ~(1100, 250)); the darts themselves
         /// fly on down the corridor into the board (i12: i11's flew the glancing path and left the corridor empty) and
@@ -156,7 +157,8 @@ namespace TW.Presentation.VFX.Cel
                     // (i16: 0.64 wakes a dart, i15 1.1, so the denser volley draws as many wakes a frame; i19 0.52:
                     // i18 showed 5.5 strands a column near the camera for the clip's 2.8)
                     float wr = rng.Next();
-                    int wakes = far ? 0 : mid ? (wr < 0.25f ? 1 : 0) : (wr < 0.5f ? 0 : wr < 0.98f ? 1 : 2);
+                    // (i24: 0.75 wakes a dart, narrower)
+                    int wakes = far ? 0 : mid ? (wr < 0.35f ? 1 : 0) : (wr < 0.3f ? 0 : wr < 0.95f ? 1 : 2);
                     float speed = (DartHeadEnd - DartHeadStart) / life;
                     if (on && darts) renderer.Spawn(kind, Dart(now + at, from + lane, end, life, width, dseed));
                     for (int w = 0; w < 2; w++)
