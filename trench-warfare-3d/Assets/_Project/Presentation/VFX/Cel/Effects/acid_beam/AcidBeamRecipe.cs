@@ -19,7 +19,7 @@ namespace TW.Presentation.VFX.Cel
         public const float Speed = 22f, JetSeconds = 3.095f, Gravity = 0f;
         /// <summary>The beam's half-width (m) at the nozzle and at the target (its lumpy edges sit at 0.68-1 of it: the
         /// clip's beam is 1.3-1.6 m thick where it leaves the frame and 0.9-1.0 m where it lands; b01 filmed 10 % over).</summary>
-        public const float HalfNozzle = 1.08f, HalfTarget = 0.70f;   // (b19: 0.92 filmed a fifth narrow at the frame's edge)
+        public const float HalfNozzle = 1.20f, HalfTarget = 0.76f;   // (b19: 0.92 filmed a fifth narrow at the frame's edge)
         /// <summary>Seconds of fluid: the head's cone (the first fluid is thin: the clip's beam is 0.36 of its width
         /// 0.02 s behind the point, 0.78 at 0.21 s), the tail's taper; and the seconds the whole beam takes to break
         /// up from frame BreakFrame (the clip's is a lace end to end on frames 85-88 and blobs by 93; b02-b05 broke
@@ -88,10 +88,10 @@ namespace TW.Presentation.VFX.Cel
         const int LineStride = 6;
         static readonly float[] Lines =
         {
-             1.18f,  0.2f, 0.030f, 0.022f, 0.45f, 0.16f,
-            -1.22f, -0.1f, 0.034f, 0.024f, 0.50f, 0.13f,
-             1.42f, -0.4f, 0.022f, 0.018f, 0.35f, 0.11f,
-            -1.50f,  0.3f, 0.024f, 0.018f, 0.40f, 0.10f,
+             1.20f,  0.2f, 0.026f, 0.020f, 0.40f, 0.20f,
+            -1.08f, -0.1f, 0.075f, 0.040f, 0.72f, 0.26f,   // (b24: strands peeling off under it, the clip's f39-80)
+            -1.30f,  0.3f, 0.060f, 0.032f, 0.62f, 0.21f,
+            -1.56f, -0.3f, 0.045f, 0.026f, 0.50f, 0.17f,
         };
 
         // bursts of blades out of the hit: the clip's frame it starts on, the drawings it throws over, how many blades
@@ -351,10 +351,10 @@ namespace TW.Presentation.VFX.Cel
             int drips = Count(14, n);
             for (int i = 0; i < drips; i++)
             {
-                float u = rng.Range(0.16f, 0.5f);
+                float u = rng.Range(0.14f, 0.32f);                       // (b24: near the eye only - b23's hung all along it at f40)
                 float rad = rng.Range(0.28f, 0.60f) * Mathf.Lerp(1.3f, 0.8f, u);   // (b13: the clip's hang 100-150 px near the eye)
                 Vector3 at = Along(nozzle, target, flight * u) - Vector3.up * (Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.55f) + across * rng.Range(-0.3f, 0.3f);
-                var r = Rec(now, delay + flight * u + rng.Range(0.05f, 0.50f), rng.Range(0.35f, 0.6f), AcidBeamKind.Drop, at, Splash, 1f, ref rng);
+                var r = Rec(now, delay + flight * u + rng.Range(0.05f, 0.30f), rng.Range(0.30f, 0.45f), AcidBeamKind.Drop, at, Splash, 1f, ref rng);
                 r.Vel = vel * rng.Range(0.08f, 0.15f) + Vector3.down * rng.Range(0.3f, 1.2f);
                 r.Motion = new Vector4(4f, 1.5f, 0f, 0f);
                 r.Size = new Vector4(rad * 0.8f, rad * 0.5f, 0.6f, rng.Range(0.12f, 0.2f));
@@ -369,7 +369,8 @@ namespace TW.Presentation.VFX.Cel
             int beads = Count(220, n);                                   // (b21: the clip sprays many round the beam f30-48)
             for (int i = 0; i < beads; i++)
             {
-                float rad = rng.Range(0.035f, 0.075f);
+                float hb = rng.Next();
+                float rad = 0.04f + 0.11f * hb * hb;                     // (b24: every size to 20 px - the clip's; b23's were dots)
                 var r = Rec(now, delay + rng.Range(0.0f, JetSeconds - 0.1f), rng.Range(0.35f, 0.7f), AcidBeamKind.Drop, nozzle, Jet, 1f, ref rng);
                 r.Vel = vel * rng.Range(0.55f, 1.0f) + Vector3.up * rng.Range(-4f, 2.5f) + across * rng.Range(-3f, 3f);
                 r.Motion = new Vector4(9f, 1.2f, 0f, 0f);
@@ -397,7 +398,7 @@ namespace TW.Presentation.VFX.Cel
                 renderer.Spawn(kind, r);
             }
             // ... and lime dashes streaming along the beam
-            int streams = Count(50, n);
+            int streams = Count(14, n);                                  // (b24: a few - b23's 50 read as speed lines)
             for (int i = 0; i < streams; i++)
             {
                 float rad = rng.Range(0.025f, 0.04f);
