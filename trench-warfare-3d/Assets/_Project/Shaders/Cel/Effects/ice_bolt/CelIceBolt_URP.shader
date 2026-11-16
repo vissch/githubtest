@@ -59,7 +59,8 @@ Shader "TW/Cel/IceBolt"
             #define RIBBON_PAD 5.0
             // a ribbon's half-width at most this many screen px (i20: the clip's strands stay 12-16 px all along the
             // corridor; i19's widened with the perspective into blurry bands near the camera)
-            #define RIBBON_MAX_PX 13.0
+            // (i21 24: i20's 13 with the twist's pinch made thin wires, ribbons px 0.69 of the clip's)
+            #define RIBBON_MAX_PX 24.0
             // how much of its core a bloom loses as it erodes (fitted with the bloom, i03)
             #define BLOOM_SHRINK 1.000
 
@@ -437,7 +438,9 @@ Shader "TW/Cel/IceBolt"
                     float fr = CelValue2(float2(ud / max(i.q.w * 0.55, 1e-3), y * 2.2) + float2(sd * 59.0, sd * 23.0));
                     // (i19: the upper facet 0.74: i18 filmed the darts p50 (159,190,227) for the clip's (153,180,213))
                     // (i20 frost 0.5: the clip's chunks are white mottled over deeper blue at 2x)
-                    float shade = saturate((upper ? 0.74 : 0.48) + (mn - 0.5) * 0.7 + (fr - 0.5) * 0.5) * 3.0;
+                    float shade = saturate((upper ? 0.74 : 0.48) + (mn - 0.5) * 0.7 + (fr - 0.5) * 0.7) * 3.0;
+                    // i21: in hard half-band steps - the clip's chunks are hard white snow patches over blue-grey shadow
+                    shade = floor(shade * 2.0 + 0.5) * 0.5;
                     col = shade < 1.0 ? lerp(CelPal(row, 0), CelPal(row, 1), shade) : shade < 2.0 ? lerp(CelPal(row, 1), CelPal(row, 2), shade - 1.0) : lerp(CelPal(row, 2), CelPal(row, 3), shade - 2.0);
                     // a few white glints in it (~2 px)
                     float2 gq = float2(ud / max(i.q.w * 0.8, 1e-3), y * 1.5);
@@ -462,7 +465,8 @@ Shader "TW/Cel/IceBolt"
                     float wl = max(i.shape.y, 0.3);
                     // i12: it twists every ~3.4 m from a thin edge-on line to a wide flat sheet (the clip's streaks)
                     float twc = cos(6.28318 * u / 3.4 + sd * 23.0);
-                    float tw = 0.35 + 0.65 * abs(twc);
+                    // (i21: pinched to 0.55 at the twist, not 0.35: the clip's are flat ribbons, i20's wires)
+                    float tw = 0.55 + 0.45 * abs(twc);
                     float hw = tw * (1.0 - 0.6 * thr);
                     // i17: a HARD edge and a SOFT one (the clip's strands at 3x: twisted ribbons lit from one side, a
                     // firm bright fold along one edge, the body fading off from it across the strand and on past its
