@@ -683,15 +683,15 @@ Shader "TW/Cel/AcidBeam"
                             float ln = li == 0 ? 0.26 : li == 1 ? 0.19 : li == 2 ? 0.13 : 0.09;
                             float2 sv = Sliv(u, e, N, ln, seed + 1.7 * li, li == 0 ? 0.70 : 0.80 - 0.10 * li, 0.36 - 0.02 * li, pixX * N * 0.6, li == 1 ? -3.5 : 2.5 + li);
                             float g = sv.y + 0.45 * (ax - 0.45) - 0.6 * fan + (li == 0 ? 0.30 : 0.08);   // (the broad ones: green)
-                            half3 tc = g < 0.44 ? hot : g < 0.52 ? light : g < 0.60 ? body : g < 0.90 ? shade : rim;   // (b27: yellow and green, little lime - the clip's mix)
+                            half3 tc = g < 0.44 ? hot : g < 0.52 ? light : g < 0.60 ? body : g < 0.97 ? shade : rim;   // (b27: yellow and green, little lime - the clip's mix)
                             col = lerp(col, tc, sv.x);
                         }
                         // pale streaks in its yellow, flowing with it
                         float sk = Streaks(float2(u * 7.0 + seed * 3.0, e / 0.045 + seed * 5.0), seed, 0.30, 0.30, pixX * 3.5);
-                        col = lerp(col, streak, sk * (1.0 - smoothstep(0.40, 0.55, ax)));
+                        col = lerp(col, streak, sk * (1.0 - smoothstep(0.40, 0.55, ax)) * step(0.5, col.r));   // (b29: in its yellow only)
                         // (the lace: yellow-lime down the middle of its ropes, green toward their rims, a thin dark rim)
                         float b2 = border * border;
-                        half3 lace = b2 < 0.40 ? lerp(col, body, 0.55) : b2 < 0.80 ? shade : rim;   // (b27: lime ropes with the beam's yellow in them, green rims - b25-b26's went yellow away from its holes: a yellow sheet)
+                        half3 lace = b2 < 0.55 ? lerp(col, light, 0.5) : b2 < 0.85 ? body : shade;   // (b29: bright lime-yellow ropes - b27-b28's were dark green)   // (b27: lime ropes with the beam's yellow in them, green rims - b25-b26's went yellow away from its holes: a yellow sheet)
                         col = lerp(col, lace, smoothstep(0.0, 0.45, starve));
                         // its edges: solid to about half its half-width, strands with the night between them beyond (the
                         // clip's edges are torn; b12-b24's were a ruler's)

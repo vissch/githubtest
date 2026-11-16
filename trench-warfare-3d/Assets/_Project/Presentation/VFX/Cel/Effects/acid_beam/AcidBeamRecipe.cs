@@ -266,7 +266,7 @@ namespace TW.Presentation.VFX.Cel
             // the clip's size and left of the target)
             if (!far)
             {
-                float lb = AtFrame(late, 88f), lg = AtFrame(late, 113f);
+                float lb = AtFrame(late, 88f), lg = AtFrame(late, 119f);   // (b29: the clip's still stands 200 px wide at f110)
                 var lump = Rec(now, lb, lg - lb, AcidBeamKind.Mound, stand, Lump, 1f, ref rng);
                 lump.Axis = dir;
                 lump.Size = new Vector4(5.6f, 5.6f, 1f, 0.90f);   // (b07: the lump keeps to 0.86 of its card)
@@ -418,7 +418,7 @@ namespace TW.Presentation.VFX.Cel
             {
                 for (int b = 0; b < Bursts.Length; b += BurstStride)
                 {
-                    int count = Count((int)Bursts[b + 2], n * 0.45f);   // (b27: the clip has a few thin spikes; b07-b26's read as darts)
+                    int count = Count((int)Bursts[b + 2], b == 0 ? n : n * 0.45f);   // (b29: the hit's first starburst whole)   // (b27: the clip has a few thin spikes; b07-b26's read as darts)
                     for (int i = 0; i < count; i++)
                         Blade(renderer, kind, now, AtFrame(late, Bursts[b] + rng.Range(0f, Bursts[b + 1])), target, dir, away,
                             rng.Range(Bursts[b + 3], Bursts[b + 4]), b == 0, ref rng);
@@ -461,7 +461,7 @@ namespace TW.Presentation.VFX.Cel
             int crown = far ? 0 : mid ? 14 : 40;                         // (b27: 26 -> 40, bigger)
             for (int i = 0; i < crown; i++)
             {
-                float when = i < 6 ? rng.Range(38f, 43f) : rng.Range(43f, 86f);
+                float when = i < 6 ? rng.Range(40.5f, 44f) : rng.Range(44f, 86f);   // (b29: after the starburst)
                 Vector3 d = (Vector3.up * rng.Range(0.15f, 1.0f) + right * rng.Range(-1.0f, 1.0f) - away * rng.Range(-0.2f, 0.6f) + dir * 0.25f).normalized;
                 bool green = rng.Next() < 0.7f;
                 float rad = green ? rng.Range(1.2f, 2.3f) : rng.Range(0.7f, 1.2f);
@@ -605,12 +605,12 @@ namespace TW.Presentation.VFX.Cel
                 Vector3 d = rng.OnSphere();
                 d.y = Mathf.Abs(d.y) * 0.8f + 0.05f;
                 d = (d + dir * 0.3f).normalized;
-                float rad = rng.Range(0.045f, 0.10f);                     // (b15: b14's 0.018-0.04 m were 2-6 px, too small to read)
+                float rad = rng.Range(0.03f, 0.07f);                      // (b15: b14's 0.018-0.04 m were 2-6 px, too small to read)
                 // (b22: in the streaks' pale lime-yellow - the clip's sparkles are its brightest dots, b14-b21's lime were dim)
                 var r = Rec(now, AtFrame(late, i < fine * 3 / 5 ? rng.Range(70f, 90f) : rng.Range(44f, 70f)), rng.Range(0.25f, 0.5f), AcidBeamKind.Drop,
                     target + Vector3.up * rng.Range(-0.4f, 1.6f) + right * rng.Range(-1.2f, 1.2f) - away * rng.Range(0.0f, 0.8f), Streak, 1f, ref rng);
-                r.Vel = d * rng.Range(4f, 12f);                           // (b23: slower - b14-b22's flew out far and thin)
-                r.Motion = new Vector4(7f, 2.0f, 0f, 0f);
+                r.Vel = d * rng.Range(6f, 16f);                           // (b29: out wide - b28's piled up in the heart, a cauliflower)                           // (b23: slower - b14-b22's flew out far and thin)
+                r.Motion = new Vector4(7f, 1.2f, 0f, 0f);
                 r.Size = new Vector4(rad, rad * 0.8f, 1f, 0.006f);
                 r.Tone.w = i % 3 == 0 ? 2f : i % 3 == 1 ? 3f : 0f;
                 r.Extra.y = 1f;
@@ -676,7 +676,7 @@ namespace TW.Presentation.VFX.Cel
             if (!far)
             {
                 Vector3 heart = stand + Vector3.up * 1.8f;
-                int bubbles = Count(8, n), hangs = Count(80, n), ribbons = Count(12, n);
+                int bubbles = Count(8, n), hangs = Count(130, n), ribbons = Count(3, n);   // (b29: more drops round it to f118, hardly a dart)
                 for (int i = 0; i < bubbles; i++)
                 {
                     float rad = rng.Range(0.10f, 0.32f);
@@ -694,8 +694,8 @@ namespace TW.Presentation.VFX.Cel
                 {
                     float a = rng.Range(-0.3f, Mathf.PI + 0.3f);
                     Vector3 o = right * (Mathf.Cos(a) * 2.2f) + Vector3.up * (Mathf.Sin(a) * 1.9f);
-                    float rad = rng.Range(0.03f, 0.08f);
-                    var r = Rec(now, AtFrame(late, rng.Range(90f, 110f)), rng.Range(0.3f, 0.6f), AcidBeamKind.Drop,
+                    float rad = rng.Range(0.04f, 0.12f);
+                    var r = Rec(now, AtFrame(late, rng.Range(90f, 118f)), rng.Range(0.3f, 0.6f), AcidBeamKind.Drop,
                         heart + o * rng.Range(0.85f, 1.25f) - away * 0.8f, Splash, 1f, ref rng);
                     r.Vel = o.normalized * rng.Range(0.8f, 3f);
                     r.Motion = new Vector4(4f, 1.0f, 0f, 0f);
