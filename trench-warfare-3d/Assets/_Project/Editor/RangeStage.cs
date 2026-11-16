@@ -13,7 +13,7 @@
 //   Unity.exe -batchmode -projectPath <project> -executeMethod TW.Editor.RangeStage.CommandLine
 //             -twrange "effect=old_shell out=C:/x/run lod=all run=<id>" -logFile <log>
 //   Tools/tw eval 'return TW.Editor.RangeStage.Run("effect=none out=C:/x/run lod=close");'
-// Options: stage=beach|corridor (beach) effect=<CelRange id> out=<folder> lod=close|mid|far|all (close) seed=<int> (1917) t0=<s> (0.8)
+// Options: stage=beach|corridor (beach) effect=<CelRange id> out=<folder> lod=close|mid|far|all (close) seed=<int> (1917) t0=<s> (0.8) hdr=0|1 (0)
 // frames=<n> (192) peaks=<s,s,..> (seconds after the fire for the mid/far stills; 0.1,0.3,0.6,1.2) run=<id>
 // minutes=<watchdog> (12) quit=1 (exit when done; CommandLine adds it).
 // Writes into out: frames/f_0000.png.. (close), close.json (per-frame draws), dummy.json (the dummy's projected and
@@ -253,6 +253,7 @@ namespace TW.Editor
         int seed, frames; float t0;
         float deadline = float.MaxValue; bool finished, quit;
         SimHost host; TacticalCamera tc; Camera cam; TargetDummy dummy;
+        OrbitalShadowCaptureFixture orbitalShadowFixture;
         float wallStart;
         float wet;
         /// <summary>The field's wetness on the Range (the plate's matte mud); negative keeps the biome's own.</summary>
@@ -265,6 +266,7 @@ namespace TW.Editor
         float poseFov = RangeStage.Fov;
         bool poseCustom; Matrix4x4 poseProj;
         int superSample = 1;             // frames drawn at this many times the size and box-averaged down (the beach: 2)
+        bool hdrCapture;                // hdr=1 preserves energy values through camera grading before PNG readback
         bool clockRun; float clockOffset; // the wind clock (Atmosphere.PinnedClock) held to the footage's
         int pendingFps;                  // the frame rate to switch to once frame 0 is drawn
         Vector3 heroFoot; int hero = -1;
@@ -363,6 +365,7 @@ namespace TW.Editor
             seed = int.TryParse(Gym.Opt(Options, "seed"), out int sd) ? sd : 1917;
             frames = int.TryParse(Gym.Opt(Options, "frames"), out int fr) ? Mathf.Max(1, fr) : RangeStage.Frames;
             t0 = float.TryParse(Gym.Opt(Options, "t0"), NumberStyles.Float, Inv, out float tt) ? tt : RangeStage.T0;
+            hdrCapture = Gym.Opt(Options, "hdr") == "1";
             float minutes = float.TryParse(Gym.Opt(Options, "minutes"), NumberStyles.Float, Inv, out float mm) ? mm : 12f;
             var peaks = new List<float>();
             foreach (var p in (Gym.Opt(Options, "peaks") ?? "0.1,0.3,0.6,1.2").Split(','))
@@ -427,6 +430,7 @@ namespace TW.Editor
 
         void WriteRunRecord()
         {
+            if (orbitalShadowFixture != null && !orbitalShadowFixture.TryWriteReport(outDir)) { Finish(1); return; }
             var sb = new StringBuilder("{\n");
             sb.Append("  \"run\": \"").Append(Gym.Esc(runId)).Append("\",\n");
             sb.Append("  \"stage\": \"").Append(stage).Append("\", \"effect\": \"").Append(Gym.Esc(effect)).Append("\", \"lod\": \"").Append(lod).Append("\", \"seed\": ").Append(seed).Append(",\n");
@@ -633,6 +637,11 @@ namespace TW.Editor
                 foot = new Vector3(q.x, RenderGround.Sample(map, q.x, q.z), q.z);
             }
             dummy.Place(foot, yaw); dummy.Scale = scale; dummy.Width = width;
+            if (effect == "orbital_laser" && Gym.Opt(Options, "orbitalshadows") == "1")
+            {
+                orbitalShadowFixture = gameObject.AddComponent<OrbitalShadowCaptureFixture>();
+                orbitalShadowFixture.Configure(cam);
+            }
             ground = foot; target = dummy.Chest;
             muzzle = OnPlane(RangeStage.MuzzleScreen, foot.y + 1.3f);
             var hr = cam.ViewportPointToRay(Viewport(RangeStage.MuzzleHighScreen));
@@ -830,6 +839,7 @@ namespace TW.Editor
                     .Append(", \"fov\": ").Append(RangeStage.Inv(RangeStage.BeachFov)).Append(", \"source\": [2560, 1440], \"near\": ").Append(RangeStage.Inv(cam.nearClipPlane))
                     .Append(", \"plate_to_source_px\": [").Append(string.Join(", ", System.Array.ConvertAll(RangeStage.PlateToGame, v => v.ToString("R", Inv)))).Append("]")
                     .Append(", \"supersample\": ").Append(superSample).Append(", \"close_up\": ").Append(RangeStage.Inv(closeUp))
+                    .Append(", \"hdr_capture\": ").Append(hdrCapture ? "true" : "false")
                     .Append(", \"distance\": ").Append(RangeStage.Inv(Vector3.Distance(cam.transform.position, target))).Append("}\n}\n");
             }
             else
@@ -864,10 +874,21 @@ namespace TW.Editor
         void Draw(Texture2D into)
         {
             int ss = superSample, w = RangeStage.W * ss, h = RangeStage.H * ss;
-            var rt = RenderTexture.GetTemporary(w, h, 24, RenderTextureFormat.ARGB32);
+            var rt = RenderTexture.GetTemporary(w, h, 24, hdrCapture ? RenderTextureFormat.ARGBHalf : RenderTextureFormat.ARGB32);
             cam.targetTexture = rt; cam.Render(); cam.targetTexture = null;
             if (poseCustom) cam.projectionMatrix = poseProj;
-            var was = RenderTexture.active; RenderTexture.active = rt;
+            var was = RenderTexture.active;
+            if (hdrCapture)
+            {
+                var ldr = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32);
+                bool srgbWrite = GL.sRGBWrite;
+                GL.sRGBWrite = QualitySettings.activeColorSpace == ColorSpace.Linear;
+                Graphics.Blit(rt, ldr);
+                GL.sRGBWrite = srgbWrite;
+                RenderTexture.ReleaseTemporary(rt);
+                rt = ldr;
+            }
+            RenderTexture.active = rt;
             if (ss == 1)
             {
                 into.ReadPixels(new Rect(0, 0, w, h), 0, 0); into.Apply(false);
@@ -940,7 +961,7 @@ namespace TW.Editor
                 float pitch = PitchAt(30f);
                 var s = Arm(spot, RangeLod.Mid, 30f);
                 yield return null;
-                CaptureRig.Series(dir, "t1_series", spot.x, spot.y, 30f, 30f, pitch, 24, 0, RangeStage.W, RangeStage.H);
+                CaptureRig.Series(dir, "t1_series", spot.x, spot.y, 30f, 30f, pitch, 24, 0, RangeStage.W, RangeStage.H, hdr: hdrCapture);
                 string last = Path.Combine(dir, "t1_series_23.png");
                 float until = Time.realtimeSinceStartup + 120f;
                 int most = 0;
@@ -974,7 +995,7 @@ namespace TW.Editor
         IEnumerator Still(string path, Vector2 spot, float zoom, float pitch)
         {
             if (File.Exists(path)) File.Delete(path);
-            CaptureRig.Shot(path, spot.x, spot.y, zoom, 30f, pitch, RangeStage.W, RangeStage.H);
+            CaptureRig.Shot(path, spot.x, spot.y, zoom, 30f, pitch, RangeStage.W, RangeStage.H, hdr: hdrCapture);
             float until = Time.realtimeSinceStartup + 60f;
             while (!File.Exists(path) && Time.realtimeSinceStartup < until) yield return null;
             yield return null;
@@ -1046,6 +1067,7 @@ namespace TW.Editor
         {
             if (finished) return;
             finished = true; filming = false; ticking = false;
+            if (orbitalShadowFixture != null) orbitalShadowFixture.Release();
             CelRange.Clear();
             Time.captureFramerate = 0;
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;

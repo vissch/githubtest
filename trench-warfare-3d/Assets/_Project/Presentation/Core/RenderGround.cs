@@ -194,12 +194,15 @@ namespace TW.Presentation
     {
         static int frame = -1, draws, lastDraws, indirect, lastIndirect;
         static long verts, lastVerts;
+        static int shadowDraws, lastShadowDraws;
+        static long shadowVerts, lastShadowVerts;
 
         static void Roll()
         {
             int f = UnityEngine.Time.frameCount;
             if (f == frame) return;
             lastDraws = draws; lastVerts = verts; lastIndirect = indirect;
+            lastShadowDraws = shadowDraws; lastShadowVerts = shadowVerts; shadowDraws = 0; shadowVerts = 0;
             frame = f; draws = 0; verts = 0; indirect = 0;
         }
 
@@ -219,6 +222,23 @@ namespace TW.Presentation
         /// <summary>Indirect submissions in the last complete frame (the men, the debris). Included in
         /// <see cref="DrawCalls"/>, excluded from <see cref="Vertices"/>.</summary>
         public static int IndirectDraws { get { Roll(); return lastIndirect; } }
+
+        public static int ExplicitShadowDrawCalls { get { Roll(); return lastShadowDraws; } }
+        public static long ExplicitShadowVertices { get { Roll(); return lastShadowVerts; } }
+        public static void DrawShadow(UnityEngine.Rendering.CommandBuffer commands, UnityEngine.Mesh mesh,
+            int submesh, UnityEngine.Material material, int pass, UnityEngine.Matrix4x4 matrix, UnityEngine.MaterialPropertyBlock properties)
+        {
+            Roll(); draws++; shadowDraws++; verts += mesh.vertexCount; shadowVerts += mesh.vertexCount;
+            commands.DrawMesh(mesh, matrix, material, submesh, pass, properties);
+        }
+        public static void DrawShadowInstanced(UnityEngine.Rendering.CommandBuffer commands, UnityEngine.Mesh mesh,
+            int submesh, UnityEngine.Material material, int pass, UnityEngine.Matrix4x4[] matrices, int count,
+            UnityEngine.MaterialPropertyBlock properties)
+        {
+            if (count <= 0) return;
+            Roll(); draws++; shadowDraws++; verts += (long)mesh.vertexCount * count; shadowVerts += (long)mesh.vertexCount * count;
+            commands.DrawMeshInstanced(mesh, submesh, material, pass, matrices, count, properties);
+        }
 
         public static void Draw<T>(UnityEngine.RenderParams rp, UnityEngine.Mesh mesh, int submesh, T[] instanceData, int count) where T : unmanaged
         {

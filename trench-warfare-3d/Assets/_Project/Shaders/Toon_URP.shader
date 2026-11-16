@@ -113,6 +113,7 @@ Shader "TW/Toon (URP)"
             #include "Assets/_Project/Shaders/TWWater.hlsl"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
             #include "Assets/_Project/Shaders/TWLightPools.hlsl"
+            #include "Assets/_Project/Shaders/Cel/Effects/orbital_laser/OrbitalLaserLighting.hlsl"
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; float2 chunk : TEXCOORD1; half4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; half4 color : COLOR; float fog : TEXCOORD3; };
@@ -332,6 +333,8 @@ Shader "TW/Toon (URP)"
                 color += heat;
                 if (_TWPoolUnblue > 0.0) color.b -= min(color.b * 0.6, unblue * _TWPoolsThroughHaze);   // and over the haze the fog put back
                 color += poolLight * _TWPoolsThroughHaze;
+                // The energy light keeps the surface's texture and normals, without fire warmth or wet glints.
+                color += max(albedo, 0.16) * CelOrbitalDiffuseLight(i.positionWS, normalize(i.normalWS));
                 return half4(color, 1.0);
             }
             ENDHLSL
@@ -371,6 +374,43 @@ Shader "TW/Toon (URP)"
                 return o;
             }
             half4 frag(Varyings i) : SV_Target { return half4(MixFog(ApplyFieldFog(_OutlineColor.rgb, i.positionWS), i.fog), 1.0); }
+            ENDHLSL
+        }
+
+        // PROPOSAL: original Toon material, identical chunk and sway deformation.
+        Pass
+        {
+            Name "OrbitalRadialDepth"
+            Tags { "LightMode"="OrbitalRadialDepth" }
+            ZWrite On ZTest LEqual Cull Back Blend Off ColorMask R
+            HLSLPROGRAM
+            #pragma vertex vertOrbitalDepth
+            #pragma fragment fragOrbitalDepth
+            #pragma multi_compile_instancing
+            #pragma instancing_options forcemaxcount:128
+            #pragma shader_feature_local_vertex _ _CHUNKMASK
+            float4x4 _OrbitalShadowVP;
+            float4 _OrbitalShadowSourceRange;
+            struct OrbitalDepthAttributes
+            {
+                float4 positionOS : POSITION;
+                float2 chunk : TEXCOORD1;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+            };
+            struct OrbitalDepthVaryings { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; };
+            OrbitalDepthVaryings vertOrbitalDepth(OrbitalDepthAttributes v)
+            {
+                UNITY_SETUP_INSTANCE_ID(v);
+                v.positionOS.xyz = TWChunk(v.positionOS.xyz, v.chunk.x);
+                OrbitalDepthVaryings o;
+                o.positionWS = TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y);
+                o.positionCS = mul(_OrbitalShadowVP, float4(o.positionWS, 1.0));
+                return o;
+            }
+            float fragOrbitalDepth(OrbitalDepthVaryings i) : SV_Target
+            {
+                return saturate(length(i.positionWS - _OrbitalShadowSourceRange.xyz) / _OrbitalShadowSourceRange.w);
+            }
             ENDHLSL
         }
 
