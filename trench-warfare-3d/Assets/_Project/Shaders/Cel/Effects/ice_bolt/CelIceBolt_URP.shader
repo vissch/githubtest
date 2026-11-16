@@ -11,7 +11,8 @@
 //              ride with it) in a window that runs down the span
 //              size.xyz the width at its barbs (m) at birth, death, ease; size.w the window's length (share of the span)
 //              extra.z / extra.w the window's head at birth / death (shares); tone.w the clip (1: it stops in the target)
-//   extra.x 1  RIBBON: a soft pale mist strand from a tail share (erode.w) to a head that flies at extra.w shares a
+//   extra.x 1  RIBBON: a soft flat pale mist ribbon (a brighter twisting edge; it fades in over its last 0.7 m to the
+//              head) from a tail share (erode.w) to a head that flies at extra.w shares a
 //              second from extra.z, its centre line waving across the corridor as a function of the metres along the
 //              span (so it stays where it was drawn), drifting at motion.z rad/s, pulled into the target at the end
 //              size.xyz the strand's width (m); size.w the wavelength (m); extra.y the wave's amplitude (m)
@@ -377,8 +378,11 @@ Shader "TW/Cel/IceBolt"
                     // i09: in its own frame (metres from its tail), so its jags and frost ride with it instead of
                     // crawling through it as it flies
                     float ud = a * i.shape.z;
-                    float cellL = max(i.q.w * 0.7, 1e-3);
-                    float rag = (CelHash21(float2(floor(ud / cellL), sd * 31.0 + step(0.0, y))) - 0.5) * 0.22;
+                    // i10: its outline an irregular frosty wobble (value noise ~1 half-width long) with small steps,
+                    // not i09's regular sawtooth
+                    float cellL = max(i.q.w * 0.9, 1e-3);
+                    float rag = (CelValue2(float2(ud / cellL, sd * 31.0 + step(0.0, y) * 7.0)) - 0.5) * 0.34
+                              + (CelHash21(float2(floor(ud / (cellL * 0.6)), sd * 37.0 + step(0.0, y))) - 0.5) * 0.08;
                     float eW = y >= 0.0 ? upW : dnW;
                     float dE = eW + rag * step(0.05, eW) - abs(y);
                     // the hook on its side: behind the widest point the stub is narrower and the hook stands off it
@@ -422,12 +426,19 @@ Shader "TW/Cel/IceBolt"
                     float wl = max(i.shape.y, 0.3);
                     float tw = 0.55 + 0.45 * abs(cos(6.28318 * u / (wl * 0.8) + sd * 23.0));
                     float hw = tw * (1.0 - 0.6 * thr);
-                    float g = exp(-(y * y) / max(hw * hw, 1e-3) * 1.6);
-                    float line0 = exp(-(y * y) / max(hw * hw * 0.12, 1e-4) * 1.6);
+                    // i10: a flat soft ribbon (the clip at 3x f40-f60: 12-25 px translucent sheets, not i09's peaked
+                    // wire), a brighter edge on the side its twist turns toward the eye
+                    float ay = abs(y) / max(hw, 1e-3);
+                    float g = 1.0 - smoothstep(0.35, 1.1, ay);
+                    float side = cos(6.28318 * u / (wl * 0.8) + sd * 23.0) >= 0.0 ? 1.0 : -1.0;
+                    float eo = (y * side / max(hw, 1e-3) - 0.62) / 0.16;
+                    float edge = exp(-eo * eo) * (1.0 - tw * 0.6);
                     float fresh = lerp(0.7, 1.0, smoothstep(0.6, 1.0, i.q.x));
-                    float alpha = g * fresh * lerp(1.15, 0.85, tw);
-                    // i09: a weaker bright line (i08's overlapping strands burned white round the darts)
-                    col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(line0 * 0.7 + (1.0 - tw) * 0.35));
+                    float alpha = (g * 0.85 + edge * 0.25) * fresh * lerp(1.1, 0.85, tw);
+                    col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(edge * 0.8 + (1.0 - tw) * 0.3));
+                    // its head fades in over the last 0.7 m (i09's wakes ended in a hard cut behind their darts);
+                    // metres behind the head = u (1/a - 1), a running 0..1 from the tail (share 0) to the head
+                    float headFade = smoothstep(0.0, 0.7, i.q.z * (1.0 / max(i.q.x, 1e-3) - 1.0));
                     float pm = PixelMetres(i.positionWS);
                     float hwPx = i.q.w / max(pm, 1e-6);
                     // a soft mist puff in some cells along the strand
@@ -458,6 +469,8 @@ Shader "TW/Cel/IceBolt"
                         float twk = CelHash21(float2(si + sd * 83.0, tick)) > 0.35 ? 1.0 : 0.3;
                         speck = saturate(rad + 0.5 - spx) * twk;
                     }
+                    alpha *= headFade;
+                    speck *= headFade;
                     cover = saturate(alpha * i.tone.z);
                     col = lerp(col, CelPalCore(row).rgb * i.tone.y, speck);
                     cover = max(cover, speck * saturate(i.tone.z * 1.6));

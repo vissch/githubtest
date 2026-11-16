@@ -52,10 +52,11 @@ namespace TW.Presentation.VFX.Cel
         public static readonly int DartRow = CelPalette.Add("ice_dart",
             W(0.32f, 0.43f, 0.66f), W(0.43f, 0.565f, 0.88f), W(0.53f, 0.67f, 0.97f), W(0.61f, 0.775f, 1f),
             W(0.71f, 0.90f, 1f), 1.1f, 4, W(0.30f, 0.38f, 0.50f));
-        // the ribbons, as they are before their opacity lays them over the ground (the clip shows (96,116,141) there)
+        // the ribbons, as they are before their opacity lays them over the ground (the clip shows (96,116,141) there;
+        // i10 a little greyer: i09 filmed them sat 0.36 for the clip's 0.31, and the darts are the blue thing)
         public static readonly int RibbonRow = CelPalette.Add("ice_ribbon",
-            W(0.36f, 0.43f, 0.54f), W(0.44f, 0.53f, 0.66f), W(0.54f, 0.645f, 0.80f), W(0.64f, 0.76f, 0.93f),
-            W(0.72f, 0.86f, 1f), 1.1f, 4, W(0.30f, 0.36f, 0.45f));
+            W(0.37f, 0.43f, 0.53f), W(0.45f, 0.53f, 0.645f), W(0.555f, 0.65f, 0.785f), W(0.655f, 0.765f, 0.905f),
+            W(0.73f, 0.86f, 0.98f), 1.1f, 4, W(0.30f, 0.36f, 0.45f));
         // the bloom (its pixels solved for a colour over an opacity on three grounds, f22-f112): cloud (175,205,240),
         // lit (186,216,248), core (197,226,254); c1 is the faint halo it adds round itself
         public static readonly int BloomRow = CelPalette.Add("ice_bloom",
@@ -89,7 +90,11 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>A wake's life (s), its width (m: 8-13 px soft strands near the camera), its wave's amplitude (m)
         /// and its opacity (i09: dimmer, the clip's strands top out at ~(110-160, 125-180, 150-210) where i08's
         /// overlapping ones burned to (200, 222, 252) round the darts).</summary>
-        const float WakeLife = 0.62f, WakeWidth = 0.15f, WakeAmp = 0.22f, WakeOpacity = 0.5f;
+        const float WakeLife = 0.62f, WakeWidth = 0.21f, WakeAmp = 0.15f, WakeOpacity = 0.5f;
+        /// <summary>The white specks a dart sheds along its path (the clip at 3x f20-f48: a spray of 1-3 px points
+        /// round and behind every dart): how many at Close (Mid 2, Far none), their life (s) and radius (m).</summary>
+        const int Sheds = 5;
+        const float ShedLife = 0.3f, ShedSize = 0.011f;
         /// <summary>The gap (f66-f90): the bloom is gone and the darts glance off the board, so a share of the wakes
         /// runs on past the dummy to the upper right (the clip's f80 strands reach ~(1100, 250)).</summary>
         const float GlanceFrom = 64f, GlanceTo = 88f, GlanceShare = 0.8f;
@@ -122,6 +127,18 @@ namespace TW.Presentation.VFX.Cel
                     int wakes = far ? 0 : mid ? (rng.Next() < 0.5f ? 1 : 0) : (rng.Next() < 0.65f ? 1 : 2);
                     float speed = (DartHeadEnd - DartHeadStart) / life;
                     if (on && darts) renderer.Spawn(kind, Dart(now + at, from + lane, end, life, width, dseed));
+                    int sheds = far ? 0 : mid ? 2 : Sheds;
+                    Vector3 path = end - (from + lane);
+                    for (int k = 0; k < Sheds; k++)
+                    {
+                        // a speck where the dart's middle passes a share along its path, thrown a little sideways and
+                        // left behind (the dart flies on at ~50 m/s)
+                        float share = rng.Range(0.06f, 0.9f), kLife = rng.Jitter(ShedLife, 0.4f), kSize = rng.Jitter(ShedSize, 0.4f), kSeed = rng.Next();
+                        Vector3 kOff = (right * rng.Range(-1f, 1f) + up * rng.Range(-1f, 1f)) * 0.12f;
+                        Vector3 kVel = path.normalized * rng.Range(0.5f, 3f) + rng.InSphere() * 0.8f;
+                        float kAt = at + (share - DartHeadStart + DartWindow * 0.5f) / speed;
+                        if (on && darts && k < sheds) renderer.Spawn(kind, Shed(now + kAt, from + lane + path * share + kOff, kVel, kLife, kSize, kSeed));
+                    }
                     for (int w = 0; w < 2; w++)
                     {
                         float wAt = at + rng.Range(0f, 0.02f);
@@ -153,6 +170,16 @@ namespace TW.Presentation.VFX.Cel
             Erode = new Vector4(0f, 0.5f, 1.5f, 0f),
             Tone = new Vector4(CelRecord.PackPalette(RibbonRow), 1f, WakeOpacity, 1f),
             Extra = new Vector4(IceBoltKind.Ribbon, amp, DartHeadStart - DartWindow, speed),
+        };
+
+        /// <summary>One white speck a dart sheds: a twinkling point that drifts, slows and fades.</summary>
+        static CelRecord Shed(float born, Vector3 p, Vector3 v, float life, float size, float seed) => new CelRecord
+        {
+            Pos = p, Born = born, Vel = v, Life = life, Axis = Vector3.up, Seed = seed,
+            Size = new Vector4(size, size * 0.6f, 1f, -0.001f), Motion = new Vector4(0.6f, 2.5f, 0f, 0f),
+            Erode = new Vector4(0f, 0.7f, 2f, 0.3f),
+            Tone = new Vector4(CelRecord.PackPalette(HitRow), 1f, 1f, 1f),
+            Extra = new Vector4(IceBoltKind.Speck, 0f, 0f, 0f),
         };
 
         /// <summary>Mist sheets: wide faint strands over the whole volley, not tied to a dart.</summary>
