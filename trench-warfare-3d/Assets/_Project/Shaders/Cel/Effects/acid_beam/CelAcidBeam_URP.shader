@@ -654,7 +654,7 @@ Shader "TW/Cel/AcidBeam"
                                 float2 o2 = float2(xx, yy);
                                 float2 cid = wc + o2;
                                 float2 pt = o2 + float2(CelHash21(cid + 3.1), CelHash21(cid + 17.7)) * 0.8 + 0.1 - wf;
-                                float hr = (0.24 + 0.34 * CelHash21(cid + 29.3)) * (0.52 + 0.62 * starve);   // (they grow until they meet; b23: and stop there - b22's grew until nothing was left by f89)
+                                float hr = (0.30 + 0.36 * CelHash21(cid + 29.3)) * (0.60 + 0.60 * starve);   // (b27: more hole than fluid by f88 - the clip's is a web)   // (they grow until they meet; b23: and stop there - b22's grew until nothing was left by f89)
                                 gap = min(gap, length(pt) - hr);
                             }
                             // its ropes thin and part, then its islands go (b06: it is gone when it has broken up)
@@ -672,9 +672,9 @@ Shader "TW/Cel/AcidBeam"
                         float fan = 0.55 * smoothstep(0.86, 1.0, kS) * (1.0 - starve) * i.flow.w;   // (b07) its end pales into a fan of yellow where it goes in
                         float ax = abs(q.x + 0.05) / max(edge, 0.02);
                         float d = (ax + 0.35 * (CelValue2(float2(u * 5.0 + e * 2.0 + seed, e * 9.0)) - 0.5)) * (1.0 - fan);
-                        col = lerp(shade, body, 1.0 - Step(0.90, d, pd));
+                        col = lerp(shade, body, 1.0 - Step(0.80, d, pd));
                         col = lerp(col, light, 1.0 - Step(0.72, d, pd));
-                        col = lerp(col, hot, 1.0 - Step(0.66, d, pd));
+                        col = lerp(col, hot, 1.0 - Step(0.64, d, pd));
                         [unroll] for (int li = 0; li < 4; li++)
                         {
                             // (b26: broader and fewer - b25's read as hay)
@@ -682,15 +682,15 @@ Shader "TW/Cel/AcidBeam"
                             float ln = li == 0 ? 0.26 : li == 1 ? 0.19 : li == 2 ? 0.13 : 0.09;
                             float2 sv = Sliv(u, e, N, ln, seed + 1.7 * li, li == 0 ? 0.70 : 0.80 - 0.10 * li, 0.36 - 0.02 * li, pixX * N * 0.6, li == 1 ? -3.5 : 2.5 + li);
                             float g = sv.y + 0.45 * (ax - 0.45) - 0.6 * fan + (li == 0 ? 0.35 : 0.0);   // (the broad ones: green)
-                            half3 tc = g < 0.40 ? hot : g < 0.54 ? light : g < 0.70 ? body : g < 0.88 ? shade : rim;
+                            half3 tc = g < 0.44 ? hot : g < 0.52 ? light : g < 0.60 ? body : g < 0.90 ? shade : rim;   // (b27: yellow and green, little lime - the clip's mix)
                             col = lerp(col, tc, sv.x);
                         }
                         // pale streaks in its yellow, flowing with it
-                        float sk = Streaks(float2(u * 7.0 + seed * 3.0, e / 0.045 + seed * 5.0), seed, 0.55, 0.30, pixX * 3.5);
+                        float sk = Streaks(float2(u * 7.0 + seed * 3.0, e / 0.045 + seed * 5.0), seed, 0.30, 0.30, pixX * 3.5);
                         col = lerp(col, streak, sk * (1.0 - smoothstep(0.40, 0.55, ax)));
                         // (the lace: yellow-lime down the middle of its ropes, green toward their rims, a thin dark rim)
                         float b2 = border * border;
-                        half3 lace = b2 < 0.06 ? hot : b2 < 0.45 ? light : b2 < 0.80 ? body : shade;   // (b26: lime-green - b25's was a yellow sheet)
+                        half3 lace = b2 < 0.40 ? lerp(col, body, 0.55) : b2 < 0.80 ? shade : rim;   // (b27: lime ropes with the beam's yellow in them, green rims - b25-b26's went yellow away from its holes: a yellow sheet)
                         col = lerp(col, lace, smoothstep(0.0, 0.45, starve));
                         // its edges: solid to about half its half-width, strands with the night between them beyond (the
                         // clip's edges are torn; b12-b24's were a ruler's)
