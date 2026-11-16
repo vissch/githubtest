@@ -638,7 +638,9 @@ Shader "TW/Cel/AcidBeam"
                         // (b13: slower along it - b09-b12's quick lumps read as saw teeth)
                         float lt = CelValue2(float2(e * 18.0 + seed * 31.0, 0.5)) * 0.75 + CelValue2(float2(e * 30.0 + seed * 13.0, 2.5)) * 0.25;
                         float lb = CelValue2(float2(e * 16.0 + seed * 17.0, 7.5)) * 0.75 + CelValue2(float2(e * 28.0 + seed * 7.0, 9.5)) * 0.25;
-                        float edge = (q.x > 0.0 ? 0.68 + 0.32 * lt : 0.70 + 0.30 * lb) * ends;
+                        // (b38: lumpy - small bumps on its slow lumps, the clip's goo edge; b13-b37's was smooth)
+                        float edge = (q.x > 0.0 ? 0.56 + 0.30 * lt + 0.14 * CelValue2(float2(e * 75.0 + seed * 11.0, 4.5))
+                                                : 0.58 + 0.28 * lb + 0.14 * CelValue2(float2(e * 68.0 + seed * 5.0, 6.5))) * ends;
                         al = (1.0 - Step(edge, abs(q.x), pixX)) * step(0.02, edge);
                         // breaking up: ROUND holes open in the sheet, each its own size, and grow until they meet, so
                         // the fluid between them is blobby ropes of every thickness that tear apart (cells of the
@@ -689,6 +691,7 @@ Shader "TW/Cel/AcidBeam"
                         float sk = 0.0;                                           // (b36: no pale lens streaks - the clip's yellow is plain)
                         col = lerp(col, streak, sk * (1.0 - smoothstep(0.40, 0.55, ax)) * step(0.5, col.r));   // (b29: in its yellow only)
                         // (the lace: yellow-lime down the middle of its ropes, green toward their rims, a thin dark rim)
+                        col = lerp(col, body, Step(0.80, abs(q.x) / max(edge, 0.02), 0.05) * 0.85);   // (b38: a lit lime rim along its edges)
                         // (b33) goo: green, darker inside in patches, a lit lime rim, yellow ribbons flowing through it (the clip's f84-96)
                         half3 goo = lerp(shade, rim, 0.6 * Step(0.62, CelValue2(gw * 1.7 + float2(31.0, 17.0)), 0.03) * (1.0 - Step(0.62, gr, 0.05)));   // (b34: fewer, lighter - b33's read as camouflage)
                         goo = lerp(goo, body, Step(0.70, gr, 0.04));
@@ -698,7 +701,7 @@ Shader "TW/Cel/AcidBeam"
                         // clip's edges are torn; b12-b24's were a ruler's)
                         float2 s1 = Sliv(uw, e, 5.0, 0.24, seed + 7.0, 0.75, 0.36, pixX * 10.0, 2.0);   // (b26: broader - b25's read as bristles)
                         float2 s2 = Sliv(uw, e, 9.0, 0.16, seed + 9.0, 0.60, 0.32, pixX * 18.0, -2.0);
-                        float solid = 1.0 - Step(0.56 + 0.30 * (CelValue2(float2(u * 3.0, e * 14.0 + seed)) - 0.5), abs(q.x) / max(edge, 0.02), pixX * 2.0 / max(edge, 0.05));
+                        float solid = 1.0 - Step(0.76 + 0.30 * (CelValue2(float2(u * 3.0, e * 14.0 + seed)) - 0.5), abs(q.x) / max(edge, 0.02), pixX * 2.0 / max(edge, 0.05));
                         float laced = smoothstep(0.0, 0.3, starve);          // (the lace: its holes shape it, no straight strands)
                         al *= max(lerp(solid, 1.0, laced), max(s1.x, s2.x) * (1.0 - laced));
                     }
@@ -730,7 +733,34 @@ Shader "TW/Cel/AcidBeam"
                         float2 L = i.shape.zw;                          // the light, in the card's axes (x along it, y across)
                         half3 base = Ladder(row, ts), up1 = Ladder(row, min(ts + 1.0, 4.0)), dn1 = Ladder(row, max(min(ts, 4.0) - 1.0, 0.0));
                         float f;
-                        if (i.shape.y > 7.5)
+                        if (i.shape.y > 8.5)
+                        {
+                            // (b38) the hit's burst: long thin pointed spikes out of a pale heart in every direction, two sizes of
+                            // them, new on every second drawing; pale, then yellow, lime, green toward their tips (the clip's f40-80)
+                            float2 s = float2(q.y, -q.x);               // x to the right, y up
+                            float rr = length(s), an = atan2(s.x, s.y);
+                            float tkk = floor(tk * 0.5);
+                            float grow = smoothstep(0.0, 0.05, k) * (1.0 - 0.6 * smoothstep(0.80, 1.0, k));
+                            f = 0.16 + 0.05 * CelValue2(float2(an * 3.0 + seed, tkk * 0.7)) - rr;   // its heart
+                            [unroll] for (int bi = 0; bi < 2; bi++)
+                            {
+                                float K = bi == 0 ? 2.6 : 6.5;
+                                float ca = an * K + seed * 7.0 + bi * 3.3 + 0.37 * CelHash21(float2(tkk, bi + seed * 5.0));
+                                float cc = floor(ca), cf = ca - cc;
+                                float h = CelHash21(float2(cc + 13.0 * bi, tkk * 7.0 + seed * 31.0));
+                                float len = (bi == 0 ? 0.30 + 0.35 * h : 0.25 + 0.72 * h * h) * step(0.25, h);
+                                // a spike: as wide as its cell at its root, a point at its tip (its flanks bowed in a little)
+                                float wd = 1.0 - 2.0 * abs(cf - 0.5);
+                                f = max(f, (len * pow(wd, 0.8) - rr) * 0.9);
+                            }
+                            f *= grow;
+                            f = min(f, (0.97 - rr) * 0.5);
+                            al = Step(0.0, f, 0.008) * step(0.001, grow);
+                            float tz = rr + 0.10 * (CelValue2(float2(an * 4.0 + 9.0, tkk * 0.5 + seed)) - 0.5);
+                            col = tz < 0.13 ? pale : tz < 0.26 ? light : tz < 0.42 ? body : shade;
+                            f = 1.0;                                    // (no line round it)
+                        }
+                        else if (i.shape.y > 7.5)
                         {
                             // (b36) a splatter: thin wavy strands of goo running out low and wide from its heart, thinner outward,
                             // thinning as it ages - a band round the mid level of noise in (angle, radius), a lit rim, pale at its
