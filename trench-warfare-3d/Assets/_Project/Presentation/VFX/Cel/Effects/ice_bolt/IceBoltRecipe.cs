@@ -109,6 +109,9 @@ namespace TW.Presentation.VFX.Cel
         /// the shards layer throws the pieces off.</summary>
         // (i13 0.45: i12's 0.8 of a denser volley streamed heavily over the dummy)
         const float GlanceFrom = 64f, GlanceTo = 88f, GlanceShare = 0.45f;
+        /// <summary>From the gap on the streaks curl (the clip f72-f116: twisting, crossing, breaking; nearly straight
+        /// f30-f60): a wake born after CurlFrom waves up to CurlAmp x as wide and drifts CurlDrift x as fast by CurlTo.</summary>
+        const float CurlFrom = 58f, CurlTo = 78f, CurlAmp = 2.4f, CurlDrift = 2f;
 
         /// <summary>Every shot of the volley: the wakes in one pass (drawn under), the darts in the next (on top); both
         /// draw the same numbers, so a dart and its wakes share a lane. Thinned by the zoom and the quality like a
@@ -143,7 +146,9 @@ namespace TW.Presentation.VFX.Cel
                         float wAt = at + rng.Range(0f, 0.02f);
                         Vector3 wo = (right * rng.Range(-1f, 1f) + up * rng.Range(-1f, 1f)) * 0.06f;
                         float wLife = rng.Jitter(WakeLife, 0.25f), wWidth = rng.Jitter(WakeWidth, 0.4f), wAmp = rng.Jitter(WakeAmp, 0.4f);
-                        float wDrift = rng.Jitter(0.8f, 0.5f), wSeed = rng.Next();
+                        float curl = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(CurlFrom, CurlTo, f));
+                        wAmp *= Mathf.Lerp(1f, CurlAmp, curl);
+                        float wDrift = rng.Jitter(0.8f, 0.5f) * Mathf.Lerp(1f, CurlDrift, curl), wSeed = rng.Next();
                         if (on && !darts && w < wakes) renderer.Spawn(kind, Wake(now + wAt, from + lane + wo, wEnd, wLife, wWidth, wAmp, wDrift, speed, wSeed));
                     }
                 }
@@ -236,6 +241,15 @@ namespace TW.Presentation.VFX.Cel
                 Name = "chips", Kind = IceBoltKind.KindName, Anchor = CelAnchor.Target, Offset = HitOffset, Start = AtFrame(16f), Duration = AtFrame(118f) - AtFrame(16f), TimeJitter = 0.03f, Life = 0.6f, LifeJitter = 0.4f,
                 Close = 130, Mid = 42, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.45f, 0f, 0f), Aim = CelAim.Radial, Speed = 4.2f, SpeedJitter = 0.85f, UpBias = 0.25f, Gravity = 5f, Drag = 1.2f,
                 Size = new CelCurve(0.022f, 0.016f), SizeJitter = 0.6f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.4f, 2f), Feather = 1f,
+                Palette = "ice_hit", Core = 1f, Opacity = 1f, Extra = new Vector4(IceBoltKind.Fleck, 2.9f, 0f, 0f),
+            },
+            new CelLayer
+            {
+                // i15: the gap's darts breaking on the board throw a shower of white chips round the dummy (the clip's
+                // f72), faster and wider than the hold's
+                Name = "chips gap", Kind = IceBoltKind.KindName, Anchor = CelAnchor.Target, Offset = HitOffset, Start = AtFrame(62f), Duration = AtFrame(92f) - AtFrame(62f), TimeJitter = 0.03f, Life = 0.5f, LifeJitter = 0.4f,
+                Close = 50, Mid = 16, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.35f, 0f, 0f), Aim = CelAim.Radial, Speed = 6f, SpeedJitter = 0.7f, UpBias = 0.35f, Gravity = 5f, Drag = 1.1f,
+                Size = new CelCurve(0.024f, 0.017f), SizeJitter = 0.6f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.4f, 2f), Feather = 1f,
                 Palette = "ice_hit", Core = 1f, Opacity = 1f, Extra = new Vector4(IceBoltKind.Fleck, 2.9f, 0f, 0f),
             },
             new CelLayer
