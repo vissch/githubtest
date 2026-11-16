@@ -644,7 +644,7 @@ Shader "TW/Cel/AcidBeam"
                         if (starve > 0.001)
                         {
                             // (b09: warped and fewer - b08's round holes in rows read as a leopard band)
-                            float2 wp = float2(q.x * 1.6, e / 0.055) + seed * 7.0;
+                            float2 wp = float2(q.x * 2.2, e / 0.040) + seed * 7.0;   // (b30: finer - b09-b29's holes were big ovals)
                             wp += 0.80 * (float2(CelValue2(wp * 0.9 + seed * 3.0), CelValue2(wp * 0.9 + seed * 5.0 + 7.0)) - 0.5);   // (b18: harder - b17's round holes read as cheese)
                             float2 wc = floor(wp), wf = frac(wp);
                             float gap = 8.0;                             // how far this point is outside every hole

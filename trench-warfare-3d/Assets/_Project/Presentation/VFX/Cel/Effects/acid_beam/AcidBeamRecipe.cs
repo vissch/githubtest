@@ -24,7 +24,7 @@ namespace TW.Presentation.VFX.Cel
         /// 0.02 s behind the point, 0.78 at 0.21 s), the tail's taper; and the seconds the whole beam takes to break
         /// up from frame BreakFrame (the clip's is a lace end to end on frames 85-88 and blobs by 93; b02-b05 broke
         /// its last 0.6 s of fluid up as it flew on into the target).</summary>
-        const float HeadTaper = 0.45f, TailTaper = 0.05f, BreakUp = 0.55f, BreakFrame = 84f;   // (b22: 85 -> 84, and it opens fast)   // (b06's 0.33 was gone by f92, b07's 0.45 by f94)
+        const float HeadTaper = 0.45f, TailTaper = 0.05f, BreakUp = 0.60f, BreakFrame = 81f;   // (b22: 85 -> 84, and it opens fast)   // (b06's 0.33 was gone by f92, b07's 0.45 by f94)
         /// <summary>The puddle's half-extent across (m) and its depth over its width (the clip: a slab 3.6 m across
         /// round the target's foot, 260 x 90 px at frame 125; b01 filmed a little big) and how far to the eye's right
         /// of the foot its middle lies (the clip's: 50 px).</summary>
@@ -461,7 +461,7 @@ namespace TW.Presentation.VFX.Cel
             int crown = far ? 0 : mid ? 14 : 40;                         // (b27: 26 -> 40, bigger)
             for (int i = 0; i < crown; i++)
             {
-                float when = i < 6 ? rng.Range(40.5f, 44f) : rng.Range(44f, 86f);   // (b29: after the starburst)
+                float when = i < 6 ? rng.Range(40.5f, 44f) : rng.Range(44f, 74f);   // (b30: to f74 - the clip's splash is thin splatters after)   // (b29: after the starburst)
                 Vector3 d = (Vector3.up * rng.Range(0.15f, 1.0f) + right * rng.Range(-1.0f, 1.0f) - away * rng.Range(-0.2f, 0.6f) + dir * 0.25f).normalized;
                 bool green = rng.Next() < 0.7f;
                 float rad = green ? rng.Range(1.2f, 2.3f) : rng.Range(0.7f, 1.2f);
@@ -512,12 +512,12 @@ namespace TW.Presentation.VFX.Cel
             }
             // ... and late in it, goo thrown low along the ground round the target's foot (frames 72-94: the clip's splash
             // spreads low and wide on the ground before the lump; b19 - b18's stood tall)
-            int low = far ? 0 : mid ? 14 : 44;
+            int low = far ? 0 : mid ? 30 : 90;                           // (b30: the clip's f78-92 splash is these, low and wide)
             for (int i = 0; i < low; i++)
             {
                 float side = rng.Next() < 0.5f ? -1f : 1f;
                 Vector3 at = ground + Vector3.up * rng.Range(0.15f, 0.7f) + right * (side * rng.Range(0.1f, 0.9f)) - away * rng.Range(-0.2f, 0.6f);
-                Splat(renderer, kind, now, AtFrame(late, rng.Range(72f, 94f)), at, ground + Vector3.up * 0.3f, away, rng.Next() < 0.45f, rng.Range(0.25f, 0.50f), ref rng);
+                Splat(renderer, kind, now, AtFrame(late, rng.Range(74f, 93f)), at, ground + Vector3.up * 0.3f, away, rng.Next() < 0.30f, rng.Range(0.22f, 0.45f), ref rng);
             }
             // ... and late in it, tongues shooting up out of the mass (frames 74-96: the clip's splash grows 4-5 m tall; b10)
             int rising = far ? 0 : mid ? 8 : 20;                        // (b12: b10's 70 to f96 read as a porcupine at f84-90)
@@ -599,7 +599,7 @@ namespace TW.Presentation.VFX.Cel
 
             // ---- a dense spray of tiny droplets round the splash late in it (frames 70-90: the clip's are about 150 dots a
             // frame at f76-86; b14) - and all the while the beam lands (b17: the clip's splash is full of them from f44)
-            int fine = Count(640, n);                                    // (b28: the clip's f76-90 is full of bright dots)
+            int fine = Count(900, n);                                    // (b28: the clip's f76-90 is full of bright dots)
             for (int i = 0; i < fine; i++)
             {
                 Vector3 d = rng.OnSphere();
@@ -607,9 +607,9 @@ namespace TW.Presentation.VFX.Cel
                 d = (d + dir * 0.3f).normalized;
                 float rad = rng.Range(0.03f, 0.07f);                      // (b15: b14's 0.018-0.04 m were 2-6 px, too small to read)
                 // (b22: in the streaks' pale lime-yellow - the clip's sparkles are its brightest dots, b14-b21's lime were dim)
-                var r = Rec(now, AtFrame(late, i < fine * 3 / 5 ? rng.Range(70f, 90f) : rng.Range(44f, 70f)), rng.Range(0.25f, 0.5f), AcidBeamKind.Drop,
-                    target + Vector3.up * rng.Range(-0.4f, 1.6f) + right * rng.Range(-1.2f, 1.2f) - away * rng.Range(0.0f, 0.8f), Streak, 1f, ref rng);
-                r.Vel = d * rng.Range(6f, 16f);                           // (b29: out wide - b28's piled up in the heart, a cauliflower)                           // (b23: slower - b14-b22's flew out far and thin)
+                var r = Rec(now, AtFrame(late, i < fine * 7 / 10 ? rng.Range(72f, 90f) : rng.Range(44f, 72f)), rng.Range(0.25f, 0.5f), AcidBeamKind.Drop,
+                    target + Vector3.up * rng.Range(-0.4f, 1.6f) + right * rng.Range(-1.2f, 1.2f) - away * rng.Range(0.0f, 0.8f) - dir * (i % 3 == 0 ? rng.Range(0f, 4f) : 0f), Streak, 1f, ref rng);   // (b30: a third of them over the beam's last metres)
+                r.Vel = d * rng.Range(4f, 10f);                           // (b29: out wide - b28's piled up in the heart, a cauliflower)                           // (b23: slower - b14-b22's flew out far and thin)
                 r.Motion = new Vector4(7f, 1.2f, 0f, 0f);
                 r.Size = new Vector4(rad, rad * 0.8f, 1f, 0.006f);
                 r.Tone.w = i % 3 == 0 ? 2f : i % 3 == 1 ? 3f : 0f;
@@ -748,8 +748,8 @@ namespace TW.Presentation.VFX.Cel
             d -= away * (Vector3.Dot(d, away) * 0.7f);
             d.y = Mathf.Abs(d.y) * 1.3f - 0.2f;
             d = (d + dir * 0.35f).normalized;
-            float rad = crown ? rng.Range(0.30f, 0.55f) : rng.Range(0.18f, 0.40f);   // (b06: the crown's are broad flames)
-            bool green = rng.Next() < 0.3f;
+            float rad = crown ? rng.Range(0.22f, 0.42f) : rng.Range(0.18f, 0.40f);   // (b06: the crown's are broad flames; b30: thinner, yellow-lime)
+            bool green = rng.Next() < (crown ? 0.1f : 0.3f);
             var r = Rec(now, at, rng.Range(0.22f, 0.36f), AcidBeamKind.Drop, target + Vector3.up * 0.15f + away * 0.15f, green ? Sheet : Splash, 1f, ref rng);
             r.Vel = d * speed;
             r.Motion = new Vector4(3f, 4.5f, rng.Range(0.08f, 0.14f), 0f);
