@@ -173,7 +173,8 @@ Shader "TW/Cel/Lobe"
                 // lower and side faces, gone by ~1.3 s (REF f56-f100: orange-rimmed smoke lobes where the fire meets the column)
                 if (r.extra.w < 0.0)
                 {
-                    float heat = 1.0 - smoothstep(0.7, 2.2, t);   // k07: lit longer (k06's faded before the column read)
+                    float rise = CelPosition(r, t).y - r.pos.y;
+                    float heat = (1.0 - smoothstep(0.5, 1.5, t)) * (1.0 - smoothstep(0.5, 1.6, rise));   // k08: only lobes young AND still low by the fire (k07 lit the column's top and the smoke after the fire was out, f120)
                     float nv = saturate(dot(nrm, viewWS));
                     float rimW = 0.85 * heat * saturate(0.9 - nrm.y);   // k07: 0.5 -> 0.85 (k06 drew hairlines)
                     float edge = 1.0 - nv;
