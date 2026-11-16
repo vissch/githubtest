@@ -469,8 +469,8 @@ namespace TW.Presentation.VFX.Cel
                 float speed = rng.Range(1.6f, 3.6f);
                 var r = Rec(now, AtFrame(late, when), when > 62f ? rng.Range(0.40f, 0.60f) : rng.Range(0.50f, 0.85f), AcidBeamKind.Drop, target + Vector3.up * rng.Range(-0.3f, 0.5f) + d * (rad * 0.3f), green ? Sheet : Splash, 1f, ref rng);
                 r.Vel = d * speed;
-                r.Motion = new Vector4(1.5f, 1.6f, 0f, 0f);
-                r.Size = new Vector4(rad * 0.45f, rad * 1.2f, 0.55f, rng.Range(1.0f, 1.7f) * rad / speed);
+                r.Motion = new Vector4(1.5f, 0.9f, 0f, 0f);
+                r.Size = new Vector4(rad * 0.45f, rad * 1.1f, 0.55f, rng.Range(1.7f, 2.6f) * rad / speed);   // (b32: flames of goo along their flight - b26-b31's were round-lobed blobs)
                 float t = rng.Next();
                 r.Tone.w = green ? (t < 0.60f ? 2f : 3f) : (t < 0.4f ? 3f : 4f);
                 r.Erode = new Vector4(1f, 0f, 0f, 0f);
@@ -517,7 +517,7 @@ namespace TW.Presentation.VFX.Cel
             {
                 float side = rng.Next() < 0.5f ? -1f : 1f;
                 Vector3 at = ground + Vector3.up * rng.Range(0.15f, 0.7f) + right * (side * rng.Range(0.1f, 0.9f)) - away * rng.Range(-0.2f, 0.6f);
-                Splat(renderer, kind, now, AtFrame(late, rng.Range(74f, 93f)), at, ground + Vector3.up * 0.3f, away, rng.Next() < 0.30f, rng.Range(0.22f, 0.45f), ref rng);
+                Splat(renderer, kind, now, AtFrame(late, rng.Range(74f, 93f)), at, ground + Vector3.up * 0.3f, away, rng.Next() < 0.60f, rng.Range(0.22f, 0.45f), ref rng);
             }
             // ... and late in it, tongues shooting up out of the mass (frames 74-96: the clip's splash grows 4-5 m tall; b10)
             int rising = far ? 0 : mid ? 8 : 20;                        // (b12: b10's 70 to f96 read as a porcupine at f84-90)
@@ -599,7 +599,7 @@ namespace TW.Presentation.VFX.Cel
 
             // ---- a dense spray of tiny droplets round the splash late in it (frames 70-90: the clip's are about 150 dots a
             // frame at f76-86; b14) - and all the while the beam lands (b17: the clip's splash is full of them from f44)
-            int fine = Count(900, n);                                    // (b28: the clip's f76-90 is full of bright dots)
+            int fine = Count(720, n);                                    // (b28: the clip's f76-90 is full of bright dots)
             for (int i = 0; i < fine; i++)
             {
                 Vector3 d = rng.OnSphere();

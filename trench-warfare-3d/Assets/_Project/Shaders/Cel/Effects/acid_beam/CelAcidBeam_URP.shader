@@ -1026,10 +1026,10 @@ Shader "TW/Cel/AcidBeam"
                     float tk = i.shape.x, fray = i.shape.y, lit = i.shape.z;
                     float sw = 1.4 * (0.6 - length(q)) * (0.6 + 0.8 * fray) + 1.2 * (CelValue2(q * 1.8 + float2(seed * 5.0, seed * 9.0 + tk * 0.02)) - 0.5);
                     float2 p = float2(q.x * cos(sw) - q.y * sin(sw), q.x * sin(sw) + q.y * cos(sw));
-                    p.y /= 1.0 + 0.35 * fray;                               // it rises into tall wisps
+                    p.y /= 1.0 + 0.55 * fray;                               // it rises into tall wisps (b32: taller)
                     float n = CelValue2(p * 2.6 + seed * 13.0 + tk * 0.11) * 0.6 + CelValue2(p * 6.5 + seed * 5.0 - tk * 0.07) * 0.4 - 0.5;
                     float strand = CelValue2(float2(p.x * 8.0 + seed * 19.0, p.y * 1.6 - tk * 0.09)) - 0.5;   // upright tatters
-                    float tear = 0.26 * n + (0.08 + 0.30 * fray) * strand - fray * 0.18 - 0.04;   // it thins from its rim inward as it ages
+                    float tear = 0.26 * n + (0.12 + 0.34 * fray) * strand - fray * 0.18 - 0.05;   // it thins from its rim inward as it ages
                     float hem = (0.98 - length(q)) * 0.5;                   // (never out to its card's edge: a straight cut)
                     float cut = min(Puff(p, seed, tk) + tear, hem);
                     float dens = smoothstep(-0.02, 0.10, cut);              // a soft edge
