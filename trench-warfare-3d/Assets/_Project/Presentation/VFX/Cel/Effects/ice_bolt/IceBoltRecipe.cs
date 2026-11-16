@@ -63,10 +63,11 @@ namespace TW.Presentation.VFX.Cel
             W(0.37f, 0.43f, 0.53f), W(0.45f, 0.53f, 0.645f), W(0.555f, 0.65f, 0.785f), W(0.655f, 0.765f, 0.905f),
             W(0.73f, 0.86f, 0.98f), 1.1f, 4, W(0.30f, 0.36f, 0.45f));
         // the bloom (its pixels solved for a colour over an opacity on three grounds, f22-f112): cloud (175,205,240),
-        // lit (186,216,248), core (197,226,254); c1 is the faint halo it adds round itself
+        // lit (186,216,248), core (197,226,254); c1 is the faint halo it adds round itself (i14 a little less blue:
+        // i13 filmed the hit hue 218, mean (181,204,243), for the clip's 212, (173,202,234))
         public static readonly int BloomRow = CelPalette.Add("ice_bloom",
-            W(0.30f, 0.38f, 0.50f), W(0.08f, 0.12f, 0.2f), W(0.54f, 0.645f, 0.92f), W(0.585f, 0.70f, 0.95f),
-            W(0.565f, 0.70f, 0.96f), 1.1f, 4, W(0.30f, 0.38f, 0.50f));
+            W(0.30f, 0.38f, 0.50f), W(0.08f, 0.12f, 0.2f), W(0.55f, 0.66f, 0.88f), W(0.595f, 0.715f, 0.915f),
+            W(0.575f, 0.715f, 0.93f), 1.1f, 4, W(0.30f, 0.38f, 0.50f));
         // the starbursts, chips and specks: pale ice to white
         public static readonly int HitRow = CelPalette.Add("ice_hit",
             W(0.40f, 0.50f, 0.64f), W(0.48f, 0.57f, 0.72f), W(0.56f, 0.67f, 0.86f), W(0.62f, 0.75f, 0.96f),
@@ -93,7 +94,8 @@ namespace TW.Presentation.VFX.Cel
         /// all the way into the hit, i08's 30-50); each dart drags its own wake of mist on its lane, a dart behind it.</summary>
         // i12: shots every 2.2-3.2 frames to f118 (the clip shows 2+ darts in every frame f8-f123, i11 none f116-f123)
         // and a shot's darts GroupSpread apart (i11's 0.12 m merged them into one sliver on screen).
-        const float FirstShot = 8f, LastShot = 118f, ShotGapMin = 2.2f, ShotGapMax = 3.2f, LaneSpread = 0.6f, LandSpread = 0.3f, GroupSpread = 0.36f;
+        // (i14: lanes 0.72 and groups 0.46: the clip's darts also ride the stream's upper and lower edges)
+        const float FirstShot = 8f, LastShot = 118f, ShotGapMin = 2.2f, ShotGapMax = 3.2f, LaneSpread = 0.72f, LandSpread = 0.3f, GroupSpread = 0.46f;
         /// <summary>A wake's life (s), its width (m: 8-13 px soft strands near the camera), its wave's amplitude (m)
         /// and its opacity (i09: dimmer, the clip's strands top out at ~(110-160, 125-180, 150-210) where i08's
         /// overlapping ones burned to (200, 222, 252) round the darts).</summary>
@@ -225,15 +227,16 @@ namespace TW.Presentation.VFX.Cel
             // the two crisp starbursts that open the blooms (f16, f88): ~12 fat uneven spikes 60-70 px across, a white core
             Exact(Dot("star", "ice_hit", new Vector4(IceBoltKind.Star, 0.15f, 15f, 0.3f), AtFrame(15.6f), 0f, 0.1f, 1, 1, new CelCurve(0.48f, 0.56f, 0.5f), 1f, 1)),
             Exact(Erode(Dot("star 2", "ice_hit", new Vector4(IceBoltKind.Star, 0.14f, 16f, 0.2f), AtFrame(87f), 0f, 0.24f, 1, 1, new CelCurve(0.5f, 0.86f, 0.6f), 1f, 1), 1f, 3f)),
-            // the forming bloom's splash: a few spiky stars at its rim f17-f26
-            Dim(Around(Dot("rim splash", "ice_hit", new Vector4(IceBoltKind.Star, 0.12f, 9f, 0.18f), AtFrame(17f), AtFrame(26f) - AtFrame(17f), 0.08f, 6, 2, new CelCurve(0.3f, 0.36f), 1f), 0.35f), 0.85f),
+            // (i14: the rim splash of petal daisies f17-f26 is gone - the clip's forming cloud radiates frost streaks,
+            // no flowers)
             new CelLayer
             {
-                // white chips (4-8 px petals at 1x) thrown out of the hit to ~100-150 px, some falling (f16-f140)
+                // white chips thrown out of the hit to ~100-150 px, some falling (f16-f140): i14 small slivers and flakes
+                // (the clip's at 3x are 2-4 px wide, 5-10 long; i13's teardrops were twice that), a few more
                 Name = "chips", Kind = IceBoltKind.KindName, Anchor = CelAnchor.Target, Offset = HitOffset, Start = AtFrame(16f), Duration = AtFrame(118f) - AtFrame(16f), TimeJitter = 0.03f, Life = 0.6f, LifeJitter = 0.4f,
-                Close = 110, Mid = 36, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.45f, 0f, 0f), Aim = CelAim.Radial, Speed = 4.2f, SpeedJitter = 0.85f, UpBias = 0.25f, Gravity = 5f, Drag = 1.2f,
-                Size = new CelCurve(0.036f, 0.026f), SizeJitter = 0.7f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.4f, 2f), Feather = 1f,
-                Palette = "ice_hit", Core = 1f, Opacity = 1f, Extra = new Vector4(IceBoltKind.Fleck, 2.3f, 0f, 0f),
+                Close = 130, Mid = 42, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.45f, 0f, 0f), Aim = CelAim.Radial, Speed = 4.2f, SpeedJitter = 0.85f, UpBias = 0.25f, Gravity = 5f, Drag = 1.2f,
+                Size = new CelCurve(0.022f, 0.016f), SizeJitter = 0.6f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.4f, 2f), Feather = 1f,
+                Palette = "ice_hit", Core = 1f, Opacity = 1f, Extra = new Vector4(IceBoltKind.Fleck, 2.9f, 0f, 0f),
             },
             new CelLayer
             {

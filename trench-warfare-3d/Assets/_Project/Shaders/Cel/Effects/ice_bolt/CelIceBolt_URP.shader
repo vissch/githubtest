@@ -265,7 +265,8 @@ Shader "TW/Cel/IceBolt"
                         float gh = CelHash21(gi + sd * 71.0 + deal * 0.731);
                         float2 gp = gi + 0.25 + 0.5 * float2(CelHash21(gi + 3.1 + sd + deal), CelHash21(gi + 5.7 + sd - deal));
                         float rim = smoothstep(edgeIn * 0.5, edgeIn, rr) * (1.0 - smoothstep(edgeOut * 0.9, edgeOut * 1.1, lumpR));
-                        float glit = (gh > 0.85 ? 1.0 : 0.0) * saturate(1.0 - length(gc - gp) / 0.32) * rim * i.shape.w * (1.0 - thr) * shown;
+                        // (i14 sparser: i13's read as a field of blue dots round the cloud)
+                        float glit = (gh > 0.9 ? 1.0 : 0.0) * saturate(1.0 - length(gc - gp) / 0.32) * rim * i.shape.w * (1.0 - thr) * shown;
                         col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(n3 * 0.7 + (1.0 - rr) * 0.3));
                         col = lerp(col, CelPalCore(row).rgb * i.tone.y, saturate(max(coreM, glit)));
                         cover = saturate(max(cloud, glit)) * i.tone.z;
