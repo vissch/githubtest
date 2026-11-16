@@ -709,17 +709,17 @@ namespace TW.Presentation.VFX.Cel
             {
                 Vector3 heart = stand + Vector3.up * 1.8f;
                 // (b36) sheets of goo sinking over it, holed and lit at their rims (the clip's lump is irregular gappy goo; b06-b35's a neat dome)
-                int sinks = Count(12, n);
+                int sinks = Count(8, n);
                 for (int i = 0; i < sinks; i++)
                 {
                     float a = rng.Range(0f, Mathf.PI);
-                    Vector3 o = right * (Mathf.Cos(a) * rng.Range(0.3f, 1.5f)) + Vector3.up * (Mathf.Sin(a) * rng.Range(0.2f, 1.4f));
-                    float rad = rng.Range(1.0f, 1.7f);
+                    Vector3 o = right * (Mathf.Cos(a) * rng.Range(0.3f, 1.5f)) + Vector3.up * (Mathf.Sin(a) * rng.Range(0.0f, 0.8f) - 0.3f);
+                    float rad = rng.Range(0.8f, 1.3f);                    // (b37: lower, not stretched - b36's stood twice the clip's height)
                     var r = Rec(now, AtFrame(late, rng.Range(90f, 108f)), rng.Range(0.55f, 0.85f), AcidBeamKind.Drop, heart + o - away * 0.9f, Sheet, 1f, ref rng);
                     r.Vel = o.normalized * rng.Range(0.3f, 0.9f) + Vector3.down * rng.Range(0.6f, 1.4f);
                     float speed = Mathf.Max(r.Vel.magnitude, 0.5f);
                     r.Motion = new Vector4(2f, 0.6f, 0f, 0f);
-                    r.Size = new Vector4(rad * 0.7f, rad * 1.1f, 0.6f, rng.Range(1.2f, 1.8f) * rad / speed);
+                    r.Size = new Vector4(rad * 0.7f, rad * 1.1f, 0.6f, 0f);
                     r.Tone.w = rng.Next() < 0.5f ? 1f : 2f;
                     r.Erode = new Vector4(1.1f, 0f, 0f, 0f);
                     r.Extra.y = 7f;

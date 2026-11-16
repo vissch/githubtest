@@ -680,8 +680,8 @@ Shader "TW/Cel/AcidBeam"
                             // (b26: broader and fewer - b25's read as hay)
                             float N = li == 0 ? 2.0 : li == 1 ? 3.0 : li == 2 ? 5.0 : 8.0;      // (b36: a few broad soft bands - b25-b35's were needles)
                             float ln = li == 0 ? 0.36 : li == 1 ? 0.28 : li == 2 ? 0.20 : 0.14;
-                            float2 sv = Sliv(uw, e, N, ln, seed + 1.7 * li, li == 0 ? 0.70 : 0.80 - 0.10 * li, 0.38 - 0.02 * li, pixX * N * 2.2, li == 1 ? -2.0 : 1.5 + 0.5 * li);
-                            float g = sv.y + 0.45 * (ax - 0.45) - 0.6 * fan + (li == 0 ? 0.30 : 0.08);   // (the broad ones: green)
+                            float2 sv = Sliv(uw, e, N, ln, seed + 1.7 * li, li == 0 ? 0.85 : 0.85 - 0.10 * li, 0.38 - 0.02 * li, pixX * N * 2.2, li == 1 ? -2.0 : 1.5 + 0.5 * li);
+                            float g = sv.y + 0.45 * (ax - 0.45) - 0.6 * fan + (li == 0 ? 0.34 : li == 1 ? 0.22 : 0.08);   // (b37: the broad ones green - b36's beam was one yellow band)   // (the broad ones: green)
                             half3 tc = g < 0.44 ? hot : g < 0.52 ? light : g < 0.60 ? body : g < 0.97 ? shade : rim;   // (b27: yellow and green, little lime - the clip's mix)
                             col = lerp(col, tc, sv.x);
                         }
@@ -739,10 +739,10 @@ Shader "TW/Cel/AcidBeam"
                             float2 e2 = float2(s.x, (s.y + 0.25) * 2.2);
                             float rr = length(e2), an = atan2(e2.x, e2.y);
                             float reach = 0.25 + 0.75 * (1.0 - (1.0 - k) * (1.0 - k));
-                            float2 pp = float2(an * 3.2 + seed * 17.0, rr * 1.6 - k * 0.8 + seed * 5.0);
-                            pp.x += 0.5 * (CelValue2(float2(rr * 3.0 + seed * 3.0, an * 2.0)) - 0.5);
+                            float2 pp = float2(an * 2.0 + seed * 17.0, rr * 1.6 - k * 0.8 + seed * 5.0);   // (b37: fewer, wavy - b36's were straight rays)
+                            pp.x += 1.5 * (CelValue2(float2(rr * 2.6 + seed * 3.0, an * 1.3 + seed)) - 0.5) + 0.5 * (CelValue2(float2(rr * 7.0, an * 3.0 + seed * 9.0)) - 0.5);
                             float n = 0.65 * CelValue2(pp) + 0.35 * CelValue2(pp * float2(2.1, 1.7) + 7.0);
-                            f = (0.20 - 0.14 * saturate(rr / max(reach, 0.01))) * (1.0 - 0.6 * k) - abs(n - 0.5);
+                            f = (0.14 - 0.09 * saturate(rr / max(reach, 0.01))) * (1.0 - 0.6 * k) - abs(n - 0.5);
                             f = min(f, min((reach - rr) * 0.5, min((0.95 - length(q)) * 0.5, (s.y + 0.34) * 2.0)));
                             al = Step(0.0, f, 0.012);
                             col = lerp(base, up1, 1.0 - Step(0.035, f, 0.01));
