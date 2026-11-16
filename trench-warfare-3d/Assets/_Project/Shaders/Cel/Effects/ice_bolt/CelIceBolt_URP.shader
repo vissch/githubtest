@@ -236,8 +236,9 @@ Shader "TW/Cel/IceBolt"
             float StrandProfile(float t)
             {
                 if (t >= 0.9) return 1.0 - smoothstep(0.9, 1.0, t);
-                if (t >= 0.55) return lerp(0.5, 1.0, smoothstep(0.55, 0.75, t));
-                return 0.5 * smoothstep(-1.0, -0.75, t);
+                // (i23: the face 0.7 - i22's 0.5 read as see-through grey cellophane beside the clip's white faces)
+                if (t >= 0.55) return lerp(0.7, 1.0, smoothstep(0.55, 0.75, t));
+                return 0.7 * smoothstep(-1.0, -0.75, t);
             }
 
             half4 frag(Varyings i) : SV_Target
@@ -411,12 +412,13 @@ Shader "TW/Cel/IceBolt"
                     float ud = a * i.shape.z;
                     // (i17 0.12 and 0.05: the clip's edges are broken at 1:1; i15 0.16/0.06, i16 0.06/0.03)
                     float cellL = max(i.q.w * 0.9, 1e-3);
-                    float rag = (CelValue2(float2(ud / cellL, sd * 31.0 + step(0.0, y) * 7.0)) - 0.5) * 0.12
-                              + (CelHash21(float2(floor(ud / (cellL * 0.6)), sd * 37.0 + step(0.0, y))) - 0.5) * 0.05
+                    float rag = (CelValue2(float2(ud / cellL, sd * 31.0 + step(0.0, y) * 7.0)) - 0.5) * 0.08
+                              + (CelHash21(float2(floor(ud / (cellL * 0.6)), sd * 37.0 + step(0.0, y))) - 0.5) * 0.04
                               // i18: fine bumps ~0.36 half-widths long (the clip's lumpy frosty edges at 2x)
-                              + (CelValue2(float2(ud / (cellL * 0.4), sd * 43.0 + step(0.0, y) * 5.0)) - 0.5) * 0.1
+                              + (CelValue2(float2(ud / (cellL * 0.4), sd * 43.0 + step(0.0, y) * 5.0)) - 0.5) * 0.04
                               // i20: long lumps ~2 half-widths (the clip's lumpy ice chunks), more on the underside
-                              + (CelValue2(float2(ud / (cellL * 2.2), sd * 47.0 + step(0.0, y) * 3.0)) - 0.5) * (y >= 0.0 ? 0.18 : 0.32);
+                              + (CelValue2(float2(ud / (cellL * 2.2), sd * 47.0 + step(0.0, y) * 3.0)) - 0.5) * (y >= 0.0 ? 0.06 : 0.1);
+                    // (i23: the outline cut back - i22's lumps made blobby snow shards, the clip's are crisp arrowheads)
                     float eW = y >= 0.0 ? upW : dnW;
                     float dE = eW + rag * step(0.05, eW) - abs(y);
                     // the wings: swept back from the widest point, on the lower edge of 60 % and the upper of 30 %
