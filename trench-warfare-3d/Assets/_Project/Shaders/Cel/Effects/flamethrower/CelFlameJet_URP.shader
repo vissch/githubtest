@@ -527,7 +527,8 @@ Shader "TW/Cel/FlameJet"
                     clip(bf.x);
                     // k02: erode.w (the layer's Feather, 0.08 by default on every ring) above 0.08 lifts the heat, so a
                     // catch reads yellow-white inside with only a thin orange rim (REF f30-f36)
-                    float bv = saturate(0.15 + 1.3 * bf.x + 0.15 * bf.z + 1.6 * max(r.erode.w - 0.08, 0.0) * smoothstep(0.0, 0.12, bf.x));
+                    float lift = max(r.erode.w - 0.08, 0.0);   // k03: the lift also widens the inner noise so tongues of orange stay inside the catch (k02 was one flat cream sheet)
+                    float bv = saturate(0.15 + 1.3 * bf.x + (0.15 + 2.5 * lift) * bf.z + 1.6 * lift * smoothstep(0.0, 0.12, bf.x));
                     half3 bc = CelRamp2(bv, r.tone.x, r.tone.y, k, 0.88);
                     float bink = max(CelInk(bf.x, 0.0, CelLodInk(r.tone.w)), CelInk(-bf.y, 0.0, CelLodInk(r.tone.w)));
                     bc = lerp(bc, CelInkColor(r.tone.x, k, 0.88), bink);
