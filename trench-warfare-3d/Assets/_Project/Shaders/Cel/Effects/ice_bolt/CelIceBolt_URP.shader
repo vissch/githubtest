@@ -221,13 +221,14 @@ Shader "TW/Cel/IceBolt"
 
             // one strand's cross-section (i17/i18, the clip's measured over ~1900 crossings: from the peak the light
             // halves within 3-4 px on the hard side and over ~8 px on the soft, 15 % at 24 px), in half-widths t from
-            // its hard side (+1 the hard edge): the peak at 0.55, eased down over the last 0.45 to a faint halo, the
-            // soft side falling off as exp(-d / 0.8)
+            // its hard side (+1 the hard edge): full from 0.3 to 0.55 (i19: a bright body by the hard edge - i18's
+            // spike of a peak read as thin lines at the film's size beside the clip's bold ribbons), eased down over
+            // the last 0.45 to a faint halo, the soft side falling off as exp(-d / 0.8)
             float StrandProfile(float t)
             {
                 if (t >= 0.55)
                     return t < 1.0 ? lerp(1.0, 0.06, smoothstep(0.55, 1.0, t)) : 0.06 * exp((1.0 - t) / 0.7);
-                return exp((t - 0.55) / 0.8);
+                return exp((min(t, 0.3) - 0.3) / 0.8);
             }
 
             half4 frag(Varyings i) : SV_Target
@@ -425,7 +426,8 @@ Shader "TW/Cel/IceBolt"
                     // (i17: the upper facet 0.86 -> 0.8: i16 filmed it (165,193,221) for the clip's (155,180,211))
                     // i18: frost in it, snowy patches ~0.55 half-widths across (the clip's darts at 2x)
                     float fr = CelValue2(float2(ud / max(i.q.w * 0.55, 1e-3), y * 2.2) + float2(sd * 59.0, sd * 23.0));
-                    float shade = saturate((upper ? 0.8 : 0.48) + (mn - 0.5) * 0.7 + (fr - 0.5) * 0.35) * 3.0;
+                    // (i19: the upper facet 0.74: i18 filmed the darts p50 (159,190,227) for the clip's (153,180,213))
+                    float shade = saturate((upper ? 0.74 : 0.48) + (mn - 0.5) * 0.7 + (fr - 0.5) * 0.35) * 3.0;
                     col = shade < 1.0 ? lerp(CelPal(row, 0), CelPal(row, 1), shade) : shade < 2.0 ? lerp(CelPal(row, 1), CelPal(row, 2), shade - 1.0) : lerp(CelPal(row, 2), CelPal(row, 3), shade - 2.0);
                     // a few white glints in it (~2 px)
                     float2 gq = float2(ud / max(i.q.w * 0.8, 1e-3), y * 1.5);

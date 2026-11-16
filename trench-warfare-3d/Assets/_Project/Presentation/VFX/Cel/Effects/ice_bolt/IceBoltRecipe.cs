@@ -112,7 +112,9 @@ namespace TW.Presentation.VFX.Cel
         // i16 0.8 on a peaked profile: the clip's strands peak ~1.45x i15's over the ground (lum +90 for +62)
         // (i17 0.75 on the hard/soft profile: its plateau runs at full height where i16's peak sat at 0.8; i18 0.78
         // without the plateau: i17 filmed the clip's peak, +95 for +96)
-        const float WakeLife = 0.62f, WakeWidth = 0.21f, WakeAmp = 0.09f, WakeOpacity = 0.78f;
+        // (i19 0.24 m and 0.85, a broader body: i18's strands filmed thinner and dimmer than the clip's bold ribbons,
+        // peaks +71-82 for +80-98)
+        const float WakeLife = 0.62f, WakeWidth = 0.24f, WakeAmp = 0.09f, WakeOpacity = 0.85f;
         /// <summary>The gap (f66-f90): the bloom is gone and the darts glance off the board, so a share of the wakes
         /// runs on past the dummy to the upper right (the clip's f80 strands reach ~(1100, 250)); the darts themselves
         /// fly on down the corridor into the board (i12: i11's flew the glancing path and left the corridor empty) and
@@ -148,9 +150,10 @@ namespace TW.Presentation.VFX.Cel
                     bool glance = f >= GlanceFrom && f <= GlanceTo && rng.Next() < GlanceShare;
                     Vector3 land = (right * rng.Range(-1f, 1f) + up * rng.Range(-1f, 1f)) * LandSpread;
                     Vector3 end = to + land, wEnd = glance ? to + right * rng.Range(3.0f, 4.2f) + up * rng.Range(2.2f, 3.0f) : end;
-                    // (i16: 0.64 wakes a dart, i15 1.1, so the denser volley draws as many wakes a frame)
+                    // (i16: 0.64 wakes a dart, i15 1.1, so the denser volley draws as many wakes a frame; i19 0.52:
+                    // i18 showed 5.5 strands a column near the camera for the clip's 2.8)
                     float wr = rng.Next();
-                    int wakes = far ? 0 : mid ? (wr < 0.3f ? 1 : 0) : (wr < 0.4f ? 0 : wr < 0.96f ? 1 : 2);
+                    int wakes = far ? 0 : mid ? (wr < 0.25f ? 1 : 0) : (wr < 0.5f ? 0 : wr < 0.98f ? 1 : 2);
                     float speed = (DartHeadEnd - DartHeadStart) / life;
                     if (on && darts) renderer.Spawn(kind, Dart(now + at, from + lane, end, life, width, dseed));
                     for (int w = 0; w < 2; w++)
