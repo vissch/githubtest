@@ -525,7 +525,9 @@ Shader "TW/Cel/FlameJet"
                         return half4(MixFog(sc, i.fog), 1.0);
                     }
                     clip(bf.x);
-                    float bv = saturate(0.15 + 1.3 * bf.x + 0.15 * bf.z);
+                    // k02: erode.w (the layer's Feather, 0.08 by default on every ring) above 0.08 lifts the heat, so a
+                    // catch reads yellow-white inside with only a thin orange rim (REF f30-f36)
+                    float bv = saturate(0.15 + 1.3 * bf.x + 0.15 * bf.z + 1.6 * max(r.erode.w - 0.08, 0.0) * smoothstep(0.0, 0.12, bf.x));
                     half3 bc = CelRamp2(bv, r.tone.x, r.tone.y, k, 0.88);
                     float bink = max(CelInk(bf.x, 0.0, CelLodInk(r.tone.w)), CelInk(-bf.y, 0.0, CelLodInk(r.tone.w)));
                     bc = lerp(bc, CelInkColor(r.tone.x, k, 0.88), bink);
