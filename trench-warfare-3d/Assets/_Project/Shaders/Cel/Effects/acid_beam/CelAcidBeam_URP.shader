@@ -475,6 +475,19 @@ Shader "TW/Cel/AcidBeam"
 
             // thin lens-shaped streaks standing in a grid of cells (x across them, y along them), each column of
             // cells set at its own height: 1 inside a streak. share of the cells hold one; thick its half-width.
+            // (b25) long pointed slivers that ride with the beam's fluid: u across it 0..1, e the seconds its fluid left
+            // at; N across, each ln seconds long; x: the sliver's mask, y: its own hash (its tone)
+            float2 Sliv(float u, float e, float N, float ln, float seed, float share, float thick, float w, float slant)
+            {
+                float2 p = float2(u * N + e * slant + seed * 3.7, e / ln + seed * 5.3);
+                p.y += CelHash21(float2(floor(p.x), seed * 19.0 + 4.0));
+                float2 c = floor(p), f = p - c;
+                float h = CelHash21(c + seed * 3.0), h2 = CelHash21(c + seed * 5.0 + 31.0);
+                float lens = saturate(1.0 - abs(f.y * 2.0 - 1.0));
+                float m = (1.0 - Step(thick * sqrt(lens), abs(f.x - (0.3 + 0.4 * h2)), w)) * step(1.0 - share, h) * step(0.03, lens);
+                return float2(m, CelHash21(c + float2(11.0 + seed, 7.0)));
+            }
+
             float Streaks(float2 p, float seed, float share, float thick, float w)
             {
                 p.y += CelHash21(float2(floor(p.x), seed * 19.0 + 4.0));
@@ -639,36 +652,39 @@ Shader "TW/Cel/AcidBeam"
                         // across it (b09): long thin streaks of yellow, lime, green and dark green that flow with it,
                         // 2-4 m long and slanted a little, the yellow low in it and the green high (the clip's beam is a
                         // bundle of streaks about a fifth yellow; b02-b08 drew concentric bands, 57 % yellow)
+                        // across it (b25): a bundle of separate long pointed slivers, each its own tone - yellow through its
+                        // middle, more of them green and dark toward its edges, green ones through its middle too (the clip's
+                        // f36-80; b09-b24 thresholded one smooth noise: broad bands, a bar)
                         float pd = pixX / max(edge, 0.05) * 1.6;
                         float u = q.x * 0.5 + 0.5;
-                        float st = 0.55 * CelValue2(float2(u * 9.0 + e * 3.0 + seed * 3.0, e * 6.0 + seed * 5.0))
-                            + 0.45 * CelValue2(float2(u * 24.0 - e * 5.0 + seed * 7.0, e * 11.0 + seed * 11.0));
-                        // (b24: yellow through half of it end to end, slivers of every tone through its whole width - the
-                        // clip's measures 0.44-0.58 yellow at the frame's edge, its middle and the target alike; b09-b23's
-                        // yellow lay low near the eye and its far half was dark green)
-                        float d = abs(q.x + 0.06) / max(edge + 0.10, 0.02) * 0.92 + 1.45 * (st - 0.5);
-                        // (the lace: yellow round its holes, then green deep in it - the clip's; b03-b05 drew
-                        // green-rimmed holes in a lime sheet, a leopard)
-                        // (b17: yellow-lime down the middle of its ropes, green at their edges - the clip's f88-96; b03-b16's
-                        // green sheet, yellow round its holes, read as a sheet with dark holes in it)
-                        d = lerp(d, 0.36 + 0.52 * border * border, smoothstep(0.0, 0.45, starve));   // (b24: thin dark rims - b17-b23's broad ones read as cheese)
-                        // (b07) its end pales into a fan of yellow where it goes in (the clip's pale-yellow heart, f40-84)
-                        d *= 1.0 - 0.55 * smoothstep(0.86, 1.0, kS) * (1.0 - starve) * i.flow.w;
-                        // (b10: a thin lime band only - the clip's streaks are yellow against green; b09's broad lime
-                        // band took the contrast out)
-                        col = lerp(rim, shade, 1.0 - Step(0.96, d, pd));
-                        col = lerp(col, body, 1.0 - Step(0.80, d, pd));
-                        col = lerp(col, light, 1.0 - Step(0.60, d, pd));
-                        col = lerp(col, hot, 1.0 - Step(0.46, d, pd));
+                        float fan = 0.55 * smoothstep(0.86, 1.0, kS) * (1.0 - starve) * i.flow.w;   // (b07) its end pales into a fan of yellow where it goes in
+                        float ax = abs(q.x + 0.05) / max(edge, 0.02);
+                        float d = (ax + 0.35 * (CelValue2(float2(u * 5.0 + e * 2.0 + seed, e * 9.0)) - 0.5)) * (1.0 - fan);
+                        col = lerp(shade, body, 1.0 - Step(0.90, d, pd));
+                        col = lerp(col, light, 1.0 - Step(0.72, d, pd));
+                        col = lerp(col, hot, 1.0 - Step(0.58, d, pd));
+                        [unroll] for (int li = 0; li < 4; li++)
+                        {
+                            float N = li == 0 ? 4.0 : li == 1 ? 7.0 : li == 2 ? 13.0 : 23.0;
+                            float ln = li == 0 ? 0.24 : li == 1 ? 0.17 : li == 2 ? 0.12 : 0.08;
+                            float2 sv = Sliv(u, e, N, ln, seed + 1.7 * li, li == 0 ? 0.55 : 0.80 - 0.10 * li, 0.30 - 0.02 * li, pixX * N * 0.6, li == 1 ? -3.5 : 2.5 + li);
+                            float g = sv.y + 0.45 * (ax - 0.45) - 0.6 * fan + (li == 0 ? 0.25 : 0.0);   // (the broad ones: green)
+                            half3 tc = g < 0.30 ? hot : g < 0.50 ? light : g < 0.66 ? body : g < 0.86 ? shade : rim;
+                            col = lerp(col, tc, sv.x);
+                        }
                         // pale streaks in its yellow, flowing with it
                         float sk = Streaks(float2(u * 7.0 + seed * 3.0, e / 0.045 + seed * 5.0), seed, 0.55, 0.30, pixX * 3.5);
-                        col = lerp(col, streak, sk * (1.0 - smoothstep(0.34, 0.46, d)));
-                        // its edges fray into strands with the night between them (b09)
-                        // (b24: slit deep into long strands, deepest under it - the clip's edges are torn; b12-b23's 16 % was
-                        // a ruler's edge)
-                        float fray = 0.7 * CelValue2(float2(u * 16.0 + seed * 9.0, e * 4.0 + seed * 2.0)) + 0.3 * CelValue2(float2(u * 38.0 + seed * 4.0, e * 7.0 + seed * 6.0));
-                        float deep = q.x < 0.0 ? 0.74 : 0.56;
-                        al *= Step(0.0, deep * fray + 1.04 - 0.62 * deep - abs(q.x) / max(edge, 0.02), pixX * 2.0 / max(edge, 0.05));
+                        col = lerp(col, streak, sk * (1.0 - smoothstep(0.40, 0.55, ax)));
+                        // (the lace: yellow-lime down the middle of its ropes, green toward their rims, a thin dark rim)
+                        float b2 = border * border;
+                        half3 lace = b2 < 0.10 ? hot : b2 < 0.36 ? light : b2 < 0.72 ? body : shade;
+                        col = lerp(col, lace, smoothstep(0.0, 0.45, starve));
+                        // its edges: solid to about half its half-width, strands with the night between them beyond (the
+                        // clip's edges are torn; b12-b24's were a ruler's)
+                        float2 s1 = Sliv(u, e, 13.0, 0.15, seed + 7.0, 0.75, 0.30, pixX * 8.0, 2.5);
+                        float2 s2 = Sliv(u, e, 25.0, 0.10, seed + 9.0, 0.60, 0.28, pixX * 15.0, -3.0);
+                        float solid = 1.0 - Step(0.56 + 0.30 * (CelValue2(float2(u * 3.0, e * 14.0 + seed)) - 0.5), abs(q.x) / max(edge, 0.02), pixX * 2.0 / max(edge, 0.05));
+                        al *= max(solid, max(s1.x, s2.x));
                     }
                     else
                     {
