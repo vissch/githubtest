@@ -512,7 +512,26 @@ namespace TW.Presentation.VFX.Cel
             }
             // ... and late in it, goo thrown low along the ground round the target's foot (frames 72-94: the clip's splash
             // spreads low and wide on the ground before the lump; b19 - b18's stood tall)
-            int low = far ? 0 : mid ? 30 : 90;                           // (b30: the clip's f78-92 splash is these, low and wide)
+            // (b35) ... and late in it, holed sheets of goo thrown low and wide round the target (frames 74-93: the clip's
+            // splash is a green web of strands then; b18-b34's was a pile of small pale chunks)
+            int web = far ? 0 : mid ? 8 : 22;
+            for (int i = 0; i < web; i++)
+            {
+                Vector3 d = (Vector3.up * rng.Range(0.0f, 0.7f) + right * rng.Range(-1.0f, 1.0f) - away * rng.Range(-0.2f, 0.5f)).normalized;
+                float rad = rng.Range(0.8f, 1.5f);
+                float speed = rng.Range(1.5f, 3.2f);
+                bool green = rng.Next() < 0.75f;
+                var r = Rec(now, AtFrame(late, rng.Range(74f, 93f)), rng.Range(0.40f, 0.65f), AcidBeamKind.Drop, target + Vector3.up * rng.Range(-0.8f, 0.3f) + d * (rad * 0.3f), green ? Sheet : Splash, 1f, ref rng);
+                r.Vel = d * speed;
+                r.Motion = new Vector4(2.5f, 0.9f, 0f, 0f);
+                r.Size = new Vector4(rad * 0.45f, rad * 1.1f, 0.55f, rng.Range(1.7f, 2.6f) * rad / speed);
+                float t = rng.Next();
+                r.Tone.w = green ? (t < 0.60f ? 2f : 3f) : (t < 0.4f ? 3f : 4f);
+                r.Erode = new Vector4(1.25f, 0f, 0f, 0f);                 // (holed from the start)
+                r.Extra.y = 7f;
+                renderer.Spawn(kind, r);
+            }
+            int low = far ? 0 : mid ? 16 : 46;                           // (b30: the clip's f78-92 splash is these, low and wide)
             for (int i = 0; i < low; i++)
             {
                 float side = rng.Next() < 0.5f ? -1f : 1f;
@@ -520,7 +539,7 @@ namespace TW.Presentation.VFX.Cel
                 Splat(renderer, kind, now, AtFrame(late, rng.Range(74f, 93f)), at, ground + Vector3.up * 0.3f, away, rng.Next() < 0.60f, rng.Range(0.22f, 0.45f), ref rng);
             }
             // ... and late in it, tongues shooting up out of the mass (frames 74-96: the clip's splash grows 4-5 m tall; b10)
-            int rising = far ? 0 : mid ? 8 : 20;                        // (b12: b10's 70 to f96 read as a porcupine at f84-90)
+            int rising = far ? 0 : mid ? 4 : 10;                        // (b12: b10's 70 to f96 read as a porcupine at f84-90)
             for (int i = 0; i < rising; i++)
             {
                 Vector3 at = target + Vector3.up * rng.Range(0.4f, 2.4f) + right * rng.Range(-1.0f, 1.2f) - away * rng.Range(-0.2f, 0.6f);
@@ -529,7 +548,7 @@ namespace TW.Presentation.VFX.Cel
             // ... and tongues of goo running down out of the mass as the beam runs out (frames 84-97: the clip's mass turns
             // to tall streaks of goo running down before it sinks to the lump; b14 - b12-b13's slow sheets read as a pile
             // of round blobs)
-            int goo = far ? 0 : mid ? 16 : 40;
+            int goo = far ? 0 : mid ? 6 : 16;
             for (int i = 0; i < goo; i++)
             {
                 Vector3 at = target + Vector3.up * rng.Range(0.6f, 3.0f) + right * rng.Range(-1.3f, 1.5f) - away * rng.Range(-0.2f, 0.7f);
