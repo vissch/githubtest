@@ -475,6 +475,18 @@ Shader "TW/Cel/AcidBeam"
 
             // thin lens-shaped streaks standing in a grid of cells (x across them, y along them), each column of
             // cells set at its own height: 1 inside a streak. share of the cells hold one; thick its half-width.
+            // (b26) a splat with holes in it: thr 0 none .. 0.7 a web
+            float SplatH(float2 m, float aspect, float seed, float tk, float thr)
+            {
+                float f = Splat(m, aspect, seed, tk);
+                if (thr > 0.001)
+                {
+                    float hn = 0.6 * CelValue2(m * 1.5 + seed * 31.0) + 0.4 * CelValue2(m * 3.3 + seed * 17.0 + tk * 0.05);
+                    f = min(f, (hn - thr) * 1.2);
+                }
+                return f;
+            }
+
             // (b25) long pointed slivers that ride with the beam's fluid: u across it 0..1, e the seconds its fluid left
             // at; N across, each ln seconds long; x: the sliver's mask, y: its own hash (its tone)
             float2 Sliv(float u, float e, float N, float ln, float seed, float share, float thick, float w, float slant)
@@ -642,7 +654,7 @@ Shader "TW/Cel/AcidBeam"
                                 float2 o2 = float2(xx, yy);
                                 float2 cid = wc + o2;
                                 float2 pt = o2 + float2(CelHash21(cid + 3.1), CelHash21(cid + 17.7)) * 0.8 + 0.1 - wf;
-                                float hr = (0.24 + 0.34 * CelHash21(cid + 29.3)) * (0.40 + 0.70 * starve);   // (they grow until they meet; b23: and stop there - b22's grew until nothing was left by f89)
+                                float hr = (0.24 + 0.34 * CelHash21(cid + 29.3)) * (0.52 + 0.62 * starve);   // (they grow until they meet; b23: and stop there - b22's grew until nothing was left by f89)
                                 gap = min(gap, length(pt) - hr);
                             }
                             // its ropes thin and part, then its islands go (b06: it is gone when it has broken up)
@@ -662,14 +674,15 @@ Shader "TW/Cel/AcidBeam"
                         float d = (ax + 0.35 * (CelValue2(float2(u * 5.0 + e * 2.0 + seed, e * 9.0)) - 0.5)) * (1.0 - fan);
                         col = lerp(shade, body, 1.0 - Step(0.90, d, pd));
                         col = lerp(col, light, 1.0 - Step(0.72, d, pd));
-                        col = lerp(col, hot, 1.0 - Step(0.58, d, pd));
+                        col = lerp(col, hot, 1.0 - Step(0.66, d, pd));
                         [unroll] for (int li = 0; li < 4; li++)
                         {
-                            float N = li == 0 ? 4.0 : li == 1 ? 7.0 : li == 2 ? 13.0 : 23.0;
-                            float ln = li == 0 ? 0.24 : li == 1 ? 0.17 : li == 2 ? 0.12 : 0.08;
-                            float2 sv = Sliv(u, e, N, ln, seed + 1.7 * li, li == 0 ? 0.55 : 0.80 - 0.10 * li, 0.30 - 0.02 * li, pixX * N * 0.6, li == 1 ? -3.5 : 2.5 + li);
-                            float g = sv.y + 0.45 * (ax - 0.45) - 0.6 * fan + (li == 0 ? 0.25 : 0.0);   // (the broad ones: green)
-                            half3 tc = g < 0.30 ? hot : g < 0.50 ? light : g < 0.66 ? body : g < 0.86 ? shade : rim;
+                            // (b26: broader and fewer - b25's read as hay)
+                            float N = li == 0 ? 3.0 : li == 1 ? 5.0 : li == 2 ? 9.0 : 16.0;
+                            float ln = li == 0 ? 0.26 : li == 1 ? 0.19 : li == 2 ? 0.13 : 0.09;
+                            float2 sv = Sliv(u, e, N, ln, seed + 1.7 * li, li == 0 ? 0.70 : 0.80 - 0.10 * li, 0.36 - 0.02 * li, pixX * N * 0.6, li == 1 ? -3.5 : 2.5 + li);
+                            float g = sv.y + 0.45 * (ax - 0.45) - 0.6 * fan + (li == 0 ? 0.35 : 0.0);   // (the broad ones: green)
+                            half3 tc = g < 0.40 ? hot : g < 0.54 ? light : g < 0.70 ? body : g < 0.88 ? shade : rim;
                             col = lerp(col, tc, sv.x);
                         }
                         // pale streaks in its yellow, flowing with it
@@ -677,14 +690,15 @@ Shader "TW/Cel/AcidBeam"
                         col = lerp(col, streak, sk * (1.0 - smoothstep(0.40, 0.55, ax)));
                         // (the lace: yellow-lime down the middle of its ropes, green toward their rims, a thin dark rim)
                         float b2 = border * border;
-                        half3 lace = b2 < 0.10 ? hot : b2 < 0.36 ? light : b2 < 0.72 ? body : shade;
+                        half3 lace = b2 < 0.06 ? hot : b2 < 0.45 ? light : b2 < 0.80 ? body : shade;   // (b26: lime-green - b25's was a yellow sheet)
                         col = lerp(col, lace, smoothstep(0.0, 0.45, starve));
                         // its edges: solid to about half its half-width, strands with the night between them beyond (the
                         // clip's edges are torn; b12-b24's were a ruler's)
-                        float2 s1 = Sliv(u, e, 13.0, 0.15, seed + 7.0, 0.75, 0.30, pixX * 8.0, 2.5);
-                        float2 s2 = Sliv(u, e, 25.0, 0.10, seed + 9.0, 0.60, 0.28, pixX * 15.0, -3.0);
+                        float2 s1 = Sliv(u, e, 8.0, 0.18, seed + 7.0, 0.75, 0.34, pixX * 5.0, 2.5);   // (b26: broader - b25's read as bristles)
+                        float2 s2 = Sliv(u, e, 15.0, 0.12, seed + 9.0, 0.60, 0.30, pixX * 9.0, -3.0);
                         float solid = 1.0 - Step(0.56 + 0.30 * (CelValue2(float2(u * 3.0, e * 14.0 + seed)) - 0.5), abs(q.x) / max(edge, 0.02), pixX * 2.0 / max(edge, 0.05));
-                        al *= max(solid, max(s1.x, s2.x));
+                        float laced = smoothstep(0.0, 0.3, starve);          // (the lace: its holes shape it, no straight strands)
+                        al *= max(lerp(solid, 1.0, laced), max(s1.x, s2.x) * (1.0 - laced));
                     }
                     else
                     {
@@ -718,10 +732,13 @@ Shader "TW/Cel/AcidBeam"
                         {
                             // a splat of goo (Splat): a tone up along its lit edge and down along its shade edge (its own
                             // outline moved off the light and toward it), a pale line inside its lit edge on one in three
+                            // (b26) a big one is a sheet full of irregular holes that open as it goes, a web at its end
+                            // (Erode.x: how holed; the clip's mass f44-90 is such sheets)
                             float2 m = float2(q.x * aspect, q.y);       // in its half-widths
-                            f = Splat(m, aspect, seed, tk);
+                            float thr = i.shape2.x * (0.24 + 0.40 * k);
+                            f = SplatH(m, aspect, seed, tk, thr);
                             al = Step(0.0, f, pixY);
-                            float fl = Splat(m + L * 0.22, aspect, seed, tk), fs = Splat(m - L * 0.18, aspect, seed, tk);
+                            float fl = SplatH(m + L * 0.22, aspect, seed, tk, thr), fs = SplatH(m - L * 0.18, aspect, seed, tk, thr);
                             col = base;
                             col = lerp(col, up1, 1.0 - Step(0.0, fl, pixY));
                             col = lerp(col, dn1, (1.0 - Step(0.0, fs, pixY)) * 0.9);

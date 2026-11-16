@@ -423,7 +423,7 @@ namespace TW.Presentation.VFX.Cel
                         Blade(renderer, kind, now, AtFrame(late, Bursts[b] + rng.Range(0f, Bursts[b + 1])), target, dir, away,
                             rng.Range(Bursts[b + 3], Bursts[b + 4]), b == 0, ref rng);
                 }
-                int loose = Count(80, n);                                 // (b07: the clip's mass is spikes out of the hit; b19: b07-b18's 220 a spiky ball)
+                int loose = Count(36, n);                                 // (b07: the clip's mass is spikes out of the hit; b19: b07-b18's 220 a spiky ball)
                 for (int i = 0; i < loose; i++)
                     Blade(renderer, kind, now, AtFrame(late, rng.Range(44f, 92f)), target, dir, away, rng.Range(8f, 18f), false, ref rng);
             }
@@ -455,7 +455,28 @@ namespace TW.Presentation.VFX.Cel
             // (b07: b06's 430 sheets up to 2.2 m over the target read as a dark bush as wide at its top as at its foot -
             // the clip's mass is a cone, 282/234/130 px wide from its foot up, thrown out from the hit; its darker
             // sheets lie on the far side)
-            int sheets = far ? 0 : mid ? 60 : 170;                       // (b08: most of the mass is tongues now, below; b20: 170 splats)
+            // (b26) the crown: big sheets of goo growing out of the hit all the while the beam lands, full of holes that open
+            // as they go (the clip's mass is one connected mass of such sheets 350-400 px across, green with a yellow heart;
+            // b18-b25's was a ball of small chunks)
+            int crown = far ? 0 : mid ? 10 : 26;
+            for (int i = 0; i < crown; i++)
+            {
+                float when = i < 6 ? rng.Range(38f, 43f) : rng.Range(43f, 86f);
+                Vector3 d = (Vector3.up * rng.Range(0.15f, 1.0f) + right * rng.Range(-1.0f, 1.0f) - away * rng.Range(-0.2f, 0.6f) + dir * 0.25f).normalized;
+                float rad = rng.Range(0.9f, 1.7f);
+                float speed = rng.Range(1.6f, 3.6f);
+                bool green = rng.Next() < 0.7f;
+                var r = Rec(now, AtFrame(late, when), rng.Range(0.42f, 0.72f), AcidBeamKind.Drop, target + Vector3.up * rng.Range(-0.3f, 0.5f) + d * (rad * 0.3f), green ? Sheet : Splash, 1f, ref rng);
+                r.Vel = d * speed;
+                r.Motion = new Vector4(1.5f, 1.6f, 0f, 0f);
+                r.Size = new Vector4(rad * 0.45f, rad * 1.2f, 0.55f, rng.Range(1.0f, 1.7f) * rad / speed);
+                float t = rng.Next();
+                r.Tone.w = green ? (t < 0.35f ? 1f : t < 0.80f ? 2f : 3f) : (t < 0.5f ? 2f : 3f);
+                r.Erode = new Vector4(1f, 0f, 0f, 0f);
+                r.Extra.y = 7f;
+                renderer.Spawn(kind, r);
+            }
+            int sheets = far ? 0 : mid ? 30 : 80;                        // (b08: most of the mass is tongues now, below; b20: 170 splats; b26: 80 - the crown is the mass)
             for (int i = 0; i < sheets; i++)
             {
                 float when = rng.Range(40f, 94f);
@@ -480,7 +501,7 @@ namespace TW.Presentation.VFX.Cel
             }
             // ... and tongues of goo thrown out of the hit among them (b08: the clip's mass is flame tongues pointing out of the
             // hit; b06-b07's round-headed sheets read as green clubs)
-            int tongues = far ? 0 : mid ? 80 : 200;
+            int tongues = far ? 0 : mid ? 50 : 120;                      // (b26: 200 -> 120)
             for (int i = 0; i < tongues; i++)
             {
                 Vector3 at = target + Vector3.up * rng.Range(-0.5f, 0.9f) + right * rng.Range(-0.6f, 0.9f) + dir * rng.Range(0f, 0.5f) - away * rng.Range(-0.2f, 0.7f);
