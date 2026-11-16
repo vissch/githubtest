@@ -70,7 +70,7 @@ namespace TW.Presentation.VFX.Cel
         // #506F44 where one or two lie over the night), its ribbons #96D965, lit by the acid #E0F699, #6FA052 as they age
         // (b02-b16: one see-through tone, #5F834C to #91CD6A; b17 stored a single 0.46 veil's lime, and stacked veils showed it)
         static readonly int Fume = CelPalette.Add("acid_beam_fume",
-            S(0.194f, 0.269f, 0.203f), S(0.287f, 0.396f, 0.251f), S(0.382f, 0.552f, 0.299f), S(0.466f, 0.708f, 0.336f), S(0.608f, 0.880f, 0.488f), 1.1f, 4, S(0.341f, 0.491f, 0.278f));
+            S(0.194f, 0.269f, 0.203f), S(0.287f, 0.396f, 0.251f), S(0.415f, 0.611f, 0.314f), S(0.487f, 0.752f, 0.356f), S(0.608f, 0.880f, 0.488f), 1.1f, 4, S(0.341f, 0.491f, 0.278f));   // (b21: dense #86C25E, lit #A0E26C)
         const float FumeOpacity = 1f;   // (b17: the shader sees it through itself - its veil at 0.46, its ribbons at 0.92)
         // a spark: edge #963C28, #CD5F32, body #F09646, #FCC86E, hot #FFEBAA (b05: the clip's few sparks are orange-red
         // lines, b04's were yellow)
@@ -366,7 +366,7 @@ namespace TW.Presentation.VFX.Cel
             }
 
             // ---- beads thrown off it all along while it runs: small round flecks, most of them under it
-            int beads = Count(110, n);
+            int beads = Count(220, n);                                   // (b21: the clip sprays many round the beam f30-48)
             for (int i = 0; i < beads; i++)
             {
                 float rad = rng.Range(0.035f, 0.075f);
@@ -472,7 +472,7 @@ namespace TW.Presentation.VFX.Cel
                 r.Size = new Vector4(rad * 0.8f, rad, 0.6f, rng.Range(0.18f, 0.30f));
                 float t = rng.Next();
                 r.Tone.w = green ? (t < 0.45f ? 1f : t < 0.85f ? 2f : 3f)
-                                 : (t < 0.10f ? 1f : t < 0.40f ? 2f : t < 0.75f ? 3f : 4f);   // (b20: brighter - the clip's mass is lime-yellow at its heart)
+                                 : (t < 0.12f ? 1f : t < 0.46f ? 2f : t < 0.82f ? 3f : 4f);   // (b20: brighter - the clip's mass is lime-yellow at its heart; b21: a little less)
                 r.Erode = Vector4.zero;                                   // (b17: no line round them)
                 r.Extra.y = 7f;                                           // (b18: a splat - b05-b17's sheets read as clubs)
                 renderer.Spawn(kind, r);

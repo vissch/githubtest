@@ -45,9 +45,9 @@
 //             width. Motion x, y the ground's slope there, z the side its longest fingers run to (1 the eye's
 //             right, -1 its left). Extra y seconds it takes to spread, z the age at which it drains.
 //  5 bubble   Pos on the ground. Size x radius it swells to (m). Extra y seconds of the pop at the end of its life.
-//  6 puff     smoke: a see-through veil (c1, patches of c2; 0.46 thinning to 0.20) traced with ribbons (c3,
-//             then ink as it ages; core where the acid under it lights it) along its edge toward the light and
-//             in curls through it (0.92), a crisp ragged edge; it swirls and rises into tall wisps as it goes.
+//  6 puff     smoke: soft-edged, c2 where it is dense and c1 (see-through) at its rim, blotches of c1 in it, a
+//             soft c3 edge toward the light in places (core where the acid under it lights it); it swirls and rises
+//             into tall wisps as it goes, thinning from its rim.
 //             Pos, Vel, Motion (gravity, drag, -, buoyancy). Size x, y, z its size over the life (m). Extra y the
 //             life fraction at which it starts to thin, z the share of its life it is lit by the acid under it.
 //  7 glow     the acid's light on whatever stands behind it (the ground, the target, a crate): the lit point is
@@ -973,11 +973,10 @@ Shader "TW/Cel/AcidBeam"
                 }
                 else if (mode < 6.5)
                 {
-                    // (b17) smoke as the clip draws it (f50-130): a dark see-through veil traced with bright lime
-                    // ribbons that curl - along its edge toward the light and through it - and a crisp edge; it swirls
-                    // and rises into tall wisps as it goes, its veil thinning first and its ribbons last (b02-b16: pale
-                    // cotton balls with a soft edge; b16's were gone by f84, the clip's still cover a third of the sky
-                    // over the target at f80-104)
+                    // (b21) smoke as the clip paints it (f50-130): soft-edged, mid-lime where it is dense and see-through
+                    // at its rim, darker blotches in it, a soft bright edge toward the light in places; it swirls and rises
+                    // into tall wisps as it goes, thinning from its rim (b17-b20 traced crisp dark veils with thin lime
+                    // curls: noodles and cabbages; b02-b16 were pale cotton balls gone by f84)
                     float tk = i.shape.x, fray = i.shape.y, lit = i.shape.z;
                     float sw = 1.4 * (0.6 - length(q)) * (0.6 + 0.8 * fray) + 1.2 * (CelValue2(q * 1.8 + float2(seed * 5.0, seed * 9.0 + tk * 0.02)) - 0.5);
                     float2 p = float2(q.x * cos(sw) - q.y * sin(sw), q.x * sin(sw) + q.y * cos(sw));
@@ -986,23 +985,18 @@ Shader "TW/Cel/AcidBeam"
                     float strand = CelValue2(float2(p.x * 8.0 + seed * 19.0, p.y * 1.6 - tk * 0.09)) - 0.5;   // upright tatters
                     float tear = 0.26 * n + (0.08 + 0.30 * fray) * strand - fray * 0.18 - 0.04;   // it thins from its rim inward as it ages
                     float hem = (0.98 - length(q)) * 0.5;                   // (never out to its card's edge: a straight cut)
-                    float inside = Step(0.0, min(Puff(p, seed, tk) + tear, hem), pix * 1.5);
-                    // its ribbons: along its edge toward the light (what its outline moved away from the light leaves
-                    // of it), and curls through it (the iso-lines of a field warped round on itself, broken into arcs)
-                    float rib = (1.0 - Step(0.0, min(Puff(p + float2(-0.085, 0.165), seed, tk) + tear, hem), pix * 1.5))   // (b20: broad - b17-b19's thin lines bunched its tones in the middle)
-                        * Step(0.42, CelValue2(p * 1.6 + seed * 17.0 + 5.0), 0.05);   // (b19: in places - b18's traced every puff: a cabbage)
-                    float cv = Curl(p, seed, tk);
-                    float cl = max(length(float2(Curl(p + float2(0.02, 0.0), seed, tk), Curl(p + float2(0.0, 0.02), seed, tk)) - cv) / 0.02, 1e-3);
-                    float curl = 1.0 - Step(0.026 + 0.012 * (1.0 - fray), abs(cv - 0.5) / cl, pix * 1.2);   // (b18: one line - b17's two read as lettuce)
-                    rib = max(rib, curl * Step(0.55, CelValue2(p * 2.2 + seed * 21.0 + 3.0), 0.04)) * inside;
-                    // lit by the acid under it in its first moments (the clip's smoke over the beam, f50-60)
-                    float glow = 1.0 - smoothstep(lit * 0.6, lit * 1.4, k);
-                    half3 veil = lerp(shade, body, Step(0.45, CelValue2(p * 3.0 + seed), 0.03));
-                    veil = lerp(veil, body, glow * 0.6);
-                    half3 ribbon = lerp(CelPalInk(row).rgb, light, 1.0 - smoothstep(0.4, 0.9, k));   // darker as it goes
-                    ribbon = lerp(ribbon, pale, glow * Step(0.55, CelValue2(p * 4.0 + seed * 7.0), 0.03));
-                    col = lerp(veil, ribbon, rib);
-                    al = max((lerp(0.36, 0.16, smoothstep(0.3, 1.0, k)) + 0.16 * glow) * inside, rib * 0.95);   // (b20: the veil thinner)
+                    float cut = min(Puff(p, seed, tk) + tear, hem);
+                    float dens = smoothstep(-0.02, 0.10, cut);              // a soft edge
+                    float core = smoothstep(0.06, 0.30, cut);               // its dense middle
+                    float blot = Step(0.56, CelValue2(p * 2.4 + seed * 7.0 + float2(0.0, tk * 0.02)), 0.06);
+                    float lite = (1.0 - smoothstep(-0.02, 0.10, min(Puff(p + float2(-0.085, 0.165), seed, tk) + tear, hem)))
+                        * Step(0.42, CelValue2(p * 1.6 + seed * 17.0 + 5.0), 0.05);   // its edge toward the light, in places
+                    float glow = 1.0 - smoothstep(lit * 0.6, lit * 1.4, k);   // lit by the acid under it in its first moments
+                    col = lerp(shade, body, core);
+                    col = lerp(col, shade, blot * 0.8 * (1.0 - 0.5 * glow));
+                    col = lerp(col, light, lite * dens);
+                    col = lerp(col, pale, lite * glow * 0.6);
+                    al = min(dens * (0.55 + 0.40 * core) * (1.0 - 0.5 * smoothstep(0.35, 1.0, k)) + lite * dens * 0.3, 0.97);
                     al *= (1.0 - smoothstep(0.55, 1.0, fray)) * smoothstep(0.0, 0.08, k);
                     col = MixFog(col, i.fog);
                 }
