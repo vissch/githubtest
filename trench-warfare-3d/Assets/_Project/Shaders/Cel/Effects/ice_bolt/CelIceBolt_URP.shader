@@ -7,7 +7,8 @@
 //
 // A STRIP record (size.w > 0) lies along the straight span r.pos -> r.pos + r.vel x r.life (CelAim.Target, Speed 0,
 // Arrive 1), facing the eye:
-//   extra.x 0  DART: a hard-edged two-tone crystal javelin in a window that runs down the span
+//   extra.x 0  DART: a hard-edged frosty sky-blue crystal javelin (two mottled facets, white glints, jags that
+//              ride with it) in a window that runs down the span
 //              size.xyz the width at its barbs (m) at birth, death, ease; size.w the window's length (share of the span)
 //              extra.z / extra.w the window's head at birth / death (shares); tone.w the clip (1: it stops in the target)
 //   extra.x 1  RIBBON: a soft pale mist strand from a tail share (erode.w) to a head that flies at extra.w shares a
@@ -373,8 +374,11 @@ Shader "TW/Cel/IceBolt"
                     float hookLen = lerp(0.1, 0.2, h3);
                     float hookUp = h2 > 0.8 ? 1.0 : 0.0;
                     float hookDn = h1 < 0.72 ? 1.0 : 0.0;
-                    float cellL = max(i.q.w * 0.9, 1e-3);
-                    float rag = (CelHash21(float2(floor(i.q.z / cellL), sd * 31.0 + step(0.0, y))) - 0.5) * 0.14;
+                    // i09: in its own frame (metres from its tail), so its jags and frost ride with it instead of
+                    // crawling through it as it flies
+                    float ud = a * i.shape.z;
+                    float cellL = max(i.q.w * 0.7, 1e-3);
+                    float rag = (CelHash21(float2(floor(ud / cellL), sd * 31.0 + step(0.0, y))) - 0.5) * 0.22;
                     float eW = y >= 0.0 ? upW : dnW;
                     float dE = eW + rag * step(0.05, eW) - abs(y);
                     // the hook on its side: behind the widest point the stub is narrower and the hook stands off it
@@ -388,14 +392,24 @@ Shader "TW/Cel/IceBolt"
                     float inside = CelAAStep(0.0, dE);
                     float hwPx = i.q.w / max(PixelMetres(i.positionWS), 1e-6);
                     float onePx = 1.0 / max(hwPx, 0.5);
-                    float ridge = 0.12 * eW;
+                    // a frosty sky-blue crystal (the clip at 3x, f11-f48): its two facets mottled lighter and deeper
+                    // (value noise ~1.6 half-widths along by ~0.8 across), the boundary between them broken
+                    float2 mq = float2(ud / max(i.q.w * 1.6, 1e-3), y * 1.2) + float2(sd * 41.0, sd * 17.0);
+                    float mn = 0.65 * CelValue2(mq) + 0.35 * CelValue2(mq * 2.3 + float2(5.1, 1.7));
+                    float ridge = (0.12 + (mn - 0.5) * 0.8) * eW;
                     bool upper = y >= ridge;
-                    col = upper ? CelPal(row, 3) : CelPal(row, 1);
-                    // the ridge between the facets reads as a thin pale line toward the head
-                    col = lerp(col, CelPal(row, 2), (1.0 - saturate(abs(y - ridge) / max(onePx * 1.2, 1e-3))) * smoothstep(0.3, 0.6, a));
+                    float shade = saturate((upper ? 0.84 : 0.38) + (mn - 0.5) * 0.7) * 3.0;
+                    col = shade < 1.0 ? lerp(CelPal(row, 0), CelPal(row, 1), shade) : shade < 2.0 ? lerp(CelPal(row, 1), CelPal(row, 2), shade - 1.0) : lerp(CelPal(row, 2), CelPal(row, 3), shade - 2.0);
+                    // a few white glints in it (~2 px)
+                    float2 gq = float2(ud / max(i.q.w * 0.8, 1e-3), y * 1.5);
+                    float2 gcl = floor(gq);
+                    float gh = CelHash21(gcl + float2(sd * 7.0, sd * 3.0));
+                    float2 gp = gcl + 0.5 + (float2(CelHash21(gcl + float2(sd * 3.1, 1.3)), CelHash21(gcl + float2(sd * 5.3, 2.9))) - 0.5) * 0.5;
+                    float glint = (gh > 0.88 ? 1.0 : 0.0) * saturate(1.4 - length((gq - gp) * float2(hwPx * 0.8, hwPx / 1.5)));
                     // a bright line just inside the upper edge, a deeper rim on the lower
                     if (upper && dE < onePx * 1.6) col = CelPalCore(row).rgb * i.tone.y;
-                    if (!upper && dE < onePx * 1.2) col = CelPal(row, 0);
+                    if (!upper && dE < onePx * 1.0) col = CelPal(row, 0);
+                    col = lerp(col, CelPalCore(row).rgb * i.tone.y, glint);
                     float tailFade = lerp(0.55, 1.0, saturate(a / 0.3));
                     cover = inside * i.tone.z * tailFade * (1.0 - thr);
                 }
@@ -412,7 +426,8 @@ Shader "TW/Cel/IceBolt"
                     float line0 = exp(-(y * y) / max(hw * hw * 0.12, 1e-4) * 1.6);
                     float fresh = lerp(0.7, 1.0, smoothstep(0.6, 1.0, i.q.x));
                     float alpha = g * fresh * lerp(1.15, 0.85, tw);
-                    col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(line0 * 1.2 + (1.0 - tw) * 0.5));
+                    // i09: a weaker bright line (i08's overlapping strands burned white round the darts)
+                    col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(line0 * 0.7 + (1.0 - tw) * 0.35));
                     float pm = PixelMetres(i.positionWS);
                     float hwPx = i.q.w / max(pm, 1e-6);
                     // a soft mist puff in some cells along the strand
@@ -425,7 +440,7 @@ Shader "TW/Cel/IceBolt"
                         float py0 = (CelHash21(float2(pcell, sd * 53.0)) - 0.5) * 2.0;
                         float pr = lerp(2.0, 3.5, CelHash21(float2(pcell, sd * 59.0)));
                         float2 dP = float2((u - px0) / max(i.q.w, 1e-5), y - py0) / pr;
-                        float puff = exp(-dot(dP, dP) * 2.2) * 0.45;
+                        float puff = exp(-dot(dP, dP) * 2.2) * 0.3;
                         alpha = max(alpha, puff);
                     }
                     // frost specks: a share of 0.22 m cells holds a 1-2 px white dot off the strand, twinkling
