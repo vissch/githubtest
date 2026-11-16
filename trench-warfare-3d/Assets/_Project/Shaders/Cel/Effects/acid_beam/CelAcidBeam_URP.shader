@@ -652,7 +652,9 @@ Shader "TW/Cel/AcidBeam"
                             float2 wp = float2(q.x * 2.1, e / 0.043) + seed * 7.0;
                             gw = wp + 0.9 * (float2(CelValue2(wp * 0.8 + 3.0), CelValue2(wp * 0.8 + float2(9.0, 5.0))) - 0.5);
                             float gn = 0.62 * CelValue2(gw) + 0.38 * CelValue2(gw * 2.3 + float2(11.0, 7.0));
-                            float ghw = (0.50 - 0.43 * starve) * (0.6 + 0.9 * CelValue2(gw * 0.7 + float2(21.0, 13.0)));
+                            // (b34: it opens fast, then thins slowly; toward its edges it is ropes sooner - b33's ended in a straight cut)
+                            float ghw = (0.50 - 0.44 * sqrt(starve)) * (0.6 + 0.9 * CelValue2(gw * 0.7 + float2(21.0, 13.0)))
+                                * (1.0 - 0.75 * smoothstep(0.35, 1.0, abs(q.x) / max(edge, 0.02)) * smoothstep(0.0, 0.2, starve));
                             gr = abs(gn - 0.5) / ghw;                     // 0 a rope's middle .. 1 its edge
                             al *= (1.0 - Step(1.0, gr, 0.06)) * (1.0 - smoothstep(0.85, 1.0, starve));
                         }
@@ -688,7 +690,7 @@ Shader "TW/Cel/AcidBeam"
                         col = lerp(col, streak, sk * (1.0 - smoothstep(0.40, 0.55, ax)) * step(0.5, col.r));   // (b29: in its yellow only)
                         // (the lace: yellow-lime down the middle of its ropes, green toward their rims, a thin dark rim)
                         // (b33) goo: green, darker inside in patches, a lit lime rim, yellow ribbons flowing through it (the clip's f84-96)
-                        half3 goo = lerp(shade, rim, Step(0.55, CelValue2(gw * 1.7 + float2(31.0, 17.0)), 0.03) * (1.0 - Step(0.62, gr, 0.05)));
+                        half3 goo = lerp(shade, rim, 0.6 * Step(0.62, CelValue2(gw * 1.7 + float2(31.0, 17.0)), 0.03) * (1.0 - Step(0.62, gr, 0.05)));   // (b34: fewer, lighter - b33's read as camouflage)
                         goo = lerp(goo, body, Step(0.70, gr, 0.04));
                         goo = lerp(goo, light, (1.0 - Step(0.11, abs(CelValue2(gw * float2(1.1, 0.6) + float2(41.0, 23.0)) - 0.5), 0.015)) * (1.0 - Step(0.85, gr, 0.05)));
                         col = lerp(col, goo, smoothstep(0.0, 0.45, starve));
