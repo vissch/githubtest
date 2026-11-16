@@ -132,7 +132,10 @@ Shader "TW/Cel/AcidBeam"
                         float eH = clamp(a > B0 ? B0 + g - T : a - T, 0.0, eT);   // the oldest still short of the target
                         e = lerp(eT, eH, v.uv.x);
                         s = a <= B0 ? a - e : e < B0 ? B0 - e + g : 0.10 * (1.0 - exp(-(a - e) / 0.10)) + 0.04 * (a - e);
-                        starve = smoothstep(B0, B0 + win, a + 0.05 * sin(e * 13.0 + r.axis.z) - 0.03);
+                        // (b22: it opens fast and thins slowly - the clip's is broken through three drawings after it
+                        // starts and its ropes hang on ten more; b06-b21's smoothstep opened it over thirteen)
+                        float xb = saturate((a + 0.05 * sin(e * 13.0 + r.axis.z) - 0.03 - B0) / win);
+                        starve = 1.0 - (1.0 - xb) * (1.0 - xb);
                     }
                     else
                     {
@@ -990,7 +993,7 @@ Shader "TW/Cel/AcidBeam"
                     float core = smoothstep(0.06, 0.30, cut);               // its dense middle
                     float blot = Step(0.56, CelValue2(p * 2.4 + seed * 7.0 + float2(0.0, tk * 0.02)), 0.06);
                     float lite = (1.0 - smoothstep(-0.02, 0.10, min(Puff(p + float2(-0.085, 0.165), seed, tk) + tear, hem)))
-                        * Step(0.42, CelValue2(p * 1.6 + seed * 17.0 + 5.0), 0.05);   // its edge toward the light, in places
+                        * Step(0.32, CelValue2(p * 1.6 + seed * 17.0 + 5.0), 0.05);   // its edge toward the light, in places (b22: more of them)
                     float glow = 1.0 - smoothstep(lit * 0.6, lit * 1.4, k);   // lit by the acid under it in its first moments
                     col = lerp(shade, body, core);
                     col = lerp(col, shade, blot * 0.8 * (1.0 - 0.5 * glow));

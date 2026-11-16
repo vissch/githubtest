@@ -24,7 +24,7 @@ namespace TW.Presentation.VFX.Cel
         /// 0.02 s behind the point, 0.78 at 0.21 s), the tail's taper; and the seconds the whole beam takes to break
         /// up from frame BreakFrame (the clip's is a lace end to end on frames 85-88 and blobs by 93; b02-b05 broke
         /// its last 0.6 s of fluid up as it flew on into the target).</summary>
-        const float HeadTaper = 0.45f, TailTaper = 0.05f, BreakUp = 0.55f, BreakFrame = 85f;   // (b06's 0.33 was gone by f92, b07's 0.45 by f94)
+        const float HeadTaper = 0.45f, TailTaper = 0.05f, BreakUp = 0.55f, BreakFrame = 84f;   // (b22: 85 -> 84, and it opens fast)   // (b06's 0.33 was gone by f92, b07's 0.45 by f94)
         /// <summary>The puddle's half-extent across (m) and its depth over its width (the clip: a slab 3.6 m across
         /// round the target's foot, 260 x 90 px at frame 125; b01 filmed a little big) and how far to the eye's right
         /// of the foot its middle lies (the clip's: 50 px).</summary>
@@ -582,9 +582,10 @@ namespace TW.Presentation.VFX.Cel
                 Vector3 d = rng.OnSphere();
                 d.y = Mathf.Abs(d.y) * 0.8f + 0.05f;
                 d = (d + dir * 0.3f).normalized;
-                float rad = rng.Range(0.03f, 0.07f);                      // (b15: b14's 0.018-0.04 m were 2-6 px, too small to read)
+                float rad = rng.Range(0.035f, 0.08f);                     // (b15: b14's 0.018-0.04 m were 2-6 px, too small to read)
+                // (b22: in the streaks' pale lime-yellow - the clip's sparkles are its brightest dots, b14-b21's lime were dim)
                 var r = Rec(now, AtFrame(late, i < fine * 3 / 5 ? rng.Range(70f, 90f) : rng.Range(44f, 70f)), rng.Range(0.25f, 0.5f), AcidBeamKind.Drop,
-                    target + Vector3.up * rng.Range(-0.4f, 1.2f) + right * rng.Range(-0.6f, 0.8f) - away * rng.Range(0.0f, 0.8f), Splash, 1f, ref rng);
+                    target + Vector3.up * rng.Range(-0.4f, 1.2f) + right * rng.Range(-0.6f, 0.8f) - away * rng.Range(0.0f, 0.8f), Streak, 1f, ref rng);
                 r.Vel = d * rng.Range(6f, 16f);
                 r.Motion = new Vector4(9f, 1.2f, 0f, 0f);
                 r.Size = new Vector4(rad, rad * 0.8f, 1f, 0.006f);
