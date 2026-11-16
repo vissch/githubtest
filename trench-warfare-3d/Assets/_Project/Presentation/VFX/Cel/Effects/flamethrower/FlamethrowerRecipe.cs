@@ -258,10 +258,10 @@ namespace TW.Presentation.VFX.Cel
                 // BallField, extra.w -2): a round ring of curling inked tongues wrapping the dummy that opens a dark smoke
                 // hole late (REF f101-f111), in place of the Lobe kind's lumpy yellow chunks. Last in the list (no seed shift).
                 Name = "fireball ring", Kind = "FlameJet", Anchor = CelAnchor.Target, Offset = new Vector3(0.35f, 0.4f, -0.6f), Start = 2.6f, Duration = 0.5f, Life = 1.5f, LifeJitter = 0.15f,   // k04: centred on the dummy (k03's ring sat left of it)
-                Close = 6, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.7f, 0f, 0f),   // k04: 3 -> 6 rings spread 0.7 m (REF f108: several loops of orange outline in the smoke) Aim = CelAim.None, Speed = 0f, Buoyancy = 0.3f,
+                Close = 6, Mid = 1, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.7f, 0f, 0f), Aim = CelAim.None, Speed = 0f, Buoyancy = 0.3f,   // k04: 3 -> 6 rings spread 0.7 m (REF f108: several loops of orange outline in the smoke)
                 Size = new CelCurve(1.5f, 2.5f, 0.5f), SizeJitter = 0.25f,
                 Erode = new CelCurve(0.62f, 0.45f, 1f),   // k04: hole 0.45 -> 0.62 of the radius (the loop reads as a rim round smoke)
-                Palette = Burn, CoolTo = SmokeInk, Core = 2.5f, Ink = 1.2f,   // k04: ink 0.6 -> 1.2 Extra = new Vector4(0.9f, 4f, 0.8f, -2.0f),
+                Palette = Burn, CoolTo = SmokeInk, Core = 2.5f, Ink = 1.2f, Extra = new Vector4(0.9f, 4f, 0.8f, -2.0f),   // k04: ink 0.6 -> 1.2
             },
             new CelLayer
             {
