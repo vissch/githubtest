@@ -154,7 +154,7 @@ Shader "TW/Cel/AcidBeam"
                     float hw;
                     if (r.extra.z > 1.5)
                     {
-                        hw = lerp(r.size.x, r.size.y, kS) * lerp(1.0, 2.10 + 0.9 * (1.0 - kS), starve);   // (the clip's lace is broad, broadest near the eye: b16)
+                        hw = lerp(r.size.x, r.size.y, kS) * lerp(1.0, 2.40 + 1.2 * (1.0 - kS), starve);   // (the clip's lace is broad, broadest near the eye: b16, b19)
                         hw *= 1.0 + 1.0 * smoothstep(0.86, 1.0, kS) * land;   // it fans out into the splash where it lands, once it has (b13)
                         // its broken end is a torn net that spreads a little wider and swings across where the beam was
                         c += side * (beam * 0.30 * starve * sin(e * 23.0 + r.axis.z)) + nrm * (beam * 0.25 * starve * sin(e * 17.0 + r.axis.z * 1.3));
@@ -626,7 +626,7 @@ Shader "TW/Cel/AcidBeam"
                                 float2 o2 = float2(xx, yy);
                                 float2 cid = wc + o2;
                                 float2 pt = o2 + float2(CelHash21(cid + 3.1), CelHash21(cid + 17.7)) * 0.8 + 0.1 - wf;
-                                float hr = (0.24 + 0.44 * CelHash21(cid + 29.3)) * (0.35 + 1.40 * starve);   // (they grow until they meet; b17: sooner; b18: bigger - the clip's lace is mostly gaps)
+                                float hr = (0.22 + 0.42 * CelHash21(cid + 29.3)) * (0.32 + 1.35 * starve);   // (they grow until they meet; b17: sooner; b18-b19: bigger - the clip's lace is mostly gaps)
                                 gap = min(gap, length(pt) - hr);
                             }
                             // its ropes thin and part, then its islands go (b06: it is gone when it has broken up)
@@ -778,16 +778,17 @@ Shader "TW/Cel/AcidBeam"
                         float2 L = i.shape.zw;
                         float2 p = float2(q.x * max(i.shape.x, 1.0) / max(i.shape.x * 0.5 + 0.5, 1.0), q.y);
                         float tk = i.shape3.x, an = atan2(p.y, p.x);
-                        float r1 = length(p) * (1.0 + 0.045 * sin(an * 3.0 + seed * 40.0 + tk * 0.35) + 0.025 * sin(an * 5.0 + seed * 23.0 - tk * 0.5));
+                        // (b19: a bean or a pear, never a coin, its outline inside its card - b06-b18's read as pearls)
+                        float r1 = length(p) * (1.0 + 0.09 * sin(an * 2.0 + seed * 31.0) + 0.05 * sin(an * 3.0 + seed * 40.0 + tk * 0.35) + 0.025 * sin(an * 5.0 + seed * 23.0 - tk * 0.5));
                         float cl = dot(p, L) / max(length(p), 1e-4);   // 1 toward the light, -1 away
-                        al = 1.0 - Step(0.92, r1, pix);
-                        float ringIn = 0.77 - 0.07 * cl;
+                        al = 1.0 - Step(0.80, r1, pix);
+                        float ringIn = 0.60 - 0.06 * cl;                // (b19: a thick ring, the clip's quarter of its radius)
                         float ring = Step(ringIn, r1, pix);
                         col = lerp(shade, light, ring);
                         col = lerp(col, CelPalInk(row).rgb, ring * (1.0 - smoothstep(-0.65, -0.15, cl)));
                         col = lerp(col, pale, (1.0 - Step(0.04, abs(r1 - ringIn + 0.085), pix)) * smoothstep(0.56, 0.68, cl));
-                        col = lerp(col, pale, 1.0 - Step(0.21, length(p - L * 0.16), pix));
-                        col = lerp(col, rim, Step(0.86, r1, pix) * (1.0 - smoothstep(-0.6, -0.25, cl)) * i.shape2.x);
+                        col = lerp(col, pale, 1.0 - Step(0.19, length((p - L * 0.27) * float2(1.0, 1.2)), pix));   // (b19: off toward the light, not in its middle: an eye)
+                        col = lerp(col, rim, Step(0.75, r1, pix) * (1.0 - smoothstep(-0.6, -0.25, cl)) * i.shape2.x);
                         if (i.shape2.y > 0.01)
                             al *= Step(0.72 * smoothstep(0.55, 0.95, k) * i.shape2.y, length((p + L * 0.28) * float2(1.0, 1.15)), pix);
                     }
@@ -988,7 +989,8 @@ Shader "TW/Cel/AcidBeam"
                     float inside = Step(0.0, min(Puff(p, seed, tk) + tear, hem), pix * 1.5);
                     // its ribbons: along its edge toward the light (what its outline moved away from the light leaves
                     // of it), and curls through it (the iso-lines of a field warped round on itself, broken into arcs)
-                    float rib = 1.0 - Step(0.0, min(Puff(p + float2(-0.040, 0.080), seed, tk) + tear, hem), pix * 1.5);
+                    float rib = (1.0 - Step(0.0, min(Puff(p + float2(-0.040, 0.080), seed, tk) + tear, hem), pix * 1.5))
+                        * Step(0.42, CelValue2(p * 1.6 + seed * 17.0 + 5.0), 0.05);   // (b19: in places - b18's traced every puff: a cabbage)
                     float cv = Curl(p, seed, tk);
                     float cl = max(length(float2(Curl(p + float2(0.02, 0.0), seed, tk), Curl(p + float2(0.0, 0.02), seed, tk)) - cv) / 0.02, 1e-3);
                     float curl = 1.0 - Step(0.026 + 0.012 * (1.0 - fray), abs(cv - 0.5) / cl, pix * 1.2);   // (b18: one line - b17's two read as lettuce)
