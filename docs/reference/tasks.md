@@ -718,6 +718,22 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **See it:** `C:/Users/PC/Documents/celfx/tools/capture.ps1 -Effect fireball` (the Range film; the reference is
   `fireball_nolora.mp4`, what it shows is written down in `C:/Users/PC/Documents/celfx/spec/eye/fireball.md`).
 
+### Acid ball (a CelFx effect: a flying ball of acid, its burst, the crown of goo, the ring, cloud, puddle and light, 2026-11-15)
+- **Files (SHOW):** `Presentation/VFX/Cel/Effects/acid_ball/AcidBallRecipe.cs` (`AcidBallRecipe.Play(from, target,
+  ground, right, seed, delay)`: every record spawned at once, nothing left to do per frame; the clip's numbers as
+  named constants; `Lens(intensity, smoothness)` hands the scene's lens vignette to the shader),
+  `Presentation/VFX/Cel/Effects/acid_ball/AcidBallKind.cs` (the pool: one shader, a 40-segment strip, 768 records;
+  the modes of a record - Comet, Drop, Burst, Crown, Puddle, Bubble, Puff, Glow, Ring),
+  `Presentation/VFX/Cel/Effects/acid_ball/AcidBallRange.cs` (lab-only: where the Range's ball comes from, and the
+  vignette), `Shaders/Cel/Effects/acid_ball/CelAcidBall_URP.shader` (nine modes in one shader, its header the record
+  layout; the puddle and the ring are depth decals, the glows multiplied into the scene by the light pass, as
+  neon_acid's), keeper `Resources/ShaderKeep/KeepCelAcidBall.mat`.
+- **Tests:** AcidBallTests (`Tests/Cel`: the ball's path lands on the target; a close play has every layer and fits
+  half its pool; far < mid < close; nothing is drawn eight seconds on; the lens is put back with the session;
+  0 B per play).
+- **See it:** `C:/Users/PC/Documents/celfx/tools/capture.ps1 -Effect acid_ball` (the Range film; the reference is
+  `acid_ball_cel_00001_.mp4`, what it shows is written down in `C:/Users/PC/Documents/celfx/spec/eye/acid_ball.md`).
+
 ### Debris and destruction of props and houses
 - **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers,
   `ZoomShare`; a pool whose last piece has sunk is not drawn), `Presentation/Camera/DebrisRenderer.Parts.cs` (a man's
@@ -1181,7 +1197,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Cel:** CelFxTests, FireballTests, NeonAcidTests
+- **Cel:** AcidBallTests, CelFxTests, FireballTests, NeonAcidTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, ScriptedEnemySlotTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** AnimClockPlayTests, CaptureRigPlayTests, DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudMinimapPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, GymRequestTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
