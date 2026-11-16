@@ -30,7 +30,8 @@ namespace TW.Presentation.VFX.Cel
         /// at ~3.9 shares (50 m/s) a second and crosses the frame in six frames (clip: in at f8, on the board at f14).</summary>
         // i11: 0.28 m at the barbs (0.22): i10's darts read twice the clip's slenderness near the camera (~15:1 for
         // its ~8:1); i12 a 0.145 window (i11 0.135) for the barbed arrow
-        public const float DartWindow = 0.145f, DartLife = 0.32f, DartWidth = 0.28f;
+        // i16: 0.135 and 0.26 (i15 0.145, 0.28): the clip's darts median 104 x 18 px, i15's 129 x 24
+        public const float DartWindow = 0.135f, DartLife = 0.32f, DartWidth = 0.26f;
         const float DartHeadStart = -0.05f, DartHeadEnd = 1f + DartWindow * 1.3f;
         /// <summary>Shares a second a ribbon's head flies (the darts' speed) and the ribbons' wavelength (m: the clip's
         /// strands bend once over 200-300 px; i12 5.5: through the holds f30-f60 they run nearly straight).</summary>
@@ -54,8 +55,10 @@ namespace TW.Presentation.VFX.Cel
         // (188,224,252), upper facet (208,237,255), glint (232,248,255); i13 halfway back to i11's sky blue: i12's
         // filmed (179,206,235) with tops (221,238,242), as white as the streaks' lit edges, for the clip's
         // (170,198,229) and (211,234,254)
+        // i16: the mid tones less blue (i15 filmed lum p50 (156,189,234) and p75 (177,209,249) for the clip's
+        // (153,180,213) and (169,199,233); p10 and p90 matched)
         public static readonly int DartRow = CelPalette.Add("ice_dart",
-            W(0.345f, 0.46f, 0.675f), W(0.46f, 0.592f, 0.905f), W(0.56f, 0.705f, 0.975f), W(0.637f, 0.805f, 1f),
+            W(0.345f, 0.46f, 0.675f), W(0.465f, 0.575f, 0.8f), W(0.55f, 0.68f, 0.86f), W(0.625f, 0.78f, 0.92f),
             W(0.74f, 0.925f, 1f), 1.1f, 4, W(0.30f, 0.38f, 0.50f));
         // the ribbons, as they are before their opacity lays them over the ground (the clip shows (96,116,141) there;
         // i10 a little greyer: i09 filmed them sat 0.36 for the clip's 0.31, and the darts are the blue thing)
@@ -95,14 +98,17 @@ namespace TW.Presentation.VFX.Cel
         // i12: shots every 2.2-3.2 frames to f118 (the clip shows 2+ darts in every frame f8-f123, i11 none f116-f123)
         // and a shot's darts GroupSpread apart (i11's 0.12 m merged them into one sliver on screen).
         // (i14: lanes 0.72 and groups 0.46: the clip's darts also ride the stream's upper and lower edges)
-        const float FirstShot = 8f, LastShot = 118f, ShotGapMin = 2.2f, ShotGapMax = 3.2f, LaneSpread = 0.72f, LandSpread = 0.3f, GroupSpread = 0.46f;
+        // i16: shots every 1.4-2.0 frames, 1.9 darts a shot (i15 2.2-3.2, 1.75): the clip shows 5.1 darts a frame,
+        // i15 2.6 (twice i15's from x 300 to x 800)
+        const float FirstShot = 8f, LastShot = 118f, ShotGapMin = 1.4f, ShotGapMax = 2.0f, LaneSpread = 0.72f, LandSpread = 0.3f, GroupSpread = 0.46f;
         /// <summary>A wake's life (s), its width (m: 8-13 px soft strands near the camera), its wave's amplitude (m)
         /// and its opacity (i09: dimmer, the clip's strands top out at ~(110-160, 125-180, 150-210) where i08's
         /// overlapping ones burned to (200, 222, 252) round the darts).</summary>
         // i12: straighter (amp 0.09) and brighter (0.62): the clip's streaks top out at (147-166, 165-182, 189-211),
         // i11's at (107, 128, 160)
         // i13 0.55: with i12's denser volley the near-camera bundle filmed 1.6x the clip's px
-        const float WakeLife = 0.62f, WakeWidth = 0.21f, WakeAmp = 0.09f, WakeOpacity = 0.55f;
+        // i16 0.8 on a peaked profile: the clip's strands peak ~1.45x i15's over the ground (lum +90 for +62)
+        const float WakeLife = 0.62f, WakeWidth = 0.21f, WakeAmp = 0.09f, WakeOpacity = 0.8f;
         /// <summary>The gap (f66-f90): the bloom is gone and the darts glance off the board, so a share of the wakes
         /// runs on past the dummy to the upper right (the clip's f80 strands reach ~(1100, 250)); the darts themselves
         /// fly on down the corridor into the board (i12: i11's flew the glancing path and left the corridor empty) and
@@ -125,7 +131,7 @@ namespace TW.Presentation.VFX.Cel
             for (float f = FirstShot; f <= LastShot; f += rng.Range(ShotGapMin, ShotGapMax))
             {
                 float g = rng.Next();
-                int n = g < 0.45f ? 1 : g < 0.8f ? 2 : 3;
+                int n = g < 0.35f ? 1 : g < 0.75f ? 2 : 3;
                 Vector3 centre = rng.InSphere() * LaneSpread;
                 acc += keep;
                 bool on = acc >= 1f;
@@ -138,7 +144,9 @@ namespace TW.Presentation.VFX.Cel
                     bool glance = f >= GlanceFrom && f <= GlanceTo && rng.Next() < GlanceShare;
                     Vector3 land = (right * rng.Range(-1f, 1f) + up * rng.Range(-1f, 1f)) * LandSpread;
                     Vector3 end = to + land, wEnd = glance ? to + right * rng.Range(3.0f, 4.2f) + up * rng.Range(2.2f, 3.0f) : end;
-                    int wakes = far ? 0 : mid ? (rng.Next() < 0.5f ? 1 : 0) : (rng.Next() < 0.9f ? 1 : 2);
+                    // (i16: 0.64 wakes a dart, i15 1.1, so the denser volley draws as many wakes a frame)
+                    float wr = rng.Next();
+                    int wakes = far ? 0 : mid ? (wr < 0.3f ? 1 : 0) : (wr < 0.4f ? 0 : wr < 0.96f ? 1 : 2);
                     float speed = (DartHeadEnd - DartHeadStart) / life;
                     if (on && darts) renderer.Spawn(kind, Dart(now + at, from + lane, end, life, width, dseed));
                     for (int w = 0; w < 2; w++)
@@ -190,7 +198,8 @@ namespace TW.Presentation.VFX.Cel
 
         /// <summary>The volley's layers beside the shots: the wide faint sheets the strands lie in.</summary>
         public static readonly CelFxRecipe Volley = new CelFxRecipe("ice_bolt_volley", 6f,
-            Sheets("ribbon sheets", 16, 5, AtFrame(9) - 0.04f, AtFrame(112) - AtFrame(9), 0.6f, 0.3f, 0.1f, 0.1f, 0.25f));
+            // (i16 0.14: the clip's corridor glows between its strands, i15's far end 0.16 covered for its 0.27)
+            Sheets("ribbon sheets", 16, 5, AtFrame(9) - 0.04f, AtFrame(112) - AtFrame(9), 0.6f, 0.3f, 0.1f, 0.14f, 0.25f));
 
         // ---------------------------------------------------------------- the hit (played at the chest)
         /// <summary>A dot of the IceBolt kind at the hit (Stretch is minus its minimum px at Far; 0.001 = none).</summary>

@@ -362,52 +362,53 @@ Shader "TW/Cel/IceBolt"
                 }
                 else if (mode < 0.5)
                 {
-                    // DART: an ICICLE javelin (the clip at 4x): a long needle point, the widest part a quarter to two
-                    // fifths from the back, a short broken stub behind it, a swept-back hook on the lower edge of most
-                    // (on the upper of a few); two-tone, hard-edged, a deep blue line along the lower edge
+                    // DART (i16, the clip's darts at 2x f12-f108 against i15's): a HARPOON - a long straight needle
+                    // point, swept wings at the widest point 0.3-0.45 from the back (i15: 0.22-0.42 on a stub 0.33-0.55
+                    // wide, a thick notched back that read as a paper dart), a thin shaft behind them that fades into
+                    // the stream, a smaller second wing behind the first on the lower edge of a quarter (the clip's
+                    // f84); clean cut edges; two-tone, a deep blue line along the lower edge
                     float a = i.q.x, y = i.q.y;
                     float sd = i.more.w;
                     float h1 = CelHash21(float2(sd * 13.1, 2.3)), h2 = CelHash21(float2(sd * 17.9, 4.1)), h3 = CelHash21(float2(sd * 5.3, 7.7));
-                    float hb = lerp(0.22, 0.42, h1);
-                    float w0u = lerp(0.8, 1.0, h3), w0d = lerp(0.85, 1.0, h2);
-                    // i12: a narrow shaft behind the barbs again (i11's fuller back read as a leaf), so the barbs
-                    // stand off it as wings
-                    float backU = lerp(0.36, 0.55, h2), backD = lerp(0.33, 0.5, h3);
-                    float upW = IceEdge(a, hb + (h2 - 0.5) * 0.06, w0u, backU);
-                    float dnW = IceEdge(a, hb - (h2 - 0.5) * 0.06, w0d, backD);
-                    // i12: bolder swept barbs on both edges of most (the clip's arrowheads at the film's size)
-                    float hookLen = min(lerp(0.16, 0.28, h3), hb * 0.9);
-                    float hookUp = h2 > 0.5 ? 1.0 : 0.0;
-                    float hookDn = h1 < 0.85 ? 1.0 : 0.0;
+                    float h4 = CelHash21(float2(sd * 23.7, 9.1));
+                    float hb = lerp(0.3, 0.45, h1);
+                    float w0u = lerp(0.75, 1.0, h3), w0d = lerp(0.85, 1.0, h2);
+                    float shU = lerp(0.16, 0.26, h2), shD = lerp(0.16, 0.26, h3);
+                    // the needle straight (on some a little hollow) from the tip back to the widest point; behind it
+                    // the body steps in to the shaft at once, and the shaft thins over its last 12 %
+                    float tip = pow(saturate((1.0 - a) / max(1.0 - hb, 0.05)), lerp(1.0, 1.15, h2));
+                    float bodyT = smoothstep(hb - lerp(0.04, 0.08, h3), hb, a);
+                    float endT = lerp(0.35, 1.0, saturate(a / 0.12));
+                    float upW = a >= hb ? w0u * tip : lerp(shU, w0u, bodyT) * endT;
+                    float dnW = a >= hb ? w0d * tip : lerp(shD, w0d, bodyT) * endT;
                     // i09: in its own frame (metres from its tail), so its jags and frost ride with it instead of
                     // crawling through it as it flies
                     float ud = a * i.shape.z;
-                    // i10: its outline an irregular frosty wobble (value noise ~1 half-width long) with small steps,
-                    // not i09's regular sawtooth
+                    // (i16 straighter: the clip's edges are clean cuts at 2x; i15's wobble 0.16 and steps 0.06)
                     float cellL = max(i.q.w * 0.9, 1e-3);
-                    // (i11 calmer: i10's 0.34 read as a serrated knife)
-                    float rag = (CelValue2(float2(ud / cellL, sd * 31.0 + step(0.0, y) * 7.0)) - 0.5) * 0.16
-                              + (CelHash21(float2(floor(ud / (cellL * 0.6)), sd * 37.0 + step(0.0, y))) - 0.5) * 0.06;
+                    float rag = (CelValue2(float2(ud / cellL, sd * 31.0 + step(0.0, y) * 7.0)) - 0.5) * 0.06
+                              + (CelHash21(float2(floor(ud / (cellL * 0.6)), sd * 37.0 + step(0.0, y))) - 0.5) * 0.03;
                     float eW = y >= 0.0 ? upW : dnW;
                     float dE = eW + rag * step(0.05, eW) - abs(y);
-                    // the hook on its side: behind the widest point the stub is narrower and the hook stands off it
-                    float hookOn = y >= 0.0 ? hookUp : hookDn;
+                    // the wings: swept back from the widest point, on the lower edge of most and the upper of some
+                    float hookLen = min(lerp(0.1, 0.22, h3), hb * 0.7);
+                    float hookOn = y >= 0.0 ? step(0.4, h2) : step(h1, 0.9);
                     if (hookOn > 0.5 && a < hb)
-                    {
-                        float stubW = (y >= 0.0 ? backU : backD) * saturate(a / max(hb * 0.45, 0.02));
-                        float w0h = y >= 0.0 ? w0u : w0d;
-                        dE = max(stubW + rag * 0.5 - abs(y), IceHook(a, abs(y), hb, w0h, stubW, hookLen));
-                    }
+                        dE = max(dE, IceHook(a, abs(y), hb, y >= 0.0 ? w0u : w0d, eW, hookLen));
+                    float hb2 = hb - hookLen * 1.15;
+                    if (h4 < 0.25 && y < 0.0 && a < hb2)
+                        dE = max(dE, IceHook(a, abs(y), hb2, w0d * 0.72, eW, hookLen * 0.75));
                     float inside = CelAAStep(0.0, dE);
                     float hwPx = i.q.w / max(PixelMetres(i.positionWS), 1e-6);
                     float onePx = 1.0 / max(hwPx, 0.5);
                     // a frosty sky-blue crystal (the clip at 3x, f11-f48): its two facets mottled lighter and deeper
                     // (value noise ~1.6 half-widths along by ~0.8 across), the boundary between them broken
+                    // (i16 calmer: the clip's facets are a clean two-tone at 2x)
                     float2 mq = float2(ud / max(i.q.w * 1.6, 1e-3), y * 1.2) + float2(sd * 41.0, sd * 17.0);
                     float mn = 0.65 * CelValue2(mq) + 0.35 * CelValue2(mq * 2.3 + float2(5.1, 1.7));
-                    float ridge = (0.12 + (mn - 0.5) * 0.8) * eW;
+                    float ridge = (0.12 + (mn - 0.5) * 0.4) * eW;
                     bool upper = y >= ridge;
-                    float shade = saturate((upper ? 0.86 : 0.48) + (mn - 0.5) * 0.7) * 3.0;
+                    float shade = saturate((upper ? 0.86 : 0.48) + (mn - 0.5) * 0.45) * 3.0;
                     col = shade < 1.0 ? lerp(CelPal(row, 0), CelPal(row, 1), shade) : shade < 2.0 ? lerp(CelPal(row, 1), CelPal(row, 2), shade - 1.0) : lerp(CelPal(row, 2), CelPal(row, 3), shade - 2.0);
                     // a few white glints in it (~2 px)
                     float2 gq = float2(ud / max(i.q.w * 0.8, 1e-3), y * 1.5);
@@ -419,7 +420,8 @@ Shader "TW/Cel/IceBolt"
                     if (upper && dE < onePx * 1.6) col = CelPalCore(row).rgb * i.tone.y;
                     if (!upper && dE < onePx * 1.0) col = CelPal(row, 0);
                     col = lerp(col, CelPalCore(row).rgb * i.tone.y, glint);
-                    float tailFade = lerp(0.55, 1.0, saturate(a / 0.3));
+                    // the shaft fades into the stream
+                    float tailFade = lerp(0.45, 1.0, saturate(a / 0.35));
                     cover = inside * i.tone.z * tailFade * (1.0 - thr);
                 }
                 else
@@ -438,7 +440,8 @@ Shader "TW/Cel/IceBolt"
                     float ay = abs(y) / max(hw, 1e-3);
                     // i12: crisp edged (the clip's streaks at the film's size, not i11's blur) and lit across, its
                     // bright edge on the side the twist turns toward the eye
-                    float g = 1.0 - smoothstep(0.62, 1.0, ay);
+                    // (i16 peaked: the clip's strands at 1:1 f30-f84 are bright narrow peaks, i15's flat sheets)
+                    float g = pow(saturate(1.0 - ay * ay), 1.5);
                     float side = twc >= 0.0 ? 1.0 : -1.0;
                     float eo = (y * side / max(hw, 1e-3) - 0.62) / 0.16;
                     float edge = exp(-eo * eo) * (1.0 - tw * 0.6);
