@@ -168,6 +168,18 @@ Shader "TW/Cel/Lobe"
                 // the eroded edge darkens a band before the ink: the lobe thins toward its holes
                 if (e > 0.001) lit *= lerp(0.55, 1.0, saturate((f - e) / max(i.more.y, 1e-3)));
                 half3 col = LobeBodyPalette(lit, i.tone.x, i.tone.y, i.palettePhase);
+                // k06 (flamethrower): prepared FlameSmoke records (extra.w < 0, only the flamethrower's smoke) are lit by
+                // the fire under them while young: a hard orange band, a yellow inner band, round the silhouette of their
+                // lower and side faces, gone by ~1.3 s (REF f56-f100: orange-rimmed smoke lobes where the fire meets the column)
+                if (r.extra.w < 0.0)
+                {
+                    float heat = 1.0 - smoothstep(0.3, 1.3, t);
+                    float nv = saturate(dot(nrm, viewWS));
+                    float rimW = 0.5 * heat * saturate(0.75 - nrm.y);
+                    float edge = 1.0 - nv;
+                    col = lerp(col, half3(0.80, 0.17, 0.015), CelAAStep(1.0 - rimW, edge) * step(0.02, rimW));
+                    col = lerp(col, half3(0.96, 0.55, 0.07), CelAAStep(1.0 - rimW * 0.4, edge) * step(0.02, rimW));
+                }
                 float ink = e > 0.001 ? CelInk(f, e, CelLodInk(i.tone.w * 0.8)) : 0.0;
                 col = lerp(col, LobeInkPalette(i.tone.x, i.palettePhase.x), ink);
                 col = ApplyMist(col, i.positionWS);
