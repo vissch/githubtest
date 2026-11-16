@@ -71,6 +71,221 @@ namespace TW.Tests
             Assert.That(bytes, Is.EqualTo(0), "Spawn copies a struct into the ring; " + bytes + " B for 2000 spawns");
         }
 
+        CelRecord StoredRecord(int kind, int offset)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var pools = (Array)typeof(CelFxRenderer).GetField("pools", flags).GetValue(renderer);
+            var pool = pools.GetValue(kind);
+            int start = (int)pool.GetType().GetField("Start").GetValue(pool);
+            object records = typeof(CelFxRenderer).GetField("records", flags).GetValue(renderer);
+            return (CelRecord)records.GetType().GetProperty("Item").GetValue(records, new object[] { start + offset });
+        }
+
+        [TestCase(1f)]
+        [TestCase(-1f)]
+        public void Two_Flame_Emitters_Keep_Their_Own_Frame_And_Clock(float mode)
+        {
+            CelFx.Adopt(renderer);
+            var recipe = new CelFxRecipe("emitter isolation", 2f, new CelLayer
+            {
+                Kind = "FlameJet", Close = 1, Mid = 1, Far = 1, LifeJitter = 0f,
+                Palette = "white", Extra = new Vector4(0f, 0f, 0f, mode), Buoyancy = 0.7f,
+                Offset = new Vector3(0.2f, 0.3f, 0.4f),
+            });
+            int kind = renderer.KindId("FlameJet");
+            var originA = new Vector3(-4f, 1f, 2f);
+            var targetA = new Vector3(7f, 3f, 2f);
+            var originB = new Vector3(40f, 2f, -30f);
+            var targetB = new Vector3(40f, 5f, -18f);
+            CelFx.Play(recipe, originA, targetA - originA, targetA, 1917);
+            var first = StoredRecord(kind, 0);
+            CelFx.Clock = 100.5f;
+            CelFx.Play(recipe, originB, targetB - originB, targetB, 1918);
+            var second = StoredRecord(kind, 1);
+            Assert.That(StoredRecord(kind, 0), Is.EqualTo(first), "a later emitter must not rewrite an active record");
+            Assert.That(first.Axis, Is.EqualTo(targetA));
+            Assert.That(first.Motion, Is.EqualTo(new Vector4(originA.x, originA.y, originA.z, 0.7f)));
+            Assert.That(first.Tone.z, Is.EqualTo(100f));
+            Assert.That(second.Axis, Is.EqualTo(targetB));
+            Assert.That(second.Motion, Is.EqualTo(new Vector4(originB.x, originB.y, originB.z, 0.7f)));
+            Assert.That(second.Tone.z, Is.EqualTo(100.5f));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void A_Second_Emitter_Does_Not_Recolor_An_Already_Rendered_Jet(bool frontOnly)
+        {
+            FlamethrowerRecipe.AddPalettes();
+            CelFx.Adopt(renderer);
+            var recipe = new CelFxRecipe("rendered emitter isolation", 3f,
+                new CelLayer { Kind = "FlameJet", Close = 1, Mid = 1, Far = 1, Life = 3f, LifeJitter = 0f,
+                    Aim = CelAim.Target, Spread = 0f, Size = new CelCurve(0.3f, 2.3f, 1.4f), SizeJitter = 0f,
+                    Erode = new CelCurve(0.8f, 0.3f, 0.85f), Palette = FlamethrowerRecipe.Flame, Core = 3.5f,
+                    Extra = new Vector4(9f, 2.2f, 0.5f, 1f) },
+                new CelLayer { Kind = "FlameJet", Close = 1, Mid = 1, Far = 1, Life = 1.2f, LifeJitter = 0f,
+                    Aim = CelAim.Dir, Speed = 8f, SpeedJitter = 0f, Spread = 0f, Buoyancy = 0.6f, Stretch = 0.5f,
+                    Size = new CelCurve(1.8f, 5.5f, 0.8f), SizeJitter = 0f, Erode = new CelCurve(0.75f, 0.3f, 1f),
+                    Palette = FlamethrowerRecipe.Flame, Core = 3.5f, Extra = new Vector4(6f, 0.8f, 0.5f, -1f) },
+                new CelLayer { Kind = "FlameJet", Close = 1, Mid = 1, Far = 1, Life = 0.85f, LifeJitter = 0f,
+                    Offset = new Vector3(0f, 0.8f, 0f), Aim = CelAim.Dir, Speed = 12f, SpeedJitter = 0f, Spread = 0f,
+                    Size = new CelCurve(0.3f, 1.5f, 0.5f), SizeJitter = 0f, Erode = new CelCurve(0f, 0.3f, 1f),
+                    Palette = FlamethrowerRecipe.Flame, Core = 3.5f, Extra = new Vector4(0.9f, 3f, 0.8f, -3f) });
+            // Also render the front alone, so the body cannot hide a missing or broken front in this assertion.
+            if (frontOnly) recipe.Layers.RemoveRange(0, 2);
+            var cameraObject = new GameObject("FlameEmitterIsolationCamera") { hideFlags = HideFlags.HideAndDontSave };
+            var camera = cameraObject.AddComponent<Camera>();
+            camera.enabled = false;
+            camera.transform.position = new Vector3(2004f, 3f, 1982f);
+            camera.transform.LookAt(new Vector3(2004f, 1.5f, 2000f));
+            camera.fieldOfView = 40f; camera.nearClipPlane = 0.1f; camera.farClipPlane = 40f;
+            camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = Color.black;
+            camera.allowHDR = false; camera.allowMSAA = false;
+            var rt = new RenderTexture(256, 256, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+            var pixels = new Texture2D(256, 256, TextureFormat.RGB24, false, true);
+            var previousTarget = RenderTexture.active;
+            try
+            {
+                rt.Create(); camera.targetTexture = rt;
+                Color32[] Capture()
+                {
+                    renderer.Submit(CelFx.Clock);
+                    camera.Render();
+                    RenderTexture.active = rt;
+                    pixels.ReadPixels(new Rect(0, 0, 256, 256), 0, 0);
+                    pixels.Apply();
+                    return pixels.GetPixels32();
+                }
+                FlamethrowerRecipe.Play(recipe, new Vector3(2000f, 1f, 2000f), new Vector3(2008f, 2f, 2000f), 1917);
+                CelFx.Clock = 100.6f;
+                var before = Capture();
+                CelFx.Clock = 101f;
+                FlamethrowerRecipe.Play(recipe, new Vector3(2200f, 1f, 2050f), new Vector3(2200f, 3f, 2062f), 1918);
+                CelFx.Clock = 100.6f;
+                var after = Capture();
+                int visible = 0, changed = 0;
+                for (int i = 0; i < before.Length; i++)
+                {
+                    if (before[i].r + before[i].g + before[i].b > 30) visible++;
+                    if (!before[i].Equals(after[i])) changed++;
+                }
+                Assert.That(visible, Is.GreaterThan(50), frontOnly ? "the travelling front must be visible" : "the comparison must contain a visible jet");
+                Assert.That(changed, Is.Zero, "an offscreen emitter must not alter the active stream or travelling front");
+            }
+            finally
+            {
+                camera.targetTexture = null; RenderTexture.active = previousTarget;
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+                UnityEngine.Object.DestroyImmediate(pixels);
+                rt.Release(); UnityEngine.Object.DestroyImmediate(rt);
+            }
+        }
+
+        [Test]
+        public void Preparing_Flame_Records_Allocates_Nothing()
+        {
+            int kind = renderer.KindId("FlameJet");
+            var record = AnyRecord(100f);
+            record.Extra.w = -1f;
+            long bytes = Allocated(() => renderer.Spawn(kind, record, Vector3.zero, Vector3.right * 10f, 100f), 2000);
+            Assert.That(bytes, Is.EqualTo(0), "emitter packing is a value-copy operation at spawn");
+        }
+
+        [Test]
+        public void Preparing_A_Travelling_Front_Binds_The_Emitter_And_Preserves_Its_Travel()
+        {
+            var record = AnyRecord(102f);
+            record.Pos = new Vector3(3f, 4f, 5f);
+            record.Vel = new Vector3(9f, 2f, 1f);
+            record.Life = 0.85f;
+            record.Motion = new Vector4(0f, 0f, 0f, 0.7f);
+            record.Extra.w = -3f;
+            var origin = new Vector3(-4f, 1f, 2f);
+            var target = new Vector3(7f, 3f, 2f);
+            var expected = record;
+            expected.Axis = target;
+            expected.Motion = new Vector4(origin.x, origin.y, origin.z, record.Motion.w);
+            expected.Tone.z = 100f;
+            int kind = renderer.KindId("FlameJet");
+            renderer.Spawn(kind, record, origin, target, 100f);
+            Assert.That(StoredRecord(kind, 0), Is.EqualTo(expected),
+                "the front keeps Pos, Vel, Born, Life and buoyancy while binding its own emitter frame");
+        }
+
+        [Test]
+        public void Preparation_Preserves_Fireball_Motion_And_Default_Kinds()
+        {
+            var record = AnyRecord(100f);
+            record.Extra.w = -2f;
+            record.Motion = new Vector4(0.4f, 0.5f, 0.6f, 0.7f);
+            int flame = renderer.KindId("FlameJet");
+            renderer.Spawn(flame, record, Vector3.one * 5f, Vector3.one * 10f, 101f);
+            renderer.Spawn(CelKinds.Lobe, record, Vector3.one * 5f, Vector3.one * 10f, 101f);
+            Assert.That(StoredRecord(flame, 0), Is.EqualTo(record), "fireball discs still use gravity, drag and spin");
+            Assert.That(StoredRecord(CelKinds.Lobe, 0), Is.EqualTo(record), "the default preparation hook is inert");
+            record.Extra.w = -1f;
+            renderer.Spawn(flame, record);
+            Assert.That(StoredRecord(flame, 1), Is.EqualTo(record), "direct Spawn preserves caller-prepared data");
+        }
+
+        [Test]
+        public void FlameSmoke_Preparation_Keeps_Independent_Emitter_Starts_And_Motion()
+        {
+            CelFx.Adopt(renderer);
+            var recipe = new CelFxRecipe("smoke phase isolation", 8f, new CelLayer
+            {
+                Kind = "FlameSmoke", Start = 1.4f, Duration = 2.1f, Close = 4, Mid = 4, Far = 4,
+                Life = 3f, LifeJitter = 0f, Palette = "white", Extra = new Vector4(1.1f, 0.12f, -0.8f, -1f),
+            });
+            int kind = renderer.KindId("FlameSmoke");
+            CelFx.Play(recipe, Vector3.zero, Vector3.forward, Vector3.forward * 10f, 1917);
+            int firstCount = renderer.SpawnedOf(kind);
+            Assert.That(firstCount, Is.GreaterThanOrEqualTo(2));
+            var first = StoredRecord(kind, 0);
+            Assert.That(first.Tone.z, Is.EqualTo(100f));
+            Assert.That(StoredRecord(kind, 1).Tone.z, Is.EqualTo(100f), "different births share one emitter phase");
+            Assert.That(StoredRecord(kind, 1).Born, Is.GreaterThan(first.Born));
+            CelFx.Clock = 102f;
+            CelFx.Play(recipe, Vector3.right * 20f, Vector3.forward, Vector3.right * 20f + Vector3.forward * 10f, 1918);
+            Assert.That(StoredRecord(kind, 0), Is.EqualTo(first));
+            Assert.That(StoredRecord(kind, firstCount).Tone.z, Is.EqualTo(102f));
+
+            var record = AnyRecord(100f);
+            record.Motion = new Vector4(0.2f, 0.3f, 0.4f, 0.5f);
+            record.Extra.w = -1f;
+            var prepared = record;
+            new FlameSmokeKind().PrepareRecord(ref prepared, Vector3.zero, Vector3.one, 108f);
+            var expected = record; expected.Tone.z = 108f;
+            Assert.That(prepared, Is.EqualTo(expected), "only the unused cutout opacity slot becomes the phase origin");
+        }
+
+        [Test]
+        public void FlameSmoke_Preparation_Allocates_Nothing()
+        {
+            int kind = renderer.KindId("FlameSmoke");
+            var record = AnyRecord(100f); record.Extra.w = -1f;
+            Assert.That(Allocated(() => renderer.Spawn(kind, record, Vector3.zero, Vector3.one, 100f), 2000), Is.Zero);
+        }
+
+        [Test]
+        public void TimeScaled_FlameSmoke_Composes_Emitter_Phase_Delay_Without_Changing_Other_Lobes()
+        {
+            var source = new CelFxRecipe("smoke phase scaling", 8f,
+                new CelLayer { Kind = "FlameSmoke", Start = 1.4f, Extra = new Vector4(1f, 0.1f, -0.8f, -1f) },
+                new CelLayer { Kind = CelKinds.LobeName, Opacity = 0.7f, Extra = new Vector4(1f, 0.1f, -0.8f, 0.3f) });
+            var scaled = FlamethrowerRecipe.TimeScaled(source, 1.2f, 0.16f);
+            Assert.That(scaled.Layers[0].Extra.w, Is.EqualTo(-1.2f).Within(1e-6f));
+            Assert.That(scaled.Layers[0].Opacity, Is.EqualTo(1.16f).Within(1e-6f));
+            Assert.That(scaled.Layers[1].Opacity, Is.EqualTo(0.7f));
+            Assert.That(scaled.Layers[1].Extra.w, Is.EqualTo(0.3f));
+            var twice = FlamethrowerRecipe.TimeScaled(scaled, 2f, 0.3f);
+            Assert.That(twice.Layers[0].Extra.w, Is.EqualTo(-2.4f).Within(1e-6f));
+            Assert.That(twice.Layers[0].Opacity, Is.EqualTo(1.62f).Within(1e-6f));
+            Assert.That(source.Layers[0].Opacity, Is.EqualTo(1f), "scaling does not mutate the source");
+            var record = AnyRecord(100f); record.Tone.z = twice.Layers[0].Opacity;
+            new FlameSmokeKind().PrepareRecord(ref record, Vector3.zero, Vector3.one, 100f);
+            Assert.That(record.Tone.z, Is.EqualTo(100.62f).Within(1e-5f));
+        }
+
         [Test]
         public void A_Frame_Allocates_Nothing()
         {

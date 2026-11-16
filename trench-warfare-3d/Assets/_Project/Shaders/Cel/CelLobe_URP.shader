@@ -5,9 +5,11 @@
 //   motion     gravity, drag, spin (rad/s: the noise rolls over the lobe, it boils), buoyancy
 //   erode.xyz  the erosion threshold at birth, at death, ease (0 whole .. 1 gone)   erode.w feather (an ink band that
 //              wide in field units on the eroded edge, on top of the ink px)
-//   tone       x palette (+ 256 x the palette it cools to), y HDR core, z unused (cutout), w ink px (0: no rim)
+//   tone       x palette (+ 256 x the palette it cools to), y HDR core, z unused for ordinary lobes, w ink px
 //   extra      x lump frequency (0: 1.3), y lump amplitude (0: 0.14), z light up-bias (0: the eye), w when the cooling
-//              starts (life 0..1)
+//              starts (life 0..1). Negative w is reserved for prepared FlameSmoke records: -w is time scale,
+//              tone.z is emitter start plus phase delay. Body transitions warm -> dark cool -> lighter cool;
+//              ink follows the warm/cool mix without the body's temporary cool-brightness reduction.
 Shader "TW/Cel/Lobe"
 {
     Properties { }
@@ -81,6 +83,30 @@ Shader "TW/Cel/Lobe"
             float rim = 1.0 - saturate(length(q));
             return saturate(CelFbm3(field * 1.7 + k * 0.6) * 0.62 + rim * 0.5);
         }
+        // Shared by the body and ink hull. Ordinary lobes retain their per-particle cooling curve.
+        float2 LobePalettePhase(CelRecord r, float k)
+        {
+            float coolFrom = r.extra.w > 0.0 ? r.extra.w : 0.35;
+            if (r.extra.w >= 0.0) return float2(smoothstep(coolFrom, 1.0, k), 1.0);
+            float elapsed = max(0.0, _CelNow - r.tone.z) / max(-r.extra.w, 1e-3);
+            return float2(smoothstep(3.5, 4.8, elapsed), lerp(0.5, 1.0, smoothstep(5.2, 5.75, elapsed)));
+        }
+
+        half3 LobeBodyPalette(float lit, float packedRow, float hdr, float2 phase)
+        {
+            uint a = CelRowA(packedRow), b = CelRowB(packedRow);
+            half3 warm = CelRamp(lit, a, hdr);
+            if (b == a || b == 0u) return warm;
+            return lerp(warm, CelRamp(lit, b, hdr) * phase.y, phase.x);
+        }
+
+        half3 LobeInkPalette(float packedRow, float mix)
+        {
+            uint a = CelRowA(packedRow), b = CelRowB(packedRow);
+            half3 warm = CelPalInk(a);
+            return b != a && b != 0u ? lerp(warm, CelPalInk(b), mix) : warm;
+        }
+
         ENDHLSL
 
         Pass
@@ -88,6 +114,7 @@ Shader "TW/Cel/Lobe"
             Name "CelLobe"
             Tags { "LightMode"="UniversalForward" }
             Cull Back ZWrite On ZTest LEqual
+            Stencil { Ref 4 WriteMask 4 Comp Always Pass Replace Fail Keep ZFail Keep }
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -98,7 +125,7 @@ Shader "TW/Cel/Lobe"
             {
                 float4 positionCS : SV_POSITION;
                 float3 positionWS : TEXCOORD0;
-                float3 normalWS : TEXCOORD1;
+                nointerpolation float2 palettePhase : TEXCOORD1; // warm/cool mix, cool brightness
                 float3 field : TEXCOORD2;
                 nointerpolation float4 tone : TEXCOORD3;        // x palette, y hdr, z erosion threshold, w ink px
                 nointerpolation float4 more : TEXCOORD4;        // x life 0..1, y feather, z up-bias, w cool from
@@ -114,7 +141,7 @@ Shader "TW/Cel/Lobe"
                 Varyings o;
                 o.positionWS = l.positionWS;
                 o.positionCS = TransformWorldToHClip(l.positionWS);
-                o.normalWS = l.normalWS;
+                o.palettePhase = LobePalettePhase(r, l.k);
                 o.field = l.field;
                 o.tone = float4(r.tone.x, r.tone.y, CelCurve(r.erode.xyz, l.k), r.tone.w);
                 o.more = float4(l.k, r.erode.w, r.extra.z, r.extra.w > 0.0 ? r.extra.w : 0.35);
@@ -140,9 +167,9 @@ Shader "TW/Cel/Lobe"
                 lit *= lit;   // n.v squared: the bands come out of even width across the disc (n.v alone is mostly light)
                 // the eroded edge darkens a band before the ink: the lobe thins toward its holes
                 if (e > 0.001) lit *= lerp(0.55, 1.0, saturate((f - e) / max(i.more.y, 1e-3)));
-                half3 col = CelRamp2(lit, i.tone.x, i.tone.y, i.more.x, i.more.w);
+                half3 col = LobeBodyPalette(lit, i.tone.x, i.tone.y, i.palettePhase);
                 float ink = e > 0.001 ? CelInk(f, e, CelLodInk(i.tone.w * 0.8)) : 0.0;
-                col = lerp(col, CelInkColor(i.tone.x, i.more.x, i.more.w), ink);
+                col = lerp(col, LobeInkPalette(i.tone.x, i.palettePhase.x), ink);
                 col = ApplyMist(col, i.positionWS);
                 col = ApplyFieldFog(col, i.positionWS);
                 return half4(MixFog(col, i.misc.y), 1.0);
@@ -155,6 +182,7 @@ Shader "TW/Cel/Lobe"
             Name "CelLobeInk"
             Tags { "LightMode"="SRPDefaultUnlit" }
             Cull Front ZWrite On ZTest LEqual
+            Stencil { Ref 4 WriteMask 4 Comp Always Pass Replace Fail Keep ZFail Keep }
             HLSLPROGRAM
             #pragma vertex vertInk
             #pragma fragment fragInk
@@ -174,14 +202,14 @@ Shader "TW/Cel/Lobe"
                 o.positionCS = cs;
                 o.positionWS = l.positionWS;
                 o.field = l.field;
-                o.tone = float4(r.tone.x, CelCurve(r.erode.xyz, l.k), l.k, r.extra.w > 0.0 ? r.extra.w : 0.35);
+                o.tone = float4(r.tone.x, CelCurve(r.erode.xyz, l.k), l.k, LobePalettePhase(r, l.k).x);
                 o.misc = float2(r.seed, ComputeFogFactor(cs.z));
                 return o;
             }
             half4 fragInk(InkVaryings i) : SV_Target
             {
                 clip(LobeField(i.field, i.misc.x, i.tone.z) - i.tone.y);
-                half3 c = CelInkColor(i.tone.x, i.tone.z, i.tone.w);
+                half3 c = LobeInkPalette(i.tone.x, i.tone.w);
                 return half4(MixFog(ApplyFieldFog(c, i.positionWS), i.misc.y), 1.0);
             }
             ENDHLSL

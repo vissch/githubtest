@@ -53,7 +53,7 @@ namespace TW.Editor
                 if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return "the open scene has unsaved changes: save or discard them first";
                 EditorSceneManager.OpenScene(Scene);
             }
-            SessionState.SetString(Request, options ?? "");
+            QueueRequest(options);
             EditorApplication.EnterPlaymode();
             return Entering + options;
         }
@@ -87,10 +87,23 @@ namespace TW.Editor
         static void OnPlayMode(PlayModeStateChange change)
         {
             if (change != PlayModeStateChange.EnteredPlayMode) return;
-            string req = SessionState.GetString(Request, null);
-            if (req == null) return;
-            SessionState.EraseString(Request);   // a crash must not leave the editor looping
+            if (!TakeRequest(out string req)) return;
             StartRunner(req);
+        }
+
+        static void QueueRequest(string options)
+        {
+            // Keep an intentional default run distinct from a missing request.
+            SessionState.SetString(Request, string.IsNullOrEmpty(options) ? " " : options);
+        }
+
+        static bool TakeRequest(out string options)
+        {
+            options = SessionState.GetString(Request, "");
+            if (string.IsNullOrEmpty(options)) return false;
+            SessionState.EraseString(Request);   // a crash must not leave the editor looping
+            if (options == " ") options = "";
+            return true;
         }
 
         static void StartRunner(string options)

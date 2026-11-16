@@ -100,6 +100,9 @@ Shader "TW/Cel/FlameJet"
             if (side.y < 0.0) side = -side;
             // the envelope is wider than the body so the tongues have room; the round front cap reaches past the end
             float hw = JetHalfWidth(r, a) * JET_ENV * alive;
+            // Once disconnected, the back of the stream narrows to a point rather
+            // than exposing the first strip segment as a flat cross-section.
+            if (tf.x > 0.0) hw *= smoothstep(0.0, max(min(0.12, tf.y - tf.x), 1e-4), a - tf.x);
             float cap = (uv.x > 0.999) ? hw * 1.3 : 0.0;
             JetOut o;
             o.positionWS = c + side * (uv.y * 2.0 - 1.0) * hw + dir * cap;
@@ -242,7 +245,6 @@ Shader "TW/Cel/FlameJet"
         // the nozzle, a round base and a pointed tip leading downstream. Bands from the strip's own cross distance, so
         // the ink line is a real contour on every tongue (overlapping tongues keep their own outlines).
         #define RIB_ENV 1.3
-        float4 _FlameAxisA, _FlameAxisB;
         float2 RibWindow(CelRecord r, float t)
         {
             float len = max(length(r.vel * r.life), 1e-3);
@@ -255,7 +257,7 @@ Shader "TW/Cel/FlameJet"
         }
         // a flame lens: a tapering tail toward the nozzle, widest at ~40 %, a long pointed tip downstream (d01 try4's
         // sqrt base was cut square)
-        float RibProfile(float u) { u = saturate(u); return saturate(smoothstep(0.0, 0.4, u) * pow(1.0 - u, 0.8) * 1.5); }
+        float RibProfile(float u) { u = saturate(u); return saturate(smoothstep(0.0, 0.4, u) * pow(1.0 - u, 0.5) * 1.5); }
         float3 RibPoint(CelRecord r, float a, float u, float t)
         {
             float3 span = r.vel * r.life;
@@ -296,13 +298,13 @@ Shader "TW/Cel/FlameJet"
             side = sl > 1e-8 ? side * rsqrt(sl) : UNITY_MATRIX_V[0].xyz;
             side = normalize(side - tang * dot(side, tang) * 0.0);
             // no per-vertex up-flip: on a curved spine it flipped the strip between vertices (plank facets)
-            float hw = 0.5 * r.size.x * lerp(0.1, 1.0, sqrt(saturate(a))) * (1.0 + 1.2 * saturate(_CelLod.x));
+            float hw = 0.5 * r.size.x * lerp(0.3, 1.0, sqrt(saturate(a))) * (1.0 + 1.2 * saturate(_CelLod.x));
             // a tongue shrinking into the target thins with its visible length (no wide stub at the end)
             hw *= saturate((w.y - w.x) * length(r.vel * r.life) / max(r.size.y, 0.1));
             // d37: the build-up: tongues born later in the burn are wider (0.7x at 0.6 s -> 1.15x by 3.0 s), so the jet
             // keeps growing to REF's peak (~f84) instead of peaking 22 frames early
-            hw *= lerp(0.7, 1.15, smoothstep(0.6, 3.0, r.born - _FlameAxisA.w));
-            float prof = max(RibProfile(uv.x), 0.04);
+            hw *= lerp(0.7, 1.15, smoothstep(0.6, 3.0, r.born - r.tone.z));
+            float prof = max(RibProfile(uv.x), 0.0001);
             RibOut o;
             o.positionWS = c + side * (uv.y * 2.0 - 1.0) * hw * prof * RIB_ENV * alive;
             o.u = uv.x; o.across = (uv.y * 2.0 - 1.0) * RIB_ENV; o.a = a;
@@ -318,41 +320,48 @@ Shader "TW/Cel/FlameJet"
             streak = CelSimplex3(float3(u * 3.0 - t * 2.0, across * 1.5, sd + 2.0)) * r.extra.z;
             return field;
         }
-        // d32 (NEW BAND MODEL): one heat field shared by every tongue ribbon, round the jet's axis (_FlameAxisA nozzle ->
-        // _FlameAxisB target, set by FlamethrowerRecipe.Play). Bands are cut from this field, not from each ribbon's own
-        // cross distance, so overlapping tongues union into one body (no concentric rings per lobe). x: heat 0 (outer
-        // edge of the jet's envelope) .. 1 (the axis); y: a torn-streak noise stretched along the axis and flowing to the
-        // target; z: the axis line's own value (1 on a thin white streak down the middle).
-        float3 FlameHeat(float3 p)
+        // Every overlapping tongue samples one flowing field. Individual ribbon borders must
+        // not paint stripes through the body of a continuous flame.
+        float3 FlameHeat(CelRecord r, float3 p)
         {
-            float3 ab = _FlameAxisB.xyz - _FlameAxisA.xyz;
+            float3 ab = r.axis - r.motion.xyz;
             float len = max(length(ab), 1e-3);
             float3 dir = ab / len;
-            float3 rel = p - _FlameAxisA.xyz;
+            float3 mid = (r.motion.xyz + r.axis) * 0.5;
+            float3 view = normalize(_WorldSpaceCameraPos - mid);
+            float3 side = cross(dir, view);
+            float sideLength = dot(side, side);
+            side = sideLength > 1e-6 ? side * rsqrt(sideLength) : UNITY_MATRIX_V[0].xyz;
+            if (side.y < 0.0) side = -side;
+            // Project all overlapping records onto one plane before sampling color.
+            float3 normal = cross(dir, side);
+            float3 ray = p - _WorldSpaceCameraPos;
+            float denominator = dot(ray, normal);
+            float3 projected = abs(denominator) > 1e-5
+                ? _WorldSpaceCameraPos + ray * (dot(mid - _WorldSpaceCameraPos, normal) / denominator)
+                : p;
+            float3 rel = projected - r.motion.xyz;
             float m = dot(rel, dir);
             float s = saturate(m / len);
-            float3 perp = rel - dir * m;
-            // screen-plane distance: drop the part along the view ray, so the field is the jet's look on screen, whatever
-            // depth a tongue sits at (the white axis shows on the front tongues too)
-            float3 vw = normalize(_WorldSpaceCameraPos - p);
-            float3 dv = dir - vw * dot(dir, vw);
-            dv *= rsqrt(max(dot(dv, dv), 1e-6));
-            float3 perpS = (rel - vw * dot(rel, vw)); perpS -= dv * dot(perpS, dv);
-            float3 side = normalize(cross(dir, float3(0.0, 1.0, 0.0)));
-            float dSide = dot(perp, side), dUp = dot(perp, cross(side, dir));
-            float d = length(perpS);
-            // the envelope: thin at the nozzle, widening to the dummy (tongues reach ~2.2 m wide there), flaring past it
-            float R = lerp(0.6, 3.2, pow(s, 0.75)) + 0.4 * saturate(m / len - 1.0);
-            float t = _Time.y;
-            // torn streaks: long along the axis (0.35 /m), fine across (2.4 /m), flowing downstream at 7 m/s
-            float n1 = CelSimplex3(float3(m * 0.12 - t * 1.2, d * 1.8, dUp * 0.6));
-            float n2 = CelSimplex3(float3(m * 0.3 - t * 3.0, d * 3.5 + 7.1, dUp * 1.2));
-            float streak = n1 * 0.8 + n2 * 0.2;
-            float h = saturate(1.0 - d / R);
-            // the white axis: a thin streak (8-14 % of the envelope), wavering with the streak noise, hot from nozzle to dummy
-            float axisW = 0.11 + 0.06 * n1;
-            float axisL = saturate(1.0 - (d + 0.12 * n2 * R) / max(axisW * R, 0.03)) * smoothstep(0.0, 0.06, s) * (1.0 - smoothstep(0.85, 1.1, s));
-            return float3(h, streak, axisL);
+            float y = dot(rel, side);
+            float t = _CelNow - r.tone.z;
+            float radius = lerp(0.3, 2.2, pow(s, 0.8));
+            float2 q = float2(m * 0.65 - t * 4.0, y * 1.4);
+            float curl = CelSimplex3(float3(q * 0.65, 9.4));
+            q += float2(curl * 1.1, sin(q.x * 1.2 + curl * 2.2) * 0.65);
+            float n = CelSimplex3(float3(q * float2(0.68, 1.0), 3.7));
+            float fine = CelSimplex3(float3(q * float2(1.4, 1.7), 11.2));
+            float heat = 1.0 - abs(y) / radius;
+            float islands = n * 0.92 + fine * 0.08;
+            float core = saturate(1.0 - abs(y + 0.3 * sin(m * 1.6 - t * 5.0)) / (radius * 0.52));
+            core *= 0.55 + 0.45 * smoothstep(-0.4, 0.4, n);
+            return float3(heat, islands, core);
+        }
+
+        half3 FlameBody(CelRecord r, float3 heat)
+        {
+            float value = saturate(0.38 + heat.x * 0.16 + heat.y * 0.46 + heat.z * 0.32);
+            return CelRamp(value, CelRowA(r.tone.x), r.tone.y);
         }
         // d47 (NEW PRIMITIVE, fracture 9): FIREBALL RING - one camera-facing disc per record (extra.w <= -1.5) drawn on the
         // same strip mesh as a quad. Polar field round its centre: a ring of flame tongues whose angle swirls with the
@@ -362,22 +371,101 @@ Shader "TW/Cel/FlameJet"
         //   size  x radius at birth, y at death, z ease; erode x = the hole's final share of the radius
         //   extra x swirl (rad per radius), y tongue count, z spin (rad/s)
         #define BALL_Q 1.45
-        float3 BallCentre(CelRecord r) { return CelPosition(r, max(CelAge(r), 0.0)); }
-        float BallR(CelRecord r) { return CelCurve(r.size.xyz, CelLife01(r)); }
+        float3 BallCentre(CelRecord r)
+        {
+            float age = max(CelAge(r), 0.0);
+            // The opening front stores its emitter frame in motion.xyz; its
+            // authored travel is constant velocity. Ordinary rings use physics.
+            return r.extra.w < -2.5 ? r.pos + r.vel * age : CelPosition(r, age);
+        }
+        float BallR(CelRecord r)
+        {
+            float k = CelLife01(r);
+            return CelCurve(r.size.xyz, k) * lerp(1.0, 0.15, smoothstep(0.55, 1.0, k));
+        }
         // x the fire field (>0 inside the flame), y the hole field (>0 inside the smoke hole), z polar noise for the bands
         float3 BallField(CelRecord r, float2 q)
         {
             float t = CelAge(r), k = CelLife01(r), sd = r.seed * 23.0;
+            q.x += 0.13 * sin(q.y * 3.0 + t * 2.0 + sd);
+            q.y -= 0.11 * sin(q.x * 3.0 - t * 1.6 + sd);
             float rho = length(q);
-            float th = atan2(q.y, q.x) + r.extra.x * rho - t * r.extra.z * (r.seed > 0.5 ? 1.0 : -1.0);
-            float n1 = CelSimplex3(float3(cos(th) * r.extra.y * 0.5, sin(th) * r.extra.y * 0.5, t * 0.9 + sd));
-            float n2 = CelSimplex3(float3(cos(th) * 2.0, sin(th) * 2.0, t * 1.7 + sd + 4.0));
+            float th = atan2(q.y, q.x) + r.extra.x * rho * 2.1 - t * r.extra.z;
+            float n1 = CelSimplex3(float3(cos(th) * 1.35, sin(th) * 1.35, t * 0.65 + sd));
+            float n2 = CelSimplex3(float3(q * 2.0 + float2(sin(th), cos(th)), t * 0.8 + sd));
             float up = saturate(q.y / max(rho, 1e-3));
-            float outer = (0.74 + 0.22 * n1 + 0.08 * n2 + 0.22 * up * up) * (1.0 - 0.35 * smoothstep(0.75, 1.0, k));
-            float hole = r.erode.x * smoothstep(0.45, 1.0, k) * (0.8 + 0.3 * n2);
+            float outer = (0.83 + 0.27 * n1 + 0.12 * n2 + 0.17 * up) * (1.0 - 0.28 * smoothstep(0.78, 1.0, k));
+            float hole = r.erode.x * smoothstep(0.32, 0.9, k) * (0.9 + 0.3 * n2);
+            float holeDistance = length(q - float2(0.13 * sin(sd), 0.12));
             float fo = (outer - rho) / max(outer, 1e-3);
-            float fi = hole > 0.01 ? (rho - hole) / max(outer - hole, 0.05) : 1.0;
+            float fi = hole > 0.01 ? (holeDistance - hole) / max(outer - hole, 0.05) : 1.0;
             return float3(min(fo, fi), -fi, n1 * 0.5 + n2 * 0.5);
+        }
+        void FlameGeometry(float2 uv, uint instanceID, out float3 world, out float4 screen, out float3 coords)
+        {
+            CelRecord r = CelFetch(instanceID);
+            if (r.extra.w < -1.5)
+            {
+                float2 q = (uv * 2.0 - 1.0) * BALL_Q;
+                world = CelBillboard(BallCentre(r), q * BallR(r) * CelAlive(r));
+                screen = TransformWorldToHClip(world);
+                coords = float3(q, 0.0);
+            }
+            else if (r.extra.w < 0.0)
+            {
+                RibOut rb = Rib(uv, instanceID);
+                world = rb.positionWS;
+                screen = TransformWorldToHClip(world);
+                coords = float3(rb.u, rb.across, rb.a);
+            }
+            else
+            {
+                JetOut j = Jet(uv, instanceID);
+                world = j.positionWS;
+                screen = TransformWorldToHClip(world);
+                coords = float3(j.along, j.across, j.metres);
+            }
+            if (r.extra.w >= -1.5 || r.extra.w < -2.5)
+            {
+                // The continuous stream shares one depth plane as well as one
+                // colour field. Per-ribbon depth offsets made the scene ink pass
+                // outline internal triangles through otherwise identical flame.
+                float3 axis = r.axis - r.motion.xyz;
+                float3 mid = (r.motion.xyz + r.axis) * 0.5;
+                float3 view = normalize(_WorldSpaceCameraPos - mid);
+                float3 side = cross(axis, view);
+                side = dot(side, side) > 1e-6 ? normalize(side) : UNITY_MATRIX_V[0].xyz;
+                float3 normal = cross(axis, side);
+                float3 ray = world - _WorldSpaceCameraPos;
+                float den = dot(ray, normal);
+                float3 planePoint = abs(den) > 1e-5
+                    ? _WorldSpaceCameraPos + ray * (dot(mid - _WorldSpaceCameraPos, normal) / den)
+                    : world;
+                float4 planeCS = TransformWorldToHClip(planePoint);
+                screen.z = planeCS.z / planeCS.w * screen.w;
+            }
+        }
+
+        float FlameCoverage(CelRecord r, float3 world, float3 coords)
+        {
+            float streak;
+            if (r.extra.w < -1.5)
+            {
+                float3 ball = BallField(r, coords.xy);
+                return r.extra.w < -2.5 ? ball.x : max(ball.x, ball.y);
+            }
+            if (r.extra.w < 0.0)
+            {
+                float field = RibField(r, coords.x, coords.y, coords.z, streak);
+                float3 heat = FlameHeat(r, world);
+                return min(field, (heat.x + 1.35 * heat.y - 0.02) * 1.6);
+            }
+            g_jetSeam = 0.0;
+            float3 jc = JetCoords(r, world);
+            float field = JetField(r, jc.x, jc.y, jc.z, streak);
+            if (r.extra.w > 0.0) field = min(field, JetGround(r, world, jc.z) + 8.0 * (1.0 - smoothstep(0.45, 0.7, jc.x)));
+            field -= g_jetSeam * smoothstep(0.08, 0.2, jc.x) * 0.45 * (1.0 - smoothstep(0.25, 0.55, field));
+            return field;
         }
         ENDHLSL
 
@@ -386,6 +474,7 @@ Shader "TW/Cel/FlameJet"
             Name "CelFlameJet"
             Tags { "LightMode"="UniversalForward" }
             Cull Off ZWrite On ZTest LEqual
+            Stencil { Ref 4 WriteMask 4 Comp Always Pass Replace Fail Keep ZFail Keep }
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -404,42 +493,8 @@ Shader "TW/Cel/FlameJet"
             Varyings vert(Attributes v, uint instanceID : SV_InstanceID)
             {
                 Varyings o;
-                if (CelFetch(instanceID).extra.w < -1.5)
-                {
-                    CelRecord rq = CelFetch(instanceID);
-                    float2 cq = (v.uv * 2.0 - 1.0) * BALL_Q;
-                    float3 pw = CelBillboard(BallCentre(rq), cq * BallR(rq) * CelAlive(rq));
-                    o.positionWS = pw;
-                    o.positionCS = TransformWorldToHClip(pw);
-                    o.jet = float3(cq, 0.0);
-                    o.fog = ComputeFogFactor(o.positionCS.z);
-                    o.id = GetIndirectInstanceID_Base(instanceID);
-                    return o;
-                }
-                if (CelFetch(instanceID).extra.w < 0.0)
-                {
-                    RibOut rb = Rib(v.uv, instanceID);
-                    o.positionWS = rb.positionWS;
-                    o.positionCS = TransformWorldToHClip(rb.positionWS);
-                    // d52 (d49): depth from the jet's axis point beside the vertex, pulled to the eye by a per-tongue step: the
-                    // flat strips stack like cel cut-outs instead of cutting straight z-intersection lines through each other
-                    {
-                        float3 ja = _FlameAxisA.xyz, jd = _FlameAxisB.xyz - _FlameAxisA.xyz;
-                        float3 q = ja + jd * saturate(dot(rb.positionWS - ja, jd) / max(dot(jd, jd), 1e-4));
-                        q += normalize(_WorldSpaceCameraPos - q) * (0.4 * CelFetch(instanceID).seed - 0.2);
-                        float4 cq = TransformWorldToHClip(q);
-                        o.positionCS.z = cq.z / cq.w * o.positionCS.w;
-                    }
-                    o.jet = float3(rb.u, rb.across, rb.a);
-                    o.fog = ComputeFogFactor(TransformWorldToHClip(rb.positionWS).z);
-                    o.id = GetIndirectInstanceID_Base(instanceID);
-                    return o;
-                }
-                JetOut j = Jet(v.uv, instanceID);
-                o.positionWS = j.positionWS;
-                o.positionCS = TransformWorldToHClip(j.positionWS);
-                o.jet = float3(j.along, j.across, j.metres);
-                o.fog = ComputeFogFactor(o.positionCS.z);
+                FlameGeometry(v.uv, instanceID, o.positionWS, o.positionCS, o.jet);
+                o.fog = ComputeFogFactor(TransformWorldToHClip(o.positionWS).z);
                 o.id = GetIndirectInstanceID_Base(instanceID);
                 return o;
             }
@@ -452,6 +507,12 @@ Shader "TW/Cel/FlameJet"
                 if (r.extra.w < -1.5)
                 {
                     float3 bf = BallField(r, i.jet.xy);
+                    if (r.extra.w < -2.5)
+                    {
+                        clip(bf.x);
+                        half3 front = FlameBody(r, FlameHeat(r, i.positionWS));
+                        return half4(MixFog(front, i.fog), 1.0);
+                    }
                     float k = CelLife01(r);
                     if (bf.y > 0.0)
                     {
@@ -460,7 +521,7 @@ Shader "TW/Cel/FlameJet"
                         return half4(MixFog(sc, i.fog), 1.0);
                     }
                     clip(bf.x);
-                    float bv = saturate(0.12 + 1.5 * bf.x + 0.25 * bf.z);
+                    float bv = saturate(0.15 + 1.3 * bf.x + 0.15 * bf.z);
                     half3 bc = CelRamp2(bv, r.tone.x, r.tone.y, k, 0.88);
                     float bink = max(CelInk(bf.x, 0.0, CelLodInk(r.tone.w)), CelInk(-bf.y, 0.0, CelLodInk(r.tone.w)));
                     bc = lerp(bc, CelInkColor(r.tone.x, k, 0.88), bink);
@@ -468,45 +529,21 @@ Shader "TW/Cel/FlameJet"
                 }
                 if (r.extra.w < 0.0)
                 {
-                    float rf = RibField(r, i.jet.x, i.jet.y, i.jet.z, streak);
-                    // d32: the shared heat field decides the bands (and tears the outer body); the ribbon only decides coverage
-                    float3 fh = FlameHeat(i.positionWS);
-                    // torn edges with gaps: in the outer third of the envelope the streak noise cuts the tongue away
-                    float tear = fh.x + 0.5 * fh.y + 0.08;
-                    rf = min(rf, tear * 1.6);
+                    float rf = FlameCoverage(r, i.positionWS, i.jet);
+                    float3 fh = FlameHeat(r, i.positionWS);
+                    float tear = fh.x + 1.35 * fh.y - 0.02;
                     clip(rf);
-                    // one body: red only on the outer rim, orange body broken by pale streak patches, yellow inside, and a
-                    // thin white streak down the axis (CelRamp's top band)
-                    float rv = saturate(0.30 + 0.30 * fh.x + 0.35 * fh.y + 0.7 * fh.z);
-                    // d33: half the d24 per-tongue bands (core / orange / red rim in order on every tongue), half the shared field (white axis, torn streaks)
-                    float rvT = saturate(0.1 + rf * 0.95 + streak * 0.2 + 0.1 * (1.0 - saturate(i.jet.z * 1.6)));
-                    rv = min(lerp(rvT, rv, 0.5), 0.06 + rf * 3.0);
-                    half3 rc = CelRamp(rv, CelRowA(r.tone.x), r.tone.y);
-                    // ink only on the jet's outer silhouette and torn edges, not on the inner tongues' outlines (no sausage seams)
-                    float rink = CelInk(rf, 0.0, CelLodInk(r.tone.w)) * (1.0 - 0.5 * smoothstep(0.08, 0.25, fh.x));
-                    rc = lerp(rc, CelPalInk(CelRowA(r.tone.x)).rgb, rink);
+                    half3 rc = FlameBody(r, fh);
+                    float rim = CelInk(tear, 0.0, CelLodInk(r.tone.w) * 0.5);
+                    rc = lerp(rc, CelPalInk(CelRowA(r.tone.x)).rgb, rim);
                     return half4(MixFog(rc, i.fog), 1.0);
                 }
-                float3 jc = JetCoords(r, i.positionWS);
-                float f = JetField(r, jc.x, jc.y, jc.z, streak);
-                if (r.extra.w > 0.0) f = min(f, JetGround(r, i.positionWS, jc.z) + 8.0 * (1.0 - smoothstep(0.45, 0.7, jc.x)));
-                float seam = g_jetSeam * smoothstep(0.08, 0.2, jc.x);   // b01: no seams in the nozzle's first metres
-                // b02: where two tongues meet near the edge the seam is cut out (ragged, broken edges with gaps between
-                // tongues), not drawn as a grey crease line inside the body
-                f -= seam * 0.45 * (1.0 - smoothstep(0.25, 0.55, f));
+                float f = FlameCoverage(r, i.positionWS, i.jet);
                 clip(f);
-                // the value the bands are cut from: the field, lifted along the white streaks, a little hotter at the nozzle
-                // a thin red rim, then orange and yellow, and the white core down the middle; cooler toward the target
-                // (red only on a thin rim: v passes the first band at f ~0.04)
-                // r04: the white core is about twice as wide (it shows over more of the field)
-                float v = saturate(0.02 + f * 0.74 + streak * 0.25 + 0.06 * (1.0 - saturate(jc.x * 1.5)) - 0.08 * saturate((jc.x - 0.6) * 1.5));
-                // b04: a blown white core along the whole axis, nozzle to target (b03's spine peaked at v ~0.78 and never
-                // reached the core band: hot 0.010 vs the clip's 0.101); streaky, so it is wider where the white streaks run
-                float spine = saturate(1.0 - abs(jc.y) / (0.42 + 0.14 * streak)) * smoothstep(0.0, 0.05, jc.x) * (1.0 - smoothstep(0.8, 1.05, jc.x));
-                v = saturate(v + 0.38 * spine);   // b05: wider (0.2 -> 0.36 half-widths) and hotter (0.24 -> 0.38): a blown core a third of the jet
-                half3 col = CelRamp(v, CelRowA(r.tone.x), r.tone.y);
-                float ink = CelInk(f, 0.0, CelLodInk(r.tone.w));
-                col = lerp(col, CelPalInk(CelRowA(r.tone.x)).rgb, max(ink, seam * 0.35));
+                float3 heat = FlameHeat(r, i.positionWS);
+                half3 col = FlameBody(r, heat);
+                float ink = CelInk(f, 0.0, CelLodInk(r.tone.w)) * 0.2;
+                col = lerp(col, CelPalInk(CelRowA(r.tone.x)).rgb, ink);
                 return half4(MixFog(col, i.fog), 1.0);
             }
             ENDHLSL
@@ -521,27 +558,23 @@ Shader "TW/Cel/FlameJet"
             #pragma vertex vertDepth
             #pragma fragment fragDepth
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; };
-            struct DepthVaryings { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; nointerpolation uint id : TEXCOORD1; };
+            struct DepthVaryings
+            {
+                float4 positionCS : SV_POSITION;
+                float3 positionWS : TEXCOORD0;
+                nointerpolation uint id : TEXCOORD1;
+                float3 jet : TEXCOORD2;
+            };
             DepthVaryings vertDepth(Attributes v, uint instanceID : SV_InstanceID)
             {
-                JetOut j = Jet(v.uv, instanceID);
                 DepthVaryings o;
-                if (CelFetch(instanceID).extra.w < -1.5) { o.positionCS = float4(0.0, 0.0, -2.0, 1.0); o.positionWS = 0; o.id = 0; return o; }
-                o.positionCS = TransformWorldToHClip(j.positionWS);
-                o.positionWS = j.positionWS;
+                FlameGeometry(v.uv, instanceID, o.positionWS, o.positionCS, o.jet);
                 o.id = GetIndirectInstanceID_Base(instanceID);
                 return o;
             }
             half4 fragDepth(DepthVaryings i) : SV_Target
             {
-                CelRecord r = _CelRecords[i.id];
-                float streak;
-                g_jetSeam = 0.0;
-                float3 jc = JetCoords(r, i.positionWS);
-                float f = JetField(r, jc.x, jc.y, jc.z, streak);
-                if (r.extra.w > 0.0) f = min(f, JetGround(r, i.positionWS, jc.z) + 8.0 * (1.0 - smoothstep(0.45, 0.7, jc.x)));
-                f -= g_jetSeam * smoothstep(0.08, 0.2, jc.x) * 0.45 * (1.0 - smoothstep(0.25, 0.55, f));
-                clip(f);
+                clip(FlameCoverage(_CelRecords[i.id], i.positionWS, i.jet));
                 return 0;
             }
             ENDHLSL

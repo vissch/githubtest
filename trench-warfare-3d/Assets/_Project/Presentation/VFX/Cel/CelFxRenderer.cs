@@ -161,7 +161,17 @@ namespace TW.Presentation.VFX.Cel
         public int CapacityOf(int kind) => kind >= 0 && kind < pools.Length ? pools[kind].Capacity : 0;
         public int SpawnedOf(int kind) => kind >= 0 && kind < pools.Length ? pools[kind].Spawned : 0;
 
-        /// <summary>One primitive. r.Born is when it appears (CelFx.Now for at once; later to hold it back). No allocation.</summary>
+        /// <summary>Prepare a recipe record with its own emitter frame, then copy it into the pool. No allocation.</summary>
+        public void Spawn(int kind, in CelRecord r, Vector3 origin, Vector3 target, float now)
+        {
+            if (!Ready) Init();
+            if ((uint)kind >= (uint)pools.Length) return;
+            var prepared = r;
+            pools[kind].Kind.PrepareRecord(ref prepared, origin, target, now);
+            Spawn(kind, prepared);
+        }
+
+        /// <summary>One already prepared primitive. r.Born is when it appears (CelFx.Now for at once; later to hold it back). No allocation.</summary>
         public void Spawn(int kind, in CelRecord r)
         {
             if (!Ready) Init();
