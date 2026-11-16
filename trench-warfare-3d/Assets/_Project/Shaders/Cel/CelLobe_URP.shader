@@ -173,12 +173,12 @@ Shader "TW/Cel/Lobe"
                 // lower and side faces, gone by ~1.3 s (REF f56-f100: orange-rimmed smoke lobes where the fire meets the column)
                 if (r.extra.w < 0.0)
                 {
-                    float heat = 1.0 - smoothstep(0.3, 1.3, t);
+                    float heat = 1.0 - smoothstep(0.7, 2.2, t);   // k07: lit longer (k06's faded before the column read)
                     float nv = saturate(dot(nrm, viewWS));
-                    float rimW = 0.5 * heat * saturate(0.75 - nrm.y);
+                    float rimW = 0.85 * heat * saturate(0.9 - nrm.y);   // k07: 0.5 -> 0.85 (k06 drew hairlines)
                     float edge = 1.0 - nv;
-                    col = lerp(col, half3(0.80, 0.17, 0.015), CelAAStep(1.0 - rimW, edge) * step(0.02, rimW));
-                    col = lerp(col, half3(0.96, 0.55, 0.07), CelAAStep(1.0 - rimW * 0.4, edge) * step(0.02, rimW));
+                    col = lerp(col, half3(1.0, 0.30, 0.03), CelAAStep(1.0 - rimW, edge) * step(0.02, rimW));
+                    col = lerp(col, half3(1.0, 0.72, 0.14), CelAAStep(1.0 - rimW * 0.35, edge) * step(0.02, rimW));
                 }
                 float ink = e > 0.001 ? CelInk(f, e, CelLodInk(i.tone.w * 0.8)) : 0.0;
                 col = lerp(col, LobeInkPalette(i.tone.x, i.palettePhase.x), ink);
