@@ -34,7 +34,7 @@ namespace TW.Presentation.VFX.Cel
         // i16: 0.135 and 0.26 (i15 0.145, 0.28): the clip's darts median 104 x 18 px, i15's 129 x 24
         // (i17 0.24: i16 filmed 124 x 23)
         // (i20 0.28: the clip's darts near the camera are fat chunks 30-45 px wide)
-        public const float DartWindow = 0.135f, DartLife = 0.32f, DartWidth = 0.28f;
+        public const float DartWindow = 0.135f, DartLife = 0.32f, DartWidth = 0.21f /* i26 (0.28): the clip's are slim needles */;
         const float DartHeadStart = -0.05f, DartHeadEnd = 1f + DartWindow * 1.3f;
         /// <summary>Shares a second a ribbon's head flies (the darts' speed) and the ribbons' wavelength (m: the clip's
         /// strands bend once over 200-300 px; i12 5.5: through the holds f30-f60 they run nearly straight).</summary>

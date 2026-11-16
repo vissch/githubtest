@@ -159,6 +159,9 @@ Shader "TW/Cel/IceBolt"
                 float across = v.uv.y * 2.0 - 1.0;
                 float width = CelCurve(r.size.xyz, k) * alive * open;
                 float halfW = max(width * 0.5, 1e-5);
+                // i26: a strand's width swells and pinches along it (the clip's are hand-drawn strokes)
+                if (mode > 0.5)
+                    halfW *= lerp(0.6, 1.25, 0.5 + 0.5 * sin(6.28318 * s * lenB / (max(r.size.w, 0.3) * 0.3) + r.seed * 253.0));
                 if (mode > 0.5) halfW = min(halfW, RIBBON_MAX_PX * PixelMetres(p));
                 float pad = mode < 0.5 ? DART_PAD : RIBBON_PAD;
                 float u = s * lenB;
@@ -174,6 +177,11 @@ Shader "TW/Cel/IceBolt"
                     float w2 = sin(6.28318 * u / (wl * 0.55) + sd * 1.7 + 1.3 - drift * 0.6);
                     float taper = pow(saturate((clipS - s) / 0.22), 0.9);
                     off = (0.88 * w1 + 0.12 * w2) * r.extra.y * taper;
+                    // i26: a short wiggle (~1 m, about a strand's width deep: the clip's strands kink every ~100 px) and
+                    // the wave pulled in over the muzzle end (the clip's bundle is compact there)
+                    float w3 = sin(6.28318 * u / (wl * 0.2) + sd * 2.3 - drift * 1.4);
+                    off += w3 * width * 0.6 * taper;
+                    off *= lerp(0.35, 1.0, smoothstep(0.0, 0.25, s));
                 }
                 float3 wp = p + side * (off + across * halfW * pad);
                 o.positionWS = wp;
@@ -542,7 +550,8 @@ Shader "TW/Cel/IceBolt"
                         float sgn = CelHash21(float2(si, sd * 71.0)) > 0.5 ? 1.0 : -1.0;
                         float sy = sgn * lerp(lerp(1.2, 0.5, spray), 3.5, CelHash21(float2(si, sd * 73.0)));
                         float spx = length(float2((u - sx) / max(pm, 1e-6), (y - sy) * hwPx));
-                        float rad = lerp(1.0, 2.0, CelHash21(float2(si, sd * 79.0))) * (1.0 + 0.5 * spray);
+                        // (i26 1.5-3 px: the clip's specks are bigger)
+                        float rad = lerp(1.5, 3.0, CelHash21(float2(si, sd * 79.0))) * (1.0 + 0.5 * spray);
                         float twk = CelHash21(float2(si + sd * 83.0, tick)) > 0.35 ? 1.0 : 0.3;
                         speck = saturate(rad + 0.5 - spx) * twk;
                     }
