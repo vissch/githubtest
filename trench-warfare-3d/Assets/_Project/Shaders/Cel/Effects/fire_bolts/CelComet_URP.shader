@@ -17,7 +17,7 @@
 //   erode.xyz  the ribbon's break-up threshold over the life (0 whole .. 1 gone): it breaks into pieces in steps
 //   tone       x flame palette (+ 256 x the ribbon palette), y HDR core, z ribbon opacity (pool: brightness), w ink px
 //   extra      x head radius (m, 0: no head; < 0: pool), y flame tail length (m, 0: no flame; pool: falloff power),
-//              z ribbon wave amplitude (m; pool: life fraction of the peak), w ribbon wavelength (m; pool: life
+//              z ribbon wave amplitude (m; pool: life fraction of the peak), w trail fade seconds on travelling bolts (pool: life
 //              fraction where the fade starts)
 Shader "TW/Cel/Comet"
 {
@@ -49,6 +49,7 @@ Shader "TW/Cel/Comet"
                 nointerpolation float4 more : TEXCOORD3;          // x ribbon width, y erosion threshold, z seed, w wavelength
                 float4 misc : TEXCOORD4;                          // x fog, y wave speed, z age, w 1 = pool
                 float3 positionWS : TEXCOORD5;
+                float history : TEXCOORD6; // deposited time times a fixed birth speed
             };
 
             // d01 path ribbon: the wisp's offset at height h (m) and age t: x along the camera's right, y up, z depth.
@@ -69,7 +70,7 @@ Shader "TW/Cel/Comet"
             // p21: a bolt's path: its ballistic arc plus a swirl across it (amplitude A m, rate motion.z rad/s, phase from
             // its seed) that is zero at the launch and at the hit, so it still lands where it is aimed. The strip's
             // vertices sit on this path at the time the head passed them, so the tail bends with it.
-            #define BOLT_HOLD 0.3   // p27j: a bolt lives BOLT_HOLD s past its hit (FireBoltsRecipe.Hold), its head frozen there while the tail streams in
+            #define BOLT_HOLD 0.5   // p27j: a bolt lives BOLT_HOLD s past its hit (FireBoltsRecipe.Hold), its head frozen there while the tail streams in
             float3 BoltPath(CelRecord r, float t, float A)
             {
                 float3 q = t >= 0.0 ? CelPosition(r, t) : r.pos + r.vel * t;   // p26: straight back before the birth (CelPosition clamps at 0: the rear columns collapsed into a hard end)
@@ -91,17 +92,19 @@ Shader "TW/Cel/Comet"
                 CelRecord r = CelFetch(instanceID);
                 float t = CelAge(r), k = CelLife01(r), alive = CelAlive(r);
                 float3 p = CelPosition(r, t);
-                Varyings o;
+                Varyings o = (Varyings)0;
                 if (r.extra.x < -3.5)
                 {
                     // p12 soft flash: a camera-facing quad, a smooth radial glow in the fragment
                     float R = CelCurve(r.size.xyz, k) * alive;
-                    float2 c = v.uv * 2.0 - 1.0;
+                    // Peeling hard-sheet tips can move outside the original radius.
+                    // Pad the quad and its coordinates equally; keep the effect scale.
+                    float2 c = (v.uv * 2.0 - 1.0) * (r.extra.y > 0.5 ? 1.35 : 1.0);
                     float3 w = CelBillboard(p, c * R);
                     o.positionWS = w;
                     o.positionCS = TransformWorldToHClip(w);
                     o.local = c;
-                    o.dims = float4(k, r.extra.y, 0.0, 0.0);   // p22: extra.y = 1 -> a hard ragged splash
+                    o.dims = float4(k, r.extra.y, r.extra.z, r.extra.w);   // p22: extra.y = 1 -> a hard ragged splash
                     o.tone = r.tone;
                     o.more = float4(R, 0.0, r.seed, 0.0);
                     o.misc = float4(ComputeFogFactor(o.positionCS.z), 0.0, t, 4.0);
@@ -137,7 +140,8 @@ Shader "TW/Cel/Comet"
                     R = dot(R, R) > 1e-6 ? normalize(R) : float3(1, 0, 0);
                     float3 F = float3(-R.z, 0.0, R.x);
                     float u0 = v.uv.x;
-                    float3 qa = WispPath(r, u0 * top, t), qb = WispPath(r, u0 * top + 0.35, t);   // d07: a smoothed tangent (less folding)
+                    float3 qa = float3(r.extra.z * u0 * top, u0 * top, 0.0);
+                    float3 qb = qa + float3(r.extra.z * 0.35, 0.35, 0.0);
                     float3 pa = p + R * qa.x + float3(0, qa.y, 0) + F * qa.z;
                     float3 pb = p + R * qb.x + float3(0, qb.y, 0) + F * qb.z;
                     float3 tng = pb - pa;
@@ -197,6 +201,7 @@ Shader "TW/Cel/Comet"
                 if (r.size.w >= 0.0) len = min(len, distance(p, r.pos));   // no ribbon behind its birth (b02: a negative
                                                                            // size.w is a bolt already in flight: whole tail)
                 float front = max(headR * 5.0, rw) * alive;   // p24b: more room ahead of the ball
+                len = max(0.0,len - speed * held);
                 len *= alive;
                 float3 toEye = normalize(_WorldSpaceCameraPos - p);
                 float3 side = cross(dir, toEye);
@@ -224,6 +229,7 @@ Shader "TW/Cel/Comet"
                 float3 w = pa + side * across;
                 o.positionWS = w;
                 o.positionCS = TransformWorldToHClip(w);
+                o.history = -(tc + along / max(speed, 0.001)) * length(r.vel);
                 o.local = float2(-along + adv, across);   // p27j: the fragment shades the tail by its distance behind the (frozen) head
                 o.dims = float4(len, headR, flameL, amp);
                 o.tone = r.tone;
@@ -248,41 +254,90 @@ Shader "TW/Cel/Comet"
                     float fn = CelValue2(float2(fa * 1.6 + i.more.z * 7.0, i.misc.z * 9.0)) + 0.5 * CelValue2(float2(fa * 4.0 - i.more.z * 3.0, i.misc.z * 14.0));   // p19: a ragged splash, not a disc
                     if (i.dims.y > 0.5)
                     {
-                        // p26 fireball (was p22's spiky cel star): a lumpy soft-edged ball, cream in the middle, yellow,
-                        // orange, a red rim; pops in over 2 frames, holds, fades over the last 45% of its life (REF f29-36)
-                        // p28 (REF f33-36 at 8x): a compact white blob inside a FLAT orange splat with 12 thin triangular
-                        //      fingers of random length, longer toward the shooter, hard-edged; the fingers grow out over
-                        //      4 frames and draw back; a thin dark rim, sparse dark flecks beyond
-                        float fn2 = CelValue2(float2(fa * 3.0 + i.more.z * 5.0, i.misc.z * 12.0)) + 0.6 * CelValue2(float2(fa * 7.0 - i.more.z * 2.0, i.misc.z * 20.0));
-                        float lb = saturate(-i.local.x / max(rr, 1e-4)), rb = saturate(i.local.x / max(rr, 1e-4));
-                        float grow = smoothstep(0.0, 0.12, k) * (1.0 - smoothstep(0.45, 0.85, k));
-                        float coreR = (0.12 + 0.04 * fn2) * (1.0 - 0.5 * smoothstep(0.4, 1.0, k));   // p28b
-                        float star = (0.28 + 0.05 * fn2) * (1.0 - 0.15 * rb);   // p28d: the orange star a little bigger round the blob (REF 30 / 18 px)   // p28b
-                        float fing = 0.0;
-                        [unroll] for (int fj = 0; fj < 12; fj++)
+                        // Small hot contact followed by torn, unequal tongues. The hot
+                        // contact burns away before the last fragments; no persistent disc.
+                        float time = i.misc.z, seed = i.more.z;
+                        float ground = step(0.5, i.dims.z);
+                        float remnant=step(0.5,i.dims.w);
+                        float2 p = i.local;
+                        p.y-=0.14*smoothstep(0.65,0.80,k)*(1.0-remnant);
+                        float life = 1.0-smoothstep(0.80,1.0,k);
+                        float growth = smoothstep(0.0,0.32,k)*(1.0-0.82*smoothstep(0.70,0.97,k));
+                        float noise = CelValue2(p*15.0+float2(seed*31.0,time*7.0));
+                        float coreLife = 1.0-smoothstep(0.60,0.78,k);
+                        float coreScale=lerp(1.0,1.65,smoothstep(0.0,0.25,k));
+                        float2 cp=p/coreScale;
+                        cp.x+=0.022*sin(cp.y*28.0+time*11.0+seed*9.0);
+                        float coreD=min(length(float2((cp.x+0.015)/0.092,(cp.y-0.025)/0.125)),
+                                        length(float2((cp.x+0.052)/0.078,(cp.y+0.085)/0.12)));
+                        coreD+=0.18*sin(atan2(cp.y,cp.x)*3.0+seed*11.0+time*7.0);
+                        float core = (1.0-smoothstep(0.35,1.25,coreD+(noise-0.5)*0.75))*coreLife;
+                        float notch=1.0-smoothstep(0.60,1.2,length(float2((cp.x+0.07)/0.06,(cp.y-0.07)/0.05)));
+                        core*=(1.0-0.80*notch)*(1.0-remnant);
+                        float tongues = 0.0, hotTongues = 0.0;
+                        [unroll] for(int j=0;j<4;j++)
                         {
-                            float h1 = CelHash11(fj * 7.0 + i.more.z * 31.0), h2 = CelHash11(fj * 13.0 + i.more.z * 17.0), h3 = CelHash11(fj * 3.0 + i.more.z * 53.0);
-                            float aj = (fj + h1 * 0.8) * 0.5236 + i.more.z * 6.2832;
-                            float dj = fa - aj; dj -= 6.2832 * round(dj / 6.2832);
-                            float wj = 0.07 + 0.1 * h2;   // p28e: thinner (REF)   // p28b: 6-14 deg half-angle (REF fingers 4-8 px at the base)
-                            float dirL = 0.35 + 0.65 * saturate(-cos(aj));   // p28e   // p28d: the fingers lean toward the shooter (REF)
-                            float Lj = (0.45 + 0.5 * h3) * dirL * grow;   // p28e: every finger long, none past the quad (0.5-1.4 were clipped)   // p28d   // p28c: longer (REF: fingers to 2.5x the star)
-                            fing = max(fing, Lj * saturate(1.0 - abs(dj) / wj));
+                            if(remnant>0.5 && j>1) continue;
+                            float h = CelHash21(float2(j+3.0,seed*71.0));
+                            float h2 = CelHash21(float2(j+19.0,seed*37.0));
+                            float angle = remnant>0.5 ? (j==0 ? 3.0+0.20*h : 1.45+0.20*h) : lerp(1.52,0.28,ground)+(j+h*0.75)*0.78;
+                            float2 dir=float2(cos(angle),sin(angle));
+                            float along=dot(p,dir);
+                            float crossD=dot(p,float2(-dir.y,dir.x));
+                            float L=(remnant>0.5 ? (j==0 ? 0.95 : 0.60) : 0.28+0.62*h)*lerp(0.18,1.0,growth);
+                            float u=along/max(L,0.001);
+                            float bend=(h2-0.5)*0.16*u*u+0.022*sin(u*9.0+time*13.0+h*12.0)*u;
+                            float width=(remnant>0.5 ? (j==0 ? 0.065 : 0.035) : 0.025+0.045*h2)*pow(saturate(1.0-u),0.82);
+                            width*=0.72+0.45*CelValue2(float2(u*7.0+h*17.0,time*9.0));
+                            float d=abs(crossD-bend)/max(width,0.001);
+                            float ends=smoothstep(-0.03,0.05,along)*(1.0-smoothstep(0.84,1.0,u));
+                            // Late flame separates into tapered fragments instead of
+                            // collapsing all tongues into an orange ball.
+                            float tear=CelValue2(float2(u*5.0+h*27.0,time*3.5));
+                            ends*=smoothstep(k*0.70-0.08,k*0.70+0.12,tear+0.22);
+                            float tongue=(1.0-smoothstep(0.7,1.14,d))*ends;
+                            tongues=max(tongues,tongue);
+                            hotTongues=max(hotTongues,(1.0-smoothstep(0.12,0.74,d))*ends*(1.0-u*0.55));
                         }
-                        float R = star + fing;
-                        float env2 = smoothstep(0.0, 0.03, k) * (1.0 - smoothstep(0.55, 1.0, k));
-                        float ef = 1.0 - smoothstep(0.78, 0.98, max(abs(i.local.x), abs(i.local.y)));
-                        float cov = (1.0 - smoothstep(R - 0.012, R + 0.012, rr)) * env2 * ef;
-                        float wcov = 1.0 - smoothstep(coreR - 0.02, coreR + 0.02, rr);
-                        half3 body = lerp(CelPal(rowA, 2), CelPal(rowA, 3), 0.55);
-                        half3 ch = lerp(body, CelPal(rowA, 3), 1.0 - smoothstep(coreR, coreR + 0.1, rr));
-                        ch = lerp(ch, CelPalCore(rowA).rgb * i.tone.y, wcov);
-                        ch = lerp(ch, CelPal(rowA, 1), 0.6 * smoothstep(R - 0.035, R - 0.01, rr) * (1.0 - wcov));
-                        float m2 = CelAdditiveFog(half3(1.0, 1.0, 1.0), i.positionWS, i.misc.x).r;
-                        float fn4 = CelValue2(float2(fa * 17.0 + i.more.z * 11.0, rr * 8.0 + i.misc.z * 5.0)) * 0.6 + CelValue2(float2(fa * 5.0 - i.more.z * 7.0, rr * 3.0 - i.misc.z * 3.0)) * 0.6;
-                        float fleck = smoothstep(R, R + 0.03, rr) * (1.0 - smoothstep(R + 0.08, R + 0.18, rr)) * step(0.66, fn4) * env2 * ef * 0.4;
-                        float aa = saturate(cov + fleck * (1.0 - cov)) * m2;
-                        return half4(lerp(CelPal(rowA, 0), ch, cov / max(cov + fleck * (1.0 - cov), 1e-4)) * aa, aa);
+                        // Unequal sheets peel away from the contact, with broad
+                        // interiors and torn forked rims rather than a star of spokes.
+                        [unroll] for(int j=0;j<3;j++)
+                        {
+                            if(ground>0.5 && j==2) continue;
+                            float h=CelHash21(float2(j+51.0,seed*19.0));
+                            float peel=(1.0-ground)*smoothstep(0.12,0.38,k);
+                            float2 sheetP=p-(j==0 ? float2(-0.05,0.32) : j==2 ? float2(-0.07,0.10) : float2(0,0))*peel;
+                            float angle=ground>0.5 ? (j==0?0.70:2.42) : (j==0?lerp(2.72+0.30*h,3.04+0.12*h,peel):j==1?3.72+0.28*h:2.90+0.15*h)+0.13*sin(time*8.0+seed*13.0);
+                            float2 dir=float2(cos(angle),sin(angle));
+                            float along=dot(sheetP,dir), crossD=dot(sheetP,float2(-dir.y,dir.x));
+                            float L=(j==0?0.99:j==1?0.65:0.90)*(0.85+0.30*h)*growth;
+                            float u=along/max(L,0.001);
+                            float curl=-(j==0?lerp(0.50,0.10,peel):j==1?0.10:lerp(0.20,0.05,peel))*u-(j==0?0.10:0.05)*sin(u*3.14+time*3.0+h*7.0)*u;
+                            float width=(j==0?0.22:j==1?0.085:0.15)*min(saturate(u/0.38),saturate((1.0-u)/0.62))
+                                       +0.02*(1.0-saturate(u));
+                            width*=ground>0.5 || j==1 ? 1.0 : lerp(1.0,0.55,smoothstep(0.30,0.55,k));
+                            float grain=CelValue2(float2(u*6.0-time*3.0,(crossD-curl)*17.0+seed*31.0));
+                            float d=abs(crossD-curl)/max(width,0.001)+(grain-0.5)*0.8;
+                            float ends=smoothstep(-0.03,0.03,along)*(1.0-smoothstep(0.93,1.0,u));
+                            float split=CelValue2(float2((crossD-curl)*19.0+seed*17.0,u*1.5-time*2.0));
+                            ends*=lerp(1.0,smoothstep(0.45,0.55,split),smoothstep(0.36,0.85,u));
+                            ends*=smoothstep(k*0.75-0.12,k*0.75+0.08,grain+0.30)*(1.0-smoothstep(0.52,0.70,k));
+                            float detach=smoothstep(0.40,0.55,k);
+                            float rootGap=smoothstep(0.16,0.23,u)*(1.0-smoothstep(0.40,0.47,u));
+                            if(j!=1) ends*=1.0-rootGap*detach;
+                            if(j==2) ends*=smoothstep(0.18,0.35,k);
+                            ends*=1.0-remnant;
+                            tongues=max(tongues,(1.0-smoothstep(0.94,1.06,d))*ends);
+                            hotTongues=max(hotTongues,(1.0-smoothstep(0.45,0.95,d))*ends*(j!=1 ? 0.88-0.58*u : 1.0-0.25*u));
+                        }
+                        float cover=saturate(max(core,tongues)*life*i.tone.z);
+
+                        float heat=saturate(max(core,pow(saturate(hotTongues),0.65)));
+                        half3 color=lerp(half3(1.0,0.36,0.055),half3(1.35,1.18,0.65),heat);
+                        color=lerp(color,half3(1.6,1.5,0.95),core*core);
+                        float glow=exp(-dot(p,p)/0.055)*0.32*coreLife*life*i.tone.z*(1.0-remnant);
+                        float fog=CelAdditiveFog(half3(1,1,1),i.positionWS,i.misc.x).r;
+                        return half4((color*cover+half3(1.0,0.68,0.16)*glow)*fog,cover*fog);
                     }
                     float rq = rr / (0.75 + 0.45 * fn);
                     float g = exp(-rq * rq * 3.0) * (1.0 - smoothstep(0.6, 1.0, rq));
@@ -328,62 +383,45 @@ Shader "TW/Cel/Comet"
                 }
                 if (i.misc.w > 1.5)
                 {
-                    // ---- d01 path ribbon: a soft grey smoke wisp along its curling path. Its edges are eaten by
-                    //      noise that travels up it (fray), it breaks into pieces as it ages, the top thins out, the
-                    //      base lets go late; lit on its screen-left side, a mid-grey shade band, a thin ink line.
-                    float u = i.local.x, y = i.local.y;
-                    float top = i.dims.x, k = i.dims.z, t = i.misc.z, seed = i.more.z;
-                    float sm = u * top;                                    // metres up the wisp
-                    float wid = max(i.more.x, 1e-3);
-                    float n1 = CelValue2(float2(sm / (wid * 1.6 + 0.05) - t * 1.3, seed * 53.0 + step(0.0, y) * 11.0));
-                    float n2 = CelValue2(float2(sm / (wid * 0.7 + 0.03) - t * 2.1, seed * 29.0 + 5.0));
-                    float yc = (n2 - 0.5) * 0.5;
-                    float edge = 0.55 + 0.7 * n1;                          // frayed half width (1 = the nominal)
-                    float field = saturate(1.0 - abs(y - yc) / edge);
-                    // d07 (fracture 2: width profile): from mid-life the wisp is a chain of separate overlapping
-                    // round puffs along its path (metres: sm along, ym across), each its own size and offset,
-                    // growing up the wisp and over the life; the strip stays only as the young thread at the base
-                    float ym = (y - yc) * wid * 0.5;
-                    float pitch = wid * 0.55 + 0.05;
-                    float puffF = 0.0, puffLit = 0.5;
-                    float grow = (0.55 + 0.9 * u) * lerp(0.7, 1.15, k);
-                    [unroll] for (int q = -1; q <= 1; q++)
+                    // A rising curl built from overlapping unequal density lobes in a flat
+                    // billboard. The density curls; the mesh cannot fold into white triangles.
+                    float u = i.local.x, k = i.dims.z, t = i.misc.z, seed = i.more.z;
+                    float h = u * i.dims.x;
+                    float x = i.local.y * i.more.x * 0.5;
+                    float density = 0.0;
+                    float grad = 0.0;
+                    [unroll] for (int j = 0; j < 7; j++)
                     {
-                        float ci = floor(sm / pitch) + q;
-                        float h1 = CelHash21(float2(ci, seed * 131.0)), h2 = CelHash21(float2(ci + 17.0, seed * 59.0));
-                        float sc = (ci + 0.5 + (h1 - 0.5) * 0.4) * pitch;
-                        float cy = (h2 - 0.5) * wid * 0.8;   // p03: puffs scattered across the column (REF: a broken cloud, not a sausage)
-                        float R = wid * 0.7 * (0.5 + 0.7 * h1) * grow;   // p02: puffs overlap into a soft column
-                        float2 dv = float2(sm - sc, ym - cy) / max(R, 1e-3);
-                        float f = (sc > 0.0 && sc < top) ? 1.0 - length(dv) : 0.0;
-                        if (f > puffF) { puffF = f; puffLit = saturate(0.62 + 0.3 * dv.x - 0.15 * dv.y); }
+                        float r = CelHash21(float2(j + 7.0, seed * 119.0));
+                        float h0 = (j + 0.45) * 0.45;
+                        float cx = (0.16 + 0.12 * h0) * sin(h0 * 3.6 - t * 1.1 + seed * 31.0);
+                        float rx = (0.18 + 0.12 * r) * (0.25 + 1.65 * smoothstep(0.25,0.80,k)) * (0.65 + 0.30 * h0);
+                        float ry = (0.27 + 0.10 * r) * (0.9 + 0.35 * k);
+                        float2 q = float2((x - cx) / rx, (h - h0) / ry);
+                        float d = exp(-dot(q,q) * 1.65) * (1.0 - smoothstep(i.dims.x - 0.15, i.dims.x + 0.12, h0));
+                        float2 inner = q - float2((j % 2 == 0 ? 0.35 : -0.35), 0.18);
+                        float hollow = exp(-dot(inner,inner)*5.5) * smoothstep(0.32,0.72,k) * 0.92;
+                        density += d - hollow;
+                        grad += d * (-q.x * 0.15 + q.y * 0.25);
                     }
-                    float billow = smoothstep(0.12, 0.45, k) * smoothstep(0.0, 0.25, u);
-                    field = lerp(field, saturate(puffF * 1.4), billow);
-                    // pieces: the wisp tears into chunks as it ages, the top first
-                    float brk = CelValue2(float2(sm / (wid * 2.5 + 0.1) - t * 0.4, seed * 91.0));
-                    float thr = i.more.y + 0.35 * u * k;
-                    float cut = smoothstep(thr, thr + 0.08, brk * 0.85 + 0.15);
-                    // the top thins to nothing, the base fades in from the fire and lets go late in the life
-                    float ends = saturate((1.0 - u) * 5.0) * saturate(u * 12.0 + 0.2 - k * 3.0 * saturate(k * 2.0 - 0.6));
-                    float fm = field * cut * ends;
-                    float mask = CelAAStep(0.06, fm);
-                    float lit = saturate(0.5 - 0.5 * (y - yc) / edge + 0.25 * (n2 - 0.5));   // screen-left side lit
-                    lit = lerp(lit, puffLit, billow);   // d07: each puff lit on its upper side
-                    // p01 (by eye): REF's smoke is a soft mottled grey, not two flat stripes: a smooth shade between
-                    // the palette's dark and light greys, broken by slow travelling noise, a faint ink, a soft edge
-                    float mott = CelValue2(float2(sm / (wid * 0.9 + 0.04) + t * 0.5, y * 1.3 + seed * 71.0));
-                    float hole = CelValue2(float2(sm / (wid * 0.55 + 0.03) - t * 0.7, y * 2.2 + seed * 13.0));
-                    fm *= smoothstep(0.22, 0.5, hole + 0.25 * (1.0 - k));   // p04: holes open as it ages
-                    lit = saturate(lit * 0.9 + 0.08 + 0.7 * (mott - 0.5));
-                    half3 c = lerp(CelPal(rowA, 0), CelPalCore(rowA).rgb, smoothstep(0.15, 0.8, lit));   // p17: cream lit side, dark grey shade (REF)   // p03: cream lit side, dark grey shade
-                    mask = saturate((fm - 0.03) / 0.12);   // p17: defined lumps
-                    float ink = CelInk(fm, 0.06, CelLodInk(i.tone.w)) * mask;
-                    c = lerp(c, CelPalInk(rowA).rgb, ink * 0.35);
-                    float op = saturate(i.tone.z) * (1.0 - smoothstep(0.55, 0.88, k));   // d37: the wisp is gone by ~f128 (REF clear at f131)
-                    float a = mask * op;
-                    float m = CelAdditiveFog(half3(1.0, 1.0, 1.0), i.positionWS, i.misc.x).r;
-                    return half4(c * a * m, a * m);
+                    float curve = (0.16+0.12*h)*sin(h*3.6-t*1.1+seed*31.0);
+                    float young = exp(-pow((x-curve)/(0.035+0.06*k),2.0));
+                    density=lerp(young,density,smoothstep(0.25,0.65,k));
+                    float noise = CelValue2(float2(x * 5.0 + seed * 19.0, h * 5.5 - t * 0.55));
+                    density += (noise - 0.5) * 0.20;
+                    // Thin cutouts break the connection between neighbouring folds as they cool.
+                    float hole = CelValue2(float2(x * 3.6 + seed * 53.0, h * 3.7 - t * 0.35));
+                    density -= smoothstep(0.65, 0.86, hole) * smoothstep(0.20, 0.70, k) * 0.40;
+                    float aa = max(fwidth(density), 0.018);
+                    float mask = smoothstep(0.17-aa, 0.25+aa, density);
+                    mask *= smoothstep(0.0, 0.12, u) * (1.0 - smoothstep(0.90, 1.0, u));
+                    mask *= smoothstep(smoothstep(0.5,0.95,k)*0.20, 0.30, u);
+                    float shade = smoothstep(-0.06, 0.12, grad + (noise - 0.5) * 0.12);
+                    half3 c = lerp(half3(0.34,0.31,0.32),half3(0.58,0.53,0.50),shade);
+                    float op = saturate(i.tone.z) * smoothstep(0.0,0.10,k) * (1.0-smoothstep(0.72,1.0,k));
+                    float alpha = mask * op;
+                    float fog = CelAdditiveFog(half3(1,1,1),i.positionWS,i.misc.x).r;
+                    return half4(c * alpha * fog, alpha * fog);
                 }
                 if (i.misc.w > 0.5)
                 {
@@ -413,10 +451,17 @@ Shader "TW/Cel/Comet"
 
                 // ---- the smoke ribbon: a thin wavy strand behind the flame that fades and thins to nothing
                 //      (a wisp instead: a cluster of round inked puffs along a curling path, lit from above)
-                float ribbonStart = (strand > 0.5 || puffs > 0.5) ? fl * 0.55 : hr * 9.0;   /* p29b: the contrail begins where the fire ends (REF) */   // p23   // p13: the smear begins just behind the head   // c01: the bolt's smoke starts inside its flame (it frays out of it)
+                float boltBodyLength = min(fl * 0.92, hr * 34.0);
+                float ribbonStart = (strand > 0.5 || puffs > 0.5) ? fl * 0.55 : boltBodyLength * 0.60;   /* reference-match 2026-11-14: smoke continues the long fire body. p29b: the contrail begins where the fire ends (REF) */   // p23   // p13: the smear begins just behind the head   // c01: the bolt's smoke starts inside its flame (it frays out of it)
                 float grow = saturate((s - ribbonStart) / max(wl * 0.6, 1e-3));
                 float yc = amp * grow * sin(6.2832 * s / wl + seed * 40.0 - i.misc.z * i.misc.y)
                          + amp * 0.05 * grow * sin(6.2832 * s / (wl * 0.45) + seed * 17.0 - i.misc.z * i.misc.y / 0.45);   // p32: both harmonics pinned in space (misc.y = 2 pi speed / wl on a bolt)   // p29c: one slow bend (REF), the second harmonic nearly off
+                if (hr > 1e-5)
+                {
+                    float station=i.history;
+                    yc=0.12*(CelValue2(float2(station*1.1+seed*19.0,seed*5.0))-0.5)
+                       +0.05*(CelValue2(float2(station*3.2,seed*23.0))-0.5);
+                }
                 yc += step(1e-5, hr) * hr * 0.2;   // p32: the band continues the body's own line (REF 4x: centred, not above)   // p29b: on the path, a little above (REF)   // p29: stays above the tail all the way (REF: parallel contrails)   // p27l: rides the top edge near the head, settles onto the axis far back (REF)   // p27: higher (REF)   // p23c: the REF's smear rides on the tail's upper edge
                 float taper = saturate(1.0 - s / max(len, 1e-3));
                 float rwid = i.more.x * 0.5 * lerp(lerp(lerp(1.4, 0.8, taper), 0.35 + 0.65 * taper, strand), 1.0, puffs)   /* p29c: a bolt's contrail widens toward its far end (REF) */ * saturate((s - ribbonStart) / max(wl * 0.25, 1e-3) + lerp(0.15, 0.7, step(1e-5, hr)));   // p27l: a bolt's smear stays broad far back and starts wide (the ramp from a point drew a grey dart)   // p21: head-wide, then a thin line (REF)
@@ -440,19 +485,72 @@ Shader "TW/Cel/Comet"
                 }
                 else if (hr > 1e-5)
                 {
-                    // p32 (REF 4x, the dummy bolt f28-43 in fixed boxes, cross-section profiles): a bolt's smoke trail is ONE
-                    //      smooth pale band continuing the body's line: 7-12 px at half height (grey 140 on a 42 background,
-                    //      saturation ~8), full right behind the body, steady while the bolt flies, twice as wide and half as
-                    //      bright at its oldest end where it forks in two; after the hit it thins to 2-3 px and is gone in
-                    //      6 frames. It never swims. (p31's "bundle of strands" was several bolts' bands in parallel lanes.)
-                    float age = saturate((s - ribbonStart) / max(len - ribbonStart, 1e-3));
+                    // A deposited smoke ribbon is a succession of long, asymmetric
+                    // wedges. Jittered knots make the spans roughly 0.65-2 metres, with broad
+                    // grey faces separated by near-zero pinches. No repeating sine
+                    // scallops, bead cells, or Gaussian tube cross-section.
                     float held = i.more.y;
-                    float bw = i.more.x * 0.5 * (1.0 + 0.5 * age) * (1.0 - 0.5 * saturate(held / 0.25));   // p32e: 1.5x at the oldest end (2.2x turned the near bolts' bands to fog)   // p32b: thins to half over 6 frames after the hit (REF)
-                    float dy = y - yc;
-                    float g = exp(-dy * dy / max(bw * bw, 1e-6));
-                    float fork = 1.0 - 0.4 * smoothstep(0.55, 1.0, age) * exp(-dy * dy / max(bw * bw * 0.12, 1e-6));
-                    float aln = 0.85 + 0.15 * CelValue2(float2(s / max(wl * 0.3, 1e-3) + seed * 9.0, seed * 3.0));
-                    rField = (s > ribbonStart) ? g * fork * aln : 0.0;
+                    float station = i.history;
+                    float age = saturate((s - ribbonStart) / max(len - ribbonStart, 1e-3));
+
+                    // Exactly one knot inside every 1.3 m cell. Select the two knots
+                    // bracketing this world station, including negative coordinates.
+                    float pitch = 1.3;
+                    float cell = floor(station / pitch);
+                    float hc = CelHash21(float2(cell + 31.0, seed * 79.0));
+                    float xc = (cell + 0.25 + 0.50 * hc) * pitch;
+                    float leftId = cell - (station < xc ? 1.0 : 0.0);
+                    float rightId = leftId + 1.0;
+                    float h0 = CelHash21(float2(leftId + 31.0, seed * 79.0));
+                    float h1 = CelHash21(float2(rightId + 31.0, seed * 79.0));
+                    float x0 = (leftId + 0.25 + 0.50 * h0) * pitch;
+                    float x1 = (rightId + 0.25 + 0.50 * h1) * pitch;
+                    float q = saturate((station - x0) / max(x1 - x0, 0.1));
+
+                    float raw0 = CelHash21(float2(leftId + 97.0, seed * 137.0));
+                    float raw1 = CelHash21(float2(rightId + 97.0, seed * 137.0));
+                    // One jitter-selected knot in each group of three pinches
+                    // almost shut. This guarantees long triangles within a visible
+                    // trail, without making every third knot repeat the same shape.
+                    float group0 = floor(leftId / 3.0), group1 = floor(rightId / 3.0);
+                    float pinchId0 = group0 * 3.0 + floor(CelHash21(float2(group0 + 251.0, seed * 83.0)) * 2.999);
+                    float pinchId1 = group1 * 3.0 + floor(CelHash21(float2(group1 + 251.0, seed * 83.0)) * 2.999);
+                    float w0 = abs(leftId - pinchId0) < 0.1 ? 0.025 : 0.18 + 1.90 * pow(raw0, 1.20);
+                    float w1 = abs(rightId - pinchId1) < 0.1 ? 0.025 : 0.18 + 1.90 * pow(raw1, 1.20);
+                    float widthFactor = lerp(w0, w1, q);
+                    float share0 = 0.30 + 0.40 * CelHash21(float2(leftId + 157.0, seed * 43.0));
+                    float share1 = 0.30 + 0.40 * CelHash21(float2(rightId + 157.0, seed * 43.0));
+                    float share = lerp(share0, share1, q);
+                    float totalWidth = i.more.x * widthFactor * (1.0 + 0.15 * age)
+                                     * (1.0 - 0.30 * saturate(held / 0.5));
+                    float topWidth = totalWidth * share;
+                    float bottomWidth = totalWidth * (1.0 - share);
+                    // Fine edge imperfections remain tiny and deposited. They do
+                    // not replace the long wedge silhouette with scalloped noise.
+                    float rag = (CelValue2(float2(station * 7.0, seed * 47.0)) - 0.5) * 0.007;
+                    float dy = y - yc - rag;
+                    float edge = max(fwidth(dy) * 1.15, 0.010);
+                    float slab = smoothstep(-edge, edge, topWidth - dy)
+                               * smoothstep(-edge, edge, dy + bottomWidth);
+                    // Without this coverage term subpixel pinches turn into a
+                    // continuous half-opacity hair even when both edges meet.
+                    slab *= saturate(totalWidth / max(edge * 2.0, 1e-4));
+
+                    // Rare pointed slits divide one face into two flaps, but leave
+                    // the main ribbon connected at both ends. One slit per selected
+                    // span, not a second persistent strand behind every projectile.
+                    float forkHash = CelHash21(float2(leftId + 211.0, seed * 61.0));
+                    float splitSpan = step(0.65, forkHash);
+                    float wedge = saturate(1.0 - abs(q - 0.53) / 0.34);
+                    float slitWidth = totalWidth * 0.18 * wedge * splitSpan;
+                    float slitCentre = totalWidth * (share - 0.50) * 0.45
+                                     + totalWidth * 0.11 * (q - 0.5);
+                    float slit = (1.0 - smoothstep(slitWidth, slitWidth + edge * 0.7, abs(dy - slitCentre)))
+                               * smoothstep(0.0, edge, slitWidth);
+                    slab *= 1.0 - slit * 0.88;
+
+                    float density = 0.81 + 0.07 * lerp(h0, h1, q);
+                    rField = s > ribbonStart ? slab * density : 0.0;
                 }
                 else
                 {
@@ -462,23 +560,98 @@ Shader "TW/Cel/Comet"
                 }
                 float brk = CelValue2(float2(s / (wl * 0.5), seed * 91.0));   // pieces along the ribbon
                 float rCut = (puffs > 0.5 || hr > 1e-5) ? 1.0 : step(i.more.y, brk * 0.9 + 0.1 * taper);   // p29: a bolt's contrail is one continuous ribbon (REF), no pieces
-                float rMask = lerp(pow(rField, lerp(0.85, 1.0, step(1e-5, hr))), CelAAStep(0.04, rField), max(puffs, strand)) * rCut * lerp(1.0, smoothstep(ribbonStart, ribbonStart + 0.5, s), step(1e-5, hr));   // p32: a bolt's band is full 0.5 m behind the body (REF), its gaussian profile untouched   // p27l: fades in by opacity, not width   // p27e: nearly opaque (REF smear A58872 at the edge, F2D6BB core)   // p06: the bolt's trail is a soft smear
+                float rMask = lerp(pow(rField, lerp(0.85, 1.0, step(1e-5, hr))), CelAAStep(0.04, rField), max(puffs, strand)) * rCut * lerp(1.0, smoothstep(ribbonStart, ribbonStart + max(boltBodyLength*0.50,0.5), s), step(1e-5, hr));   // p32: a bolt's band is full 0.5 m behind the body (REF), its gaussian profile untouched   // p27l: fades in by opacity, not width   // p27e: nearly opaque (REF smear A58872 at the edge, F2D6BB core)   // p06: the bolt's trail is a soft smear
                 // a puff is lit from above: light on its upper side, darker below
                 // b05: the strand is a smoke ribbon: a light band on its upper/left side, a mid-grey shade band, an ink edge
                 float sLit = saturate(0.5 + 0.5 * (y - yc) / max(rwid, 1e-4));
                 float rVal = lerp(lerp(lerp(0.40 + 0.35 * rField, 0.55, step(1e-5, hr)), 0.3 + 0.6 * sLit, strand),   /* p32: one flat pale grey on a bolt's band, the softness is in its alpha */ saturate(0.6 + 0.4 * (y - yc) / max(rwid, 1e-4)) * lerp(0.75, 1.0, rField), puffs);
                 half3 rCol = lerp(CelRamp(rVal, rowB, 1.0), lerp(CelPal(rowB, 1), lerp(CelPal(rowB, 3), CelPal(rowB, 2), step(1e-5, hr)), lerp(saturate(rField * 1.6), sLit, step(1e-5, hr))), 1.0 - max(puffs, strand));   // p32f: a bolt's band is a touch lighter along its top edge (REF 4x)   // p32b: a bolt's band is one flat pale grey (REF 140 on 42)
+                if(hr>1e-5 && fireMode<0.5) rCol=half3(0.63,0.58,0.57);
                 float rInk = CelInk(rField, 0.04, inkPx * max(puffs, strand)) * rMask;    // b05: the strand is inked too
                 half3 col = lerp(rCol, CelPalInk(rowB).rgb, rInk) * rMask;
                 // the strand fades along its length and thins out at far zoom (the comet carries the read there)
                 float lodY = _CelLod.y > 0.0 ? _CelLod.y : 1.0;
                 float rFade = lerp(saturate(taper * lerp(2.2, 5.0, step(1e-5, hr))) * saturate(lodY * 4.0 - 2.0), 1.0, puffs);   // p27l: a bolt's smear holds to the last fifth of the quad (REF: past the body's end)   // p27k: full at lod <= 1 (0.7 at the close film read as a grey cloud), gone at lod 2
                 rFade = lerp(rFade, saturate(taper * 6.0) * saturate(lodY * 2.0 - 0.6), strand);   // b05: fades only near its base
-                float boltOp = (0.4 + 0.6 * taper) * (1.0 - smoothstep(0.0, 0.3, i.more.y));   // p32e: 0.4 at the oldest end (REF +46 on 42)   // p32b: gone 7 frames after the hit (REF)
+                float trailHold = min(BOLT_HOLD, wl);
+                float boltOp = (0.82 + 0.18 * taper) * (1.0 - smoothstep(trailHold*0.64, trailHold, i.more.y));   // p32e: 0.4 at the oldest end (REF +46 on 42)   // Per-bolt smoke residue: 12 frames on opening shots, 8 on the last shots.
                 float rOp = saturate(i.tone.z) * rFade * lerp(1.0, boltOp, step(1e-5, hr));
                 col *= lerp(1.0, saturate(i.tone.z) * boltOp, step(1e-5, hr));   // p32b: a bolt's band is alpha-blended, not added (it blew out to 231 on the REF's 140)   // p32: half at the oldest end, fading out after the hit (REF)   // p31: the strands stay visible far back (REF)   // p29c: a bolt's contrail fades toward its far end (REF)
                 col *= lerp(rFade, 1.0, rInk);
                 float a = rMask * lerp(rOp, 1.0, rInk);
+
+                // Reference-match: long torn cream teardrop, orange hooked head and a thin red edge.
+                // This branch is only a travelling bolt; standing ground flames retain their own shading.
+                if (hr > 1e-5 && fireMode < 0.5)
+                {
+                    float t = i.misc.z;
+                    float aliveFire = 1.0 - smoothstep(0.04, 0.23, i.more.y);
+                    float bodyLength = boltBodyLength;
+                    float u = saturate(s / max(bodyLength, 1e-4));
+                    float n = CelValue2(float2(s / (hr * 5.0) - t * 8.0, y / (hr * 0.22) + seed * 17.0));
+                    float n2 = CelValue2(float2(s / (hr * 2.3) + t * 12.0, y / (hr * 0.42) + seed * 31.0));
+                    float axis = hr * 0.10 * sin(s / (hr * 4.5) - t * 5.0 + seed * 23.0) * smoothstep(0.0, 0.25, u);
+                    float yy = y - axis;
+                    float width = hr * (1.10 + 0.34 * sin(u * 3.14159)) * pow(1.0 - u, 0.85);
+                    width *= 0.75 + 0.50 * CelValue2(float2(s / (hr * 2.0) - t * 11.0, seed * 57.0));
+                    float head = length(float2(s / (hr * 1.42), yy / (hr * 1.36)));
+                    float body = (s >= 0.0 && s < bodyLength) ? abs(yy) / max(width, 1e-4) : 10.0;
+                    float q = min(head, body);
+                    float fray = (n - 0.5) * 0.46 + (n2 - 0.5) * 0.18;
+                    q += fray * smoothstep(-hr, hr * 3.0, s);
+                    float edge = 1.0 - smoothstep(0.78, 1.28, q);
+                    float rear = 1.0 - smoothstep(len - hr * 5.0, len, s);
+                    float torn = smoothstep(0.45, 0.95, u) * smoothstep(0.5, 0.9, q);
+                    edge *= lerp(1.0, smoothstep(0.20, 0.65, n), torn);
+
+                    half3 red = half3(0.76, 0.095, 0.025);
+                    half3 orange = half3(1.0, 0.39, 0.075);
+                    half3 cream = half3(1.0, 0.94, 0.62);
+                    float heatQ = q + 0.38 * u + 0.10 * (n2 - 0.5);
+                    half3 flame = lerp(cream, half3(1.0, 0.80, 0.28), smoothstep(0.56, 0.80, heatQ));
+                    flame = lerp(flame, orange, smoothstep(0.78, 1.00, heatQ));
+                    flame = lerp(flame, red, smoothstep(0.98, 1.24, heatQ));
+                    // A hooked orange hollow is visible inside the head, opening into the rear body.
+                    float2 loopP = float2((s - hr * 0.32) / (hr * 1.06), (yy - hr * 0.02) / (hr * 0.65));
+                    float ring = 1.0 - smoothstep(0.10, 0.30, abs(length(loopP) - (0.72 + 0.10 * sin(atan2(loopP.y, loopP.x) * 3.0 + t * 9.0 + seed * 21.0))));
+                    float opening = 1.0 - smoothstep(hr * 0.05, hr * 0.9, s) * smoothstep(-hr * 0.18, hr * 0.18, yy);
+                    float hook = ring * opening * (1.0 - smoothstep(0.85, 1.1, head));
+                    flame = lerp(flame, half3(0.48, 0.19, 0.045), hook * (0.30 + 0.16 * CelValue2(float2(t * 6.0 + seed * 31.0, atan2(loopP.y, loopP.x) * 2.0))));
+                    // Streaks grow out of the body and taper, instead of disconnected rigid fins.
+                    float streakAlpha = 0.0;
+                    half3 streakColor = red;
+                    [unroll] for (int j = 0; j < 3; j++)
+                    {
+                        float h = CelHash21(float2(j + 2, seed * 79.0));
+                        float L = boltBodyLength * (1.05 + 0.20 * h);
+                        float v = saturate(s / L);
+                        float side = j == 0 ? 1.0 : -1.0;
+                        float sy = side * hr * (0.52 + 0.37 * j) * sin(v * 2.1);
+                        sy += hr * (0.09 * sin(v * 7.0 + seed * 13.0 - t * 3.0) + 0.22 * (CelValue2(float2(s / (hr * 4.0) - t * 2.0, seed * 13.0 + j)) - 0.5)) * v;
+                        float sw = max(hr * 0.10 * pow(1.0-v,0.60),0.004);
+                        float d = abs(y - sy) / sw;
+                        float env = smoothstep(hr * 2.0, hr * 7.0, s) * (1.0 - smoothstep(0.60, 1.0, v));
+                        float sa = (1.0 - smoothstep(sw * 0.35, sw + fwidth(y) * 0.7, abs(y-sy))) * env * 0.75;
+                        if (sa > streakAlpha)
+                        {
+                            streakAlpha = sa;
+                            streakColor = lerp(red, cream, (1.0 - smoothstep(0.0, 0.8, d)) * 0.8);
+                        }
+                    }
+                    float haloWidth = max(width * 2.5, hr * 0.35);
+                    float haloD = min(length(float2(s / (hr * 1.8), yy / (hr * 2.2))),
+                        s >= 0.0 && s < bodyLength ? abs(yy + hr * 0.15) / haloWidth : 10.0);
+                    float halo = exp(-haloD * haloD * 1.2) * 0.55 * rear * aliveFire;
+                    col += half3(0.7, 0.075, 0.01) * halo;
+                    float sa = streakAlpha * rear * aliveFire;
+                    col = col * (1.0 - sa) + streakColor * sa;
+                    a = a + (1.0 - a) * sa;
+                    float fa = saturate(edge * rear * aliveFire);
+                    col = col * (1.0 - fa) + flame * fa;
+                    a = a + (1.0 - a) * fa;
+                    float fog = CelAdditiveFog(half3(1,1,1), i.positionWS, i.misc.x).r;
+                    return half4(col * fog, a * fog);
+                }
 
                 // ---- the flame (p23, rebuilt to 6x crops of the reference, in head radii hr): a cream CORE band
                 //      0.4 hr thick, a yellow band to 0.65, orange to 0.85, a RED edge to 1.0; the body keeps

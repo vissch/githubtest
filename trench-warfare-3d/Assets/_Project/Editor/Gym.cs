@@ -87,10 +87,19 @@ namespace TW.Editor
         static void OnPlayMode(PlayModeStateChange change)
         {
             if (change != PlayModeStateChange.EnteredPlayMode) return;
-            string req = SessionState.GetString(Request, null);
-            if (req == null) return;
-            SessionState.EraseString(Request);   // a crash must not leave the editor looping
+            if (!TryTakeRequest(out string req)) return;
             StartRunner(req);
+        }
+
+        internal static bool TryTakeRequest(out string req)
+        {
+            // Unity marshals a null string default as empty. Empty options are a real Run()
+            // request, so absence needs a non-empty sentinel rather than a null/empty check.
+            const string absent = "\u001fTW.Gym.NoRequest\u001f";
+            req = SessionState.GetString(Request, absent);
+            if (req == absent) { req = null; return false; }
+            SessionState.EraseString(Request);   // a crash must not leave the editor looping
+            return true;
         }
 
         static void StartRunner(string options)
