@@ -12,10 +12,13 @@ Tests: `Tests/Cel/CelFxTests.cs`. Still: `Editor/Cel/CelFxStill.cs`.
 
 ```csharp
 CelFx.Play(recipe, origin, dir, target, seed);   // origin: muzzle/burst, dir: facing, target: the hit
+CelFx.Play(recipe, origin, dir, target, seed, delay: 0.25f); // schedule all births and callbacks later
 ```
 It spawns every layer at once (records born later wait on the GPU), so an effect costs CPU only when played, 0 B, and
 nothing per frame. The same seed plays the same effect. The renderer makes itself on first use (`CelFx.Renderer`).
 Chunks need a debris owner to lend `CelFx.Chunks` (DebrisRenderer.Burst); lights go through `SceneHooks.Flash`.
+Delay must be finite and nonnegative. It changes scheduled birth/due times while leaving `CelFx.Clock` unchanged,
+so future light layers remain queued until the active clock reaches them.
 
 ## Write a recipe
 
@@ -26,8 +29,10 @@ A recipe is a list of `CelLayer`s. Put yours in `Cel/<Effect>/<Effect>Recipe.cs`
 |---|---|
 | `Kind` | `"Streak"`, `"Lobe"`, `"Glow"`, an added kind's `Name`, `"Chunks"` (DebrisRenderer) or `"Light"` (NightLights) |
 | `Start`, `Duration`, `TimeJitter` | first birth (s after Play), births spread evenly over Duration, +- jitter |
+| `BirthEnd` | optional GPU birth bound after Start; negative disables it. Later records retain their data/RNG sequence with zero opacity. Existing particles keep their full lives; light/chunk callbacks are unaffected |
 | `Life`, `LifeJitter` | seconds each record lives |
 | `Close`, `Mid`, `Far` | counts per LOD tier (must not rise going out) |
+| `LodGroup` | optional named replacement set; members need unique names and combined counts must not rise |
 | `Anchor`, `Offset` | Origin or Target, plus an offset in the effect frame (x right, y up, z along dir) |
 | `Shape`, `ShapeSize` | Point, Sphere (x radius), Shell, Disc (level; x outer, y inner), Box, Line (origin to target) |
 | `Aim`, `Speed`, `SpeedJitter`, `Spread`, `UpBias`, `Arrive` | None, Dir, Radial, Target (Speed 0: arrive at Life x Arrive), Up, Back |
@@ -79,6 +84,10 @@ Kit changes you need (a new shared function, a record field) go to the kit owner
   scaled by `FxQuality` (Low 0.5, Medium 0.75, High 1, Epic 1.25).
 - **Close** = full detail; **Mid** = fewer pieces, no secondary arcs; **Far** = one or two primitives (a flash Glow, a
   line Streak, a pool Glow). Counts and detail never rise going out (`Close >= Mid >= Far`; tested).
+- A simpler primitive may replace a detailed one through an explicit `LodGroup`. The group must have at least two
+  named layers; validation checks combined raw and rounded counts at Close/Mid/Far for every quality. Native tests
+  also check combined counts at the standard intermediate zoom samples. Untagged layers retain the individual
+  monotonic rule. Group names use letters, digits, hyphen and underscore. This metadata does not change spawning.
 - Ink thins going out (`_CelLod.y`, x1 Close, x0.75 Mid, x0.5 Far); use `CelLodInk(px)` in a shader.
 - `CelFx.ZoomOverride` pins the zoom for a capture; `CelFx.Clock` pins the clock.
 

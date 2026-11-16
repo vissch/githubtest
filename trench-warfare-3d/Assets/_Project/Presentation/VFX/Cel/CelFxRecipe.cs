@@ -49,11 +49,17 @@ namespace TW.Presentation.VFX.Cel
         public float Duration;
         /// <summary>Each birth moves by up to +- this (s).</summary>
         public float TimeJitter;
+        /// <summary>Optional GPU birth bound, seconds after Start. Negative: unbounded. Later records keep
+        /// their packed data and random draws but have zero opacity; existing particles are not cut off.</summary>
+        public float BirthEnd = -1f;
         /// <summary>Seconds each record lives, x (1 +- LifeJitter).</summary>
         public float Life = 1f, LifeJitter = 0.2f;
         // ---------------------------------------------------------------- counts per tier (never rising going out)
         /// <summary>Records at Close (zoom T3/T2, 16 m and in), Mid (T1, 30 m) and Far (O120 and out); blended between.</summary>
         public int Close = 1, Mid = 1, Far = 0;
+        /// <summary>Optional named set of replacement layers. Its combined counts must decrease across LOD tiers;
+        /// ungrouped layers must each decrease. Members need unique names; a group cannot contain just one layer.</summary>
+        public string LodGroup = "";
         // ---------------------------------------------------------------- where and which way
         public CelAnchor Anchor = CelAnchor.Origin;
         /// <summary>Added to the anchor in the effect's frame: x right, y up, z along dir.</summary>
@@ -87,8 +93,12 @@ namespace TW.Presentation.VFX.Cel
         public float Core = 2f, Opacity = 1f, Ink = 2f;
         /// <summary>The kind's own parameters (see its shader's header): Lobe (lump freq, lump amp, light up-bias, -),
         /// Glow (mode, falloff/ring width, star points, sharpness), Streak (tail taper, min length, flicker, -),
-        /// Chunks (DebrisRenderer.Piece, burn 0..1, -, -), Light (reach m, -, -, -).</summary>
+        /// Chunks (DebrisRenderer.Piece, burn 0..1, -, -), Light (reach m, optional fire glow-card intensity, -, -).</summary>
         public Vector4 Extra;
+        /// <summary>Opt-in kind payload: after all normal random draws, Axis stores the common Play target
+        /// and Tone.y the nominal layer birth. The consuming shader must explicitly support these meanings.
+        /// False preserves the complete default record, including random Axis and HDR Core.</summary>
+        public bool PackTargetFrame;
 
         [NonSerialized] internal int kindId = int.MinValue, paletteId = -1, coolId = -1;
 
@@ -118,16 +128,54 @@ namespace TW.Presentation.VFX.Cel
         public List<string> Validate(CelFxRenderer renderer = null)
         {
             var bad = new List<string>();
+            var groups = new Dictionary<string, List<CelLayer>>(StringComparer.Ordinal);
             for (int i = 0; i < Layers.Count; i++)
             {
                 var l = Layers[i];
                 string at = Name + "[" + i + (string.IsNullOrEmpty(l.Name) ? "" : " " + l.Name) + "]: ";
-                if (l.Close < l.Mid || l.Mid < l.Far) bad.Add(at + "counts rise going out (Close " + l.Close + ", Mid " + l.Mid + ", Far " + l.Far + ")");
-                if (l.Far < 0) bad.Add(at + "a negative count");
+                if (string.IsNullOrEmpty(l.LodGroup))
+                {
+                    if (l.Close < l.Mid || l.Mid < l.Far) bad.Add(at + "counts rise going out (Close " + l.Close + ", Mid " + l.Mid + ", Far " + l.Far + ")");
+                }
+                else
+                {
+                    bool validName = true;
+                    foreach (char c in l.LodGroup)
+                        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-')) validName = false;
+                    if (!validName) bad.Add(at + "LodGroup must use letters, digits, hyphen or underscore");
+                    if (!groups.TryGetValue(l.LodGroup, out var members)) groups.Add(l.LodGroup, members = new List<CelLayer>());
+                    members.Add(l);
+                }
+                if (l.Close < 0 || l.Mid < 0 || l.Far < 0) bad.Add(at + "a negative count");
                 if (l.Life <= 0f) bad.Add(at + "Life must be above 0");
                 if (CelPalette.Find(l.Palette) < 0) bad.Add(at + "no palette called " + l.Palette);
                 if (!string.IsNullOrEmpty(l.CoolTo) && CelPalette.Find(l.CoolTo) < 0) bad.Add(at + "no palette called " + l.CoolTo);
                 if (renderer != null && renderer.KindId(l.Kind) == -1) bad.Add(at + "no kind called " + l.Kind);
+            }
+            foreach (var group in groups)
+            {
+                string at = Name + " LOD group '" + group.Key + "': ";
+                if (group.Value.Count < 2) bad.Add(at + "needs at least two replacement layers");
+                var names = new HashSet<string>(StringComparer.Ordinal);
+                int close = 0, mid = 0, far = 0;
+                foreach (var l in group.Value)
+                {
+                    if (string.IsNullOrWhiteSpace(l.Name) || !names.Add(l.Name)) bad.Add(at + "members need nonempty, unique layer names");
+                    close += l.Close; mid += l.Mid; far += l.Far;
+                }
+                if (close < mid || mid < far) bad.Add(at + "combined counts rise going out (Close " + close + ", Mid " + mid + ", Far " + far + ")");
+                foreach (FxTier tier in Enum.GetValues(typeof(FxTier)))
+                {
+                    float quality = CelFx.QualityShare(tier);
+                    int last = int.MaxValue;
+                    for (int lod = 0; lod <= 2; lod++)
+                    {
+                        int count = 0;
+                        foreach (var l in group.Value) count += l.CountAt(lod, quality);
+                        if (count > last) bad.Add(at + "rounded counts rise at LOD " + lod + " (" + tier + ")");
+                        last = count;
+                    }
+                }
             }
             return bad;
         }

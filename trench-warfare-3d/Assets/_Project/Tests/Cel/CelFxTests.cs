@@ -64,6 +64,189 @@ namespace TW.Tests
         }
 
         [Test]
+        public void A_Gpu_Birth_End_Changes_Only_Late_Opacity_And_Preserves_The_Random_Stream()
+        {
+            var layer = new CelLayer
+            {
+                Start = 0.25f, Duration = 2.6f, TimeJitter = 0.04f,
+                Life = 0.26f, LifeJitter = 0.1f, Shape = CelShape.Box,
+                ShapeSize = new Vector3(0.2f, 1.05f, 1.8f), Aim = CelAim.Target,
+                Arrive = 0.846154f, Spread = 0f, SizeJitter = 0.25f,
+                Size = new CelCurve(0.15f, 0.15f), Opacity = 0.73f,
+            };
+            var originalRng = new CelRng(1917u * 31u + 1u);
+            var boundedRng = new CelRng(1917u * 31u + 1u);
+            int unchanged = 0, hidden = 0;
+            for (int j = 0; j < 38; j++)
+            {
+                layer.BirthEnd = -1f;
+                CelFx.Make(layer, j, 38, Vector3.zero, Vector3.forward, Vector3.right, Vector3.up,
+                    new Vector3(10f, 2f, 5f), 100f, ref originalRng, out CelRecord original);
+                layer.BirthEnd = 1.25f;
+                CelFx.Make(layer, j, 38, Vector3.zero, Vector3.forward, Vector3.right, Vector3.up,
+                    new Vector3(10f, 2f, 5f), 100f, ref boundedRng, out CelRecord bounded);
+                var expected = original;
+                if (original.Born > 101.5f) { expected.Tone.z = 0f; hidden++; }
+                else unchanged++;
+                Assert.That(bounded, Is.EqualTo(expected), "record " + j + ": every other packed field must be identical");
+            }
+            Assert.That(unchanged, Is.GreaterThan(0));
+            Assert.That(hidden, Is.GreaterThan(0));
+            for (int i = 0; i < 16; i++)
+                Assert.That(boundedRng.Next(), Is.EqualTo(originalRng.Next()), "suppression must not skip random draws");
+        }
+
+        [Test]
+        public void A_Gpu_Birth_Exactly_On_The_End_Remains_Visible_And_The_Default_Is_Unbounded()
+        {
+            var layer = new CelLayer { Start = 0.25f, Duration = 1f, LifeJitter = 0f, SizeJitter = 0f, Opacity = 0.42f };
+            Assert.That(layer.BirthEnd, Is.LessThan(0f));
+            var rng = new CelRng(73u);
+            CelFx.Make(layer, 2, 3, Vector3.zero, Vector3.forward, Vector3.right, Vector3.up,
+                Vector3.one, 100f, ref rng, out CelRecord unbounded);
+            Assert.That(unbounded.Tone.z, Is.EqualTo(0.42f));
+            layer.BirthEnd = 0.5f;
+            CelFx.Make(layer, 1, 3, Vector3.zero, Vector3.forward, Vector3.right, Vector3.up,
+                Vector3.one, 100f, ref rng, out CelRecord boundary);
+            CelFx.Make(layer, 2, 3, Vector3.zero, Vector3.forward, Vector3.right, Vector3.up,
+                Vector3.one, 100f, ref rng, out CelRecord after);
+            Assert.That(boundary.Born, Is.EqualTo(100.75f));
+            Assert.That(boundary.Tone.z, Is.EqualTo(0.42f));
+            Assert.That(after.Tone.z, Is.Zero);
+        }
+
+        [Test]
+        public void The_Reference_Hold_Birth_End_Suppresses_Only_The_Last_Jittered_Tracer()
+        {
+            var layer = ExplosionRecipe.Hold.Layers[0];
+            float previous = layer.BirthEnd;
+            try
+            {
+                layer.BirthEnd = 2.6f;
+                int count = layer.CountAt(0f, 1.25f);
+                Assert.That(count, Is.EqualTo(38));
+                var rng = new CelRng(1917u * 31u + 1u);
+                for (int j = 0; j < count; j++)
+                {
+                    CelFx.Make(layer, j, count, Vector3.zero, Vector3.forward, Vector3.right, Vector3.up,
+                        new Vector3(10f, 2f, 5f), 100f, ref rng, out CelRecord record);
+                    Assert.That(record.Tone.z, Is.EqualTo(j == 37 ? 0f : layer.Opacity), "reference tracer " + j);
+                    if (j == 37) Assert.That(record.Born - 100f, Is.EqualTo(2.639317f).Within(0.00002f));
+                }
+            }
+            finally { layer.BirthEnd = previous; }
+        }
+
+        [Test]
+        public void A_Target_Frame_Is_Opt_In_And_Changes_Only_Metadata_After_All_Random_Draws()
+        {
+            var layer = new CelLayer
+            {
+                Start = 0.75f, Duration = 0.1f, TimeJitter = 0.04f, Life = 2.45f,
+                Shape = CelShape.Box, ShapeSize = new Vector3(4.5f, 3.5f, 0.5f),
+                Offset = new Vector3(0.2f, 0.3f, -0.4f), Aim = CelAim.Radial, Speed = 0.32f,
+                Size = new CelCurve(0.37f, 0.67f, 0.35f), SizeJitter = 0.25f, Core = 2.75f,
+            };
+            Assert.That(layer.PackTargetFrame, Is.False, "existing kinds retain their normal Axis and Core by default");
+            var target = new Vector3(12f, 3f, 7f);
+            var standardRng = new CelRng(2128u * 31u + 1u);
+            var payloadRng = new CelRng(2128u * 31u + 1u);
+            for (int j = 0; j < 65; j++)
+            {
+                layer.PackTargetFrame = false;
+                CelFx.Make(layer, j, 65, Vector3.zero, Vector3.forward, Vector3.right, Vector3.up,
+                    target, 100f, ref standardRng, out CelRecord standard);
+                layer.PackTargetFrame = true;
+                CelFx.Make(layer, j, 65, Vector3.zero, Vector3.forward, Vector3.right, Vector3.up,
+                    target, 100f, ref payloadRng, out CelRecord payload);
+                Assert.That(standard.Axis.sqrMagnitude, Is.EqualTo(1f).Within(0.000002f));
+                Assert.That(standard.Tone.y, Is.EqualTo(2.75f));
+                var expected = standard;
+                expected.Axis = target;
+                expected.Tone.y = 100.75f;
+                Assert.That(payload, Is.EqualTo(expected), "record " + j + ": position, birth, motion, seed, size, alpha and every other field stay unchanged");
+            }
+            for (int j = 0; j < 16; j++)
+                Assert.That(payloadRng.Next(), Is.EqualTo(standardRng.Next()), "packing metadata must not skip or add RNG draws");
+        }
+
+        [TestCase(CelAnchor.Origin)]
+        [TestCase(CelAnchor.Target)]
+        public void A_Target_Frame_Ignores_Spawn_Offset_And_Shares_The_Late_Start_Birth(CelAnchor anchor)
+        {
+            var layer = new CelLayer
+            {
+                PackTargetFrame = true, Anchor = anchor, Shape = CelShape.Point,
+                Start = 0.75f, Duration = 1.5f, TimeJitter = 0f, Life = 4f, LifeJitter = 0f,
+            };
+            var target = new Vector3(12f, 3f, 7f);
+            var rng = new CelRng(491u);
+            for (int j = 0; j < 3; j++)
+            {
+                layer.Offset = new Vector3(2f + j, 1f + j, -3f);
+                CelFx.Make(layer, j, 3, Vector3.zero, Vector3.forward, Vector3.right, Vector3.up,
+                    target, 100f, ref rng, out CelRecord record);
+                Assert.That(record.Pos, Is.Not.EqualTo(target), "the spawn offset really changes this record's position");
+                Assert.That(record.Axis, Is.EqualTo(target), "the common target excludes every per-layer spawn offset");
+                Assert.That(record.Tone.y, Is.EqualTo(100.75f), "bank birth includes Start, independent of each staggered record birth");
+                Assert.That(record.Born, Is.EqualTo(100.75f + j * 0.75f));
+            }
+        }
+
+        [Test]
+        public void A_Default_Line_Still_Stores_Its_End_Offset_And_Core()
+        {
+            var layer = new CelLayer { Shape = CelShape.Line, Aim = CelAim.None, Core = 3.25f };
+            var origin = new Vector3(-4f, 1f, 3f);
+            var target = new Vector3(12f, 3f, 7f);
+            var rng = new CelRng(817u);
+            Assert.That(layer.PackTargetFrame, Is.False);
+            CelFx.Make(layer, 0, 1, origin, Vector3.forward, Vector3.right, Vector3.up,
+                target, 100f, ref rng, out CelRecord record);
+            Assert.That(record.Axis, Is.EqualTo(target - origin));
+            Assert.That(record.Tone.y, Is.EqualTo(3.25f));
+        }
+
+        [Test]
+        public void A_Target_Frame_Clamps_The_Common_Birth_Without_Removing_Staggered_Births()
+        {
+            var layer = new CelLayer { PackTargetFrame = true, Start = -0.25f, Duration = 1f, TimeJitter = 0f };
+            var rng = new CelRng(79u);
+            for (int j = 0; j < 3; j++)
+            {
+                CelFx.Make(layer, j, 3, Vector3.zero, Vector3.forward, Vector3.right, Vector3.up,
+                    Vector3.one, 100f, ref rng, out CelRecord record);
+                Assert.That(record.Tone.y, Is.EqualTo(100f));
+                Assert.That(record.Born, Is.EqualTo(Mathf.Max(100f, 99.75f + j * 0.5f)));
+            }
+        }
+
+        [Test]
+        public void The_Main_Bank_And_Existing_Bridge_Share_Their_Target_Frame_Only()
+        {
+            var bank = ExplosionRecipe.MainCloud.Layers[0];
+            var bridge = ExplosionRecipe.MainCloudBridge.Layers[0];
+            Assert.That(bank.PackTargetFrame, Is.True);
+            Assert.That(bridge.PackTargetFrame, Is.True);
+            Assert.That(bank.Close, Is.EqualTo(52));
+            Assert.That(bank.CountAt(0f, 1.25f), Is.EqualTo(65), "the reference capture is Epic, not High");
+            Assert.That(bridge.Close, Is.EqualTo(1));
+            for (int j = 1; j < ExplosionRecipe.MainCloud.Layers.Count; j++)
+                Assert.That(ExplosionRecipe.MainCloud.Layers[j].PackTargetFrame, Is.False, "brown fragments and every other Main layer retain the default contract");
+            var target = new Vector3(12f, 3f, 7f);
+            var bankRng = new CelRng(2128u * 31u + 1u);
+            var bridgeRng = new CelRng(3460u * 31u + 1u);
+            CelFx.Make(bank, 64, 65, Vector3.zero, Vector3.forward, Vector3.right, Vector3.up,
+                target, 100f, ref bankRng, out CelRecord b);
+            CelFx.Make(bridge, 0, 1, Vector3.zero, Vector3.forward, Vector3.right, Vector3.up,
+                target, 100f, ref bridgeRng, out CelRecord a);
+            Assert.That(a.Axis, Is.EqualTo(b.Axis));
+            Assert.That(a.Axis, Is.EqualTo(target));
+            Assert.That(a.Tone.y, Is.EqualTo(b.Tone.y));
+            Assert.That(a.Pos, Is.Not.EqualTo(b.Pos), "the existing distinct geometry must not collapse to the shared metadata anchor");
+        }
+
+        [Test]
         public void A_Spawn_Allocates_Nothing()
         {
             var r = AnyRecord(100f);
@@ -150,16 +333,25 @@ namespace TW.Tests
             foreach (var recipe in recipes)
             {
                 bad.AddRange(recipe.Validate(renderer));
+                var checks = new Dictionary<string, List<CelLayer>>();
+                for (int i = 0; i < recipe.Layers.Count; i++)
+                {
+                    var layer = recipe.Layers[i];
+                    string key = string.IsNullOrEmpty(layer.LodGroup) ? "layer " + i : "group " + layer.LodGroup;
+                    if (!checks.TryGetValue(key, out var members)) checks.Add(key, members = new List<CelLayer>());
+                    members.Add(layer);
+                }
                 foreach (FxTier tier in Enum.GetValues(typeof(FxTier)))
                 {
                     float q = CelFx.QualityShare(tier);
-                    for (int i = 0; i < recipe.Layers.Count; i++)
+                    foreach (var check in checks)
                     {
                         int last = int.MaxValue;
                         foreach (float z in zooms)
                         {
-                            int n = recipe.Layers[i].CountAt(CelFx.LodBlend(z), q);
-                            if (n > last) bad.Add(recipe.Name + "[" + i + "] rises from " + last + " to " + n + " at zoom " + z + " (" + tier + ")");
+                            int n = 0;
+                            foreach (var layer in check.Value) n += layer.CountAt(CelFx.LodBlend(z), q);
+                            if (n > last) bad.Add(recipe.Name + "[" + check.Key + "] rises from " + last + " to " + n + " at zoom " + z + " (" + tier + ")");
                             last = n;
                         }
                     }
@@ -186,6 +378,111 @@ namespace TW.Tests
             var wrong = new CelFxRecipe("rising", 1f, new CelLayer { Close = 2, Mid = 5, Far = 1, Palette = "fire" });
             Assert.That(wrong.Validate(renderer), Is.Not.Empty);
             Assert.That(wrong.Layers[0].CountAt(1f, 1f), Is.GreaterThan(wrong.Layers[0].CountAt(0f, 1f)), "and CountAt shows the rise");
+        }
+
+        [Test]
+        public void Explicit_Replacement_Groups_Validate_Their_Combined_Budget()
+        {
+            var close = new CelLayer { Name = "ribbon", LodGroup = "streak", Close = 50, Mid = 0, Far = 0, Palette = "fire" };
+            var mid = new CelLayer { Name = "simple", LodGroup = "streak", Close = 0, Mid = 10, Far = 0, Palette = "fire" };
+            var recipe = new CelFxRecipe("replacement", 1f, close, mid);
+            Assert.That(recipe.Validate(renderer), Is.Empty);
+            mid.Mid = 51;
+            Assert.That(recipe.Validate(renderer), Has.Some.Contains("combined counts rise"));
+            mid.Mid = 10;
+            mid.Far = 11;
+            Assert.That(recipe.Validate(renderer), Has.Some.Contains("combined counts rise"));
+        }
+
+        [Test]
+        public void Lod_Groups_Do_Not_Hide_Ungrouped_Rises_Or_Invalid_Membership()
+        {
+            var layer = new CelLayer { Name = "dirt", Close = 3, Mid = 4, Far = 0, Palette = "fire" };
+            var recipe = new CelFxRecipe("invalid", 1f, layer);
+            Assert.That(recipe.Validate(renderer), Has.Some.Contains("counts rise"));
+            layer.LodGroup = "solo";
+            Assert.That(recipe.Validate(renderer), Has.Some.Contains("at least two"));
+            var other = new CelLayer { Name = "dirt", LodGroup = "solo", Close = 5, Mid = 0, Far = 0, Palette = "fire" };
+            recipe.Layers.Add(other);
+            Assert.That(recipe.Validate(renderer), Has.Some.Contains("unique layer names"));
+            other.Name = "other";
+            layer.LodGroup = other.LodGroup = "bad group";
+            Assert.That(recipe.Validate(renderer), Has.Some.Contains("LodGroup must use"));
+        }
+
+        [Test]
+        public void Lod_Group_Validation_Checks_Rounded_Quality_Counts()
+        {
+            // Raw totals 2 -> 2 look equal, but Low quality rounds one Close record into two Mid records.
+            var recipe = new CelFxRecipe("rounded", 1f,
+                new CelLayer { Name = "close", LodGroup = "shape", Close = 2, Mid = 0, Far = 0, Palette = "fire" },
+                new CelLayer { Name = "mid-a", LodGroup = "shape", Close = 0, Mid = 1, Far = 0, Palette = "fire" },
+                new CelLayer { Name = "mid-b", LodGroup = "shape", Close = 0, Mid = 1, Far = 0, Palette = "fire" });
+            Assert.That(recipe.Validate(renderer), Has.Some.Contains("rounded counts rise"));
+        }
+
+        [Test]
+        public void Delayed_Play_Schedules_Light_And_Gpu_Birth_Without_Advancing_Clock()
+        {
+            CelFx.Adopt(renderer);
+            int flashes = 0;
+            var previousFlash = SceneHooks.Flash;
+            SceneHooks.Flash = (at, color, power, radius, life) => flashes++;
+            try
+            {
+                var recipe = new CelFxRecipe("delayed", 1f,
+                    new CelLayer { Name = "light", Kind = CelKinds.LightName, Close = 1, Mid = 1, Far = 0, Palette = "fire", Life = 1f },
+                    new CelLayer { Name = "gpu", Kind = CelKinds.LobeName, Close = 1, Mid = 1, Far = 0, Palette = "fire", Life = 1f, LifeJitter = 0f });
+                CelFx.Play(recipe, Vector3.zero, Vector3.forward, Vector3.one, 17u, 0.25f);
+                Assert.That(CelFx.Clock, Is.EqualTo(100f));
+                Assert.That(flashes, Is.Zero, "scheduling the light must not fire it early");
+                Assert.That(CelFx.PendingCount, Is.EqualTo(1));
+                var field = typeof(CelFxRenderer).GetField("records", BindingFlags.Instance | BindingFlags.NonPublic);
+                var records = (System.Collections.IEnumerable)field.GetValue(renderer);
+                int scheduled = 0;
+                foreach (CelRecord record in records)
+                    if (record.Life > 0f) { Assert.That(record.Born, Is.EqualTo(100.25f)); scheduled++; }
+                Assert.That(scheduled, Is.GreaterThan(0), "the test inspected real spawned GPU records");
+                CelFx.Clock = 100.24f; CelFx.Pump();
+                Assert.That(flashes, Is.Zero);
+                CelFx.Clock = 100.25f; CelFx.Pump();
+                Assert.That(flashes, Is.EqualTo(1));
+                CelFx.Pump();
+                Assert.That(flashes, Is.EqualTo(1));
+            }
+            finally { SceneHooks.Flash = previousFlash; }
+        }
+
+        [Test]
+        public void Flash_Card_Is_Independent_And_Keeps_Delayed_Fallback()
+        {
+            CelFx.Adopt(renderer);
+            var oldFlash = SceneHooks.Flash;
+            var oldFire = SceneHooks.FlashWithCard;
+            int fireCalls = 0, flashCalls = 0;
+            SceneHooks.Flash = (at, color, power, reach, life) => flashCalls++;
+            SceneHooks.FlashWithCard = (at, color, power, reach, life, card) =>
+            {
+                fireCalls++;
+                Assert.That(power, Is.EqualTo(4f));
+                Assert.That(reach, Is.EqualTo(26f));
+                Assert.That(card, Is.EqualTo(0.22f));
+            };
+            try
+            {
+                var recipe = new CelFxRecipe("controlled-light", 1f,
+                    new CelLayer { Kind = CelKinds.LightName, Close = 1, Mid = 1,
+                        Palette = "fire", Core = 4f, Extra = new Vector4(26f, 0.22f, 0f, 0f) });
+                CelFx.Play(recipe, Vector3.zero, Vector3.forward, Vector3.one, 9u, 0.25f);
+                Assert.That(fireCalls, Is.Zero);
+                CelFx.Clock = 100.25f; CelFx.Pump();
+                Assert.That(fireCalls, Is.EqualTo(1));
+                Assert.That(flashCalls, Is.Zero);
+                SceneHooks.FlashWithCard = null;
+                CelFx.Play(recipe, Vector3.zero, Vector3.forward, Vector3.one, 11u);
+                Assert.That(flashCalls, Is.EqualTo(1), "stages without explicit-card support retain the light");
+            }
+            finally { SceneHooks.Flash = oldFlash; SceneHooks.FlashWithCard = oldFire; }
         }
 
         static List<string> CelShaderNames()

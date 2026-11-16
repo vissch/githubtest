@@ -28,6 +28,7 @@ Shader "TW/Cel/ExpChunk"
             nointerpolation float4 shape : TEXCOORD1;      // x sides, y corner jitter, z seed, w lit share
             nointerpolation float4 tone : TEXCOORD2;       // x palette, y ink px, z fog, w unused
             float3 positionWS : TEXCOORD3;
+            float ground : TEXCOORD4; // positive above the authored birth-ground plane
         };
 
         ChunkV2F ChunkVert(float4 positionOS, float2 uv, uint instanceID)
@@ -46,12 +47,16 @@ Shader "TW/Cel/ExpChunk"
             float2 rq = float2(c * qa.x - s * qa.y, s * qa.x + c * qa.y);
             rq.x /= max(aspect, 1.0);                      // stretched: the polygon is cut longer along the spun x
             ChunkV2F o;
-            o.positionWS = w;
-            o.positionCS = TransformWorldToHClip(w);
+            // Extra.w opts a site chunk into depth pull; Tone.z is its spawn height above ground.
+            o.ground = r.extra.w > 0.0 ? w.y - (r.pos.y - r.tone.z) : 1.0;
+            float3 drawn = r.extra.w > 0.0 ? _WorldSpaceCameraPos + (w - _WorldSpaceCameraPos) * r.extra.w : w;
+            o.positionWS = drawn;
+            o.positionCS = TransformWorldToHClip(drawn);
             o.uv = float2(rq.x, rq.y);
             float smin = r.extra.x > 0.0 ? r.extra.x : 4.0, srange = r.extra.y > 0.0 ? r.extra.y : 3.0;
             o.shape = float4(floor(smin + CelHash11(r.seed * 97.3) * (srange + 0.999)), r.extra.z > 0.0 ? r.extra.z : 0.35,
                              r.seed, r.tone.y > 0.0 ? r.tone.y : 0.35);
+            if (r.extra.x < 0.0) o.shape.x = -1.0; // rounded normal-Site clump, isolated from all flying polygon chunks
             o.tone = float4(r.tone.x, CelLodInk(r.tone.w), ComputeFogFactor(o.positionCS.z), 0.0);
             return o;
         }
@@ -59,6 +64,25 @@ Shader "TW/Cel/ExpChunk"
         /// Signed distance-like field of the seed's polygon: > 0 inside (1 at the middle), 0 on the edge.
         float ChunkField(float2 p, float sides, float jitter, float seed)
         {
+            if (sides < 0.0)
+            {
+                // Unequal exposed shoulders and a shallow edge nick prevent polished oval stones.
+                float2 q = abs(p / float2(0.82, 0.70));
+                float a = (1.0 - pow(pow(q.x, 2.5) + pow(q.y, 2.5), 0.4)) * 0.70;
+                float b = (1.0 - length((p - float2(0.55, 0.24)) / float2(0.43, 0.38))) * 0.38;
+                float c = (1.0 - length((p - float2(-0.58, 0.37)) / float2(0.34, 0.34))) * 0.34;
+                float ab = max(0.08 - abs(a - b), 0.0) / 0.08;
+                float f = max(a, b) + ab * ab * 0.020;
+                float bc = max(0.08 - abs(f - c), 0.0) / 0.08;
+                f = max(f, c) + bc * bc * 0.020;
+                float angle = atan2(p.y, p.x);
+                f += 0.050 * sin(angle * 3.0 + seed * 11.0) + 0.025 * sin(angle * 5.0 - seed * 7.0);
+                float2 begin = float2(0.32, -0.30), end = float2(1.30, -0.75);
+                float2 span = end - begin;
+                float u = saturate(dot(p - begin, span) / dot(span, span));
+                float nick = lerp(0.045, 0.12, u) - length(p - (begin + span * u));
+                return min(f, -nick);
+            }
             float d = -1e3;
             [loop] for (int i = 0; i < 7; i++)
             {
@@ -86,13 +110,19 @@ Shader "TW/Cel/ExpChunk"
 
             half4 frag(ChunkV2F i) : SV_Target
             {
+                clip(i.ground);
                 float f = ChunkField(i.uv, i.shape.x, i.shape.y, i.shape.z);
                 clip(f);
                 uint row = CelRowA(i.tone.x);
                 // one lit facet: the side toward a light from upper left in the chunk's own (spun) frame
                 float lit = dot(normalize(i.uv + 1e-4), float2(-0.6, 0.8));
                 half3 col = CelPal(row, 0);
-                col = lerp(col, CelPal(row, 2), CelAAStep(1.0 - 2.0 * i.shape.w, lit) * CelAAStep(0.25, f));
+                if (i.shape.x < 0.0)
+                {
+                    float face = dot(i.uv, normalize(float2(-0.6, 0.8)));
+                    col = lerp(col, CelPal(row, 2), (half)(smoothstep(0.24, 0.52, face) * 0.48));
+                }
+                else col = lerp(col, CelPal(row, 2), CelAAStep(1.0 - 2.0 * i.shape.w, lit) * CelAAStep(0.25, f));
                 col = lerp(col, CelPalInk(row).rgb, CelInk(f, 0.0, i.tone.y));
                 col = ApplyFieldFog(col, i.positionWS);
                 return half4(MixFog(col, i.tone.z), 1.0);
@@ -112,6 +142,7 @@ Shader "TW/Cel/ExpChunk"
             ChunkV2F vert(Attributes v, uint instanceID : SV_InstanceID) { return ChunkVert(v.positionOS, v.uv, instanceID); }
             half4 frag(ChunkV2F i) : SV_Target
             {
+                clip(i.ground);
                 clip(ChunkField(i.uv, i.shape.x, i.shape.y, i.shape.z));
                 return 0;
             }
