@@ -28,7 +28,9 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>A dart's length (share of the 12.9 m corridor: ~1.9 m, 90-240 px near the camera), its life and
         /// its width at the barbs (m; 12-30 px near the camera): its head runs from -0.05 to DartHeadEnd, so it flies
         /// at ~3.9 shares (50 m/s) a second and crosses the frame in six frames (clip: in at f8, on the board at f14).</summary>
-        public const float DartWindow = 0.15f, DartLife = 0.32f, DartWidth = 0.22f;
+        // i11: 0.28 m at the barbs and a 0.135 window (0.22, 0.15): i10's darts read twice the clip's slenderness
+        // near the camera (~15:1 for its ~8:1)
+        public const float DartWindow = 0.135f, DartLife = 0.32f, DartWidth = 0.28f;
         const float DartHeadStart = -0.05f, DartHeadEnd = 1f + DartWindow * 1.3f;
         /// <summary>Shares a second a ribbon's head flies (the darts' speed) and the ribbons' wavelength (m: the clip's
         /// strands bend once over 200-300 px).</summary>
@@ -91,10 +93,6 @@ namespace TW.Presentation.VFX.Cel
         /// and its opacity (i09: dimmer, the clip's strands top out at ~(110-160, 125-180, 150-210) where i08's
         /// overlapping ones burned to (200, 222, 252) round the darts).</summary>
         const float WakeLife = 0.62f, WakeWidth = 0.21f, WakeAmp = 0.15f, WakeOpacity = 0.5f;
-        /// <summary>The white specks a dart sheds along its path (the clip at 3x f20-f48: a spray of 1-3 px points
-        /// round and behind every dart): how many at Close (Mid 2, Far none), their life (s) and radius (m).</summary>
-        const int Sheds = 5;
-        const float ShedLife = 0.3f, ShedSize = 0.011f;
         /// <summary>The gap (f66-f90): the bloom is gone and the darts glance off the board, so a share of the wakes
         /// runs on past the dummy to the upper right (the clip's f80 strands reach ~(1100, 250)).</summary>
         const float GlanceFrom = 64f, GlanceTo = 88f, GlanceShare = 0.8f;
@@ -127,18 +125,6 @@ namespace TW.Presentation.VFX.Cel
                     int wakes = far ? 0 : mid ? (rng.Next() < 0.5f ? 1 : 0) : (rng.Next() < 0.65f ? 1 : 2);
                     float speed = (DartHeadEnd - DartHeadStart) / life;
                     if (on && darts) renderer.Spawn(kind, Dart(now + at, from + lane, end, life, width, dseed));
-                    int sheds = far ? 0 : mid ? 2 : Sheds;
-                    Vector3 path = end - (from + lane);
-                    for (int k = 0; k < Sheds; k++)
-                    {
-                        // a speck where the dart's middle passes a share along its path, thrown a little sideways and
-                        // left behind (the dart flies on at ~50 m/s)
-                        float share = rng.Range(0.06f, 0.9f), kLife = rng.Jitter(ShedLife, 0.4f), kSize = rng.Jitter(ShedSize, 0.4f), kSeed = rng.Next();
-                        Vector3 kOff = (right * rng.Range(-1f, 1f) + up * rng.Range(-1f, 1f)) * 0.12f;
-                        Vector3 kVel = path.normalized * rng.Range(0.5f, 3f) + rng.InSphere() * 0.8f;
-                        float kAt = at + (share - DartHeadStart + DartWindow * 0.5f) / speed;
-                        if (on && darts && k < sheds) renderer.Spawn(kind, Shed(now + kAt, from + lane + path * share + kOff, kVel, kLife, kSize, kSeed));
-                    }
                     for (int w = 0; w < 2; w++)
                     {
                         float wAt = at + rng.Range(0f, 0.02f);
@@ -170,16 +156,6 @@ namespace TW.Presentation.VFX.Cel
             Erode = new Vector4(0f, 0.5f, 1.5f, 0f),
             Tone = new Vector4(CelRecord.PackPalette(RibbonRow), 1f, WakeOpacity, 1f),
             Extra = new Vector4(IceBoltKind.Ribbon, amp, DartHeadStart - DartWindow, speed),
-        };
-
-        /// <summary>One white speck a dart sheds: a twinkling point that drifts, slows and fades.</summary>
-        static CelRecord Shed(float born, Vector3 p, Vector3 v, float life, float size, float seed) => new CelRecord
-        {
-            Pos = p, Born = born, Vel = v, Life = life, Axis = Vector3.up, Seed = seed,
-            Size = new Vector4(size, size * 0.6f, 1f, -0.001f), Motion = new Vector4(0.6f, 2.5f, 0f, 0f),
-            Erode = new Vector4(0f, 0.7f, 2f, 0.3f),
-            Tone = new Vector4(CelRecord.PackPalette(HitRow), 1f, 1f, 1f),
-            Extra = new Vector4(IceBoltKind.Speck, 0f, 0f, 0f),
         };
 
         /// <summary>Mist sheets: wide faint strands over the whole volley, not tied to a dart.</summary>
@@ -283,8 +259,9 @@ namespace TW.Presentation.VFX.Cel
             // frost mist left of the dummy as the second bloom holds (f104-f132) and right of it as it fades (f120-f152)
             At(Erode(Dot("frost left", "ice_frost", new Vector4(IceBoltKind.Frost, 3.6f, 1.4f, 0f), AtFrame(90f), 0.08f, 1.85f, 2, 1, new CelCurve(0.5f, 0.62f, 0.5f), 0.5f), 0.9f, 1.8f), new Vector3(-1.29f, 0.75f, -0.2f)),
             At(Erode(Dot("frost right", "ice_frost", new Vector4(IceBoltKind.Frost, 3.6f, 1.4f, 0f), AtFrame(114f), 0.1f, 1.4f, 2, 1, new CelCurve(0.55f, 0.68f, 0.5f), 0.5f), 0.9f, 2.2f), new Vector3(1.0f, 0.05f, 0f)),
-            At(Erode(Dot("frost right low", "ice_frost", new Vector4(IceBoltKind.Frost, 3.6f, 1.3f, 0f), AtFrame(126f), 0.1f, 1.35f, 1, 1, new CelCurve(0.42f, 0.5f, 0.5f), 0.5f), 0.9f, 2.5f), new Vector3(1.22f, -0.42f, 0f)),
-            Around(Dot("frost rim", "ice_frost", new Vector4(IceBoltKind.Frost, 4.2f, 1.2f, 0f), AtFrame(98f), AtFrame(112f) - AtFrame(98f), 0.9f, 6, 2, new CelCurve(0.3f, 0.42f, 0.5f), 0.6f), 0.45f));
+            // (i11: the frost rim is gone: its clumps fell on the chest inside the second bloom, a grey speckle there
+            // f98-f112 where the clip's bloom is clean white)
+            At(Erode(Dot("frost right low", "ice_frost", new Vector4(IceBoltKind.Frost, 3.6f, 1.3f, 0f), AtFrame(126f), 0.1f, 1.35f, 1, 1, new CelCurve(0.42f, 0.5f, 0.5f), 0.5f), 0.9f, 2.5f), new Vector3(1.22f, -0.42f, 0f)));
 
         /// <summary>Fire it: the volley from the muzzle to the target (its sheets, then every shot's wakes, then its
         /// darts), the hit at the target. LAB ONLY. No allocation.</summary>

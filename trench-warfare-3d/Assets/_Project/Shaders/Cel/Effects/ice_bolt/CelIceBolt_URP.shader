@@ -369,7 +369,8 @@ Shader "TW/Cel/IceBolt"
                     float h1 = CelHash21(float2(sd * 13.1, 2.3)), h2 = CelHash21(float2(sd * 17.9, 4.1)), h3 = CelHash21(float2(sd * 5.3, 7.7));
                     float hb = lerp(0.22, 0.42, h1);
                     float w0u = lerp(0.8, 1.0, h3), w0d = lerp(0.85, 1.0, h2);
-                    float backU = lerp(0.4, 0.6, h2), backD = lerp(0.35, 0.55, h3);
+                    // i11: a fuller back (the clip's darts carry their width behind the barbs)
+                    float backU = lerp(0.5, 0.72, h2), backD = lerp(0.45, 0.66, h3);
                     float upW = IceEdge(a, hb + (h2 - 0.5) * 0.06, w0u, backU);
                     float dnW = IceEdge(a, hb - (h2 - 0.5) * 0.06, w0d, backD);
                     float hookLen = lerp(0.1, 0.2, h3);
@@ -381,8 +382,9 @@ Shader "TW/Cel/IceBolt"
                     // i10: its outline an irregular frosty wobble (value noise ~1 half-width long) with small steps,
                     // not i09's regular sawtooth
                     float cellL = max(i.q.w * 0.9, 1e-3);
-                    float rag = (CelValue2(float2(ud / cellL, sd * 31.0 + step(0.0, y) * 7.0)) - 0.5) * 0.34
-                              + (CelHash21(float2(floor(ud / (cellL * 0.6)), sd * 37.0 + step(0.0, y))) - 0.5) * 0.08;
+                    // (i11 calmer: i10's 0.34 read as a serrated knife)
+                    float rag = (CelValue2(float2(ud / cellL, sd * 31.0 + step(0.0, y) * 7.0)) - 0.5) * 0.16
+                              + (CelHash21(float2(floor(ud / (cellL * 0.6)), sd * 37.0 + step(0.0, y))) - 0.5) * 0.06;
                     float eW = y >= 0.0 ? upW : dnW;
                     float dE = eW + rag * step(0.05, eW) - abs(y);
                     // the hook on its side: behind the widest point the stub is narrower and the hook stands off it
@@ -438,7 +440,11 @@ Shader "TW/Cel/IceBolt"
                     col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(edge * 0.8 + (1.0 - tw) * 0.3));
                     // its head fades in over the last 0.7 m (i09's wakes ended in a hard cut behind their darts);
                     // metres behind the head = u (1/a - 1), a running 0..1 from the tail (share 0) to the head
-                    float headFade = smoothstep(0.0, 0.7, i.q.z * (1.0 / max(i.q.x, 1e-3) - 1.0));
+                    float behindM = i.q.z * (1.0 / max(i.q.x, 1e-3) - 1.0);
+                    float headFade = smoothstep(0.0, 0.7, behindM);
+                    // i11: the white spray just behind its dart (the clip at 3x f20-f48: 20-30 1-3 px points round and
+                    // behind every dart) - denser, bigger and closer in over the first 2.5 m, then i09's sparse frost
+                    float spray = 1.0 - smoothstep(0.6, 2.5, behindM);
                     float pm = PixelMetres(i.positionWS);
                     float hwPx = i.q.w / max(pm, 1e-6);
                     // a soft mist puff in some cells along the strand
@@ -459,13 +465,13 @@ Shader "TW/Cel/IceBolt"
                     float si = floor(u / sc);
                     float sh = CelHash21(float2(si, sd * 61.0));
                     float speck = 0.0;
-                    if (sh > 0.7)
+                    if (sh > lerp(0.7, 0.25, spray))
                     {
                         float sx = (si + 0.2 + 0.6 * CelHash21(float2(si, sd * 67.0))) * sc;
                         float sgn = CelHash21(float2(si, sd * 71.0)) > 0.5 ? 1.0 : -1.0;
-                        float sy = sgn * lerp(1.2, 3.5, CelHash21(float2(si, sd * 73.0)));
+                        float sy = sgn * lerp(lerp(1.2, 0.5, spray), 3.5, CelHash21(float2(si, sd * 73.0)));
                         float spx = length(float2((u - sx) / max(pm, 1e-6), (y - sy) * hwPx));
-                        float rad = lerp(0.8, 1.7, CelHash21(float2(si, sd * 79.0)));
+                        float rad = lerp(0.8, 1.7, CelHash21(float2(si, sd * 79.0))) * (1.0 + 0.5 * spray);
                         float twk = CelHash21(float2(si + sd * 83.0, tick)) > 0.35 ? 1.0 : 0.3;
                         speck = saturate(rad + 0.5 - spx) * twk;
                     }
