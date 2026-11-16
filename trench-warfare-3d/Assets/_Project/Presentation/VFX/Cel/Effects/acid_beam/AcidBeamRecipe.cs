@@ -375,10 +375,10 @@ namespace TW.Presentation.VFX.Cel
                 r.Vel = vel * rng.Range(0.10f, 0.30f) + Vector3.up * rng.Range(1.5f, 5f) + across * rng.Range(-1f, 1f);
                 float speed = Mathf.Max(r.Vel.magnitude, 0.5f);
                 r.Motion = new Vector4(7f, 1.5f, 0f, 0f);
-                r.Size = new Vector4(rad, rad * 1.1f, 1f, rng.Range(1.2f, 2.0f) * rad / speed);
-                r.Tone.w = rng.Next() < 0.5f ? 2f : 3f;
+                r.Size = new Vector4(rad * 0.45f, rad * 0.35f, 1f, rng.Range(1.5f, 3.0f) * rad * 0.45f / speed);
+                r.Tone.w = rng.Next() < 0.5f ? 2f : 0f;
                 r.Erode = Vector4.zero;
-                r.Extra.y = 7f;
+                r.Extra.y = i % 2;                                       // (b39: teardrops and beans - b38's small splats read as stars)
                 renderer.Spawn(kind, r);
             }
 
@@ -388,8 +388,10 @@ namespace TW.Presentation.VFX.Cel
             {
                 float hb = rng.Next();
                 float rad = 0.04f + 0.15f * hb * hb;                     // (b24: every size to 20 px - the clip's; b23's were dots)
-                var r = Rec(now, delay + rng.Range(0.0f, JetSeconds - 0.1f), rng.Range(0.35f, 0.7f), AcidBeamKind.Drop, nozzle, Jet, 1f, ref rng);
-                r.Vel = vel * rng.Range(0.35f, 1.0f) + Vector3.up * rng.Range(-4f, 5f) + across * rng.Range(-3f, 3f);
+                float ub = rng.Range(0.05f, 0.95f);                      // (b39: born all along it, hanging round it - b02-b38's flew off along it)
+                var r = Rec(now, delay + flight * ub + rng.Range(0.0f, JetSeconds - 0.1f), rng.Range(0.35f, 0.7f), AcidBeamKind.Drop,
+                    Along(nozzle, target, flight * ub) + Vector3.up * rng.Range(-0.5f, 0.5f), Jet, 1f, ref rng);
+                r.Vel = vel * rng.Range(0.03f, 0.30f) + Vector3.up * rng.Range(-4f, 5f) + across * rng.Range(-3f, 3f);
                 r.Motion = new Vector4(9f, 1.2f, 0f, 0f);
                 r.Size = new Vector4(rad, rad * 0.8f, 1f, 0.004f);
                 r.Tone.w = 2f + (i & 1);                                 // light and yellow (the clip's beads are bright)

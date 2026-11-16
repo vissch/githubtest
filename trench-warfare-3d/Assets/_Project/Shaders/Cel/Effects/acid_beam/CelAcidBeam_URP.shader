@@ -740,24 +740,28 @@ Shader "TW/Cel/AcidBeam"
                             float2 s = float2(q.y, -q.x);               // x to the right, y up
                             float rr = length(s), an = atan2(s.x, s.y);
                             float tkk = floor(tk * 0.5);
+                            // (b39: bent - each spike leans as it goes out; b38's were a ruler's fan)
+                            an += rr * 0.9 * (CelValue2(float2(an * 1.3 + seed * 3.0, tkk * 0.9)) - 0.5) + 0.12 * (CelValue2(float2(rr * 6.0, an * 2.0 + tkk)) - 0.5);
                             float grow = smoothstep(0.0, 0.05, k) * (1.0 - 0.6 * smoothstep(0.80, 1.0, k));
-                            f = 0.16 + 0.05 * CelValue2(float2(an * 3.0 + seed, tkk * 0.7)) - rr;   // its heart
+                            f = 0.10 + 0.06 * CelValue2(float2(an * 3.0 + seed, tkk * 0.7)) - rr;   // its heart
                             [unroll] for (int bi = 0; bi < 2; bi++)
                             {
-                                float K = bi == 0 ? 2.6 : 6.5;
+                                float K = bi == 0 ? 1.7 : 4.2;              // (b39: fewer, uneven)
                                 float ca = an * K + seed * 7.0 + bi * 3.3 + 0.37 * CelHash21(float2(tkk, bi + seed * 5.0));
                                 float cc = floor(ca), cf = ca - cc;
                                 float h = CelHash21(float2(cc + 13.0 * bi, tkk * 7.0 + seed * 31.0));
-                                float len = (bi == 0 ? 0.30 + 0.35 * h : 0.25 + 0.72 * h * h) * step(0.25, h);
+                                float len = (bi == 0 ? 0.22 + 0.40 * h : 0.18 + 0.80 * h * h * h) * step(0.30, h);
+                                cf = saturate(0.5 + (cf - 0.5) / (0.45 + 0.55 * CelHash21(float2(cc + 5.0, tkk * 3.0 + bi))));   // (each its own width)
                                 // a spike: as wide as its cell at its root, a point at its tip (its flanks bowed in a little)
                                 float wd = 1.0 - 2.0 * abs(cf - 0.5);
-                                f = max(f, (len * pow(wd, 0.8) - rr) * 0.9);
+                                f = max(f, (len * pow(max(wd, 0.0), 0.8) - rr) * 0.9);
                             }
                             f *= grow;
                             f = min(f, (0.97 - rr) * 0.5);
                             al = Step(0.0, f, 0.008) * step(0.001, grow);
-                            float tz = rr + 0.10 * (CelValue2(float2(an * 4.0 + 9.0, tkk * 0.5 + seed)) - 0.5);
-                            col = tz < 0.13 ? pale : tz < 0.26 ? light : tz < 0.42 ? body : shade;
+                            // (b39: toned unevenly - b38's were rings)
+                            float tz = rr + 0.26 * (CelValue2(float2(an * 5.0 + 9.0, tkk * 0.5 + seed)) - 0.5) + 0.10 * (CelValue2(float2(an * 14.0, rr * 5.0 + tkk)) - 0.5);
+                            col = tz < 0.10 ? pale : tz < 0.22 ? light : tz < 0.36 ? body : shade;
                             f = 1.0;                                    // (no line round it)
                         }
                         else if (i.shape.y > 7.5)
