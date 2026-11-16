@@ -320,7 +320,7 @@ namespace TW.Presentation.VFX.Cel
                 Vector3 at = Along(nozzle, target, flight * u) + Vector3.up * (Mathf.Lerp(HalfNozzle, HalfTarget, u) * 0.45f + rad * 0.2f) + across * rng.Range(-0.3f, 0.3f);
                 // (b13: born as the head goes by and sitting on its top, bulging out of it - b10-b12's came late, small,
                 // floating over it; the clip's are 100+ px near the eye on f23-27)
-                var r = Rec(now, delay + flight * u + rng.Range(0.0f, 0.12f), rng.Range(0.5f, 0.9f), AcidBeamKind.Drop, at, LumpBubble, 1f, ref rng);
+                var r = Rec(now, delay + flight * u + rng.Range(0.0f, 0.12f), rng.Range(0.35f, 0.6f), AcidBeamKind.Drop, at, LumpBubble, 1f, ref rng);   // (b28: gone by f40)
                 r.Vel = vel * rng.Range(0.04f, 0.10f) + Vector3.up * (hb < 0.7f ? rng.Range(0.1f, 0.7f) : rng.Range(1.2f, 2.2f)) + across * rng.Range(-0.5f, 0.5f);   // (a few lift off it)
                 r.Motion = new Vector4(1.5f, 2.0f, 0f, 0f);
                 r.Size = new Vector4(rad * 0.6f, rad, 0.6f, 0.05f);
@@ -464,7 +464,7 @@ namespace TW.Presentation.VFX.Cel
                 float when = i < 6 ? rng.Range(38f, 43f) : rng.Range(43f, 86f);
                 Vector3 d = (Vector3.up * rng.Range(0.15f, 1.0f) + right * rng.Range(-1.0f, 1.0f) - away * rng.Range(-0.2f, 0.6f) + dir * 0.25f).normalized;
                 bool green = rng.Next() < 0.7f;
-                float rad = green ? rng.Range(1.0f, 2.0f) : rng.Range(0.7f, 1.2f);
+                float rad = green ? rng.Range(1.2f, 2.3f) : rng.Range(0.7f, 1.2f);
                 if (!green) d = (d - dir * 0.8f).normalized;             // (the lime ones: its heart, toward the beam)
                 float speed = rng.Range(1.6f, 3.6f);
                 var r = Rec(now, AtFrame(late, when), rng.Range(0.50f, 0.85f), AcidBeamKind.Drop, target + Vector3.up * rng.Range(-0.3f, 0.5f) + d * (rad * 0.3f), green ? Sheet : Splash, 1f, ref rng);
@@ -495,7 +495,7 @@ namespace TW.Presentation.VFX.Cel
                 r.Size = new Vector4(rad * 0.8f, rad, 0.6f, rng.Range(0.18f, 0.30f));
                 float t = rng.Next();
                 r.Tone.w = green ? (t < 0.45f ? 1f : t < 0.85f ? 2f : 3f)
-                                 : (t < 0.12f ? 1f : t < 0.46f ? 2f : t < 0.82f ? 3f : 4f);   // (b20: brighter - the clip's mass is lime-yellow at its heart; b21: a little less)
+                                 : (t < 0.25f ? 1f : t < 0.65f ? 2f : t < 0.92f ? 3f : 4f);   // (b20: brighter - the clip's mass is lime-yellow at its heart; b21: a little less)
                 r.Erode = Vector4.zero;                                   // (b17: no line round them)
                 r.Extra.y = 7f;                                           // (b18: a splat - b05-b17's sheets read as clubs)
                 renderer.Spawn(kind, r);
@@ -506,7 +506,7 @@ namespace TW.Presentation.VFX.Cel
             for (int i = 0; i < tongues; i++)
             {
                 Vector3 at = target + Vector3.up * rng.Range(-0.5f, 0.9f) + right * rng.Range(-0.6f, 0.9f) + dir * rng.Range(0f, 0.5f) - away * rng.Range(-0.2f, 0.7f);
-                bool green = rng.Next() < (Vector3.Dot(at - target, right) > 0.3f ? 0.55f : 0.30f) + 0.25f * Mathf.Clamp01((at - target).magnitude - 0.7f);   // (b15: more green; b17: green round its rim)
+                bool green = rng.Next() < (Vector3.Dot(at - target, right) > 0.3f ? 0.70f : 0.50f) + 0.25f * Mathf.Clamp01((at - target).magnitude - 0.7f);   // (b15: more green; b17: green round its rim)
                 if (i % 3 == 0) Splat(renderer, kind, now, AtFrame(late, rng.Range(40f, 94f)), at, target, away, green, rng.Range(0.25f, 0.50f), ref rng);   // (b18)
                 else Tongue(renderer, kind, now, AtFrame(late, rng.Range(40f, 94f)), at, target, away, green, ref rng);
             }
@@ -599,17 +599,17 @@ namespace TW.Presentation.VFX.Cel
 
             // ---- a dense spray of tiny droplets round the splash late in it (frames 70-90: the clip's are about 150 dots a
             // frame at f76-86; b14) - and all the while the beam lands (b17: the clip's splash is full of them from f44)
-            int fine = Count(420, n);
+            int fine = Count(640, n);                                    // (b28: the clip's f76-90 is full of bright dots)
             for (int i = 0; i < fine; i++)
             {
                 Vector3 d = rng.OnSphere();
                 d.y = Mathf.Abs(d.y) * 0.8f + 0.05f;
                 d = (d + dir * 0.3f).normalized;
-                float rad = rng.Range(0.035f, 0.08f);                     // (b15: b14's 0.018-0.04 m were 2-6 px, too small to read)
+                float rad = rng.Range(0.045f, 0.10f);                     // (b15: b14's 0.018-0.04 m were 2-6 px, too small to read)
                 // (b22: in the streaks' pale lime-yellow - the clip's sparkles are its brightest dots, b14-b21's lime were dim)
                 var r = Rec(now, AtFrame(late, i < fine * 3 / 5 ? rng.Range(70f, 90f) : rng.Range(44f, 70f)), rng.Range(0.25f, 0.5f), AcidBeamKind.Drop,
-                    target + Vector3.up * rng.Range(-0.4f, 1.2f) + right * rng.Range(-0.6f, 0.8f) - away * rng.Range(0.0f, 0.8f), Streak, 1f, ref rng);
-                r.Vel = d * rng.Range(3f, 9f);                            // (b23: slower - b14-b22's flew out far and thin)
+                    target + Vector3.up * rng.Range(-0.4f, 1.6f) + right * rng.Range(-1.2f, 1.2f) - away * rng.Range(0.0f, 0.8f), Streak, 1f, ref rng);
+                r.Vel = d * rng.Range(4f, 12f);                           // (b23: slower - b14-b22's flew out far and thin)
                 r.Motion = new Vector4(7f, 2.0f, 0f, 0f);
                 r.Size = new Vector4(rad, rad * 0.8f, 1f, 0.006f);
                 r.Tone.w = i % 3 == 0 ? 2f : i % 3 == 1 ? 3f : 0f;
@@ -621,7 +621,7 @@ namespace TW.Presentation.VFX.Cel
             // droplets hanging where it was, drifting a little on and falling slowly as they go (b06; b02-b05's blobs
             // and beads were thrown from the nozzle and flew on after the beam's end)
             {
-                int ends = Count(18, n), ropes = Count(40, n), endDrops = Count(150, n);   // (b08: b07's 40 blobs read as bubble wrap, its ropes as comets; b19-b20: big ones, lime drops)
+                int ends = Count(12, n), ropes = Count(40, n), endDrops = Count(150, n);   // (b08: b07's 40 blobs read as bubble wrap, its ropes as comets; b19-b20: big ones, lime drops)
                 for (int i = 0; i < ends + ropes + endDrops; i++)
                 {
                     bool blob = i < ends, rope = !blob && i < ends + ropes;
@@ -676,7 +676,7 @@ namespace TW.Presentation.VFX.Cel
             if (!far)
             {
                 Vector3 heart = stand + Vector3.up * 1.8f;
-                int bubbles = Count(16, n), hangs = Count(80, n), ribbons = Count(12, n);
+                int bubbles = Count(8, n), hangs = Count(80, n), ribbons = Count(12, n);
                 for (int i = 0; i < bubbles; i++)
                 {
                     float rad = rng.Range(0.10f, 0.32f);
@@ -777,7 +777,7 @@ namespace TW.Presentation.VFX.Cel
             float t = rng.Next();
             // (b15: less pale - b14's mass was 34 % pale yellow-lime where the clip's is 16 %; b17: pale where it leaves the
             // middle of the hit, the clip's pale-yellow heart, and its green rim vivid)
-            float mid = Mathf.Clamp01(1.3f - o.magnitude / 0.8f);
+            float mid = Mathf.Clamp01(0.9f - o.magnitude / 0.6f);   // (b28: pale at the very heart only)
             r.Tone.w = green ? (t < 0.40f ? 1f : t < 0.80f ? 2f : 3f)
                 : t < mid * 0.6f ? (t < mid * 0.3f ? 4f : 5f) : (t < 0.15f ? 1f : t < 0.55f ? 2f : t < 0.88f ? 3f : 4f);
             r.Erode = new Vector4(0f, rng.Range(-1f, 1f), green ? 0.15f : 0.35f + 0.4f * mid, 0f);   // (b17: no line round it - the clip's have none)
@@ -799,7 +799,7 @@ namespace TW.Presentation.VFX.Cel
             r.Motion = new Vector4(3f, 2.2f, 0f, 0f);
             r.Size = new Vector4(rad, rad * 1.15f, 1f, rng.Range(1.1f, 2.0f) * rad / speed);
             float t = rng.Next();
-            float mid = Mathf.Clamp01(1.3f - o.magnitude / 0.8f);
+            float mid = Mathf.Clamp01(0.9f - o.magnitude / 0.6f);   // (b28: pale at the very heart only)
             r.Tone.w = green ? (t < 0.40f ? 1f : t < 0.80f ? 2f : 3f)
                 : t < mid * 0.6f ? (t < mid * 0.3f ? 4f : 5f) : (t < 0.15f ? 1f : t < 0.55f ? 2f : t < 0.88f ? 3f : 4f);
             r.Erode = Vector4.zero;

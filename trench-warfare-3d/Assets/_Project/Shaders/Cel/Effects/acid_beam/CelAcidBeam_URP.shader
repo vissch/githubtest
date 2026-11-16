@@ -675,13 +675,14 @@ Shader "TW/Cel/AcidBeam"
                         col = lerp(shade, body, 1.0 - Step(0.80, d, pd));
                         col = lerp(col, light, 1.0 - Step(0.72, d, pd));
                         col = lerp(col, hot, 1.0 - Step(0.64, d, pd));
-                        [unroll] for (int li = 0; li < 4; li++)
+                        [unroll] for (int lq = 0; lq < 4; lq++)
                         {
+                            int li = 3 - lq;                             // (b28: the broad green ones last, over the others)
                             // (b26: broader and fewer - b25's read as hay)
                             float N = li == 0 ? 3.0 : li == 1 ? 5.0 : li == 2 ? 9.0 : 16.0;
                             float ln = li == 0 ? 0.26 : li == 1 ? 0.19 : li == 2 ? 0.13 : 0.09;
                             float2 sv = Sliv(u, e, N, ln, seed + 1.7 * li, li == 0 ? 0.70 : 0.80 - 0.10 * li, 0.36 - 0.02 * li, pixX * N * 0.6, li == 1 ? -3.5 : 2.5 + li);
-                            float g = sv.y + 0.45 * (ax - 0.45) - 0.6 * fan + (li == 0 ? 0.35 : 0.0);   // (the broad ones: green)
+                            float g = sv.y + 0.45 * (ax - 0.45) - 0.6 * fan + (li == 0 ? 0.30 : 0.08);   // (the broad ones: green)
                             half3 tc = g < 0.44 ? hot : g < 0.52 ? light : g < 0.60 ? body : g < 0.90 ? shade : rim;   // (b27: yellow and green, little lime - the clip's mix)
                             col = lerp(col, tc, sv.x);
                         }
@@ -1039,7 +1040,7 @@ Shader "TW/Cel/AcidBeam"
                     col = lerp(col, shade, blot * 0.8 * (1.0 - 0.5 * glow));
                     col = lerp(col, light, lite * dens);
                     col = lerp(col, pale, lite * glow * 0.6);
-                    al = min(dens * (0.55 + 0.40 * core) * (1.0 - 0.5 * smoothstep(0.35, 1.0, k)) + lite * dens * 0.3, 0.97);
+                    al = min(dens * (0.42 + 0.40 * core) * (1.0 - 0.5 * smoothstep(0.35, 1.0, k)) + lite * dens * 0.3, 0.97);   // (b28: thinner)
                     al *= (1.0 - smoothstep(0.55, 1.0, fray)) * smoothstep(0.0, 0.08, k);
                     col = MixFog(col, i.fog);
                 }
