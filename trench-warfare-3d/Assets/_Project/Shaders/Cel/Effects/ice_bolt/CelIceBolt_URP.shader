@@ -57,6 +57,9 @@ Shader "TW/Cel/IceBolt"
             // its specks and puffs)
             #define DART_PAD 1.3
             #define RIBBON_PAD 5.0
+            // a ribbon's half-width at most this many screen px (i20: the clip's strands stay 12-16 px all along the
+            // corridor; i19's widened with the perspective into blurry bands near the camera)
+            #define RIBBON_MAX_PX 13.0
             // how much of its core a bloom loses as it erodes (fitted with the bloom, i03)
             #define BLOOM_SHRINK 1.000
 
@@ -155,6 +158,7 @@ Shader "TW/Cel/IceBolt"
                 float across = v.uv.y * 2.0 - 1.0;
                 float width = CelCurve(r.size.xyz, k) * alive * open;
                 float halfW = max(width * 0.5, 1e-5);
+                if (mode > 0.5) halfW = min(halfW, RIBBON_MAX_PX * PixelMetres(p));
                 float pad = mode < 0.5 ? DART_PAD : RIBBON_PAD;
                 float u = s * lenB;
                 float off = 0.0;
@@ -385,12 +389,15 @@ Shader "TW/Cel/IceBolt"
                     float h4 = CelHash21(float2(sd * 23.7, 9.1));
                     float hb = lerp(0.3, 0.45, h1);
                     float w0u = lerp(0.75, 1.0, h3), w0d = lerp(0.85, 1.0, h2);
-                    float shU = lerp(0.16, 0.26, h2), shD = lerp(0.16, 0.26, h3);
+                    // i20: half are broad blades - the back a solid body, not a thin shaft (the clip's near the camera
+                    // at 2x: fat lumpy ice chunks, a long straight top, a lumpy underside)
+                    bool blade = h4 >= 0.5;
+                    float shU = blade ? lerp(0.6, 0.85, h2) : lerp(0.16, 0.26, h2), shD = blade ? lerp(0.55, 0.8, h3) : lerp(0.16, 0.26, h3);
                     // the needle straight (on some a little hollow) from the tip back to the widest point; behind it
                     // the body steps in to the shaft at once, and the shaft thins over its last 12 %
                     float tip = pow(saturate((1.0 - a) / max(1.0 - hb, 0.05)), lerp(1.0, 1.15, h2));
                     float bodyT = smoothstep(hb - lerp(0.04, 0.08, h3), hb, a);
-                    float endT = lerp(0.35, 1.0, saturate(a / 0.12));
+                    float endT = lerp(0.35, 1.0, saturate(a / (blade ? 0.3 : 0.12)));
                     float upW = a >= hb ? w0u * tip : lerp(shU, w0u, bodyT) * endT;
                     float dnW = a >= hb ? w0d * tip : lerp(shD, w0d, bodyT) * endT;
                     // i09: in its own frame (metres from its tail), so its jags and frost ride with it instead of
@@ -401,7 +408,9 @@ Shader "TW/Cel/IceBolt"
                     float rag = (CelValue2(float2(ud / cellL, sd * 31.0 + step(0.0, y) * 7.0)) - 0.5) * 0.12
                               + (CelHash21(float2(floor(ud / (cellL * 0.6)), sd * 37.0 + step(0.0, y))) - 0.5) * 0.05
                               // i18: fine bumps ~0.36 half-widths long (the clip's lumpy frosty edges at 2x)
-                              + (CelValue2(float2(ud / (cellL * 0.4), sd * 43.0 + step(0.0, y) * 5.0)) - 0.5) * 0.1;
+                              + (CelValue2(float2(ud / (cellL * 0.4), sd * 43.0 + step(0.0, y) * 5.0)) - 0.5) * 0.1
+                              // i20: long lumps ~2 half-widths (the clip's lumpy ice chunks), more on the underside
+                              + (CelValue2(float2(ud / (cellL * 2.2), sd * 47.0 + step(0.0, y) * 3.0)) - 0.5) * (y >= 0.0 ? 0.18 : 0.32);
                     float eW = y >= 0.0 ? upW : dnW;
                     float dE = eW + rag * step(0.05, eW) - abs(y);
                     // the wings: swept back from the widest point, on the lower edge of 60 % and the upper of 30 %
@@ -427,7 +436,8 @@ Shader "TW/Cel/IceBolt"
                     // i18: frost in it, snowy patches ~0.55 half-widths across (the clip's darts at 2x)
                     float fr = CelValue2(float2(ud / max(i.q.w * 0.55, 1e-3), y * 2.2) + float2(sd * 59.0, sd * 23.0));
                     // (i19: the upper facet 0.74: i18 filmed the darts p50 (159,190,227) for the clip's (153,180,213))
-                    float shade = saturate((upper ? 0.74 : 0.48) + (mn - 0.5) * 0.7 + (fr - 0.5) * 0.35) * 3.0;
+                    // (i20 frost 0.5: the clip's chunks are white mottled over deeper blue at 2x)
+                    float shade = saturate((upper ? 0.74 : 0.48) + (mn - 0.5) * 0.7 + (fr - 0.5) * 0.5) * 3.0;
                     col = shade < 1.0 ? lerp(CelPal(row, 0), CelPal(row, 1), shade) : shade < 2.0 ? lerp(CelPal(row, 1), CelPal(row, 2), shade - 1.0) : lerp(CelPal(row, 2), CelPal(row, 3), shade - 2.0);
                     // a few white glints in it (~2 px)
                     float2 gq = float2(ud / max(i.q.w * 0.8, 1e-3), y * 1.5);

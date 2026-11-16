@@ -32,7 +32,8 @@ namespace TW.Presentation.VFX.Cel
         // its ~8:1); i12 a 0.145 window (i11 0.135) for the barbed arrow
         // i16: 0.135 and 0.26 (i15 0.145, 0.28): the clip's darts median 104 x 18 px, i15's 129 x 24
         // (i17 0.24: i16 filmed 124 x 23)
-        public const float DartWindow = 0.135f, DartLife = 0.32f, DartWidth = 0.24f;
+        // (i20 0.28: the clip's darts near the camera are fat chunks 30-45 px wide)
+        public const float DartWindow = 0.135f, DartLife = 0.32f, DartWidth = 0.28f;
         const float DartHeadStart = -0.05f, DartHeadEnd = 1f + DartWindow * 1.3f;
         /// <summary>Shares a second a ribbon's head flies (the darts' speed) and the ribbons' wavelength (m: the clip's
         /// strands bend once over 200-300 px; i12 5.5: through the holds f30-f60 they run nearly straight).</summary>
@@ -114,7 +115,8 @@ namespace TW.Presentation.VFX.Cel
         // without the plateau: i17 filmed the clip's peak, +95 for +96)
         // (i19 0.24 m and 0.85, a broader body: i18's strands filmed thinner and dimmer than the clip's bold ribbons,
         // peaks +71-82 for +80-98)
-        const float WakeLife = 0.62f, WakeWidth = 0.24f, WakeAmp = 0.09f, WakeOpacity = 0.85f;
+        // (i20 amp 0.12: the clip's strands wave and cross more through the first hold)
+        const float WakeLife = 0.62f, WakeWidth = 0.24f, WakeAmp = 0.12f, WakeOpacity = 0.85f;
         /// <summary>The gap (f66-f90): the bloom is gone and the darts glance off the board, so a share of the wakes
         /// runs on past the dummy to the upper right (the clip's f80 strands reach ~(1100, 250)); the darts themselves
         /// fly on down the corridor into the board (i12: i11's flew the glancing path and left the corridor empty) and
