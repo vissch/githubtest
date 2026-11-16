@@ -61,6 +61,9 @@ namespace TW.Presentation.VFX.Cel
 
         /// <summary>Make this the live renderer (a renderer made by hand: a test, a stage).</summary>
         public static void Adopt(CelFxRenderer r) => live = r;
+        // Awake runs inside AddComponent, before Renderer can assign its return value. Never call the
+        // lazy getter there: hidden DontSave objects are not found by FindFirstObjectByType.
+        internal static void AdoptIfMissing(CelFxRenderer r) { if (live == null) live = r; }
         internal static void Release(CelFxRenderer r) { if (live == r) live = null; }
 
         // ------------------------------------------------------------------ LOD

@@ -56,6 +56,41 @@ namespace TW.Tests
         }
 
         [Test]
+        public void A_Hidden_Renderer_Registers_Without_Creating_Another()
+        {
+            CelFx.Adopt(null);
+            var before = Resources.FindObjectsOfTypeAll<CelFxRenderer>();
+            try
+            {
+                // EditMode does not run Awake automatically; invoke the actual startup callback.
+                typeof(CelFxRenderer).GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(renderer, null);
+                Assert.That(CelFx.Renderer, Is.SameAs(renderer));
+                Assert.That(Resources.FindObjectsOfTypeAll<CelFxRenderer>().Length, Is.EqualTo(before.Length));
+            }
+            finally
+            {
+                foreach (var extra in Resources.FindObjectsOfTypeAll<CelFxRenderer>())
+                    if (Array.IndexOf(before, extra) < 0) UnityEngine.Object.DestroyImmediate(extra.gameObject);
+                CelFx.Adopt(renderer);
+            }
+        }
+
+        [Test]
+        public void Another_Renderer_Awakening_Does_Not_Replace_The_Live_One()
+        {
+            CelFx.Adopt(renderer);
+            var other = new GameObject("CelFxDuplicateTest") { hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                var duplicate = other.AddComponent<CelFxRenderer>();
+                typeof(CelFxRenderer).GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(duplicate, null);
+                Assert.That(CelFx.Renderer, Is.SameAs(renderer));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(other); }
+            Assert.That(CelFx.Renderer, Is.SameAs(renderer));
+        }
+
+        [Test]
         public void The_Record_Is_128_Bytes_As_The_Shader_Reads_It()
         {
             Assert.That(Marshal.SizeOf<CelRecord>(), Is.EqualTo(CelRecord.Bytes));
