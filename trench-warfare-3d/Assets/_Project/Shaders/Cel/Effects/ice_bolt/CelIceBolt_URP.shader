@@ -229,11 +229,15 @@ Shader "TW/Cel/IceBolt"
             // its hard side (+1 the hard edge): full from 0.3 to 0.55 (i19: a bright body by the hard edge - i18's
             // spike of a peak read as thin lines at the film's size beside the clip's bold ribbons), eased down over
             // the last 0.45 to a faint halo, the soft side falling off as exp(-d / 0.8)
+            // i22: cel-flat, not airbrushed (the clip's ribbons at 1:1 are painted: a bright line along the hard edge,
+            // a flat semi-opaque face across the ribbon, a defined dimmer far edge; i21's exponential soft side glowed
+            // like a neon tube): the line 0.75-0.9, rising from the face over 0.55-0.75 and cut over 0.9-1.0; the face
+            // 0.5 from -0.75 to 0.55; the far edge falling over -1.0..-0.75
             float StrandProfile(float t)
             {
-                if (t >= 0.55)
-                    return t < 1.0 ? lerp(1.0, 0.06, smoothstep(0.55, 1.0, t)) : 0.06 * exp((1.0 - t) / 0.7);
-                return exp((min(t, 0.3) - 0.3) / 0.8);
+                if (t >= 0.9) return 1.0 - smoothstep(0.9, 1.0, t);
+                if (t >= 0.55) return lerp(0.5, 1.0, smoothstep(0.55, 0.75, t));
+                return 0.5 * smoothstep(-1.0, -0.75, t);
             }
 
             half4 frag(Varyings i) : SV_Target
@@ -392,7 +396,8 @@ Shader "TW/Cel/IceBolt"
                     float w0u = lerp(0.75, 1.0, h3), w0d = lerp(0.85, 1.0, h2);
                     // i20: half are broad blades - the back a solid body, not a thin shaft (the clip's near the camera
                     // at 2x: fat lumpy ice chunks, a long straight top, a lumpy underside)
-                    bool blade = h4 >= 0.5;
+                    // (i22: on 30 % - the clip's are mostly crisp barbed arrowheads at 1:1)
+                    bool blade = h4 >= 0.7;
                     float shU = blade ? lerp(0.6, 0.85, h2) : lerp(0.16, 0.26, h2), shD = blade ? lerp(0.55, 0.8, h3) : lerp(0.16, 0.26, h3);
                     // the needle straight (on some a little hollow) from the tip back to the widest point; behind it
                     // the body steps in to the shaft at once, and the shaft thins over its last 12 %
@@ -438,9 +443,11 @@ Shader "TW/Cel/IceBolt"
                     float fr = CelValue2(float2(ud / max(i.q.w * 0.55, 1e-3), y * 2.2) + float2(sd * 59.0, sd * 23.0));
                     // (i19: the upper facet 0.74: i18 filmed the darts p50 (159,190,227) for the clip's (153,180,213))
                     // (i20 frost 0.5: the clip's chunks are white mottled over deeper blue at 2x)
-                    float shade = saturate((upper ? 0.74 : 0.48) + (mn - 0.5) * 0.7 + (fr - 0.5) * 0.7) * 3.0;
+                    // (i22 frost 0.3 in whole-band steps: i21's 0.7 in half bands made blotchy lumps; the clip's are
+                    // two flat tones with a few white patches)
+                    float shade = saturate((upper ? 0.74 : 0.48) + (mn - 0.5) * 0.5 + (fr - 0.5) * 0.3) * 3.0;
                     // i21: in hard half-band steps - the clip's chunks are hard white snow patches over blue-grey shadow
-                    shade = floor(shade * 2.0 + 0.5) * 0.5;
+                    shade = min(floor(shade + 0.5), 3.0);
                     col = shade < 1.0 ? lerp(CelPal(row, 0), CelPal(row, 1), shade) : shade < 2.0 ? lerp(CelPal(row, 1), CelPal(row, 2), shade - 1.0) : lerp(CelPal(row, 2), CelPal(row, 3), shade - 2.0);
                     // a few white glints in it (~2 px)
                     float2 gq = float2(ud / max(i.q.w * 0.8, 1e-3), y * 1.5);
@@ -478,13 +485,15 @@ Shader "TW/Cel/IceBolt"
                     float tA = y / max(hw, 1e-3);
                     float flip = smoothstep(-0.3, 0.3, twc);
                     float g = lerp(StrandProfile(-tA), StrandProfile(tA), flip);
-                    float eP = (tA - 0.6) / 0.16, eM = (-tA - 0.6) / 0.16;
+                    // (i22: the edge line at 0.82, on the profile's bright line)
+                    float eP = (tA - 0.82) / 0.1, eM = (-tA - 0.82) / 0.1;
                     float edge = lerp(exp(-eM * eM), exp(-eP * eP), flip) * (1.0 - tw * 0.6);
                     float fresh = lerp(0.7, 1.0, smoothstep(0.6, 1.0, i.q.x));
                     float alpha = (g * 0.9 + edge * 0.2) * fresh * lerp(1.1, 0.9, tw);
                     // (i13: its lit edge no longer whitened - i12's read as the darts' white at the film's size)
                     // (i18 0.3 again: i17's 0.5 made the brighter cores dart-blue, merging them with the darts)
-                    col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(edge * 0.3 + (1.0 - tw) * 0.2));
+                    // (i22: the line 0.4 toward c3, the face c2)
+                    col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(edge * 0.4 + (1.0 - tw) * 0.2));
                     // its head fades in over the last 0.7 m (i09's wakes ended in a hard cut behind their darts);
                     // metres behind the head = u (1/a - 1), a running 0..1 from the tail (share 0) to the head
                     float behindM = i.q.z * (1.0 / max(i.q.x, 1e-3) - 1.0);
