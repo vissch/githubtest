@@ -24,7 +24,7 @@ namespace TW.Presentation.VFX.Cel
         /// 0.02 s behind the point, 0.78 at 0.21 s), the tail's taper; and the seconds the whole beam takes to break
         /// up from frame BreakFrame (the clip's is a lace end to end on frames 85-88 and blobs by 93; b02-b05 broke
         /// its last 0.6 s of fluid up as it flew on into the target).</summary>
-        const float HeadTaper = 0.45f, TailTaper = 0.05f, BreakUp = 0.60f, BreakFrame = 81f;   // (b22: 85 -> 84, and it opens fast)   // (b06's 0.33 was gone by f92, b07's 0.45 by f94)
+        const float HeadTaper = 0.45f, TailTaper = 0.05f, BreakUp = 0.85f, BreakFrame = 81f;   // (b22: 85 -> 84, and it opens fast)   // (b06's 0.33 was gone by f92, b07's 0.45 by f94)
         /// <summary>The puddle's half-extent across (m) and its depth over its width (the clip: a slab 3.6 m across
         /// round the target's foot, 260 x 90 px at frame 125; b01 filmed a little big) and how far to the eye's right
         /// of the foot its middle lies (the clip's: 50 px).</summary>
@@ -467,7 +467,7 @@ namespace TW.Presentation.VFX.Cel
                 float rad = green ? rng.Range(1.2f, 2.3f) : rng.Range(0.7f, 1.2f);
                 if (!green) d = (d - dir * 0.8f).normalized;             // (the lime ones: its heart, toward the beam)
                 float speed = rng.Range(1.6f, 3.6f);
-                var r = Rec(now, AtFrame(late, when), rng.Range(0.50f, 0.85f), AcidBeamKind.Drop, target + Vector3.up * rng.Range(-0.3f, 0.5f) + d * (rad * 0.3f), green ? Sheet : Splash, 1f, ref rng);
+                var r = Rec(now, AtFrame(late, when), when > 62f ? rng.Range(0.40f, 0.60f) : rng.Range(0.50f, 0.85f), AcidBeamKind.Drop, target + Vector3.up * rng.Range(-0.3f, 0.5f) + d * (rad * 0.3f), green ? Sheet : Splash, 1f, ref rng);
                 r.Vel = d * speed;
                 r.Motion = new Vector4(1.5f, 1.6f, 0f, 0f);
                 r.Size = new Vector4(rad * 0.45f, rad * 1.2f, 0.55f, rng.Range(1.0f, 1.7f) * rad / speed);

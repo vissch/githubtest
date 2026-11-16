@@ -644,7 +644,7 @@ Shader "TW/Cel/AcidBeam"
                         if (starve > 0.001)
                         {
                             // (b09: warped and fewer - b08's round holes in rows read as a leopard band)
-                            float2 wp = float2(q.x * 2.2, e / 0.040) + seed * 7.0;   // (b30: finer - b09-b29's holes were big ovals)
+                            float2 wp = float2(q.x * 1.8, e / 0.050) + seed * 7.0;   // (b31: between b29's big ovals and b30's cow print)
                             wp += 0.80 * (float2(CelValue2(wp * 0.9 + seed * 3.0), CelValue2(wp * 0.9 + seed * 5.0 + 7.0)) - 0.5);   // (b18: harder - b17's round holes read as cheese)
                             float2 wc = floor(wp), wf = frac(wp);
                             float gap = 8.0;                             // how far this point is outside every hole
@@ -654,7 +654,7 @@ Shader "TW/Cel/AcidBeam"
                                 float2 o2 = float2(xx, yy);
                                 float2 cid = wc + o2;
                                 float2 pt = o2 + float2(CelHash21(cid + 3.1), CelHash21(cid + 17.7)) * 0.8 + 0.1 - wf;
-                                float hr = (0.30 + 0.36 * CelHash21(cid + 29.3)) * (0.60 + 0.60 * starve);   // (b27: more hole than fluid by f88 - the clip's is a web)   // (they grow until they meet; b23: and stop there - b22's grew until nothing was left by f89)
+                                float hr = (0.30 + 0.36 * CelHash21(cid + 29.3)) * (0.55 + 0.50 * starve);   // (b31: ropes left at the end)   // (b27: more hole than fluid by f88 - the clip's is a web)   // (they grow until they meet; b23: and stop there - b22's grew until nothing was left by f89)
                                 gap = min(gap, length(pt) - hr);
                             }
                             // its ropes thin and part, then its islands go (b06: it is gone when it has broken up)
@@ -736,7 +736,7 @@ Shader "TW/Cel/AcidBeam"
                             // (b26) a big one is a sheet full of irregular holes that open as it goes, a web at its end
                             // (Erode.x: how holed; the clip's mass f44-90 is such sheets)
                             float2 m = float2(q.x * aspect, q.y);       // in its half-widths
-                            float thr = i.shape2.x * (0.24 + 0.40 * k);
+                            float thr = i.shape2.x * (0.30 + 0.42 * k);   // (b31: open sooner)
                             f = SplatH(m, aspect, seed, tk, thr);
                             al = Step(0.0, f, pixY);
                             float fl = SplatH(m + L * 0.22, aspect, seed, tk, thr), fs = SplatH(m - L * 0.18, aspect, seed, tk, thr);
@@ -744,6 +744,8 @@ Shader "TW/Cel/AcidBeam"
                             col = lerp(col, up1, 1.0 - Step(0.0, fl, pixY));
                             col = lerp(col, dn1, (1.0 - Step(0.0, fs, pixY)) * 0.9);
                             col = lerp(col, pale, (1.0 - Step(0.0, fl + 0.14, pixY)) * Step(0.06, f, pixY) * step(CelHash21(float2(seed * 13.0, 9.0)), 0.33));
+                            // (b31: a big sheet carries lighter patches - b26-b30's flat ones read as lily pads)
+                            col = lerp(col, up1, Step(0.56, CelValue2(m * 1.9 + seed * 9.0 + 3.0), 0.03) * step(0.5, i.shape2.x) * 0.85);
                         }
                         else if (i.shape.y > 5.5)
                         {
