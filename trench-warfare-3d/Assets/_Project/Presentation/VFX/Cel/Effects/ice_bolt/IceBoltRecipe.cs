@@ -28,13 +28,13 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>A dart's length (share of the 12.9 m corridor: ~1.9 m, 90-240 px near the camera), its life and
         /// its width at the barbs (m; 12-30 px near the camera): its head runs from -0.05 to DartHeadEnd, so it flies
         /// at ~3.9 shares (50 m/s) a second and crosses the frame in six frames (clip: in at f8, on the board at f14).</summary>
-        // i11: 0.28 m at the barbs and a 0.135 window (0.22, 0.15): i10's darts read twice the clip's slenderness
-        // near the camera (~15:1 for its ~8:1)
-        public const float DartWindow = 0.135f, DartLife = 0.32f, DartWidth = 0.28f;
+        // i11: 0.28 m at the barbs (0.22): i10's darts read twice the clip's slenderness near the camera (~15:1 for
+        // its ~8:1); i12 a 0.145 window (i11 0.135) for the barbed arrow
+        public const float DartWindow = 0.145f, DartLife = 0.32f, DartWidth = 0.28f;
         const float DartHeadStart = -0.05f, DartHeadEnd = 1f + DartWindow * 1.3f;
         /// <summary>Shares a second a ribbon's head flies (the darts' speed) and the ribbons' wavelength (m: the clip's
-        /// strands bend once over 200-300 px).</summary>
-        public const float HeadSpeed = (DartHeadEnd - DartHeadStart) / DartLife, Wavelength = 4.4f;
+        /// strands bend once over 200-300 px; i12 5.5: through the holds f30-f60 they run nearly straight).</summary>
+        public const float HeadSpeed = (DartHeadEnd - DartHeadStart) / DartLife, Wavelength = 5.5f;
         /// <summary>The hit sits a little toward the shooter of the chest (the clip's bloom is centred ~12 px left of
         /// it): right, up, along the shot (m).</summary>
         static readonly Vector3 HitOffset = new Vector3(-0.1f, 0.02f, -0.08f);
@@ -48,12 +48,13 @@ namespace TW.Presentation.VFX.Cel
         // tops out near 247, so the brightest blues are written at 0.95-1).
         static Color W(float r, float g, float b) => new Color(Mathf.LinearToGammaSpace(r), Mathf.LinearToGammaSpace(g), Mathf.LinearToGammaSpace(b), 1f);
 
-        // the darts (i09, the clip's at 3x f11-f48: a saturated sky-blue crystal, bluer than the pale grey-white of
-        // the strands, which i08's pale lavender darts melted into): deep blotch (100,138,200), lower facet
-        // (140,182,236), mid (170,208,247), upper facet (194,228,254), glint (222,245,255)
+        // the darts (i09, the clip's at 3x f11-f48: a sky-blue crystal, bluer than the pale grey-white of the strands,
+        // which i08's pale lavender darts melted into; i12 whiter - at the film's size the clip's read as white-blue
+        // ice, i11's deep-blue lower facet dulled ours): deep (118,158,215), lower facet (158,198,243), mid
+        // (188,224,252), upper facet (208,237,255), glint (232,248,255)
         public static readonly int DartRow = CelPalette.Add("ice_dart",
-            W(0.32f, 0.43f, 0.66f), W(0.43f, 0.565f, 0.88f), W(0.53f, 0.67f, 0.97f), W(0.61f, 0.775f, 1f),
-            W(0.71f, 0.90f, 1f), 1.1f, 4, W(0.30f, 0.38f, 0.50f));
+            W(0.37f, 0.49f, 0.69f), W(0.49f, 0.62f, 0.93f), W(0.59f, 0.74f, 0.98f), W(0.665f, 0.835f, 1f),
+            W(0.77f, 0.95f, 1f), 1.1f, 4, W(0.30f, 0.38f, 0.50f));
         // the ribbons, as they are before their opacity lays them over the ground (the clip shows (96,116,141) there;
         // i10 a little greyer: i09 filmed them sat 0.36 for the clip's 0.31, and the darts are the blue thing)
         public static readonly int RibbonRow = CelPalette.Add("ice_ribbon",
@@ -88,13 +89,19 @@ namespace TW.Presentation.VFX.Cel
         /// f114 (the last), one dart (50 %), two (35 %) or three (15 %) to a shot on lanes up to LaneSpread apart near
         /// the camera, landing up to LandSpread off the chest (i09: the clip's darts fly 65-80 px apart (p10-p90)
         /// all the way into the hit, i08's 30-50); each dart drags its own wake of mist on its lane, a dart behind it.</summary>
-        const float FirstShot = 8f, LastShot = 114f, ShotGapMin = 2.6f, ShotGapMax = 3.8f, LaneSpread = 0.6f, LandSpread = 0.3f;
+        // i12: shots every 2.2-3.2 frames to f118 (the clip shows 2+ darts in every frame f8-f123, i11 none f116-f123)
+        // and a shot's darts GroupSpread apart (i11's 0.12 m merged them into one sliver on screen).
+        const float FirstShot = 8f, LastShot = 118f, ShotGapMin = 2.2f, ShotGapMax = 3.2f, LaneSpread = 0.6f, LandSpread = 0.3f, GroupSpread = 0.36f;
         /// <summary>A wake's life (s), its width (m: 8-13 px soft strands near the camera), its wave's amplitude (m)
         /// and its opacity (i09: dimmer, the clip's strands top out at ~(110-160, 125-180, 150-210) where i08's
         /// overlapping ones burned to (200, 222, 252) round the darts).</summary>
-        const float WakeLife = 0.62f, WakeWidth = 0.21f, WakeAmp = 0.15f, WakeOpacity = 0.5f;
+        // i12: straighter (amp 0.09) and brighter (0.62): the clip's streaks top out at (147-166, 165-182, 189-211),
+        // i11's at (107, 128, 160)
+        const float WakeLife = 0.62f, WakeWidth = 0.21f, WakeAmp = 0.09f, WakeOpacity = 0.62f;
         /// <summary>The gap (f66-f90): the bloom is gone and the darts glance off the board, so a share of the wakes
-        /// runs on past the dummy to the upper right (the clip's f80 strands reach ~(1100, 250)).</summary>
+        /// runs on past the dummy to the upper right (the clip's f80 strands reach ~(1100, 250)); the darts themselves
+        /// fly on down the corridor into the board (i12: i11's flew the glancing path and left the corridor empty) and
+        /// the shards layer throws the pieces off.</summary>
         const float GlanceFrom = 64f, GlanceTo = 88f, GlanceShare = 0.8f;
 
         /// <summary>Every shot of the volley: the wakes in one pass (drawn under), the darts in the next (on top); both
@@ -117,11 +124,11 @@ namespace TW.Presentation.VFX.Cel
                 for (int d = 0; d < n; d++)
                 {
                     float at = AtFrame(f + (d == 0 ? 0f : rng.Range(0.4f, 1.8f))) - 0.035f;
-                    Vector3 lane = centre + (d == 0 ? Vector3.zero : (right * rng.Range(-1f, 1f) + up * rng.Range(-1f, 1f)) * 0.12f);
+                    Vector3 lane = centre + (d == 0 ? Vector3.zero : (right * rng.Range(-1f, 1f) + up * rng.Range(-1f, 1f)) * GroupSpread);
                     float life = rng.Jitter(DartLife, 0.06f), width = rng.Jitter(DartWidth, 0.3f), dseed = rng.Next();
                     bool glance = f >= GlanceFrom && f <= GlanceTo && rng.Next() < GlanceShare;
                     Vector3 land = (right * rng.Range(-1f, 1f) + up * rng.Range(-1f, 1f)) * LandSpread;
-                    Vector3 end = glance ? to + right * rng.Range(3.0f, 4.2f) + up * rng.Range(2.2f, 3.0f) : to + land;
+                    Vector3 end = to + land, wEnd = glance ? to + right * rng.Range(3.0f, 4.2f) + up * rng.Range(2.2f, 3.0f) : end;
                     int wakes = far ? 0 : mid ? (rng.Next() < 0.5f ? 1 : 0) : (rng.Next() < 0.65f ? 1 : 2);
                     float speed = (DartHeadEnd - DartHeadStart) / life;
                     if (on && darts) renderer.Spawn(kind, Dart(now + at, from + lane, end, life, width, dseed));
@@ -131,7 +138,7 @@ namespace TW.Presentation.VFX.Cel
                         Vector3 wo = (right * rng.Range(-1f, 1f) + up * rng.Range(-1f, 1f)) * 0.06f;
                         float wLife = rng.Jitter(WakeLife, 0.25f), wWidth = rng.Jitter(WakeWidth, 0.4f), wAmp = rng.Jitter(WakeAmp, 0.4f);
                         float wDrift = rng.Jitter(0.8f, 0.5f), wSeed = rng.Next();
-                        if (on && !darts && w < wakes) renderer.Spawn(kind, Wake(now + wAt, from + lane + wo, end, wLife, wWidth, wAmp, wDrift, speed, wSeed));
+                        if (on && !darts && w < wakes) renderer.Spawn(kind, Wake(now + wAt, from + lane + wo, wEnd, wLife, wWidth, wAmp, wDrift, speed, wSeed));
                     }
                 }
             }
@@ -172,7 +179,7 @@ namespace TW.Presentation.VFX.Cel
 
         /// <summary>The volley's layers beside the shots: the wide faint sheets the strands lie in.</summary>
         public static readonly CelFxRecipe Volley = new CelFxRecipe("ice_bolt_volley", 6f,
-            Sheets("ribbon sheets", 16, 5, AtFrame(9) - 0.04f, AtFrame(112) - AtFrame(9), 0.6f, 0.3f, 0.1f, 0.14f, 0.25f));
+            Sheets("ribbon sheets", 16, 5, AtFrame(9) - 0.04f, AtFrame(112) - AtFrame(9), 0.6f, 0.3f, 0.1f, 0.1f, 0.25f));
 
         // ---------------------------------------------------------------- the hit (played at the chest)
         /// <summary>A dot of the IceBolt kind at the hit (Stretch is minus its minimum px at Far; 0.001 = none).</summary>
@@ -244,7 +251,8 @@ namespace TW.Presentation.VFX.Cel
                 // the gap (f64-f92): darts break on the board and glance off to the right and up-right as shards,
                 // two-tone javelins 20-60 px long (the biggest ~90)
                 Name = "shards", Kind = IceBoltKind.KindName, Anchor = CelAnchor.Target, Offset = HitOffset, Start = AtFrame(63f), Duration = AtFrame(92f) - AtFrame(63f), TimeJitter = 0.04f, Life = 0.42f, LifeJitter = 0.3f,
-                Close = 17, Mid = 6, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Dir, Speed = 14f, SpeedJitter = 0.35f, Spread = 40f, UpBias = 0.5f, Gravity = 3f, Drag = 0.8f, Spin = 5f,
+                // (i12: 28, i11 17 - the clip's f72 has ~10 in the air at once, i11's ~5)
+                Close = 28, Mid = 9, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Dir, Speed = 14f, SpeedJitter = 0.35f, Spread = 40f, UpBias = 0.5f, Gravity = 3f, Drag = 0.8f, Spin = 5f,
                 Size = new CelCurve(0.115f, 0.095f), SizeJitter = 0.45f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.3f, 2f), Feather = 0.8f,
                 Palette = "ice_dart", Core = 1f, Opacity = 1f, Extra = new Vector4(IceBoltKind.Shard, 3.6f, 0f, 0f),
             },
@@ -252,7 +260,7 @@ namespace TW.Presentation.VFX.Cel
             {
                 // a few more as the second bloom fades (f116-f136)
                 Name = "shards 2", Kind = IceBoltKind.KindName, Anchor = CelAnchor.Target, Offset = HitOffset, Start = AtFrame(116f), Duration = AtFrame(136f) - AtFrame(116f), TimeJitter = 0.04f, Life = 0.4f, LifeJitter = 0.3f,
-                Close = 6, Mid = 3, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Dir, Speed = 12f, SpeedJitter = 0.35f, Spread = 55f, UpBias = 0.5f, Gravity = 3f, Drag = 0.8f, Spin = 5f,
+                Close = 10, Mid = 4, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Dir, Speed = 12f, SpeedJitter = 0.35f, Spread = 55f, UpBias = 0.5f, Gravity = 3f, Drag = 0.8f, Spin = 5f,
                 Size = new CelCurve(0.08f, 0.065f), SizeJitter = 0.5f, Stretch = -0.001f, Erode = new CelCurve(0f, 0.3f, 2f), Feather = 0.8f,
                 Palette = "ice_dart", Core = 1f, Opacity = 1f, Extra = new Vector4(IceBoltKind.Shard, 3.2f, 0f, 0f),
             },

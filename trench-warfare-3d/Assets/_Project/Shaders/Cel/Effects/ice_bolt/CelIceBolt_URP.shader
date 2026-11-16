@@ -369,13 +369,15 @@ Shader "TW/Cel/IceBolt"
                     float h1 = CelHash21(float2(sd * 13.1, 2.3)), h2 = CelHash21(float2(sd * 17.9, 4.1)), h3 = CelHash21(float2(sd * 5.3, 7.7));
                     float hb = lerp(0.22, 0.42, h1);
                     float w0u = lerp(0.8, 1.0, h3), w0d = lerp(0.85, 1.0, h2);
-                    // i11: a fuller back (the clip's darts carry their width behind the barbs)
-                    float backU = lerp(0.5, 0.72, h2), backD = lerp(0.45, 0.66, h3);
+                    // i12: a narrow shaft behind the barbs again (i11's fuller back read as a leaf), so the barbs
+                    // stand off it as wings
+                    float backU = lerp(0.36, 0.55, h2), backD = lerp(0.33, 0.5, h3);
                     float upW = IceEdge(a, hb + (h2 - 0.5) * 0.06, w0u, backU);
                     float dnW = IceEdge(a, hb - (h2 - 0.5) * 0.06, w0d, backD);
-                    float hookLen = lerp(0.1, 0.2, h3);
-                    float hookUp = h2 > 0.8 ? 1.0 : 0.0;
-                    float hookDn = h1 < 0.72 ? 1.0 : 0.0;
+                    // i12: bolder swept barbs on both edges of most (the clip's arrowheads at the film's size)
+                    float hookLen = min(lerp(0.16, 0.28, h3), hb * 0.9);
+                    float hookUp = h2 > 0.5 ? 1.0 : 0.0;
+                    float hookDn = h1 < 0.85 ? 1.0 : 0.0;
                     // i09: in its own frame (metres from its tail), so its jags and frost ride with it instead of
                     // crawling through it as it flies
                     float ud = a * i.shape.z;
@@ -404,7 +406,7 @@ Shader "TW/Cel/IceBolt"
                     float mn = 0.65 * CelValue2(mq) + 0.35 * CelValue2(mq * 2.3 + float2(5.1, 1.7));
                     float ridge = (0.12 + (mn - 0.5) * 0.8) * eW;
                     bool upper = y >= ridge;
-                    float shade = saturate((upper ? 0.84 : 0.38) + (mn - 0.5) * 0.7) * 3.0;
+                    float shade = saturate((upper ? 0.86 : 0.48) + (mn - 0.5) * 0.7) * 3.0;
                     col = shade < 1.0 ? lerp(CelPal(row, 0), CelPal(row, 1), shade) : shade < 2.0 ? lerp(CelPal(row, 1), CelPal(row, 2), shade - 1.0) : lerp(CelPal(row, 2), CelPal(row, 3), shade - 2.0);
                     // a few white glints in it (~2 px)
                     float2 gq = float2(ud / max(i.q.w * 0.8, 1e-3), y * 1.5);
@@ -426,17 +428,22 @@ Shader "TW/Cel/IceBolt"
                     float y = i.q.y, u = i.q.z;
                     float sd = i.more.w;
                     float wl = max(i.shape.y, 0.3);
-                    float tw = 0.55 + 0.45 * abs(cos(6.28318 * u / (wl * 0.8) + sd * 23.0));
+                    // i12: it twists every ~3.4 m from a thin edge-on line to a wide flat sheet (the clip's streaks)
+                    float twc = cos(6.28318 * u / 3.4 + sd * 23.0);
+                    float tw = 0.35 + 0.65 * abs(twc);
                     float hw = tw * (1.0 - 0.6 * thr);
                     // i10: a flat soft ribbon (the clip at 3x f40-f60: 12-25 px translucent sheets, not i09's peaked
                     // wire), a brighter edge on the side its twist turns toward the eye
                     float ay = abs(y) / max(hw, 1e-3);
-                    float g = 1.0 - smoothstep(0.35, 1.1, ay);
-                    float side = cos(6.28318 * u / (wl * 0.8) + sd * 23.0) >= 0.0 ? 1.0 : -1.0;
+                    // i12: crisp edged (the clip's streaks at the film's size, not i11's blur) and lit across, its
+                    // bright edge on the side the twist turns toward the eye
+                    float g = 1.0 - smoothstep(0.62, 1.0, ay);
+                    float side = twc >= 0.0 ? 1.0 : -1.0;
                     float eo = (y * side / max(hw, 1e-3) - 0.62) / 0.16;
                     float edge = exp(-eo * eo) * (1.0 - tw * 0.6);
+                    float lit = lerp(0.6, 1.0, saturate(0.5 + 0.5 * y * side / max(hw, 1e-3)));
                     float fresh = lerp(0.7, 1.0, smoothstep(0.6, 1.0, i.q.x));
-                    float alpha = (g * 0.85 + edge * 0.25) * fresh * lerp(1.1, 0.85, tw);
+                    float alpha = (g * lit * 0.9 + edge * 0.2) * fresh * lerp(1.1, 0.9, tw);
                     col = lerp(CelPal(row, 2), CelPal(row, 3), saturate(edge * 0.8 + (1.0 - tw) * 0.3));
                     // its head fades in over the last 0.7 m (i09's wakes ended in a hard cut behind their darts);
                     // metres behind the head = u (1/a - 1), a running 0..1 from the tail (share 0) to the head
@@ -457,21 +464,22 @@ Shader "TW/Cel/IceBolt"
                         float py0 = (CelHash21(float2(pcell, sd * 53.0)) - 0.5) * 2.0;
                         float pr = lerp(2.0, 3.5, CelHash21(float2(pcell, sd * 59.0)));
                         float2 dP = float2((u - px0) / max(i.q.w, 1e-5), y - py0) / pr;
-                        float puff = exp(-dot(dP, dP) * 2.2) * 0.3;
+                        float puff = exp(-dot(dP, dP) * 2.2) * 0.2;
                         alpha = max(alpha, puff);
                     }
                     // frost specks: a share of 0.22 m cells holds a 1-2 px white dot off the strand, twinkling
-                    float sc = 0.22;
+                    // (i12 denser and bigger: the clip shows dozens round the darts and along the streaks)
+                    float sc = 0.16;
                     float si = floor(u / sc);
                     float sh = CelHash21(float2(si, sd * 61.0));
                     float speck = 0.0;
-                    if (sh > lerp(0.7, 0.25, spray))
+                    if (sh > lerp(0.55, 0.15, spray))
                     {
                         float sx = (si + 0.2 + 0.6 * CelHash21(float2(si, sd * 67.0))) * sc;
                         float sgn = CelHash21(float2(si, sd * 71.0)) > 0.5 ? 1.0 : -1.0;
                         float sy = sgn * lerp(lerp(1.2, 0.5, spray), 3.5, CelHash21(float2(si, sd * 73.0)));
                         float spx = length(float2((u - sx) / max(pm, 1e-6), (y - sy) * hwPx));
-                        float rad = lerp(0.8, 1.7, CelHash21(float2(si, sd * 79.0))) * (1.0 + 0.5 * spray);
+                        float rad = lerp(1.0, 2.0, CelHash21(float2(si, sd * 79.0))) * (1.0 + 0.5 * spray);
                         float twk = CelHash21(float2(si + sd * 83.0, tick)) > 0.35 ? 1.0 : 0.3;
                         speck = saturate(rad + 0.5 - spx) * twk;
                     }
