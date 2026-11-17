@@ -179,7 +179,19 @@ Shader "TW/Cel/FlameSmokeOpaque"
                 float t = CelAge(r);
                 float3 n = normalize(i.sphere);
                 float3 nrm = LobeNormal(n, LobeShape(n, r, t, freq, amp), r, t, freq, amp, squash);
-                float lit = CelLobeLight(nrm, viewWS, i.more.z);
+                float lit;
+                if (r.extra.w < 0.0)
+                {
+                    float elapsed = max(0.0, _CelNow - r.tone.z) / max(-r.extra.w, 1e-3);
+                    if (elapsed < 3.5)
+                    {
+                        // Warm smoke: broaden upper-face fill without changing palette endpoints.
+                        float shadeUp = i.more.z * lerp(0.5, 1.0, smoothstep(3.0, 3.5, elapsed));
+                        lit = CelLobeLight(nrm, viewWS, shadeUp);
+                    }
+                    else lit = CelLobeLight(nrm, viewWS, i.more.z);
+                }
+                else lit = CelLobeLight(nrm, viewWS, i.more.z);
                 lit *= lit;   // n.v squared: the bands come out of even width across the disc (n.v alone is mostly light)
                 // the eroded edge darkens a band before the ink: the lobe thins toward its holes
                 if (e > 0.001) lit *= lerp(0.55, 1.0, saturate((f - e) / max(i.more.y, 1e-3)));
