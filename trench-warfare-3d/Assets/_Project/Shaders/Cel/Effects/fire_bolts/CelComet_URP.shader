@@ -756,23 +756,31 @@ Shader "TW/Cel/Comet"
                     flame = lerp(flame, orange, smoothstep(0.62, 0.85, heatQ));
                     flame = lerp(flame, half3(1.0, 0.36, 0.18), smoothstep(0.82, 1.00, heatQ));   // e27b: REF's bright red-orange (234,92,52)
                     flame = lerp(flame, red, smoothstep(1.10, 1.40, heatQ));
-                    // a thin broken dark-amber '<' hook in the head, opening back (REF: small, thin)
-                    float sq = s / hr;
-                    float tip = -0.55 + 0.12 * sin(t * 7.0 + seed * 5.0);
-                    float arm = max(sq - tip, 0.0);
-                    float wob = hr * 0.06 * sin(sq * 4.0 + t * 11.0 + seed * 21.0);
-                    float sqY = 0.04 * hr + wob;
-                    float dArm = abs(abs(yy - sqY) - arm * hr * (0.40 + 0.12 * sin(seed * 9.0)));
-                    float sqW = hr * (0.05 + 0.05 * CelValue2(float2(sq * 3.0 + seed * 9.0, t * 7.0))) * smoothstep(-0.05, 0.25, arm) * (1.0 - smoothstep(0.15, 0.55, sq));
-                    float squig = (1.0 - smoothstep(sqW * 0.5, sqW + fwidth(yy), dArm)) * step(0.30, CelValue2(float2(sq * 2.0 - t * 4.0 + (yy > sqY ? 3.0 : 0.0), seed * 41.0)));
-                    float2 rq0 = float2(s - hr * 0.20, yy + hr * 0.04); rq0 = float2(rq0.x * 0.94 + rq0.y * 0.34, rq0.y * 0.94 - rq0.x * 0.34);
-                    float2 rq = float2(rq0.x / (hr * 0.60), rq0.y / (hr * 0.26));
-                    float rAng = atan2(rq.y, rq.x);
-                    float rRad = 1.0 + 0.45 * (CelValue2(float2(rAng * 1.3 + seed * 9.0, t * 9.0)) - 0.5) + 0.35 * (CelValue2(float2(rAng * 3.1 - seed * 4.0, t * 13.0)) - 0.5);   // e36: scribbled   // e33c: scribbled
-                    float rD = abs(length(rq) - rRad);
-                    float rW = 0.12 + 0.40 * pow(CelValue2(float2(rAng * 1.8 - seed * 3.0, t * 7.0)), 2.0);   // e36b: thick and thin (scribble)   // e33b: thinner
-                    float ring = (1.0 - smoothstep(rW * 0.6, rW, rD)) * step(0.06, CelValue2(float2(rAng * 0.9 + seed * 5.0, t * 6.0)));   // e36b: solid   // e33c: nearly closed (broken into C + dots read as a face)
-                    flame = lerp(flame, half3(0.55, 0.26, 0.08), ring * 0.70 * (1.0 - smoothstep(0.75, 0.95, head)));   // e33: dark oval ring (REF)
+                    // z01: unequal open folds in a luminous head. The dark stroke
+                    // widens at the rear bend and tapers toward two different tips.
+                    // Coordinates follow flight, so this is flame structure, not a badge.
+                    float sx = s / hr;
+                    float bend = 0.34 + 0.13 * sin(t * 5.0 + seed * 11.0);
+                    float arm = max(bend - sx, 0.0);
+                    float centre = -0.04 + 0.08 * sin(t * 6.0 + seed * 7.0);
+                    float wave = 0.055 * sin(sx * 4.0 + t * 7.0 + seed * 13.0);
+                    float upper = centre + arm * 0.32 + wave;
+                    float lower = centre - arm * 0.47 + wave * 0.45;
+                    float foldWidth = (0.06 + 0.11 * smoothstep(-0.5, bend, sx))
+                                    * (0.72 + 0.55 * CelValue2(float2(sx * 3.0 + seed * 9.0, t * 5.0)));
+                    float upperEnd = smoothstep(-0.62, -0.31, sx);
+                    float lowerEnd = smoothstep(-0.38, -0.14, sx);
+                    float foldAA = max(fwidth(yy / hr), 0.035);
+                    float upperFold = (1.0 - smoothstep(foldWidth * 0.45, foldWidth + foldAA,
+                                      abs(yy / hr - upper))) * upperEnd;
+                    float lowerFold = (1.0 - smoothstep(foldWidth * 0.28, foldWidth * 0.70 + foldAA,
+                                      abs(yy / hr - lower))) * lowerEnd;
+                    float folded = max(upperFold, lowerFold) * (1.0 - smoothstep(bend, bend + 0.18, sx));
+                    float foldShade = exp(-pow((sx - bend + 0.08) / 0.34, 2.0)
+                                          -pow((yy / hr - centre) / 0.24, 2.0));
+                    folded = max(folded, foldShade * 0.55);
+                    flame = lerp(flame, half3(0.55, 0.26, 0.08), folded * 0.76
+                                 * (1.0 - smoothstep(0.75, 0.98, head)));
                     // soft red streak tails out of the back of the body
                     float streakAlpha = 0.0;
                     half3 streakColor = red;
@@ -794,13 +802,42 @@ Shader "TW/Cel/Comet"
                     float gD = min(length(float2(s / (hr * 1.9), yy / (hr * 1.7))),   // e33: a small bloom (REF)
                         s >= 0.0 && s < bodyLength ? abs(yy) / (max(width, hr * 0.3) * 2.3) + 1.8 * u : 10.0);   // e30b: wider bloom
                     float glow = exp(-gD * gD * 1.6) * rear * aliveFire * (1.0 - smoothstep(hr * 2.3, hr * 3.3, abs(yy)));
-                    col += half3(0.85, 0.46, 0.18) * glow * 0.35;   // e33: 0.35 (the 0.85 halo read white)   // e30b: stronger bloom (REF 1x)
                     float sa = streakAlpha * rear * aliveFire;
                     col = col * (1.0 - sa) + streakColor * sa;
                     a = a + (1.0 - a) * sa;
                     float fa = saturate(edge * rear * aliveFire);
                     col = col * (1.0 - fa) + flame * fa;
                     a = a + (1.0 - a) * fa;
+                    // z04: emitted light is added after coverage, so the opaque
+                    // flame cannot erase its own luminous core.
+                    float bodyShare = smoothstep(0.0, hr * 3.0, s);
+                    col += half3(0.85, 0.46, 0.18) * glow * 0.35 * lerp(0.70, 0.35, bodyShare);
+                    // z05: local radiance peaks, independent of the coverage field.
+                    // Their centres drift a little along the flame; the outline never waves.
+                    float hotLobes = 0.0;
+                    [unroll] for (int lightLobe = 0; lightLobe < 3; lightLobe++)
+                    {
+                        float h = CelHash21(float2(lightLobe + 71.0, seed * 43.0));
+                        float c = bodyLength * (0.13 + 0.18 * lightLobe
+                                + 0.035 * sin(t * 4.0 + h * 13.0));
+                        float rx = bodyLength * (0.08 + 0.035 * h);
+                        float cy = hr * 0.10 * sin(t * 5.0 + h * 27.0);
+                        float pulse = 0.40 + 0.60 * CelValue2(float2(t * 5.0 + seed * 9.0, lightLobe * 7.0 + h));
+                        float hot = exp(-pow((s - c) / max(rx, 1e-4), 2.0) * 1.8
+                                      -pow((yy - cy) / max(width * 0.65, hr * 0.1), 2.0) * 2.0) * pulse;
+                        hotLobes = max(hotLobes, hot);
+                    }
+                    col += half3(0.09, 0.14, 0.22) * hotLobes * fa;
+                    // A broad dim halo supplies the reference's falloff without
+                    // enlarging the opaque flame. Fade fully before the quad edge.
+                    float haloWidth = hr * 2.8 * (1.0 - 0.35 * u);
+                    float bodyHalo = exp(-pow(yy / max(haloWidth, 1e-4), 2.0))
+                                   * smoothstep(0.0, hr * 1.5, s)
+                                   * (1.0 - smoothstep(0.55, 1.0, u))
+                                   * (1.0 - smoothstep(hr * 2.6, hr * 3.4, abs(yy)))
+                                   * rear * aliveFire;
+                    bodyHalo *= 0.20 + 0.80 * smoothstep(0.65, 1.1, q);
+                    col += half3(0.90, 0.22, 0.07) * bodyHalo * 0.30;
                     float fog = CelAdditiveFog(half3(1,1,1), i.positionWS, i.misc.x).r;
                     return half4(col * fog, a * fog);
                 }
