@@ -419,6 +419,19 @@ Shader "TW/Cel/FlameJet"
             {
                 RibOut rb = Rib(uv, instanceID);
                 world = rb.positionWS;
+                // -1.25 selects sustained tongues only; onset retains its envelope.
+                // Keep forward travel, contract both centre dispersion and width.
+                if (r.extra.w < -1.1)
+                {
+                    float3 emitterAxis = r.axis - r.motion.xyz;
+                    float axisLengthSq = dot(emitterAxis, emitterAxis);
+                    if (axisLengthSq > 1e-6)
+                    {
+                        float3 offset = world - r.motion.xyz;
+                        float3 axial = emitterAxis * (dot(offset, emitterAxis) / axisLengthSq);
+                        world = r.motion.xyz + axial + (offset - axial) * 0.60;
+                    }
+                }
                 screen = TransformWorldToHClip(world);
                 coords = float3(rb.u, rb.across, rb.a);
             }

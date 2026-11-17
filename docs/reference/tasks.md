@@ -682,7 +682,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/VFX/Cel/CelRecord.cs`, `Presentation/VFX/Cel/CelDemo.cs` (a recipe using every primitive),
   `Shaders/Cel/CelFx.hlsl` (bands, ink, erosion, camera-as-light, noise, SDFs) and `Shaders/Cel/Cel*_URP.shader`,
   keepers `Resources/ShaderKeep/KeepCel*.mat`, `Editor/Cel/CelFxStill.cs` (a contact sheet of a recipe in an empty scene).
-- **Tests:** CelFxTests (`Tests/Cel`: 0 B per spawn, frame and play; counts never rise going out; every TW/Cel shader
+- **Tests:** FlameEmberCapTests (native late-ember radius and shader keeper contract); CelFxTests (`Tests/Cel`: 0 B per spawn, frame and play; counts never rise going out; every TW/Cel shader
   found and kept; emitter frames stay independent; draws through FrameBudget; statics put back).
 - **See it:** `Unity.exe -batchmode -projectPath trench-warfare-3d -executeMethod TW.Editor.CelFxStill.Batch -celOut <dir>`
   (with graphics) writes a sheet of eight moments, the peak frame and a json of the draws into that folder.
@@ -700,6 +700,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   (depth-projected premultiplied warm tint plus emission; keeper `KeepCelFlameWash.mat`). User stencil bit 4 is written
   by FlameJet's forward pass and both `Shaders/Cel/CelLobe_URP.shader` color passes, including ink; the later wash skips
   these visible effect pixels without a terrain-normal gate. DepthOnly passes do not write this mask; unit bit 8 is preserved.
+  `Presentation/VFX/Cel/Effects/flamethrower/FlameEmberKind.cs` and `Shaders/Cel/Effects/flamethrower/CelFlameEmber_URP.shader` cap young late-ember radii while retaining the original final curve; keeper `KeepCelFlameEmber.mat`.
   `Presentation/VFX/Cel/Effects/flamethrower/FlameSmokeKind.cs` reuses the Lobe mesh/shader/keeper in a separate
   pool for column and bridge smoke; negative `Extra.w` opts into emitter-time warm, dark-cool and lighter-cool
   body stages, with an unscaled ink blend. The emitter start and `TimeScaled` delay are packed per record.
@@ -1168,7 +1169,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Cel:** CelFxTests
+- **Cel:** CelFxTests, FlameEmberCapTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, ScriptedEnemySlotTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** AnimClockPlayTests, CaptureRigPlayTests, DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudMinimapPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, GymRequestTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests

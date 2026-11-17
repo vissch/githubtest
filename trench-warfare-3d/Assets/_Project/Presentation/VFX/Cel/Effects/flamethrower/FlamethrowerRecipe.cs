@@ -110,7 +110,7 @@ namespace TW.Presentation.VFX.Cel
                 // Extra: flow 6 m/s, bend frequency 0.8 /m. (Before: straight FlameJet wedges, Size 0.15/2.9/1.3, Extra 12/3.4/0.5/1.)
                 Size = new CelCurve(1.4f, 4.5f, 0.9f), SizeJitter = 0.45f, Stretch = 0.7f, Buoyancy = 0.6f,
                 Erode = new CelCurve(0.75f, 0.3f, 1f), Feather = 0.45f,
-                Palette = Flame, Core = 3.5f, Ink = 1.0f, Extra = new Vector4(6f, 0.8f, 0.5f, -1.0f),
+                Palette = Flame, Core = 3.5f, Ink = 1.0f, Extra = new Vector4(6f, 0.8f, 0.5f, -1.25f),
             },
             new CelLayer
             {
@@ -327,7 +327,7 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // Sparse warm points linger around the target after visible fire has gone.
-                Name = "late embers", Kind = CelKinds.GlowName, Anchor = CelAnchor.Target,
+                Name = "late embers", Kind = "FlameEmber", Anchor = CelAnchor.Target,
                 Offset = new Vector3(0.6f, 0.9f, -1.5f), Start = 3.5f, Duration = 1.0f, Life = 2.0f,
                 Close = 36, Mid = 10, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(1.5f, 0f, 0f),
                 Aim = CelAim.Radial, Speed = 1.4f, SpeedJitter = 0.5f, UpBias = 0.4f, Gravity = 0.6f,
