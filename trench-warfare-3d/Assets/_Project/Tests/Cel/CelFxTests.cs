@@ -56,6 +56,29 @@ namespace TW.Tests
         }
 
         [Test]
+        public void A_Hidden_Renderer_Claims_The_Singleton_Without_Recursive_Creation_Or_Stealing_It()
+        {
+            CelFx.Adopt(null);
+            // EditMode does not run MonoBehaviour.Awake automatically. Reproduce the callback
+            // AddComponent makes in Play on the same DontSave object used by the lazy getter.
+            // SendMessage rejects this lifecycle callback outside Play; invoke the method directly.
+            var awake = typeof(CelFxRenderer).GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(awake, Is.Not.Null);
+            awake.Invoke(renderer, null);
+            Assert.That(CelFx.Renderer, Is.SameAs(renderer));
+
+            var second = new GameObject("CelFxDuplicateTest") { hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                var duplicate = second.AddComponent<CelFxRenderer>();
+                awake.Invoke(duplicate, null);
+                Assert.That(CelFx.Renderer, Is.SameAs(renderer), "a second renderer must not replace the first");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(second); }
+            Assert.That(CelFx.Renderer, Is.SameAs(renderer), "destroying a duplicate must not release the first");
+        }
+
+        [Test]
         public void The_Record_Is_128_Bytes_As_The_Shader_Reads_It()
         {
             Assert.That(Marshal.SizeOf<CelRecord>(), Is.EqualTo(CelRecord.Bytes));
@@ -248,6 +271,59 @@ namespace TW.Tests
             Assert.That(CelFx.Chunks, Is.Null, "the lent debris is dropped");
             Assert.That(CelPalette.Version, Is.Not.EqualTo(v), "the palette is sent again to the next renderer");
             Assert.That(CelPalette.Find("fire"), Is.EqualTo(CelPalette.Fire), "and its rows keep their ids");
+        }
+
+        [Test]
+        public void Light_Card_Brightness_Opts_Into_FireLight_And_Preserves_Flash_Fallback()
+        {
+            CelFx.Adopt(renderer);
+            var savedFlash = SceneHooks.Flash;
+            var savedFire = SceneHooks.FireLight;
+            int flashes = 0, fires = 0;
+            float seenPeak = 0f, seenReach = 0f, seenLife = 0f, seenCard = 0f;
+            Vector3 seenAt = Vector3.zero;
+            var target = new Vector3(2f, 3f, 4f);
+            var layer = new CelLayer
+            {
+                Kind = CelKinds.LightName, Anchor = CelAnchor.Target, Start = 0.1f,
+                Life = 0.4f, Core = 2f, Palette = "fire", Extra = new Vector4(4f, 0f, 0f, 0f)
+            };
+            var recipe = new CelFxRecipe("light_hook_test", 1f, layer);
+            Action playAndPump = () =>
+            {
+                CelFx.Play(recipe, Vector3.zero, Vector3.forward, target, 1917u);
+                CelFx.Clock += 0.2f;
+                CelFx.Pump();
+            };
+            try
+            {
+                SceneHooks.Flash = (at, color, peak, reach, life) => flashes++;
+                SceneHooks.FireLight = (at, color, peak, reach, life, card) =>
+                {
+                    fires++; seenAt = at; seenPeak = peak; seenReach = reach; seenLife = life; seenCard = card;
+                };
+                playAndPump();
+                Assert.That(flashes, Is.EqualTo(1), "ordinary Light layers retain Flash");
+                Assert.That(fires, Is.Zero);
+
+                layer.Extra.y = 0.08f;
+                SceneHooks.Flash = null;
+                playAndPump();
+                Assert.That(fires, Is.EqualTo(1), "the explicit route works without a Flash hook");
+                Assert.That(seenAt, Is.EqualTo(target));
+                Assert.That(seenPeak, Is.EqualTo(2f));
+                Assert.That(seenReach, Is.EqualTo(4f));
+                Assert.That(seenLife, Is.EqualTo(0.4f));
+                Assert.That(seenCard, Is.EqualTo(0.08f));
+
+                SceneHooks.FireLight = null;
+                SceneHooks.Flash = (at, color, peak, reach, life) => flashes++;
+                playAndPump();
+                Assert.That(flashes, Is.EqualTo(2), "an unavailable FireLight falls back to Flash");
+                Assert.That(fires, Is.EqualTo(1));
+                Assert.That(CelFx.PendingCount, Is.Zero);
+            }
+            finally { SceneHooks.Flash = savedFlash; SceneHooks.FireLight = savedFire; }
         }
 
         [Test]

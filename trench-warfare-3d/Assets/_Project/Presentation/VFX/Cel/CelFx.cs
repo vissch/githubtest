@@ -61,6 +61,9 @@ namespace TW.Presentation.VFX.Cel
 
         /// <summary>Make this the live renderer (a renderer made by hand: a test, a stage).</summary>
         public static void Adopt(CelFxRenderer r) => live = r;
+        // Awake runs inside AddComponent, before Renderer can assign its return value. Do not use
+        // the lazy getter here: FindFirstObjectByType excludes the hidden DontSave object.
+        internal static void AdoptIfMissing(CelFxRenderer r) { if (live == null) live = r; }
         internal static void Release(CelFxRenderer r) { if (live == r) live = null; }
 
         // ------------------------------------------------------------------ LOD
@@ -226,9 +229,15 @@ namespace TW.Presentation.VFX.Cel
             var rows = CelPalette.Rows;
             if (l.kindId == CelKinds.Light)
             {
-                if (SceneHooks.Flash == null) return;
                 Vector4 c = rows[row * CelPalette.Stride + 3];
-                SceneHooks.Flash(at, new Color(c.x, c.y, c.z, 1f), l.Core, l.Extra.x > 0f ? l.Extra.x : 12f, l.Life);
+                var tint = new Color(c.x, c.y, c.z, 1f);
+                float reach = l.Extra.x > 0f ? l.Extra.x : 12f;
+                // Opt in to the existing fire-light hook with an explicit glow-card brightness.
+                // Zero keeps the flash route; FireLight also supplies its ground pool and hearth.
+                if (l.Extra.y > 0f && SceneHooks.FireLight != null)
+                    SceneHooks.FireLight(at, tint, l.Core, reach, l.Life, l.Extra.y);
+                else
+                    SceneHooks.Flash?.Invoke(at, tint, l.Core, reach, l.Life);
                 return;
             }
             if (Chunks == null) return;

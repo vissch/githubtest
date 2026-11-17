@@ -17,10 +17,10 @@ namespace TW.Presentation.VFX
         // (b01, beach, measured on the reference's f79-f96: one fire ~1.2 dummy widths right and well behind the dummy, one
         // ~2.5 widths right and a little behind, one between)
         // (b03: a fourth fire far behind, the reference's upper burst at plate ~(965, 344))
-        static readonly Vector2[] GroundAt = { new Vector2(1.7f, 4.0f), new Vector2(3.6f, 0.9f), new Vector2(3.2f, 7.0f), new Vector2(2.7f, 2.3f) };
+        static readonly Vector2[] GroundAt = { new Vector2(2.32f, 4.07f), new Vector2(3.89f, 0.83f) };   // e01: the reference's far and near ground fires (plate 972,356 / 1100,446)
         // b03: each ground spot's launch height from MuzzleHigh (m): so the bolt's lane on screen slopes about as gently as the
         // reference's (it enters the left edge ~115 px above where it lands); dummy hits launch DummyUp + their offset
-        static readonly float[] GroundUp = { -1.4f, -2.0f, -0.9f, -1.7f };
+        static readonly float[] GroundUp = { -1.4f, -2.0f };
         const float DummyUp = -1.3f;
         // b04: each bolt's extra launch height (m): about half the lanes start higher, so they cross the upper-left quarter
         // from near the horizon and arc down onto the dummy and the ground (b03: one low band)
@@ -30,7 +30,7 @@ namespace TW.Presentation.VFX
         // reference, y128-256 holds 21283 px/f and is 73.2% outside; deleting everything above y192 pays iou +0.0093,
         // and every rigid translation of the whole picture loses in both x and y. So the four lanes whose arc apex
         // clears y192 are rotated down about their landing points (-2.0 m = -144 px of apex on the highest).
-        static readonly float[] LaneUp = { 0f, 1.8f, 0.7f, 2.4f, 0.3f, 1.2f, 1.6f, 0.5f, 2.8f, 1.0f, 1.4f };   // p01 (by eye): REF's bolts come in at several angles, some arcing from high upper-left   // c01: flatter lanes (the ref's bolts cross the left half nearly level)   // b05: wider (b04 up to 2.6 m: one band)
+        static readonly float[] LaneUp = { 0f, 1.8f, 0.7f, 1.0f, 0.3f, 1.2f, 1.6f, 0.5f, 1.4f, 1.0f, 1.4f };   // Reference f36/f48: keep the volley below the horizon; two former high lanes missed the reference band.
         static readonly Vector2[] DummyAt = { new Vector2(0f, 0f), new Vector2(0.05f, 0.3f), new Vector2(-0.1f, -0.1f), new Vector2(0.1f, 0.15f),
             new Vector2(0f, 0.05f), new Vector2(-0.05f, 0.25f), new Vector2(0.08f, -0.05f), new Vector2(0f, 0.1f),
             new Vector2(-0.12f, 0.2f), new Vector2(0.12f, 0.35f), new Vector2(-0.08f, -0.15f) };
@@ -86,28 +86,36 @@ namespace TW.Presentation.VFX
             Vector3 p0 = OnGround(s.Ground + right * -2.4f + away * -1.5f, 1.4f, s.Ground.y);
             CelFx.Play(pool, p0, away, p0, seed);
 
-            int gi = 0, di = 0;
+            int di = 0;
             for (int i = 0; i < FireBolts.Launch.Length; i++)
             {
                 if (s.Lod == RangeLod.Far && (i & 1) == 1) continue;
-                Vector3 target; float lane;
-                if (FireBolts.OnGround[i]) { int g0 = gi++ % GroundAt.Length; var g = GroundAt[g0]; lane = GroundUp[g0]; target = OnGround(s.Ground + right * g.x + away * g.y, 0f, s.Ground.y); }
-                else { var d = DummyAt[di++ % DummyAt.Length]; lane = DummyUp + d.y; target = s.Target + right * (d.x * 0.4f - 0.38f) + Vector3.up * (d.y * 0.5f + 0.4f) - away * 0.3f; }   // p28d: 0.22 lifted it 9 px of the REF's 35   // p28c: REF's ball is 27 px left and 35 px above the rings' centre (0.22 moved it 12 px)   // p28b: all of them on the strike edge (REF)   // p27j: the strike edge (REF: the ball sits on the board's left edge)   // b01: on the board's front, so its sparks are not hidden behind it
-                var f = FromAt[i % FromAt.Length];
-                // b02: 0.4 m above MuzzleHigh (b01 was 1.1 m below; the reference's bolts come in from the upper left
-                // about 2.5 m above the chest and arc down onto it)
-                Vector3 from = s.MuzzleHigh + right * f.x + Vector3.up * (f.y + lane + LaneUp[(i * 5) % LaneUp.Length]) + away * f.z;   // b03: low lanes   // b02: 0.4 m above MuzzleHigh (a 1.4-2.2x spread scored worse) (the ref's bolts never share one line)
-                if (i < FireBolts.AlongAt.Length) from = Vector3.Lerp(from, target, FireBolts.AlongAt[i]);
-                else from -= (target - from).normalized * 2.5f;   // p23d: born off screen, no cut at the birth; hits ~4 frames later (REF f29-31)
+                Vector3 target;
+                // e01: target 0 = the dummy, 1 = the far ground fire, 2 = the near one (FireBolts.Volley)
+                if (FireBolts.OnGround[i]) { var g = GroundAt[FireBolts.TargetOf[i] - 1]; target = OnGround(s.Ground + right * g.x + away * g.y, 0f, s.Ground.y); }
+                else { var d = DummyAt[di++ % DummyAt.Length]; target = s.Target + right * (d.x * 0.4f - 0.03f - 0.18f * (1f - (float)i / (FireBolts.Launch.Length - 1))) + Vector3.up * (d.y * 0.2f + 0.34f - 0.30f * i / (FireBolts.Launch.Length - 1)) - away * 0.3f; }
+                // e01: the launch spot measured from the reference, relative to the hit
+                var o = FireBolts.FromOffset(i);
+                Vector3 from = target + right * o.x + Vector3.up * o.y + away * o.z;
+                // already in flight at the fire: born on its own arc AlongAt of the way (the same parabola, restarted)
+                float al = FireBolts.AlongAt[i];
+                if (al > 0f) { float T = FireBolts.FlightOf[i], tt = al * T; from = Vector3.Lerp(from, target, al) + Vector3.up * (0.5f * FireBolts.GravityOf[i] * tt * (T - tt)); }
                 // the comet is aimed above its hit by what its gravity drops over the flight: it arcs down onto it
-                Vector3 aim = target + Vector3.up * FireBolts.ArcLift(FireBolts.Flights[i]);
+                Vector3 aim = target + Vector3.up * FireBolts.ArcLiftOf(i);
                 uint sd = seed * 7u + (uint)i * 101u;
                 CelFx.Play(s.Lod == RangeLod.Close ? FireBolts.Comets[i] : s.Lod == RangeLod.Mid ? FireBolts.CometsMid[i] : FireBolts.CometsFar[i], from, aim - from, aim, sd);
                 CelFx.Play(FireBolts.Hits[i], target, target - from, target, sd + 13u);
+                // e20: its warm light slides on the ground under it (a drag-free arc's ground track is linear in time)
+                if (s.Lod != RangeLod.Far)
+                {
+                    Vector3 g0 = OnGround(from, 1f, s.Ground.y), g1 = OnGround(target, 1f, s.Ground.y);
+                    CelFx.Play(FireBolts.BoltLights[i], g0, g1 - g0, g1, sd + 41u);
+                    if (!FireBolts.OnGround[i]) CelFx.Play(FireBolts.HitLights[i], g1, away, g1, sd + 43u);   // e20b
+                }
                 // b03: a smoke column on each ground hit, leaning up and along the shot (screen right)
                 // c01: one column on every other ground hit (1-2 per fire over the volley); dir = away, so the recipe's
                 // frame x is screen right and its S-chain leans right
-                if (FireBolts.OnGround[i] && s.Lod != RangeLod.Far && ((((gi - 1) & 3) + ((gi - 1) >> 2)) & 1) == 0)   // fires 0,2 then 1,3 then 0,2 ...
+                if (FireBolts.OnGround[i] && FireBolts.SmokeOn[i] && s.Lod != RangeLod.Far)   // fires 0,2 then 1,3 then 0,2 ...
                     CelFx.Play(s.Lod == RangeLod.Close ? FireBolts.Smokes[i] : FireBolts.SmokesMid[i], target, away, target, sd + 29u);
             }
         }
