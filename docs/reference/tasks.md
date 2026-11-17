@@ -682,7 +682,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/VFX/Cel/CelRecord.cs`, `Presentation/VFX/Cel/CelDemo.cs` (a recipe using every primitive),
   `Shaders/Cel/CelFx.hlsl` (bands, ink, erosion, camera-as-light, noise, SDFs) and `Shaders/Cel/Cel*_URP.shader`,
   keepers `Resources/ShaderKeep/KeepCel*.mat`, `Editor/Cel/CelFxStill.cs` (a contact sheet of a recipe in an empty scene).
-- **Tests:** FlameEmberCapTests (native late-ember radius and shader keeper contract); CelFxTests (`Tests/Cel`: 0 B per spawn, frame and play; counts never rise going out; every TW/Cel shader
+- **Tests:** FlameSmokeBridgeAdvectionTests (actual bridge records, orientation packing, prepared clocks and owner clone); FlameEmberCapTests (native late-ember radius and shader keeper contract); CelFxTests (`Tests/Cel`: 0 B per spawn, frame and play; counts never rise going out; every TW/Cel shader
   found and kept; emitter frames stay independent; draws through FrameBudget; statics put back).
 - **See it:** `Unity.exe -batchmode -projectPath trench-warfare-3d -executeMethod TW.Editor.CelFxStill.Batch -celOut <dir>`
   (with graphics) writes a sheet of eight moments, the peak frame and a json of the draws into that folder.
@@ -701,7 +701,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   by FlameJet's forward pass and both `Shaders/Cel/CelLobe_URP.shader` color passes, including ink; the later wash skips
   these visible effect pixels without a terrain-normal gate. DepthOnly passes do not write this mask; unit bit 8 is preserved.
   `Presentation/VFX/Cel/Effects/flamethrower/FlameEmberKind.cs` and `Shaders/Cel/Effects/flamethrower/CelFlameEmber_URP.shader` cap young late-ember radii while retaining the original final curve; keeper `KeepCelFlameEmber.mat`.
-  `Presentation/VFX/Cel/Effects/flamethrower/FlameSmokeKind.cs` and `FlameSmokeSoftKind.cs` split late smoke into opaque cores and transparent fringes via effect-local `CelFlameSmokeOpaque_URP.shader` and `CelFlameSmokeSoft_URP.shader` (keepers `KeepCelFlameSmokeOpaque.mat`, `KeepCelFlameSmokeSoft.mat`). The prepared-spawn hook clones through its owning renderer; original records retain the emitter clock. Direct prepared Spawn is deliberately unmirrored. CelFxTests cover ownership, pure preparation, scaled clocks, clone identity, and ring wrap. This is a visual trial; sorting and GPU cost remain unqualified.
+  `Presentation/VFX/Cel/Effects/flamethrower/FlameSmokeKind.cs` and `FlameSmokeSoftKind.cs` split late smoke into opaque cores and transparent fringes via effect-local `CelFlameSmokeOpaque_URP.shader` and `CelFlameSmokeSoft_URP.shader` (keepers `KeepCelFlameSmokeOpaque.mat`, `KeepCelFlameSmokeSoft.mat`). The prepared-spawn hook clones through its owning renderer; original records retain the emitter clock. Direct prepared Spawn is deliberately unmirrored. Bridge-only negative Size.w packs emitter-frame advection after normalized elapsed4; original Axis/Seed/motion remain intact. CelFxTests cover ownership, pure preparation, scaled clocks, clone identity, and ring wrap. This is a visual trial; sorting and GPU cost remain unqualified.
   `Presentation/VFX/Cel/Effects/flamethrower/FlamethrowerRange.cs` (Range effect id `flamethrower`).
 
 ### Debris and destruction of props and houses
@@ -1167,7 +1167,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Cel:** CelFxTests, FlameEmberCapTests
+- **Cel:** CelFxTests, FlameEmberCapTests, FlameSmokeBridgeAdvectionTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, ScriptedEnemySlotTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** AnimClockPlayTests, CaptureRigPlayTests, DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudMinimapPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, GymRequestTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests

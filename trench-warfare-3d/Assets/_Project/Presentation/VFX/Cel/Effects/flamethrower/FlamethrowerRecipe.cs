@@ -315,7 +315,7 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 // Low residual smoke joins the rising cap to the target during the decay.
-                Name = "smoke bridge", Kind = "FlameSmoke", Anchor = CelAnchor.Target,
+                Name = "smoke bridge", Kind = "FlameSmoke", Anchor = CelAnchor.Target, Stretch = FlameSmokeKind.BridgeMarker,
                 Offset = new Vector3(0.1f, 1.0f, 0.5f), Start = 3.0f, Duration = 0.8f, Life = 2.0f,
                 Close = 8, Mid = 2, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0f, 0f),
                 Aim = CelAim.Dir, Speed = 0.6f, Spread = 20f, Drag = 0.8f, Buoyancy = 0.4f,

@@ -54,6 +54,20 @@ Shader "TW/Cel/FlameSmokeSoft"
             return normalize(nrm / float3(1.0, squash, 1.0));
         }
 
+        // Prepared bridge direction uses oct11x11 in negative size.w; original spin/noise fields are untouched.
+        float3 BridgeCenter(CelRecord r, float3 original)
+        {
+            if (r.extra.w >= 0.0 || r.size.w > -1024.0 || r.size.w < -4195327.0) return original;
+            float elapsed = (_CelNow - r.tone.z) / max(-r.extra.w, 1e-3);
+            if (elapsed <= 4.0) return original; // exact original geometry through frame103 in the fixed capture
+            uint bits = (uint)(-r.size.w - 1024.0);
+            float2 q = float2(bits & 2047u, (bits >> 11) & 2047u) * (2.0 / 2047.0) - 1.0;
+            float3 n = float3(q, 1.0 - abs(q.x) - abs(q.y));
+            if (n.z < 0.0)
+                n.xy = (1.0 - abs(q.yx)) * float2(q.x < 0.0 ? -1.0 : 1.0, q.y < 0.0 ? -1.0 : 1.0);
+            return original + normalize(n) * (1.0228514 * smoothstep(4.0, 4.7, elapsed));
+        }
+
         LobeOut Lobe(float3 positionOS, uint instanceID)
         {
             CelRecord r = CelFetch(instanceID);
@@ -63,7 +77,7 @@ Shader "TW/Cel/FlameSmokeSoft"
             float3 n = normalize(positionOS);
             float3 s = LobeShape(n, r, t, freq, amp);
             float3 sq = float3(1.0, squash, 1.0);
-            float3 center = CelPosition(r, t);
+            float3 center = BridgeCenter(r, CelPosition(r, t));
             LobeOut o;
             o.positionWS = center + s * sq * radius;
             o.normalWS = LobeNormal(n, s, r, t, freq, amp, squash);
