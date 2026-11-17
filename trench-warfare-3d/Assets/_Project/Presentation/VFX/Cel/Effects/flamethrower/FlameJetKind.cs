@@ -13,11 +13,6 @@ namespace TW.Presentation.VFX.Cel
         public override int Capacity => 192;   // d02: at the Close tier the jet + 96 tongues + 14 splash overfill 64
         public override int Order => 5;
 
-        public override void Configure(Material material)
-        {
-            material.SetTexture("_ImpactSheet", Resources.Load<Texture2D>("VFX/FlamethrowerImpact"));
-        }
-
         public override void PrepareRecord(ref CelRecord record, Vector3 origin, Vector3 target, float now)
         {
             // Ordinary fireballs integrate motion. The travelling front (-3),

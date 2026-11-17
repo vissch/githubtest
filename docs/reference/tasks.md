@@ -672,7 +672,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   A missing PNG or a row out of order silently disables every flipbook in the game. Add the enum entry, the row and
   the PNG together, and check `books.Ready`.
 
-### Cel effects kit (CelFx: procedural cel VFX, no flipbooks, 2026-11-09)
+### Cel effects kit (CelFx: procedural cel VFX with an authored flamethrower impact trial)
 - **Files:** `Presentation/VFX/Cel/README.md` (the API in one page: recipes, adding a kind, LOD and budget rules),
   `Presentation/VFX/Cel/CelFx.cs` (`CelFx.Play(recipe, origin, dir, target, seed)`, the zoom tier, chunk and light
   layers on their frame), `Presentation/VFX/Cel/CelFxRecipe.cs` (layers: kind, timeline, counts per tier, shape, aim,
@@ -692,6 +692,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/VFX/Cel/Effects/flamethrower/FlameJetKind.cs` + `Shaders/Cel/Effects/flamethrower/CelFlameJet_URP.shader`
   (flowing tongues share their emitter's color field; main jet and ribbons share a depth plane to suppress internal
   InkLines seams, with matching forward/depth coverage; keeper `KeepCelFlameJet.mat`),
+  `Presentation/VFX/Cel/Effects/flamethrower/FlameImpactKind.cs` + `Shaders/Cel/Effects/flamethrower/CelFlameImpact_URP.shader`
+  (experimental target-relative96-frame authored contour sheet `Resources/VFX/FlamethrowerImpact.png`,12x8 cells;
+  straight-alpha transparent draw after scene ink, scene depth test, no depth write; keeper `KeepCelFlameImpact.mat`).
+  Its visible fragments write stencil bit4 before the ground wash; overlapping emitter sorting and GPU cost remain unqualified.
   `Presentation/VFX/Cel/Effects/flamethrower/FlameWashKind.cs` + `Shaders/Cel/Effects/flamethrower/CelFlameWash_URP.shader`
   (depth-projected premultiplied warm tint plus emission; keeper `KeepCelFlameWash.mat`). User stencil bit 4 is written
   by FlameJet's forward pass and both `Shaders/Cel/CelLobe_URP.shader` color passes, including ink; the later wash skips

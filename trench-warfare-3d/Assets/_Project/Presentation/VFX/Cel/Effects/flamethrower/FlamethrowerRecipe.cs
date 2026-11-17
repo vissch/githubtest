@@ -275,7 +275,7 @@ namespace TW.Presentation.VFX.Cel
             {
                 // Authored flame contour animation, anchored in the emitter frame.
                 // Original impact layer slots remain to preserve all other seeds.
-                Name = "target curls", Kind = "FlameJet", Anchor = CelAnchor.Target,
+                Name = "target curls", Kind = "FlameImpact", Anchor = CelAnchor.Target,
                 Offset = new Vector3(2.259f, 1.634f, -1.838f), Start = 0.71f, Life = 4f, LifeJitter = 0f,
                 Close = 1, Mid = 1, Far = 0, Shape = CelShape.Point, Aim = CelAim.None, Speed = 0f,
                 Size = new CelCurve(1.781f, 1.781f), SizeJitter = 0f,
