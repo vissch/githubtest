@@ -251,6 +251,116 @@ Shader "TW/Cel/Comet"
                 return o;
             }
 
+            // z09: head-local cross-sections traced from three reference shape families.
+            static const float4 BoltTraceShape0[11] = {
+                float4(-0.150000, -0.150000, 0.000000, 0.000000),
+                float4(0.500000, -0.700000, 0.000000, 0.000000),
+                float4(0.800000, -0.900000, 0.400000, -0.500000),
+                float4(0.900000, -1.000000, 0.500000, -0.400000),
+                float4(1.000000, -1.100000, 0.500000, -0.400000),
+                float4(1.000000, -1.100000, 0.400000, -0.300000),
+                float4(1.000000, -1.000000, 0.200000, -0.100000),
+                float4(0.800000, -0.700000, 0.000000, 0.000000),
+                float4(0.700000, -0.700000, 0.000000, 0.000000),
+                float4(0.700000, -0.800000, 0.000000, 0.000000),
+                float4(0.300000, -0.800000, 0.000000, 0.000000),
+            };
+            static const float4 BoltTraceShade0[11] = {
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.230000, -0.100000, 0.200000, 0.950000),
+                float4(0.350000, 0.000000, 0.150000, 0.720000),
+                float4(0.540000, -0.050000, 0.100000, 0.600000),
+                float4(0.540000, 0.000000, 0.000000, 0.000000),
+                float4(0.510000, 0.000000, 0.000000, 0.000000),
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+            };
+            static const float4 BoltTraceShape1[11] = {
+                float4(-0.050000, -0.050000, 0.000000, 0.000000),
+                float4(0.700000, -0.700000, 0.000000, 0.000000),
+                float4(1.000000, -0.900000, 0.100000, -0.250000),
+                float4(1.100000, -1.000000, 0.450000, -0.400000),
+                float4(1.200000, -1.100000, 0.450000, -0.400000),
+                float4(1.200000, -1.100000, 0.450000, -0.300000),
+                float4(1.300000, -1.000000, 0.400000, -0.200000),
+                float4(1.200000, -0.700000, 0.300000, -0.050000),
+                float4(1.000000, -0.600000, 0.000000, 0.000000),
+                float4(1.000000, -0.500000, 0.000000, 0.000000),
+                float4(0.900000, -0.600000, 0.000000, 0.000000),
+            };
+            static const float4 BoltTraceShade1[11] = {
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.350000, 0.000000, 0.000000, 0.000000),
+                float4(0.380000, 0.050000, 0.140000, 0.600000),
+                float4(0.490000, 0.050000, 0.100000, 0.620000),
+                float4(0.540000, 0.000000, 0.000000, 0.000000),
+                float4(0.560000, 0.000000, 0.000000, 0.000000),
+                float4(0.420000, 0.000000, 0.000000, 0.000000),
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+            };
+            static const float4 BoltTraceShape2[11] = {
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.700000, -0.800000, 0.000000, 0.000000),
+                float4(1.000000, -1.000000, 0.000000, 0.000000),
+                float4(1.100000, -1.100000, 0.500000, -0.500000),
+                float4(1.200000, -1.200000, 0.550000, -0.650000),
+                float4(1.200000, -1.200000, 0.550000, -0.650000),
+                float4(1.200000, -1.200000, 0.550000, -0.450000),
+                float4(1.200000, -1.200000, 0.600000, -0.350000),
+                float4(1.200000, -1.200000, 0.000000, 0.000000),
+                float4(1.100000, -1.100000, 0.000000, 0.000000),
+                float4(1.000000, -0.900000, 0.000000, 0.000000),
+            };
+            static const float4 BoltTraceShade2[11] = {
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.100000, 0.000000, 0.400000, 0.750000),
+                float4(0.280000, 0.050000, 0.300000, 0.550000),
+                float4(0.450000, 0.100000, 0.180000, 0.700000),
+                float4(0.430000, 0.000000, 0.000000, 0.000000),
+                float4(0.490000, 0.000000, 0.000000, 0.000000),
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+                float4(0.000000, 0.000000, 0.000000, 0.000000),
+            };
+            float4 BoltTraceCubic(float4 p0, float4 p1, float4 p2, float4 p3, float u)
+            {
+                float4 v = 0.5 * (2.0*p1 + (-p0+p2)*u + (2.0*p0-5.0*p1+4.0*p2-p3)*u*u
+                                + (-p0+3.0*p1-3.0*p2+p3)*u*u*u);
+                return clamp(v, min(p1,p2), max(p1,p2));
+            }
+            void BoltTraceSample(float back, float phase, out float4 shape, out float4 shade)
+            {
+                float z = clamp(back * 0.25, 0.0, 9.9999);
+                int k = (int)floor(z), k0=max(k-1,0), k2=k+1, k3=min(k+2,10);
+                float u = frac(z);
+                float4 shape0 = BoltTraceCubic(BoltTraceShape0[k0],BoltTraceShape0[k],BoltTraceShape0[k2],BoltTraceShape0[k3],u);
+                float4 shade0 = BoltTraceCubic(BoltTraceShade0[k0],BoltTraceShade0[k],BoltTraceShade0[k2],BoltTraceShade0[k3],u);
+                float4 shape1 = BoltTraceCubic(BoltTraceShape1[k0],BoltTraceShape1[k],BoltTraceShape1[k2],BoltTraceShape1[k3],u);
+                float4 shade1 = BoltTraceCubic(BoltTraceShade1[k0],BoltTraceShade1[k],BoltTraceShade1[k2],BoltTraceShade1[k3],u);
+                float4 shape2 = BoltTraceCubic(BoltTraceShape2[k0],BoltTraceShape2[k],BoltTraceShape2[k2],BoltTraceShape2[k3],u);
+                float4 shade2 = BoltTraceCubic(BoltTraceShade2[k0],BoltTraceShade2[k],BoltTraceShade2[k2],BoltTraceShade2[k3],u);
+                shape = phase < 1.0 ? lerp(shape0,shape1,phase) : lerp(shape1,shape2,phase-1.0);
+                shade = phase < 1.0 ? lerp(shade0,shade1,phase) : lerp(shade1,shade2,phase-1.0);
+                if (back < 4.0)
+                {
+                    float4 first = phase < 1.0 ? lerp(BoltTraceShape0[0],BoltTraceShape1[0],phase) : lerp(BoltTraceShape1[0],BoltTraceShape2[0],phase-1.0);
+                    float4 next = phase < 1.0 ? lerp(BoltTraceShape0[1],BoltTraceShape1[1],phase) : lerp(BoltTraceShape1[1],BoltTraceShape2[1],phase-1.0);
+                    float b=clamp(back*0.1,0.0,0.4), w=(next.x-next.y)*0.5;
+                    float radius=(w*w+0.16)/0.8;
+                    float halfWidth=w*sqrt(max(b*(2.0*radius-b),0.0)/max(0.4*(2.0*radius-0.4),1e-5));
+                    float centre=lerp((first.x+first.y)*0.5,(next.x+next.y)*0.5,b/0.4);
+                    shape.xy=float2(centre+halfWidth,centre-halfWidth);
+                }
+            }
+
             half4 frag(Varyings i) : SV_Target
             {
                 uint rowA = CelRowA(i.tone.x), rowB = CelRowB(i.tone.x);
@@ -737,13 +847,22 @@ Shader "TW/Cel/Comet"
                     float yy = y - axis;
                     float width = hr * 1.10 * pow(1.0 - u, 0.62);   // e33b   // e33: a narrower body behind the ball (REF 4x: 28.6 -> 23.8 -> 20.2 px)   // e30: fuller back half (REF 1x)   // e27b: fuller (REF fire px)
                     width *= 0.85 + 0.30 * CelValue2(float2(s / (hr * 2.5) - t * 9.0, seed * 57.0));
-                    float head = length(float2(s / (hr * (s > 0.0 ? 1.45 : 1.25)), yy / (hr * 1.35)));   // e33b: REF ball 28.6 px = 1.35 hr   // e33: a round ball
-                    float body = (s >= 0.0 && s < bodyLength) ? abs(yy) / max(width, 1e-4) : 10.0;
+                    float traceBack = (s / hr + 1.25) * 10.0;
+                    float tracePhase = 2.0 * CelValue2(float2(t * 6.5 + seed * 37.0, seed * 7.0));
+                    float4 traceShape, traceShade;
+                    BoltTraceSample(traceBack, tracePhase, traceShape, traceShade);
+                    float traceCentre = (traceShape.x + traceShape.y) * 0.5;
+                    float traceHalf = max((traceShape.x - traceShape.y) * 0.5, 0.02);
+                    float head = abs(yy / (hr * 1.10) - traceCentre) / traceHalf;
+                    head = max(head, 0.90 + max(-traceBack, traceBack - 40.0) / 1.5);
+                    float traceHead = 1.0 - smoothstep(28.0, 40.0, traceBack);
+                    float body = (s >= 0.0 && s < bodyLength) ? abs(yy) / max(width, 1e-4)
+                               + 4.0 * (1.0 - smoothstep(26.0, 40.0, traceBack)) : 10.0;
                     float q = min(head, body);
                     float jag = CelValue2(float2(s / (hr * 0.6) - t * 14.0, yy / (hr * 0.25) + seed * 7.0));
                     q += ((n - 0.5) * 0.28 + (n2 - 0.5) * 0.12 + (jag - 0.5) * 0.26) * smoothstep(-hr, hr * 2.0, s);   // e33c: rougher   // e33: jagged painted edge
                     float soft = smoothstep(-hr * 0.3, hr * 2.0, s);
-                    float edge = 1.0 - smoothstep(lerp(0.88, 0.78, soft), lerp(1.0, 1.08, soft) + fwidth(q), q);   // e33: narrow edge (REF hard + jagged)   // e27b: firmer inside   // blurred edge (REF), firmer at the head's front
+                    float edge = 1.0 - smoothstep(lerp(0.88, 0.78, soft), lerp(1.0, 1.08, soft) + min(fwidth(q), 0.25), q);   // e33: narrow edge (REF hard + jagged)   // e27b: firmer inside   // blurred edge (REF), firmer at the head's front
                     float rear = 1.0 - smoothstep(len - hr * 5.0, len, s);
                     edge *= 1.0 - smoothstep(0.55, 1.0, u) * (1.0 - smoothstep(0.25, 0.75, n));   // the tail frays out
                     float stk = CelValue2(float2(s / (hr * 7.0) - t * 5.0, yy / (hr * 0.16) + seed * 13.0));   // brushed streaks along the flight line
@@ -756,31 +875,17 @@ Shader "TW/Cel/Comet"
                     flame = lerp(flame, orange, smoothstep(0.62, 0.85, heatQ));
                     flame = lerp(flame, half3(1.0, 0.36, 0.18), smoothstep(0.82, 1.00, heatQ));   // e27b: REF's bright red-orange (234,92,52)
                     flame = lerp(flame, red, smoothstep(1.10, 1.40, heatQ));
-                    // z01: unequal open folds in a luminous head. The dark stroke
-                    // widens at the rear bend and tapers toward two different tips.
-                    // Coordinates follow flight, so this is flame structure, not a badge.
-                    float sx = s / hr;
-                    float bend = 0.34 + 0.13 * sin(t * 5.0 + seed * 11.0);
-                    float arm = max(bend - sx, 0.0);
-                    float centre = -0.04 + 0.08 * sin(t * 6.0 + seed * 7.0);
-                    float wave = 0.055 * sin(sx * 4.0 + t * 7.0 + seed * 13.0);
-                    float upper = centre + arm * 0.32 + wave;
-                    float lower = centre - arm * 0.47 + wave * 0.45;
-                    float foldWidth = (0.06 + 0.11 * smoothstep(-0.5, bend, sx))
-                                    * (0.72 + 0.55 * CelValue2(float2(sx * 3.0 + seed * 9.0, t * 5.0)));
-                    float upperEnd = smoothstep(-0.62, -0.31, sx);
-                    float lowerEnd = smoothstep(-0.38, -0.14, sx);
-                    float foldAA = max(fwidth(yy / hr), 0.035);
-                    float upperFold = (1.0 - smoothstep(foldWidth * 0.45, foldWidth + foldAA,
-                                      abs(yy / hr - upper))) * upperEnd;
-                    float lowerFold = (1.0 - smoothstep(foldWidth * 0.28, foldWidth * 0.70 + foldAA,
-                                      abs(yy / hr - lower))) * lowerEnd;
-                    float folded = max(upperFold, lowerFold) * (1.0 - smoothstep(bend, bend + 0.18, sx));
-                    float foldShade = exp(-pow((sx - bend + 0.08) / 0.34, 2.0)
-                                          -pow((yy / hr - centre) / 0.24, 2.0));
-                    folded = max(folded, foldShade * 0.55);
-                    flame = lerp(flame, half3(0.55, 0.26, 0.08), folded * 0.76
-                                 * (1.0 - smoothstep(0.75, 0.98, head)));
+                    // z09: spatially graded reference recess; it reduces emission, not head coverage.
+                    float traceY = yy / (hr * 1.10);
+                    float traceAA = max(fwidth(traceY) * 1.25, 0.15);
+                    float recess = smoothstep(-traceAA, traceAA, traceShape.z - traceY)
+                                 * smoothstep(-traceAA, traceAA, traceY - traceShape.w);
+                    float intrusion = (1.0 - smoothstep(max(traceShade.z, 0.0), max(traceShade.z, 0.0) + traceAA,
+                                           abs(traceY - traceShade.y)))
+                                    * step(0.001, traceShade.z) * saturate(traceShade.w);
+                    float foldDeficit = saturate(traceShade.x * recess * (1.0 - intrusion)) * traceHead;
+                    flame += half3(0.06, 0.10, 0.10) * traceHead;
+                    flame *= pow(max(half3(0.05,0.05,0.05), 1.0 - half3(0.5,1.0,1.3) * foldDeficit), 1.20);
                     // soft red streak tails out of the back of the body
                     float streakAlpha = 0.0;
                     half3 streakColor = red;
@@ -811,7 +916,7 @@ Shader "TW/Cel/Comet"
                     // z04: emitted light is added after coverage, so the opaque
                     // flame cannot erase its own luminous core.
                     float bodyShare = smoothstep(0.0, hr * 3.0, s);
-                    col += half3(0.85, 0.46, 0.18) * glow * 0.35 * lerp(0.70, 0.35, bodyShare);
+                    col += half3(0.85, 0.46, 0.18) * glow * 0.35 * lerp(0.70, 0.35, bodyShare) * (1.0 - 0.75 * saturate(foldDeficit / 0.55));
                     // z05: local radiance peaks, independent of the coverage field.
                     // Their centres drift a little along the flame; the outline never waves.
                     float hotLobes = 0.0;
@@ -827,7 +932,7 @@ Shader "TW/Cel/Comet"
                                       -pow((yy - cy) / max(width * 0.65, hr * 0.1), 2.0) * 2.0) * pulse;
                         hotLobes = max(hotLobes, hot);
                     }
-                    col += half3(0.09, 0.14, 0.22) * hotLobes * fa;
+                    col += half3(0.09, 0.14, 0.22) * hotLobes * fa * (1.0 - saturate(foldDeficit / 0.55));
                     // A broad dim halo supplies the reference's falloff without
                     // enlarging the opaque flame. Fade fully before the quad edge.
                     float haloWidth = hr * 2.8 * (1.0 - 0.35 * u);
@@ -837,7 +942,7 @@ Shader "TW/Cel/Comet"
                                    * (1.0 - smoothstep(hr * 2.6, hr * 3.4, abs(yy)))
                                    * rear * aliveFire;
                     bodyHalo *= 0.20 + 0.80 * smoothstep(0.65, 1.1, q);
-                    col += half3(0.90, 0.22, 0.07) * bodyHalo * 0.30;
+                    col += half3(0.90, 0.22, 0.07) * bodyHalo * 0.30 * (1.0 - 0.65 * saturate(foldDeficit / 0.55));
                     float fog = CelAdditiveFog(half3(1,1,1), i.positionWS, i.misc.x).r;
                     return half4(col * fog, a * fog);
                 }
