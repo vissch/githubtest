@@ -151,7 +151,7 @@ namespace TW.Presentation.VFX.Cel
             {
                 // after the cut: a small smoulder at the board's foot, out before 4.3 s
                 Name = "smoulder", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.95f, 0.1f), Start = 3.6f, Duration = 0.8f, Life = 0.6f, LifeJitter = 0.2f,   // b08: smaller and out by ~f125 (orange ball at f122-f132)
-                Close = 10, Mid = 5, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Up, Speed = 0.9f, Spread = 30f, Drag = 0.8f, Buoyancy = 0.9f, Spin = 1f,
+                Close = 0, Mid = 0, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.3f, 0f, 0f), Aim = CelAim.Up, Speed = 0.9f, Spread = 30f, Drag = 0.8f, Buoyancy = 0.9f, Spin = 1f,
                 Size = new CelCurve(0.35f, 0.15f, 1f), SizeJitter = 0.25f, Erode = new CelCurve(0f, 1f, 2f), Feather = 0.1f,
                 Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.7f, Core = 2f, Ink = 2f, Extra = new Vector4(1.4f, 0.16f, 0.5f, 0.7f),
             },
