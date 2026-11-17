@@ -118,7 +118,7 @@ namespace TW.Presentation.VFX.Cel
                 // shifts the later layers' seeds and cost 4 points, so it stays until checked) flame curls splashing round the dummy: short FlameJet tongues born at the target, thrown up and
                 // downstream (the clip's open curls with dark contours at f48-f95), instead of more cauliflower lobes
                 Name = "splash", Kind = "FlameJet", Anchor = CelAnchor.Target, Start = 1.0f, Duration = 2.2f, Life = 0.5f, LifeJitter = 0.3f, Offset = new Vector3(0f, -0.4f, 0f),
-                Close = 14, Mid = 0, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0f, 0f), Aim = CelAim.Dir, Speed = 5f, SpeedJitter = 0.35f, Spread = 50f,
+                Close = 0, Mid = 0, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.5f, 0f, 0f), Aim = CelAim.Dir, Speed = 5f, SpeedJitter = 0.35f, Spread = 50f,
                 Size = new CelCurve(0.35f, 1.6f, 0.8f), SizeJitter = 0.35f, Stretch = 0f,
                 Erode = new CelCurve(0.1f, 0.25f, 0.3f), Feather = 0.45f,
                 Palette = Flame, Core = 3.0f, Ink = 1.3f, Extra = new Vector4(7f, 3.0f, 0.3f, 1.0f),
