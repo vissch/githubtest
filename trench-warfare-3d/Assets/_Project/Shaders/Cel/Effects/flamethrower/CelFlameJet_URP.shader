@@ -27,6 +27,9 @@ Shader "TW/Cel/FlameJet"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "Assets/_Project/Shaders/Cel/CelFx.hlsl"
 
+        TEXTURE2D(_ImpactSheet);
+        SAMPLER(sampler_ImpactSheet);
+
         #define JET_ENV 2.5
         struct JetOut { float3 positionWS; float along; float across; float metres; float alive; };
 
@@ -371,6 +374,15 @@ Shader "TW/Cel/FlameJet"
         //   size  x radius at birth, y at death, z ease; erode x = the hole's final share of the radius
         //   extra x swirl (rad per radius), y tongue count, z spin (rad/s)
         #define BALL_Q 1.45
+        bool ImpactSheet(CelRecord r) { return r.extra.w < -2.3 && r.extra.w > -2.4; }
+        half4 SampleImpact(CelRecord r, float2 q)
+        {
+            float frame = min(floor(CelLife01(r) * 96.0), 95.0);
+            float2 cell = float2(fmod(frame, 12.0), 7.0 - floor(frame / 12.0));
+            float2 uv = saturate(q / (2.0 * BALL_Q) + 0.5);
+            uv = (cell + lerp(0.5 / 320.0, 1.0 - 0.5 / 320.0, uv)) / float2(12.0, 8.0);
+            return SAMPLE_TEXTURE2D_LOD(_ImpactSheet, sampler_ImpactSheet, uv, 0);
+        }
         float3 BallCentre(CelRecord r)
         {
             float age = max(CelAge(r), 0.0);
@@ -380,12 +392,14 @@ Shader "TW/Cel/FlameJet"
         }
         float BallR(CelRecord r)
         {
+            if (ImpactSheet(r)) return r.size.x;
             float k = CelLife01(r);
             return CelCurve(r.size.xyz, k) * lerp(1.0, 0.15, smoothstep(0.55, 1.0, k));
         }
         // x the fire field (>0 inside the flame), y the hole field (>0 inside the smoke hole), z polar noise for the bands
         float3 BallField(CelRecord r, float2 q)
         {
+            if (ImpactSheet(r)) return float3(SampleImpact(r, q).a - 0.5, -1.0, 0.0);
             float t = CelAge(r), k = CelLife01(r), sd = r.seed * 23.0;
             // k01: erode.z (the layer's Erode.Pow, 1 on every ring before k01) squashes the ball vertically about a point
             // low in the disc, so a catch can be a wide low billow sitting on the ground (REF f30-f36) instead of a tall drop
@@ -510,6 +524,12 @@ Shader "TW/Cel/FlameJet"
                 g_jetSeam = 0.0;
                 if (r.extra.w < -1.5)
                 {
+                    if (ImpactSheet(r))
+                    {
+                        half4 sheet = SampleImpact(r, i.jet.xy);
+                        clip(sheet.a - 0.5);
+                        return half4(MixFog(sheet.rgb, i.fog), 1.0);
+                    }
                     float3 bf = BallField(r, i.jet.xy);
                     if (r.extra.w < -2.5)
                     {
