@@ -168,6 +168,26 @@ Shader "TW/Cel/Lobe"
                 // the eroded edge darkens a band before the ink: the lobe thins toward its holes
                 if (e > 0.001) lit *= lerp(0.55, 1.0, saturate((f - e) / max(i.more.y, 1e-3)));
                 half3 col = LobeBodyPalette(lit, i.tone.x, i.tone.y, i.palettePhase);
+                // FlameSmoke fire stays at broken lower edges, with dark lobe centres.
+                // Emitter time prevents newly born bridge smoke relighting after burnout.
+                if (r.extra.w < 0.0)
+                {
+                    float elapsed = max(0.0, _CelNow - r.tone.z) / max(-r.extra.w, 1e-3);
+                    float rise = CelPosition(r, t).y - r.pos.y;
+                    float heat = (1.0 - smoothstep(0.7, 1.6, t))
+                        * (1.0 - smoothstep(0.6, 1.8, rise))
+                        * (1.0 - smoothstep(3.9, 4.5, elapsed));
+                    float3 fireDomain = n * 3.2 + float3(t * 0.65, -t * 1.4, r.seed * 19.0);
+                    float rolling = CelSimplex3(fireDomain);
+                    float broken = smoothstep(-0.15, 0.18, rolling);
+                    float lower = 1.0 - smoothstep(-0.1, 0.6, n.y);
+                    float width = (0.22 + 0.18 * saturate(rolling + 0.3)) * heat * lower * broken;
+                    float nv = saturate(dot(nrm, viewWS));
+                    float flame = CelAAStep(nv, width) * step(0.015, width);
+                    float hot = CelAAStep(nv, width * 0.35) * step(0.015, width);
+                    col = lerp(col, half3(1.0, 0.30, 0.03), flame);
+                    col = lerp(col, half3(1.0, 0.72, 0.14), hot);
+                }
                 float ink = e > 0.001 ? CelInk(f, e, CelLodInk(i.tone.w * 0.8)) : 0.0;
                 col = lerp(col, LobeInkPalette(i.tone.x, i.palettePhase.x), ink);
                 col = ApplyMist(col, i.positionWS);
