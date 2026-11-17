@@ -258,6 +258,137 @@ namespace TW.Tests
             Assert.That(prepared, Is.EqualTo(expected), "only the unused cutout opacity slot becomes the phase origin");
         }
 
+        [TestCase(0.5f)]
+        [TestCase(1f)]
+        [TestCase(2f)]
+        public void FlameSmokeSoft_Clones_Prepared_Records_And_Scaled_Emitter_Clocks(float scale)
+        {
+            CelFx.Adopt(renderer);
+            Assert.That(CelFx.Renderer, Is.SameAs(renderer));
+            var source = new CelFxRecipe("soft smoke ownership", 8f, new CelLayer
+            {
+                Kind = "FlameSmoke", Start = 1.4f, Duration = 2.1f,
+                Close = 4, Mid = 4, Far = 4, Life = 3f, LifeJitter = 0f,
+                Opacity = 1.2f, Palette = "white", Extra = new Vector4(1.1f, 0.12f, -0.8f, -1f),
+            });
+            const float delay = 0.37f;
+            var scaled = FlamethrowerRecipe.TimeScaled(source, scale, delay);
+            int opaque = renderer.KindId("FlameSmoke"), soft = renderer.KindId("FlameSmokeSoft");
+            Assert.That(soft, Is.GreaterThanOrEqualTo(0));
+            CelFx.Play(scaled, Vector3.zero, Vector3.forward, Vector3.forward * 10f, 1917);
+            int count = renderer.SpawnedOf(opaque);
+            Assert.That(count, Is.GreaterThan(0));
+            Assert.That(renderer.SpawnedOf(soft), Is.EqualTo(count));
+            for (int i = 0; i < count; i++)
+            {
+                var original = StoredRecord(opaque, i);
+                Assert.That(StoredRecord(soft, i), Is.EqualTo(original), "all128bytes must represent same prepared particle");
+                Assert.That(original.Tone.z, Is.EqualTo(100f + 0.2f * scale + delay).Within(1e-4f));
+                Assert.That(original.Extra.w, Is.EqualTo(-scale).Within(1e-6f));
+                float edgeTime = original.Tone.z + 5.2f * scale;
+                Assert.That((edgeTime - original.Tone.z) / -original.Extra.w, Is.EqualTo(5.2f).Within(1e-4f));
+            }
+            var first = StoredRecord(opaque, 0);
+            CelFx.Clock = 102f;
+            CelFx.Play(scaled, Vector3.right * 20f, Vector3.forward, Vector3.right * 20f + Vector3.forward * 10f, 1918);
+            Assert.That(renderer.SpawnedOf(soft), Is.EqualTo(renderer.SpawnedOf(opaque)));
+            Assert.That(StoredRecord(soft, 0), Is.EqualTo(first), "second emitter must not retime first");
+            Assert.That(StoredRecord(soft, count), Is.EqualTo(StoredRecord(opaque, count)));
+            Assert.That(StoredRecord(soft, count).Tone.z, Is.EqualTo(102f + 0.2f * scale + delay).Within(1e-4f));
+        }
+
+        [Test]
+        public void FlameSmokeSoft_Companion_Rings_Wrap_Without_Duplicate_Emission()
+        {
+            CelFx.Adopt(renderer);
+            int opaque = renderer.KindId("FlameSmoke"), soft = renderer.KindId("FlameSmokeSoft");
+            int capacity = renderer.CapacityOf(opaque);
+            Assert.That(renderer.CapacityOf(soft), Is.EqualTo(capacity));
+            for (int i = 0; i < capacity + 3; i++)
+            {
+                var record = AnyRecord(100f + i * 0.01f);
+                record.Extra.w = -1f; record.Pos = Vector3.right * i;
+                renderer.Spawn(opaque, record, Vector3.zero, Vector3.one, 100f);
+            }
+            Assert.That(renderer.SpawnedOf(opaque), Is.EqualTo(capacity + 3));
+            Assert.That(renderer.SpawnedOf(soft), Is.EqualTo(capacity + 3));
+            for (int i = 0; i < capacity; i++)
+                Assert.That(StoredRecord(soft, i), Is.EqualTo(StoredRecord(opaque, i)), "companion ring diverged at" + i);
+            Assert.That(StoredRecord(soft, 2).Pos.x, Is.EqualTo(capacity + 2));
+        }
+
+        [Test]
+        public void FlameSmoke_PrepareRecord_Remains_Pure_And_Default_Hook_Does_Not_Clone()
+        {
+            CelFx.Adopt(renderer);
+            int soft = renderer.KindId("FlameSmokeSoft");
+            var record = AnyRecord(100f); record.Extra.w = -1f;
+            new FlameSmokeKind().PrepareRecord(ref record, Vector3.zero, Vector3.one, 108f);
+            Assert.That(record.Tone.z, Is.EqualTo(108f));
+            Assert.That(renderer.SpawnedOf(soft), Is.Zero, "preparation alone must not emit anywhere");
+            renderer.Spawn(CelKinds.Lobe, record, Vector3.zero, Vector3.one, 108f);
+            Assert.That(renderer.SpawnedOf(CelKinds.Lobe), Is.EqualTo(1));
+            Assert.That(StoredRecord(CelKinds.Lobe, 0), Is.EqualTo(record));
+            Assert.That(renderer.SpawnedOf(soft), Is.Zero, "ordinary kinds retain no-op companion hook");
+        }
+
+        [Test]
+        public void FlameSmokeSoft_Direct_Prepared_Spawn_Is_Nonrecursive_And_Nonnegative_Mode_Does_Not_Clone()
+        {
+            CelFx.Adopt(renderer);
+            int opaque = renderer.KindId("FlameSmoke"), soft = renderer.KindId("FlameSmokeSoft");
+            var record = AnyRecord(100f); record.Extra.w = -1f; record.Tone.z = 108f;
+            renderer.Spawn(soft, record);
+            Assert.That(renderer.SpawnedOf(soft), Is.EqualTo(1));
+            Assert.That(StoredRecord(soft, 0), Is.EqualTo(record));
+            Assert.That(renderer.SpawnedOf(opaque), Is.Zero);
+            renderer.Spawn(opaque, record); // Existing direct overload deliberately does not emit companions.
+            Assert.That(renderer.SpawnedOf(soft), Is.EqualTo(1));
+            record.Extra.w = 0.35f;
+            renderer.Spawn(opaque, record, Vector3.zero, Vector3.one, 110f);
+            Assert.That(renderer.SpawnedOf(opaque), Is.EqualTo(2));
+            Assert.That(renderer.SpawnedOf(soft), Is.EqualTo(1));
+        }
+
+        static CelRecord SmokeSoftStored(CelFxRenderer owner, int kind, int offset)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var pools = (Array)typeof(CelFxRenderer).GetField("pools", flags).GetValue(owner);
+            var pool = pools.GetValue(kind);
+            int start = (int)pool.GetType().GetField("Start").GetValue(pool);
+            object records = typeof(CelFxRenderer).GetField("records", flags).GetValue(owner);
+            return (CelRecord)records.GetType().GetProperty("Item").GetValue(records, new object[] { start + offset });
+        }
+
+        [Test]
+        public void FlameSmokeSoft_Companion_Goes_To_Spawning_Renderer_Not_Global_Adopted_Renderer()
+        {
+            CelFx.Adopt(renderer);
+            var otherHolder = new GameObject("SmokeSoftSecondaryOwner") { hideFlags = HideFlags.HideAndDontSave };
+            CelFxRenderer other = null;
+            try
+            {
+                other = otherHolder.AddComponent<CelFxRenderer>(); other.Init();
+                Assert.That(CelFx.Renderer, Is.SameAs(renderer), "secondary Awake must not replace adopted owner");
+                int opaque = other.KindId("FlameSmoke"), soft = other.KindId("FlameSmokeSoft");
+                var record = AnyRecord(100f); record.Extra.w = -1f;
+                other.Spawn(opaque, record, Vector3.zero, Vector3.one, 117f);
+                Assert.That(other.SpawnedOf(opaque), Is.EqualTo(1));
+                Assert.That(other.SpawnedOf(soft), Is.EqualTo(1));
+                Assert.That(SmokeSoftStored(other, soft, 0), Is.EqualTo(SmokeSoftStored(other, opaque, 0)));
+                Assert.That(SmokeSoftStored(other, soft, 0).Tone.z, Is.EqualTo(117f));
+                Assert.That(renderer.SpawnedOf(renderer.KindId("FlameSmokeSoft")), Is.Zero,
+                    "hook must never leak companions to global renderer");
+                Assert.That(renderer.SpawnedOf(renderer.KindId("FlameSmoke")), Is.Zero);
+            }
+            finally
+            {
+                if (other != null) other.Shutdown();
+                UnityEngine.Object.DestroyImmediate(otherHolder);
+                CelFx.Adopt(renderer);
+            }
+        }
+
         [Test]
         public void FlameSmoke_Preparation_Allocates_Nothing()
         {

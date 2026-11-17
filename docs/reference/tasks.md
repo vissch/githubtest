@@ -678,7 +678,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   layers on their frame), `Presentation/VFX/Cel/CelFxRecipe.cs` (layers: kind, timeline, counts per tier, shape, aim,
   curves, palette), `Presentation/VFX/Cel/CelFxRenderer.cs` (a ring of 128-byte records per kind in one GPU buffer, one
   indirect draw per live kind through `FrameBudget`), `Presentation/VFX/Cel/CelKind.cs` (the extension point: a kind
-  is one shader plus one `CelKind` class, with `PrepareRecord` for emitter data at spawn; Streak, Lobe, Glow built in), `Presentation/VFX/Cel/CelPalette.cs`,
+  is one shader plus one `CelKind` class, with pure `PrepareRecord` for emitter data and optional `AfterPreparedSpawn(owner, prepared)` for same-renderer companion records; direct Spawn bypasses the hook; Streak, Lobe, Glow built in), `Presentation/VFX/Cel/CelPalette.cs`,
   `Presentation/VFX/Cel/CelRecord.cs`, `Presentation/VFX/Cel/CelDemo.cs` (a recipe using every primitive),
   `Shaders/Cel/CelFx.hlsl` (bands, ink, erosion, camera-as-light, noise, SDFs) and `Shaders/Cel/Cel*_URP.shader`,
   keepers `Resources/ShaderKeep/KeepCel*.mat`, `Editor/Cel/CelFxStill.cs` (a contact sheet of a recipe in an empty scene).
@@ -701,9 +701,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   by FlameJet's forward pass and both `Shaders/Cel/CelLobe_URP.shader` color passes, including ink; the later wash skips
   these visible effect pixels without a terrain-normal gate. DepthOnly passes do not write this mask; unit bit 8 is preserved.
   `Presentation/VFX/Cel/Effects/flamethrower/FlameEmberKind.cs` and `Shaders/Cel/Effects/flamethrower/CelFlameEmber_URP.shader` cap young late-ember radii while retaining the original final curve; keeper `KeepCelFlameEmber.mat`.
-  `Presentation/VFX/Cel/Effects/flamethrower/FlameSmokeKind.cs` reuses the Lobe mesh/shader/keeper in a separate
-  pool for column and bridge smoke; negative `Extra.w` opts into emitter-time warm, dark-cool and lighter-cool
-  body stages, with an unscaled ink blend. The emitter start and `TimeScaled` delay are packed per record.
+  `Presentation/VFX/Cel/Effects/flamethrower/FlameSmokeKind.cs` and `FlameSmokeSoftKind.cs` split late smoke into opaque cores and transparent fringes via effect-local `CelFlameSmokeOpaque_URP.shader` and `CelFlameSmokeSoft_URP.shader` (keepers `KeepCelFlameSmokeOpaque.mat`, `KeepCelFlameSmokeSoft.mat`). The prepared-spawn hook clones through its owning renderer; original records retain the emitter clock. Direct prepared Spawn is deliberately unmirrored. CelFxTests cover ownership, pure preparation, scaled clocks, clone identity, and ring wrap. This is a visual trial; sorting and GPU cost remain unqualified.
   `Presentation/VFX/Cel/Effects/flamethrower/FlamethrowerRange.cs` (Range effect id `flamethrower`).
 
 ### Debris and destruction of props and houses

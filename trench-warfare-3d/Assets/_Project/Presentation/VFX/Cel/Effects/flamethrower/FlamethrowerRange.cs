@@ -28,6 +28,9 @@ namespace TW.Presentation.VFX.Cel
             // drawn start sat ~65 px right of and above the clip's nozzle at ~134 px/m)
             Vector3 nozzle = s.Target - fw * 10.8f - right * 2.0f - Vector3.up * 0.8f;
             Debug.Log("Range: flamethrower nozzle " + nozzle.ToString("F2") + " (stage muzzle " + s.Muzzle.ToString("F2") + ")");
+            var lateEmbers = FlamethrowerRecipe.Recipe.Layers.Find(l => l.Name == "late embers");
+            Debug.Log("Range: flamethrower quality " + FxQuality.Tier + ", late embers " +
+                lateEmbers.CountAt(CelFx.LodBlend(CelFx.Zoom), CelFx.QualityShare(FxQuality.Tier)));
             float k = Time.deltaTime * 24f;
             k = (k > 1.05f && k < 1.6f) ? Mathf.Round(k * 100f) / 100f : 1f;
             if (k == 1f) { FlamethrowerRecipe.Play(nozzle, s.Target, (uint)s.Seed); return; }

@@ -9,10 +9,18 @@ namespace TW.Presentation.VFX.Cel
     public sealed class FlameSmokeKind : CelKind
     {
         public override string Name => "FlameSmoke";
-        public override Shader FindShader() => Shader.Find("TW/Cel/Lobe");
+        public override Shader FindShader() => Shader.Find("TW/Cel/FlameSmokeOpaque");
         public override Mesh BuildMesh() => CelMeshes.Icosphere(3, "Cel FlameSmoke");
         public override int Capacity => 768;
         public override int Order => 0;
+
+        // The actual owning renderer invokes this AFTER storing the prepared original.
+        public override void AfterPreparedSpawn(CelFxRenderer owner, in CelRecord prepared)
+        {
+            if (prepared.Extra.w >= 0f) return;
+            int softKind = owner.KindId("FlameSmokeSoft");
+            if (softKind >= 0) owner.Spawn(softKind, prepared);
+        }
 
         public override void PrepareRecord(ref CelRecord record, Vector3 origin, Vector3 target, float now)
         {

@@ -32,6 +32,9 @@ namespace TW.Presentation.VFX.Cel
         public virtual int Order => 100;
         /// <summary>Pack emitter-specific data once before a recipe record enters its pool. Direct Spawn accepts already prepared records.</summary>
         public virtual void PrepareRecord(ref CelRecord record, Vector3 origin, Vector3 target, float now) { }
+        /// <summary>Optional effect-local companions after a prepared spawn is stored. Use owner's direct
+        /// two-argument Spawn for companions; that overload does not call this hook. Default has no side effects.</summary>
+        public virtual void AfterPreparedSpawn(CelFxRenderer owner, in CelRecord prepared) { }
         /// <summary>Set anything the material needs once, after it is made.</summary>
         public virtual void Configure(Material material) { }
     }

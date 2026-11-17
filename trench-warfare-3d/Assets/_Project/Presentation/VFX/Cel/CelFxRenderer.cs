@@ -169,6 +169,7 @@ namespace TW.Presentation.VFX.Cel
             var prepared = r;
             pools[kind].Kind.PrepareRecord(ref prepared, origin, target, now);
             Spawn(kind, prepared);
+            if (pools[kind].Material != null) pools[kind].Kind.AfterPreparedSpawn(this, prepared);
         }
 
         /// <summary>One already prepared primitive. r.Born is when it appears (CelFx.Now for at once; later to hold it back). No allocation.</summary>
