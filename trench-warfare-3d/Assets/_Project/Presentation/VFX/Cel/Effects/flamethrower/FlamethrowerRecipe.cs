@@ -128,14 +128,14 @@ namespace TW.Presentation.VFX.Cel
             new CelLayer
             {
                 Name = "fire a", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.75f, 0.1f), Start = 1.0f, Duration = 2.6f, Life = 0.8f, LifeJitter = 0.25f,
-                Close = 0, Mid = 4, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.8f, 0f, 0f), Aim = CelAim.Dir, Speed = 2.2f,   /* k02: Close 9 -> 0 (lumpy gold nuggets at the dummy, f40-f56; REF has broad tongues there) */ SpeedJitter = 0.3f, Spread = 55f, Drag = 1.2f, Buoyancy = 1.0f, Spin = 1.2f,
+                Close = 0, Mid = 0, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.8f, 0f, 0f), Aim = CelAim.Dir, Speed = 2.2f,   /* k02: Close 9 -> 0 (lumpy gold nuggets at the dummy, f40-f56; REF has broad tongues there) */ SpeedJitter = 0.3f, Spread = 55f, Drag = 1.2f, Buoyancy = 1.0f, Spin = 1.2f,
                 Size = new CelCurve(0.4f, 0.9f, 0.6f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.12f,
                 Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.7f, Core = 2.5f, Ink = 2.2f, Extra = new Vector4(1.6f, 0.26f, 0f, 0.88f),
             },
             new CelLayer
             {
                 Name = "fire b", Kind = CelKinds.LobeName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, -0.35f, 0.1f), Start = 1.9f, Duration = 1.5f, Life = 0.8f, LifeJitter = 0.25f,
-                Close = 0, Mid = 3, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.75f, 0f, 0f),   /* k02: Close 5 -> 0 */ Aim = CelAim.Dir, Speed = 3.0f, SpeedJitter = 0.4f, Spread = 65f, Drag = 1.1f, Buoyancy = 1.0f, Spin = 1.0f,
+                Close = 0, Mid = 0, Far = 0, Shape = CelShape.Sphere, ShapeSize = new Vector3(0.75f, 0f, 0f),   /* k02: Close 5 -> 0 */ Aim = CelAim.Dir, Speed = 3.0f, SpeedJitter = 0.4f, Spread = 65f, Drag = 1.1f, Buoyancy = 1.0f, Spin = 1.0f,
                 Size = new CelCurve(0.5f, 1.0f, 0.6f), SizeJitter = 0.3f, Erode = new CelCurve(0f, 1f, 2.5f), Feather = 0.12f,
                 Palette = Burn, CoolTo = SmokeInk, CoolFrom = 0.65f, Core = 2.5f, Ink = 2.3f, Extra = new Vector4(1.5f, 0.26f, 0f, 0.88f),
             },
