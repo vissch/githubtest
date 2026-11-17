@@ -286,6 +286,28 @@ namespace TW.Tests
             Assert.That(record.Tone.z, Is.EqualTo(100.62f).Within(1e-5f));
         }
 
+        [Test]
+        public void FlameImpact_Authored_Sheets_Keep_Their_Cell_Resolution_And_Bindings()
+        {
+            var body = Resources.Load<Texture2D>("VFX/FlamethrowerImpact");
+            var tail = Resources.Load<Texture2D>("VFX/FlamethrowerImpactTail");
+            Assert.That(body, Is.Not.Null);
+            Assert.That(tail, Is.Not.Null);
+            Assert.That(body.width, Is.EqualTo(3840));
+            Assert.That(body.height, Is.EqualTo(2560));
+            Assert.That(tail.width, Is.EqualTo(1280), "NPOT rescaling must not shrink terminal cells");
+            Assert.That(tail.height, Is.EqualTo(320));
+            var kind = new FlameImpactKind();
+            var material = new Material(kind.FindShader());
+            try
+            {
+                kind.Configure(material);
+                Assert.That(material.GetTexture("_ImpactSheet"), Is.EqualTo(body));
+                Assert.That(material.GetTexture("_ImpactTailSheet"), Is.EqualTo(tail));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(material); }
+        }
+
         [TestCase(0.5f)]
         [TestCase(1f)]
         [TestCase(2f)]
@@ -298,7 +320,7 @@ namespace TW.Tests
             var original = source.Layers[index];
             var impact = scaled.Layers[index];
             Assert.That(original.Extra.x, Is.EqualTo(24f));
-            Assert.That(impact.Start + impact.Life, Is.EqualTo(4.71f * scale + 0.37f).Within(1e-5f));
+            Assert.That(impact.Start + impact.Life, Is.EqualTo((original.Start + original.Life) * scale + 0.37f).Within(1e-5f));
             Assert.That(impact.Life * impact.Extra.x, Is.EqualTo(original.Life * original.Extra.x).Within(1e-5f), "same authored poses at every playback speed");
             var roundTrip = FlamethrowerRecipe.TimeScaled(FlamethrowerRecipe.TimeScaled(source, scale, 0f), 1f / scale, 0f).Layers[index];
             Assert.That(roundTrip.Start, Is.EqualTo(original.Start).Within(1e-6f));

@@ -14,6 +14,7 @@ namespace TW.Presentation.VFX.Cel
         public override void Configure(Material material)
         {
             material.SetTexture("_ImpactSheet", Resources.Load<Texture2D>("VFX/FlamethrowerImpact"));
+            material.SetTexture("_ImpactTailSheet", Resources.Load<Texture2D>("VFX/FlamethrowerImpactTail"));
         }
     }
 }
