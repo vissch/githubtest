@@ -286,6 +286,27 @@ namespace TW.Tests
             Assert.That(record.Tone.z, Is.EqualTo(100.62f).Within(1e-5f));
         }
 
+        [TestCase(0.5f)]
+        [TestCase(1f)]
+        [TestCase(2f)]
+        public void TimeScaled_FlameImpact_Preserves_Pose_Count_And_End(float scale)
+        {
+            var source = FlamethrowerRecipe.Recipe;
+            var scaled = FlamethrowerRecipe.TimeScaled(source, scale, 0.37f);
+            int index = source.Layers.FindIndex(l => l.Kind == "FlameImpact");
+            Assert.That(index, Is.GreaterThanOrEqualTo(0));
+            var original = source.Layers[index];
+            var impact = scaled.Layers[index];
+            Assert.That(original.Extra.x, Is.EqualTo(24f));
+            Assert.That(impact.Start + impact.Life, Is.EqualTo(4.71f * scale + 0.37f).Within(1e-5f));
+            Assert.That(impact.Life * impact.Extra.x, Is.EqualTo(original.Life * original.Extra.x).Within(1e-5f), "same authored poses at every playback speed");
+            var roundTrip = FlamethrowerRecipe.TimeScaled(FlamethrowerRecipe.TimeScaled(source, scale, 0f), 1f / scale, 0f).Layers[index];
+            Assert.That(roundTrip.Start, Is.EqualTo(original.Start).Within(1e-6f));
+            Assert.That(roundTrip.Life, Is.EqualTo(original.Life).Within(1e-6f));
+            Assert.That(roundTrip.Extra.x, Is.EqualTo(original.Extra.x).Within(1e-6f));
+            Assert.That(original.Start, Is.EqualTo(0.708f), "source recipe is not mutated");
+        }
+
         [Test]
         public void A_Frame_Allocates_Nothing()
         {

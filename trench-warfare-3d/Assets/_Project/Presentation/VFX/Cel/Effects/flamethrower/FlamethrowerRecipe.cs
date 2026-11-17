@@ -276,11 +276,11 @@ namespace TW.Presentation.VFX.Cel
                 // Authored flame contour animation, anchored in the emitter frame.
                 // Original impact layer slots remain to preserve all other seeds.
                 Name = "target curls", Kind = "FlameImpact", Anchor = CelAnchor.Target,
-                Offset = new Vector3(2.259f, 1.634f, -1.838f), Start = 0.71f, Life = 4f, LifeJitter = 0f,
+                Offset = new Vector3(2.259f, 1.634f, -1.838f), Start = 0.708f, Life = 4.002f, LifeJitter = 0f,
                 Close = 1, Mid = 1, Far = 0, Shape = CelShape.Point, Aim = CelAim.None, Speed = 0f,
                 Size = new CelCurve(1.781f, 1.781f), SizeJitter = 0f,
                 Erode = new CelCurve(0f, 0f, 1f), Palette = Flame, Core = 1f,
-                Extra = new Vector4(0f, 0f, 0f, -2.35f),
+                Extra = new Vector4(24f, 0f, 0f, -2.35f), // atlas frames per second
             },
             new CelLayer
             {
@@ -369,6 +369,7 @@ namespace TW.Presentation.VFX.Cel
                 l.Start = l.Start * k + delay; l.Duration *= k; l.TimeJitter *= k; l.Life *= k;
                 l.Speed /= k; l.Gravity /= k2; l.Buoyancy /= k2; l.Drag /= k; l.Spin /= k;
                 if (l.Kind == "FlameJet" && l.Extra.w > -1.5f) { l.Erode = new CelCurve(l.Erode.From * k, l.Erode.To * k, l.Erode.Pow); l.Extra.x /= k; }
+                if (l.Kind == "FlameImpact") l.Extra.x /= k;
                 if (l.Kind == "FlameWash") l.Erode = new CelCurve(l.Erode.From * k, l.Erode.To * k, l.Erode.Pow);
                 if (l.Kind == "FlameSmoke") { l.Extra.w *= k; l.Opacity = 1f + (l.Opacity - 1f) * k + delay; }
                 if (l.Kind == CelKinds.StreakName) l.Stretch *= k;

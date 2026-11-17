@@ -39,7 +39,8 @@ Shader "TW/Cel/FlameImpact"
                 float3 p = CelBillboard(CelPosition(r, max(CelAge(r), 0.0)), (v.uv * 2.0 - 1.0) * (1.45 * r.size.x * o.alive));
                 o.positionCS = TransformWorldToHClip(p);
                 o.fog = ComputeFogFactor(o.positionCS.z);
-                float frame = min(floor(CelLife01(r) * 96.0), 95.0);
+                // Authored at 24 fps; lifetime independently preserves the final pose.
+                float frame = min(floor(max(CelAge(r), 0.0) * r.extra.x), 95.0);
                 float2 cell = float2(fmod(frame, 12.0), 7.0 - floor(frame / 12.0));
                 o.uv = (cell + lerp(0.5 / 320.0, 1.0 - 0.5 / 320.0, v.uv)) / float2(12.0, 8.0);
                 return o;
