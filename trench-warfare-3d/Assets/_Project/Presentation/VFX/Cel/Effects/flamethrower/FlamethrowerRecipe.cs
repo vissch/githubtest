@@ -296,7 +296,7 @@ namespace TW.Presentation.VFX.Cel
             {
                 // The reference keeps a small warm ground patch after the stream disconnects.
                 Name = "target afterglow", Kind = "FlameWash", Anchor = CelAnchor.Target,
-                Offset = new Vector3(0f, -1.6f, 0f), Start = 3.45f, Life = 1.5f, LifeJitter = 0f,   // k10: 1.1 -> 1.5 s
+                Offset = new Vector3(0f, -1.6f, 0f), Start = 3.45f, Life = 1.1f, LifeJitter = 0f,   // Ground warmth fades to reference baseline by frame 116.
                 Close = 1, Mid = 1, Far = 1, Aim = CelAim.Dir, Speed = 0.001f, SpeedJitter = 0f,
                 Size = new CelCurve(4.5f, 4.0f), SizeJitter = 0f, Stretch = 0.1f,   // k10: wider (REF's ground stays orange round the dummy to f108+)
                 Erode = new CelCurve(0.05f, 0.45f, 1f), Palette = Pool, Core = 1f,
