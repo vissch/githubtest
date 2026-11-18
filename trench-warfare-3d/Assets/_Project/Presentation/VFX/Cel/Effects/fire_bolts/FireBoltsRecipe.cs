@@ -30,29 +30,30 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>e01 (exact_20261117): the volley measured from the reference (fit2.py: 2D head tracks fitted with
         /// the Range's own ballistic aiming). Per bolt: launch (s after the fire; negative = already in flight at the
         /// fire), flight (s), target (0 dummy, 1 far ground, 2 near ground), launch spot relative to the hit
-        /// (screen right m, up m, away m) and gravity (m/s2).</summary>
+        /// (screen right m, up m, away m) and gravity (m/s2). f03 (fire_20261118): every launch 0.042 s earlier - the
+        /// reference's PNG n is logical frame n-1, the film's PNG n is frame n (the fit had paired them one frame late).</summary>
         public static readonly float[,] Volley =
         {
-            { -0.421f, 1.137f, 0, -14.50f, 3.74f, -7.60f, 1.50f },   // f15-29 D hit f28   e26c: vopt2
-            { -0.278f, 1.273f, 1, -15.00f, 2.97f, -10.00f, 4.57f },   // f14-34 FG hit f34   e26c: vopt2
-            { 0.247f, 1.162f, 1, -15.00f, 3.08f, -5.77f, 7.00f },   // f21-45 FG hit f44   e26c: vopt2
-            { 0.305f, 1.063f, 0, -14.50f, 2.56f, -3.94f, 1.96f },   // f27-43 D hit f44   e26c: vopt2
+            { -0.505f, 1.137f, 0, -14.50f, 3.74f, -7.60f, 1.50f },   // f15-29 D hit f28   e26c: vopt2
+            { -0.320f, 1.273f, 1, -15.00f, 2.97f, -10.00f, 4.57f },   // f14-34 FG hit f34   e26c: vopt2
+            { 0.205f, 1.162f, 1, -15.00f, 3.08f, -5.77f, 7.00f },   // f21-45 FG hit f44   e26c: vopt2
+            { 0.263f, 1.063f, 0, -14.50f, 2.56f, -3.94f, 1.96f },   // f27-43 D hit f44   e26c: vopt2
             { 0.370f, 1.630f, 0, -16.50f, 4.39f, -10.00f, 1.50f },   // f39-55 D hit f60   e26c: vopt2
-            { 0.380f, 1.193f, 1, -15.00f, 3.21f, -5.33f, 1.92f },   // f25-49 FG hit f50   e26c: vopt2
-            { 0.516f, 1.471f, 0, -18.50f, 2.72f, -2.54f, 1.50f },   // f33-46 D hit f57   e09: up +0.30 (register.py)   e26c: vopt2
-            { 0.584f, 1.337f, 1, -15.50f, 1.82f, 5.51f, 3.70f },   // f30-57 FG hit f57   e26c: vopt2
-            { 0.590f, 1.777f, 2, -17.50f, 4.72f, -11.00f, 2.09f },   // f54-81* NG hit f71   e24: launch -0.1 (REF fire px from f68)   e26c: vopt2
-            { 1.127f, 1.047f, 1, -16.50f, 2.16f, -1.06f, 2.98f },   // f38-63 FG hit f64   e26c: vopt2
-            { 0.926f, 1.777f, 2, -15.00f, 4.27f, -10.00f, 2.09f },   // f54-81 NG hit f85   e09: launch -0.25 (register.py)   e26c: vopt2
-            { 1.354f, 1.672f, 1, -14.50f, 2.71f, -10.00f, 5.88f },   // f54-82 FG hit f83   e26c: vopt2
-            { 1.410f, 1.777f, 2, -15.30f, 3.97f, -8.50f, 2.09f },   // f54-81* NG hit f90   e26c: vopt2
-            { 1.654f, 1.432f, 1, -14.40f, 2.61f, -9.00f, 5.88f },   // f54-82* FG hit f88   e35: launch +0.24, flight -0.24 (rode 30 px behind row 11)   e26c: vopt2
-            { 1.049f, 1.551f, 0, -13.73f, -0.46f, 21.88f, 4.10f },   // f37-71 D hit f72   e26: REF's high slow bolt coming toward the camera (fitfree.py, 9 px; was a copy of f27-43)   e26c: vopt2
-            { 1.738f, 1.830f, 0, -15.50f, 2.57f, -6.80f, 1.50f },   // f74-93 D hit f99   e09: launch -0.25 (register.py)   e26c: vopt2
-            { 2.070f, 1.376f, 0, -15.00f, 1.93f, 9.21f, 4.05f },   // f58-93 D hit f93   e26c: vopt2
-            { 2.072f, 1.428f, 0, -16.50f, 1.09f, 1.63f, 1.50f },   // f67-90 D hit f96   e26c: vopt2
-            { 2.556f, 1.171f, 0, -13.50f, -1.40f, 10.00f, 1.50f },   // f76-92 D hit f105   e26c: vopt2
-            { 2.743f, 1.024f, 0, -16.00f, 1.50f, 8.38f, 1.50f },   // f76-93 D hit f102   e09: up +0.55 (register.py)   e26c: vopt2
+            { 0.338f, 1.193f, 1, -15.00f, 3.21f, -5.33f, 1.92f },   // f25-49 FG hit f50   e26c: vopt2
+            { 0.374f, 1.471f, 0, -18.50f, 2.72f, -2.54f, 1.50f },   // f33-46 D hit f57   e09: up +0.30 (register.py)   e26c: vopt2
+            { 0.542f, 1.337f, 1, -15.50f, 1.82f, 5.51f, 3.70f },   // f30-57 FG hit f57   e26c: vopt2
+            { 0.548f, 1.777f, 2, -17.50f, 4.72f, -11.00f, 2.09f },   // f54-81* NG hit f71   e24: launch -0.1 (REF fire px from f68)   e26c: vopt2
+            { 1.085f, 1.047f, 1, -16.50f, 2.16f, -1.06f, 2.98f },   // f38-63 FG hit f64   e26c: vopt2
+            { 0.884f, 1.777f, 2, -15.00f, 4.27f, -10.00f, 2.09f },   // f54-81 NG hit f85   e09: launch -0.25 (register.py)   e26c: vopt2
+            { 1.312f, 1.672f, 1, -14.50f, 2.71f, -10.00f, 5.88f },   // f54-82 FG hit f83   e26c: vopt2
+            { 1.368f, 1.777f, 2, -15.30f, 3.97f, -8.50f, 2.09f },   // f54-81* NG hit f90   e26c: vopt2
+            { 1.612f, 1.432f, 1, -14.40f, 2.61f, -9.00f, 5.88f },   // f54-82* FG hit f88   e35: launch +0.24, flight -0.24 (rode 30 px behind row 11)   e26c: vopt2
+            { 0.947f, 1.551f, 0, -13.73f, -0.46f, 21.88f, 4.10f },   // f37-71 D hit f72   e26: REF's high slow bolt coming toward the camera (fitfree.py, 9 px; was a copy of f27-43)   e26c: vopt2
+            { 1.696f, 1.830f, 0, -15.50f, 2.57f, -6.80f, 1.50f },   // f74-93 D hit f99   e09: launch -0.25 (register.py)   e26c: vopt2
+            { 2.028f, 1.376f, 0, -15.00f, 1.93f, 9.21f, 4.05f },   // f58-93 D hit f93   e26c: vopt2
+            { 2.030f, 1.428f, 0, -16.50f, 1.09f, 1.63f, 1.50f },   // f67-90 D hit f96   e26c: vopt2
+            { 2.514f, 1.171f, 0, -13.50f, -1.40f, 10.00f, 1.50f },   // f76-92 D hit f105   e26c: vopt2
+            { 2.701f, 1.024f, 0, -16.00f, 1.50f, 8.38f, 1.50f },   // f76-93 D hit f102   e09: up +0.55 (register.py)   e26c: vopt2
         };
         public static readonly int Count = Volley.GetLength(0);
         /// <summary>Full flight of bolt i (s).</summary>
@@ -190,6 +191,25 @@ namespace TW.Presentation.VFX.Cel
 
         const float PoolLife = 4.1f, PoolRadius = 7.0f;   // e20c: gone by f110 (REF)   // e07: REF pool peaks at f24 (0.5 s after the fire) and is gone by f120
 
+        /// <summary>s01 (reference sheets): seconds the sheet plays (the clip's fire and smoke end on frame 139).</summary>
+        public const float SheetLife = 6.5f;
+        /// <summary>The clip frame the close film is on when the Range fires (found by matching films to the clip).</summary>
+        public const float SheetFirstFrame = 12f;
+        /// <summary>The close shot's fire and smoke: the reference clip's own, cut out and replayed (BoltSheetKind), one
+        /// record an element. `elements` cards, element i on layer i.</summary>
+        public static CelFxRecipe MakeSheet(int elements)
+        {
+            var r = new CelFxRecipe("fire_bolts_sheet", SheetLife);
+            for (int i = 0; i < Mathf.Max(elements, 1); i++)
+                r.Layers.Add(new CelLayer
+                {
+                    Name = "reference sheet " + i, Kind = BoltSheetKind.KindName, Start = 0f, Life = SheetLife, LifeJitter = 0f,
+                    Close = 1, Mid = 1, Far = 1, Speed = 0f, SpeedJitter = 0f, Size = new CelCurve(1f, 1f), SizeJitter = 0f,
+                    Core = 1f, Opacity = 1f, Extra = new Vector4(24f, SheetFirstFrame, i, 0f),
+                });
+            return r;
+        }
+
         static CelFxRecipe MakePool(float start)
         {
             return new CelFxRecipe("fire_bolts_pool", start + PoolLife,
@@ -220,7 +240,7 @@ namespace TW.Presentation.VFX.Cel
                     Opacity = 0.9f * trailK, Ink = 0f,   // e13: per-bolt trail strength (REF: opening + final volley trails strong, mid volley faint)
                     // b02: a round white-yellow head 0.2 m, a flame body that flares and tapers over 2.2 m, thin red
                     // streaks fading out to 5 m, a ribbon waving 0.08 m over 5.5 m
-                    Extra = new Vector4(0.2f * k * w * flameScale, bodyM * k, 0.22f * w, t0 + flight > 3.3f ? Mathf.Max(0.1f, 3.80f - t0 - flight) : 0.5f)   /* e13d: the final volley's trails all clear together at 3.8 s after the fire (REF f101-f103) */, // Head radius, body length, path swirl, smoke fade seconds.
+                    Extra = new Vector4(0.2f * k * w * flameScale, bodyM * k, 0.22f * w, t0 + flight > 3.3f ? Mathf.Max(0.1f, 3.76f - t0 - flight) : 0.5f)   /* e13d: the final volley's trails all clear together at 3.8 s after the fire (REF f101-f103) */, // Head radius, body length, path swirl, smoke fade seconds.
                 });
         }
 
@@ -230,8 +250,15 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>e24: a ground fire burns on to the next hit at its spot (REF: lit continuously once hit) + 0.3 s.</summary>
         static float DomeLife(int i)
         {
-            if (!OnGround[i]) return 0.85f;
             float at = Launch[i] + Flights[i], next = 1e9f;
+            if (!OnGround[i])
+            {
+                // f04b: a dummy burst burns on to the next dummy hit (REF: fire on the board f60-f81); the final
+                // volley's bursts all die together ~4.56 s after the fire (REF f120)
+                if (at > 3.3f) return Mathf.Clamp(4.56f - at, 0.6f, 1.2f);
+                for (int j = 0; j < Count; j++) { float h = Launch[j] + Flights[j]; if (!OnGround[j] && h > at + 0.1f && h < next) next = h; }
+                return next > 1e8f ? 0.75f : Mathf.Clamp(next - at + 0.15f, 0.55f, 0.90f);
+            }
             for (int j = 0; j < Count; j++) { float h = Launch[j] + Flights[j]; if (TargetOf[j] == TargetOf[i] && h > at + 1e-3f && h < next) next = h; }
             return next > 1e8f ? 0.85f : Mathf.Clamp(next - at + 0.3f, 0.85f, 1.6f);
         }
@@ -259,18 +286,18 @@ namespace TW.Presentation.VFX.Cel
                 new CelLayer
                 {
                     Name = "spark starburst", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit, Duration = 0.10f, Life = ground ? 0.42f : 0.65f, LifeJitter = 0.25f,
-                    Close = ground ? 8 : 10, Mid = ground ? 8 : 10,   /* e25: no firework of lines in the fire (REF dots) */   // p28e: a control film with 0 showed the spray IS this layer (the dash counter was fooled by the thin bolts' lines): REF has 10-15 bold dashes   // p28d: 100 counted 56-70 a frame beside the thin bolts' lines (REF 11-19)   // p27m: 130 counted 21-35 (REF 11-19)   // p27k: 160 counted 20-34 a frame (REF 7-19)   // p27i: the close film sits at zoom 30 = the Mid blend point, so Mid IS the count there (6 drew six dashes)   // p27g: 280 per hit wrapped the Streak ring pool in ~0.25 s and killed the live dashes   // p16: dense short dashes on the dummy   // p04: REF's ground hits are spark starbursts   // d06 (from d04): denser sprays   // c03: a fuller radial spray / dummy spark fan
+                    Close = ground ? 8 : 6, Mid = ground ? 8 : 6,   /* f09: six ember dots (REF f108-f118) */   /* e25: no firework of lines in the fire (REF dots) */   // p28e: a control film with 0 showed the spray IS this layer (the dash counter was fooled by the thin bolts' lines): REF has 10-15 bold dashes   // p28d: 100 counted 56-70 a frame beside the thin bolts' lines (REF 11-19)   // p27m: 130 counted 21-35 (REF 11-19)   // p27k: 160 counted 20-34 a frame (REF 7-19)   // p27i: the close film sits at zoom 30 = the Mid blend point, so Mid IS the count there (6 drew six dashes)   // p27g: 280 per hit wrapped the Streak ring pool in ~0.25 s and killed the live dashes   // p16: dense short dashes on the dummy   // p04: REF's ground hits are spark starbursts   // d06 (from d04): denser sprays   // c03: a fuller radial spray / dummy spark fan
                     Far = 0, Shape = CelShape.Shell, ShapeSize = new Vector3(ground ? 0.10f : 0.05f, 0f, 0f), Aim = ground ? CelAim.Up : CelAim.Back, Spread = ground ? 58f : 55f,   /* e19: back up the incoming path (REF) */
                     Speed = ground ? 2.6f : 4.0f, SpeedJitter = 0.45f, UpBias = 0f, Gravity = 2.4f, Drag = ground ? 1.5f : 1.3f,   // p27j: 9 m/s flew out of the crop in 8 frames (REF: within 150 px, 12+ frames)   // p27i: a fast burst that brakes hard (REF: out of the ball in 2 frames, then slow)   // p27e: drag 2.5 shrank them to dots by 8 frames   // p27d: slower (REF)   // c01: born on a shell (no pile-up disc at the middle), ground sparks fan upward
                     // b04: short orange dots and streaks over the torso's width (b03 lost its palette, erosion and core
                     // to a comment, so 28 default-white streaks piled up into a disc at the chest)
-                    Size = new CelCurve(ground ? 0.10f : 0.16f, ground ? 0.035f : 0.06f), SizeJitter = 0.35f, Stretch = ground ? 0.025f : 0.085f,   // p28e: bolder, longer (REF)   // p27l: 4 px (REF 3-4)   // p27j: 3-4 px wide, 13 px long at birth, 6 once braked (REF 6-11)   // p27i: 9 m/s x 0.05 s = 30 px at first, 12 px once braked (REF)   // p27f: 2.6 px wide (1.5 px AA'd away), 0.14 s x 3.5 m/s = 32 px   // p27e: Size is the WIDTH (1.5 px); length = speed x 0.07 s = 8-32 px (REF 10-40)   // p27c: Stretch is seconds of motion (0.3 s drew 4 m rods)   // p22: bolder dashes   // p06: REF's dummy sparks are short bright dashes   // c01: thinner, longer streaks (b05: 0.05, 0.09)
+                    Size = new CelCurve(ground ? 0.10f : 0.10f, ground ? 0.035f : 0.05f), SizeJitter = 0.35f, Stretch = ground ? 0.025f : 0.022f,   /* f11: bigger dots with a short tail */   // p28e: bolder, longer (REF)   // p27l: 4 px (REF 3-4)   // p27j: 3-4 px wide, 13 px long at birth, 6 once braked (REF 6-11)   // p27i: 9 m/s x 0.05 s = 30 px at first, 12 px once braked (REF)   // p27f: 2.6 px wide (1.5 px AA'd away), 0.14 s x 3.5 m/s = 32 px   // p27e: Size is the WIDTH (1.5 px); length = speed x 0.07 s = 8-32 px (REF 10-40)   // p27c: Stretch is seconds of motion (0.3 s drew 4 m rods)   // p22: bolder dashes   // p06: REF's dummy sparks are short bright dashes   // c01: thinner, longer streaks (b05: 0.05, 0.09)
                     Erode = new CelCurve(0.02f, 0.45f), Palette = ground ? "fb_comet" : "fb_dash", Core = ground ? 1.35f : 0.8f, Extra = new Vector4(0.45f, 0.07f, 0.08f, 0.35f), Ink = 0f,   // p27l: brighter (REF: yellow-white)   // p27j: min length 0.03 m   // p27e: a 60% tail (0 drew darts), less flicker   // p27d: yellow-white   // p10: no ink (REF's sparks are soft bright dashes)
                 },
                 new CelLayer
                 {
                     Name = "flame tongues", Kind = CelKinds.StreakName, Anchor = CelAnchor.Target, Start = hit + (ground ? 0f : 0.14f), Duration = 0.08f, Life = ground ? 0.24f : 0.45f, LifeJitter = 0.25f,
-                    Close = ground ? 4 : 2, Mid = ground ? 4 : 2, Far = 0,
+                    Close = ground ? 4 : 0, Mid = ground ? 4 : 0, Far = 0,   // f02: the splash draws the dummy's tongues
                 // Inherited comment (kept inactive): p27m: fewer, bigger   // p27j   // p27i: Mid = Close (zoom 30)   // c01: one tongue on the dummy (three lit a disc on the chest)
                     Shape = CelShape.Sphere, ShapeSize = new Vector3(0.1f, 0f, 0f), Aim = ground ? CelAim.Up : CelAim.Back, Spread = ground ? 50f : 68f, Speed = ground ? 1.1f : 3.2f, SpeedJitter = 0.4f, Drag = ground ? 0f : 1.0f, Buoyancy = ground ? 0.6f : 0f,   // p27l: grow out 0.15 m and stop (REF: attached spikes)
                     Size = new CelCurve(ground ? 0.07f : 0.20f, ground ? 0.02f : 0.02f, 0.8f), SizeJitter = 0.3f, Stretch = ground ? 0.16f : 0.12f,
@@ -290,15 +317,15 @@ namespace TW.Presentation.VFX.Cel
             });
             for (int h = 0; h < 1; h++) r.Layers.Add(new CelLayer   // p22: a HARD ragged cel splash over the soft flash (Comet mode -4, extra.y = 1): the harsh half of a hit
             {
-                Name = "hit splash hard", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0.06f * h - 0.03f, ground ? 0.25f : 0.04f * h, 0f), Start = hit + 0.04f * h, Life = ground ? domeLife : (hit > 3.5f ? 1.19f : 0.95f) - 0.08f * h, LifeJitter = 0.1f,
-                Close = 1, Mid = 1, Far = 0, Size = ground ? new CelCurve(domeR, domeR) : new CelCurve(1.45f - 0.22f * h, 0.90f, 0.5f), SizeJitter = 0.15f,   // p28: a 114 px quad: the splat's base 34 px, the white blob 18 px, fingers to 80 px (REF)   // p27k: 0.95 blew out   // p27j: r 35-42 px (REF)   // p22c: a big splash on the board
-                Palette = "fb_comet", Core = 1.15f, Opacity = 1f, Extra = new Vector4(-4f, 1f, ground ? 2f : 0f, ground ? blades : 0f),   // e21b: blades per hit
+                Name = "hit splash hard", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0.06f * h - 0.03f, ground ? 0.25f : 0.04f * h, 0f), Start = hit + 0.04f * h, Life = domeLife, LifeJitter = ground ? 0.1f : 0.04f,   // f04b: DomeLife(i) for the dummy too
+                Close = 1, Mid = 1, Far = 0, Size = ground ? new CelCurve(domeR, domeR) : new CelCurve(hit > 1.7f ? 1.75f : 1.30f, hit > 1.7f ? 1.75f : 1.30f)   /* f19: the fire field is 0.60 of the card */, SizeJitter = 0.15f,   /* f02: the fire mass, R ~100 px on the final volley */   // p28: a 114 px quad: the splat's base 34 px, the white blob 18 px, fingers to 80 px (REF)   // p27k: 0.95 blew out   // p27j: r 35-42 px (REF)   // p22c: a big splash on the board
+                Palette = "fb_comet", Core = 1.15f, Opacity = 1f, Extra = new Vector4(-4f, 1f, ground ? 2f : 0f, ground ? blades : (hit > 1.7f ? 1f : 0.45f)),   /* f14: the mid bursts as strong as the final (REF f60-f63)   f13: extra.w on the dummy = burst strength */   // e21b: blades per hit
             });
             if (!ground && hit > 3.5f) r.Layers.Add(new CelLayer
             {
                 Name = "final flame remnants", Kind = CometKind.KindName, Anchor = CelAnchor.Target, Offset = new Vector3(0f, 0.2f, 0f),
                 Start = hit + 1.0f, Life = 0.42f, LifeJitter = 0f,
-                Close = 1, Mid = 1, Far = 0, Size = new CelCurve(0.60f, 0.16f),
+                Close = 0, Mid = 0, Far = 0   /* f02: the splash thins into its own ribbons */, Size = new CelCurve(0.60f, 0.16f),
                 Palette = "fb_comet", Core = 0.7f, Opacity = 0.68f,
                 Extra = new Vector4(-4f, 1f, 0f, 1f),
             });

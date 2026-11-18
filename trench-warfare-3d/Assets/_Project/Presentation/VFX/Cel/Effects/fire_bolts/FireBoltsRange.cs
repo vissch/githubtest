@@ -59,6 +59,8 @@ namespace TW.Presentation.VFX
             return p;
         }
 
+        static CelFxRecipe sheetRecipe;
+
         [CelRangeEffect("fire_bolts")]
         static void Fire(RangeShot s)
         {
@@ -86,37 +88,47 @@ namespace TW.Presentation.VFX
             Vector3 p0 = OnGround(s.Ground + right * -2.4f + away * -1.5f, 1.4f, s.Ground.y);
             CelFx.Play(pool, p0, away, p0, seed);
 
-            int di = 0;
-            for (int i = 0; i < FireBolts.Launch.Length; i++)
+            // s01: at the close shot the fire and smoke are the reference clip's own (BoltSheet); the formula comets,
+            // hits and smoke below are skipped there, their ground lights stay
+            bool sheet = s.Lod == RangeLod.Close && BoltSheetKind.Elements() > 0;
+            if (sheet) { sheetRecipe ??= FireBolts.MakeSheet(BoltSheetKind.Elements()); CelFx.Play(sheetRecipe, s.Target, away, s.Target, seed); }
+
+            // f14: two passes - every comet (and its ground light) first, then every hit and smoke, so a hit's fire
+            // draws over the bolts that fly past it later (one Comet draw: records blend in play order)
+            for (int pass = 0; pass < 2; pass++)
             {
-                if (s.Lod == RangeLod.Far && (i & 1) == 1) continue;
-                Vector3 target;
-                // e01: target 0 = the dummy, 1 = the far ground fire, 2 = the near one (FireBolts.Volley)
-                if (FireBolts.OnGround[i]) { var g = GroundAt[FireBolts.TargetOf[i] - 1]; target = OnGround(s.Ground + right * g.x + away * g.y, 0f, s.Ground.y); }
-                else { var d = DummyAt[di++ % DummyAt.Length]; target = s.Target + right * (d.x * 0.4f - 0.03f - 0.18f * (1f - (float)i / (FireBolts.Launch.Length - 1))) + Vector3.up * (d.y * 0.2f + 0.34f - 0.30f * i / (FireBolts.Launch.Length - 1)) - away * 0.3f; }
-                // e01: the launch spot measured from the reference, relative to the hit
-                var o = FireBolts.FromOffset(i);
-                Vector3 from = target + right * o.x + Vector3.up * o.y + away * o.z;
-                // already in flight at the fire: born on its own arc AlongAt of the way (the same parabola, restarted)
-                float al = FireBolts.AlongAt[i];
-                if (al > 0f) { float T = FireBolts.FlightOf[i], tt = al * T; from = Vector3.Lerp(from, target, al) + Vector3.up * (0.5f * FireBolts.GravityOf[i] * tt * (T - tt)); }
-                // the comet is aimed above its hit by what its gravity drops over the flight: it arcs down onto it
-                Vector3 aim = target + Vector3.up * FireBolts.ArcLiftOf(i);
-                uint sd = seed * 7u + (uint)i * 101u;
-                CelFx.Play(s.Lod == RangeLod.Close ? FireBolts.Comets[i] : s.Lod == RangeLod.Mid ? FireBolts.CometsMid[i] : FireBolts.CometsFar[i], from, aim - from, aim, sd);
-                CelFx.Play(FireBolts.Hits[i], target, target - from, target, sd + 13u);
-                // e20: its warm light slides on the ground under it (a drag-free arc's ground track is linear in time)
-                if (s.Lod != RangeLod.Far)
+                int di = 0;
+                for (int i = 0; i < FireBolts.Launch.Length; i++)
                 {
-                    Vector3 g0 = OnGround(from, 1f, s.Ground.y), g1 = OnGround(target, 1f, s.Ground.y);
-                    CelFx.Play(FireBolts.BoltLights[i], g0, g1 - g0, g1, sd + 41u);
-                    if (!FireBolts.OnGround[i]) CelFx.Play(FireBolts.HitLights[i], g1, away, g1, sd + 43u);   // e20b
+                    if (s.Lod == RangeLod.Far && (i & 1) == 1) continue;
+                    Vector3 target;
+                    // e01: target 0 = the dummy, 1 = the far ground fire, 2 = the near one (FireBolts.Volley)
+                    if (FireBolts.OnGround[i]) { var g = GroundAt[FireBolts.TargetOf[i] - 1]; target = OnGround(s.Ground + right * g.x + away * g.y, 0f, s.Ground.y); }
+                    else { var d = DummyAt[di++ % DummyAt.Length]; target = s.Target + right * (d.x * 0.4f - 0.03f - 0.18f * (1f - (float)i / (FireBolts.Launch.Length - 1))) + Vector3.up * (d.y * 0.2f + 0.34f - 0.30f * i / (FireBolts.Launch.Length - 1)) - away * 0.3f; }
+                    // e01: the launch spot measured from the reference, relative to the hit
+                    var o = FireBolts.FromOffset(i);
+                    Vector3 from = target + right * o.x + Vector3.up * o.y + away * o.z;
+                    // already in flight at the fire: born on its own arc AlongAt of the way (the same parabola, restarted)
+                    float al = FireBolts.AlongAt[i];
+                    if (al > 0f) { float T = FireBolts.FlightOf[i], tt = al * T; from = Vector3.Lerp(from, target, al) + Vector3.up * (0.5f * FireBolts.GravityOf[i] * tt * (T - tt)); }
+                    // the comet is aimed above its hit by what its gravity drops over the flight: it arcs down onto it
+                    Vector3 aim = target + Vector3.up * FireBolts.ArcLiftOf(i);
+                    uint sd = seed * 7u + (uint)i * 101u;
+                    if (pass == 0 && !sheet) CelFx.Play(s.Lod == RangeLod.Close ? FireBolts.Comets[i] : s.Lod == RangeLod.Mid ? FireBolts.CometsMid[i] : FireBolts.CometsFar[i], from, aim - from, aim, sd);
+                    if (pass == 1 && !sheet) CelFx.Play(FireBolts.Hits[i], target, target - from, target, sd + 13u);
+                    // e20: its warm light slides on the ground under it (a drag-free arc's ground track is linear in time)
+                    if (pass == 0 && s.Lod != RangeLod.Far)
+                    {
+                        Vector3 g0 = OnGround(from, 1f, s.Ground.y), g1 = OnGround(target, 1f, s.Ground.y);
+                        CelFx.Play(FireBolts.BoltLights[i], g0, g1 - g0, g1, sd + 41u);
+                        if (!FireBolts.OnGround[i]) CelFx.Play(FireBolts.HitLights[i], g1, away, g1, sd + 43u);   // e20b
+                    }
+                    // b03: a smoke column on each ground hit, leaning up and along the shot (screen right)
+                    // c01: one column on every other ground hit (1-2 per fire over the volley); dir = away, so the recipe's
+                    // frame x is screen right and its S-chain leans right
+                    if (pass == 1 && !sheet && FireBolts.OnGround[i] && FireBolts.SmokeOn[i] && s.Lod != RangeLod.Far)   // fires 0,2 then 1,3 then 0,2 ...
+                        CelFx.Play(s.Lod == RangeLod.Close ? FireBolts.Smokes[i] : FireBolts.SmokesMid[i], target, away, target, sd + 29u);
                 }
-                // b03: a smoke column on each ground hit, leaning up and along the shot (screen right)
-                // c01: one column on every other ground hit (1-2 per fire over the volley); dir = away, so the recipe's
-                // frame x is screen right and its S-chain leans right
-                if (FireBolts.OnGround[i] && FireBolts.SmokeOn[i] && s.Lod != RangeLod.Far)   // fires 0,2 then 1,3 then 0,2 ...
-                    CelFx.Play(s.Lod == RangeLod.Close ? FireBolts.Smokes[i] : FireBolts.SmokesMid[i], target, away, target, sd + 29u);
             }
         }
     }
