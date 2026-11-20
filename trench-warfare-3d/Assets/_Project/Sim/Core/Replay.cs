@@ -202,7 +202,7 @@ namespace TW.Sim
         // v38 (2026-10-06, a lying man at range): a man lying in the open is hit less often the farther off the
         // shooter is (CombatTables.LyingTarget, half as likely by 60 m). Same inputs, a different battle: men who
         // went to ground far off now live, so a v37 replay does not replay. Layout and chain unchanged.
-        public const ushort FormatVersion = 62;
+        public const ushort FormatVersion = 63;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
