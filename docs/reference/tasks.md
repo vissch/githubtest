@@ -159,6 +159,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 - **Tests:** none of its own (an instrument; its outputs go to the scorer and the critic).
 - **See it:** `Tools/tw eval 'return TW.Editor.VfxLab.Range("old_shell", "C:/abs/run", "close");'`, then the PNGs in
   `C:/abs/run/frames`.
+- fire_bolts reference sheets (2026-11-18): kind `Assets/_Project/Presentation/VFX/Cel/Effects/fire_bolts/BoltSheetKind.cs` replays the fire and smoke cut from the clip at the close shot.
+- Reference sheets (2026-11-19): an effect cut out of its approved H3 clip and replayed at the close shot. Shared kind `Assets/_Project/Presentation/VFX/Cel/RefSheet/RefSheetKind.cs`, data and recipe `Assets/_Project/Presentation/VFX/Cel/RefSheet/RefSheet.cs`, shader `Assets/_Project/Shaders/Cel/RefSheet/CelRefSheet_URP.shader`, tests `Assets/_Project/Tests/Cel/RefSheetTests.cs`. Sheets are made by celfx `tools/refsheet`.
+- `Assets/_Project/Presentation/VFX/Cel/Effects/explosion_sheet/ExplosionRefRange.cs` (effect id `explosion_sheet`) with its kind `Assets/_Project/Presentation/VFX/Cel/Effects/explosion_sheet/ExplosionRefSheetKind.cs`: replays the sheet at the close shot; nothing at Mid/Far yet.
 ### Map generation and ground (sim side)
 - **Files:** `Sim/Terrain/BattlefieldGenerator.cs` (`BattlefieldParams` presets: `ShelledForest`, `WinterLine`, `Landing`),
   `Sim/Terrain/MapData.cs`, `Sim/Terrain/CraterStamp.cs`, `Sim/Terrain/Heightfield.cs`, `Sim/Terrain/WireBelt.cs`,
@@ -1154,7 +1157,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Cel:** CelFxTests
+- **Cel:** CelFxTests, RefSheetTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, ScriptedEnemySlotTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** AnimClockPlayTests, CaptureRigPlayTests, DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudMinimapPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
