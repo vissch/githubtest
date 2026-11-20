@@ -834,12 +834,12 @@ namespace TW.Editor
         /// </summary>
         public static string Stress(int unitsPerSide = 1000, string path = null, int frames = 300, float settleSeconds = 120f)
         {
+            if (EditorApplication.isPlaying) return "stop play first: SimHost reads the stress preset in Awake";
             // Not a default argument: a default must be a compile-time constant, and the old bare "stress.json" was
             // written relative to whatever the editor's working directory happened to be (and broke EnsureDir's
             // predecessor outright). Same place RiderLab.SeatSheetBatch defaults to.
             if (string.IsNullOrEmpty(path))
                 path = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "Captures", "stress.json");
-            if (EditorApplication.isPlaying) return "stop play first: SimHost reads the stress preset in Awake";
             var host = Object.FindFirstObjectByType<SimHost>();
             if (host == null) return "no SimHost in the open scene: open Scenes/GreyboxCorridor.unity first";
             SessionState.SetString(Restore, host.StressUnits.ToString(CultureInfo.InvariantCulture));

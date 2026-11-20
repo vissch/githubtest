@@ -1,10 +1,10 @@
-> Snapshot read at integration 558c667 (2026-09-28). Citations name the file and the symbol, no line numbers: grep the symbol. The code wins over this page.
+> Snapshot read at integration 558c667 (2026-09-28). file:line citations drift: re-grep the symbol before editing. The code wins over this page.
 
 Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warfare-3d/Tools, D = docs.
 
-# B. OPTIMIZER (the AOSA loop)
+## B. OPTIMIZER (the AOSA loop)
 
-## Contract (`D\reference\aosa\README.md`)
+### Contract (`D\reference\aosa\README.md`)
 - **Mandate** (:3-7): a Claude session on `lane/show/aosa`. It never edits `Sim/`, `Net/` or `Data/`; those become proposals in `ASK.md`.
 - **Files** (:12-27): README, LESSONS, BACKLOG, JUICE, ASK, LEDGER, `attempts.jsonl`, `priors.json` and `knobs.json` (derived, never hand-edited), `budget.json`, `agents/*.md`, `runs/<cycle>/`.
 
@@ -79,7 +79,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - It never closes a card on an argument.
 - It never compares release with development numbers. When a number and a screenshot disagree, the screenshot wins.
 
-## The seven agent briefs (`D\reference\aosa\agents\`)
+### The seven agent briefs (`D\reference\aosa\agents\`)
 - **`cycle.md`** (the orchestrator, ≤20 min per cycle):
   - Read, `status`, `pick`, then `git fetch && git rebase origin/claude/trench-warfare-2d-3d-plan-idt7lf`.
   - Write each prediction before measuring. Fan out.
@@ -120,7 +120,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
   Output: `CARD/RESULT/PREDICTION/IMAGE CLASS/FILES/DIFF/OCC/TEST/RISK`.
 - **`retrospective.md`** (every 10 cycles) runs `aosa.py retro` and answers: what paid, what stalled, repeated revert reasons, calibration outliers, image-budget split, critic vs owner agreement, cadence and WIP. It outputs patches to README, BACKLOG and budget.json plus a 10-line summary.
 
-## ASK / LESSONS / JUICE
+### ASK / LESSONS / JUICE
 **`ASK.md` open items**
 - A01 merge policy
 - A02 metric ranking; default main p95, then gpu p95, then T1 critic
@@ -163,7 +163,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - J01 recipe: `--scenario barrage --shot-tick 140 --shot-frames 16 --no-hud`.
 - J03 is scored 5.
 
-## `aosa.py` (`T\aosa\aosa.py`)
+### `aosa.py` (`T\aosa\aosa.py`)
 **Environment** (:20-23)
 - `AOSA_DOCS`, `TW_BUILDS` (default `trench-warfare-3d/Builds`), `TW_PROJECT`, `AOSA_FALKIT` (default `~/Documents/claude/emtd-dragon-circle/falkit.py`), `AOSA_OFFLINE=1`.
 - Standard bench: `stress=1500 settle_ticks=1800 ticks=400 warm=120 ff=8 vsync=0`, plus `quality=5` for the player and `canary=0` (:65, :672).
@@ -200,7 +200,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - **`shots LABEL [--all] [--min 4] [--section N] [--table]`** (:1385-1483): the shot_log analysis.
 - **`stilldiff PNGs|LABEL [--threshold 8]`** (:345-368): pairwise per-channel threshold. The worst pair must be < 0.001; exits 1 otherwise.
 
-## Other AOSA tools
+### Other AOSA tools
 **`land.ps1`** (`T\aosa\land.ps1`): `powershell -NoProfile -ExecutionPolicy Bypass -File Tools/aosa/land.ps1 [-EditOnly] [-NoBuild] [-Log <path>]` (:3-5)
 - Runs at below-normal priority.
 - Refuses with **exit 9** when `Assets/_AosaLocal/PipelineServerOff.asset` is missing (:20; A08 answered at `ASK.md:115-117`: an untracked asset with AutoStart off, never committed).
@@ -210,7 +210,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - `Unchurn` reverts the three URP assets (:15-16, :71). `prune --apply` (:72).
 
 **PerfBench**
-- **`BenchOptions`** keys (`P\Perf\BenchOptions.cs`, defaults :13-79):
+- **`BenchOptions`** keys (`P\Perf\BenchOptions.cs:92-123`, defaults :13-79):
 
   | Key | Default |
   |---|---|
@@ -239,7 +239,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
   | `ground` | – (an unknown value means exit 2) |
 
   Unknown keys go to `warnings` (:124).
-- **`tw-perf/1` fields** (`PerfBench`, `P\Perf\PerfBench.cs`):
+- **`tw-perf/1` fields** (`P\Perf\PerfBench.cs`):
   - `run{label,utc,context,build(editor|development|release),args,exit,why,ended_in}` (:819-823)
   - `build_info` (a copy of `build-info.json`, player only) (:824-831)
   - `machine{cpu,cores,ram_mb,gpu,gpu_api,vram_mb,os,refresh_hz,battery}` (:832-836)
@@ -259,8 +259,8 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - Noise (:5-9; workflow.md's noise paragraph in §6): p50 about 1%, p95 up to about 12%, p99 and per-system up to about 25%, hitches 2 vs 5. Trust p50; believe a per-system change only past about 30% and in both runs.
 
 **Instruments**
-- **`FrameBudget`** (`P\Presentation\Core\RenderGround.cs`): `DrawCalls`, `Vertices` and `IndirectDraws` of the last complete frame. **`Vertices` excludes indirect draws, which means it excludes the men** (:193-197).
-- **`HitchAttribution`** (`P\Perf\HitchAttribution.cs`) names the outermost TW marker that carried each hitch over 33 ms.
+- **`FrameBudget`** (`P\Presentation\Core\RenderGround.cs:174-202`): `DrawCalls`, `Vertices` and `IndirectDraws` of the last complete frame. **`Vertices` excludes indirect draws, which means it excludes the men** (:193-197).
+- **`HitchAttribution`** (`P\Perf\HitchAttribution.cs:1-7`) names the outermost TW marker that carried each hitch over 33 ms.
 - **`AllocProbe`** (`P\Perf\AllocProbe.cs`): `Count(Action)` :38 and `PerCall(step, warm, reps)` :58 count GC.Alloc samples. Returns -1 in a release player.
 
 **Budgets** (`D\05-performance-budgets.md`)
@@ -272,7 +272,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - Fewer than 300 draw calls (:60-63).
 - Banned patterns (:65-76). Profiling procedure (:78-93).
 
-**Builds** (`BuildWindows`, `P\Editor\BuildWindows.cs`)
+**Builds** (`P\Editor\BuildWindows.cs`)
 - `ReleaseDir="Builds/WinBench"`, `DevelopmentDir="Builds/WinBenchDev"`, `Exe="TrenchWarfare.exe"` (:25).
 - `Build(bool)` :41. `Queue` (:32-38) relies on `delayCall`, which never fires in a background editor (workflow.md's build-queue note in §6).
 - `CommandLine()` (:73-78) reads `-twdev` and exits 0 or 1.
@@ -287,5 +287,3 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - Unit art budget (decisions.md:26): 1,200-1,500 verts (max 2,000), far model 250-400 beyond 170 m, vehicles 3,000-5,000.
 - `LodTiers.VertexBudget = 1500000`, knob `vat.vertexBudget` (`P\Presentation\Units\VATRenderer.cs:56`, :62). Shadows are on only while `nearVerts*2 + farVerts <= vertexBudget` (:272).
 - `occ.py`: `python Tools/aosa/occ.py <assemblies in dependency order>` or `--changed`. `TW_LIB` overrides the Library (workflow.md, the occ.py paragraph in §6).
-- `LodTiers.VertexBudget = 1500000`, knob `vat.vertexBudget` (`P\Presentation\Units\VATRenderer.cs`, :62). Shadows are on only while `nearVerts*2 + farVerts <= vertexBudget` (:272).
-- `occ.py`: `python Tools/aosa/occ.py <assemblies in dependency order>` or `--changed`. `TW_LIB` overrides the Library (workflow.md:120-126).
