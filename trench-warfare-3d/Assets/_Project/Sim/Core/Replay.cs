@@ -193,7 +193,7 @@ namespace TW.Sim
         // nowhere to go and nothing holding it down (K.1) - and the target it turns to is latched (K.2), which
         // appends TankGunnerySystem.TurnTarget to the end of that system's part of the hash, after HoldGoal.
         // The system chain is unchanged.
-        public const ushort FormatVersion = 59;
+        public const ushort FormatVersion = 60;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
