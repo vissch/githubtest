@@ -32,6 +32,7 @@ namespace TW.Presentation.Tactical
             Fan,        // the cone a stream throws where it lands on something
             Stand,      // a standing flame with a skirt and tongues, looping: a big thing burning, a man alight
             Pool,       // a puddle with a blob rising off it: burning fuel lying on the ground
+            Core,       // a second, denser stream drawing: the opaque inside of the jet, and a different glyph to Jet
             Head,       // a CLOSED bolus: the jet's leading mass, where a curl's hole would be fatal
             Bloom,      // the jet's TERMINUS: a ground-rooted bloom, where the stream stops being a jet and goes up
             // VFX pass wave 1 (2026-09-28): pack sheets and new desktop sheets, rows below in this order (FlipbookOrdinalTests)
@@ -72,7 +73,7 @@ namespace TW.Presentation.Tactical
             Count
         }
 
-        [System.Flags] public enum Kind : byte { None = 0, Upright = 1, Anchored = 2, Mirror = 4, Flat = 16 }   // Flat: lying on the ground, facing up (wins over Upright)
+        [System.Flags] public enum Kind : byte { None = 0, Upright = 1, Anchored = 2, Mirror = 4, HoldLast = 8, Flat = 16 }   // Flat: lying on the ground, facing up (wins over Upright)
 
         struct Card
         {
@@ -768,7 +769,8 @@ namespace TW.Presentation.Tactical
                     float fps = Sheets[b].Fps;
                     float run = (fps > 0f ? (now - c.Born) * fps : k * frames * play) + c.Start;   // at the rate it was drawn, or spread over the life
                     float span = frames * play - 1.001f;
-                    float frame = Sheets[b].Cycle ? Mathf.Repeat(run, span) : Mathf.Min(run, span);
+                    float frame = (c.Kind & Kind.HoldLast) != 0 ? Mathf.Min(k * frames, frames - 1f)
+                                : Sheets[b].Cycle ? Mathf.Repeat(run, span) : Mathf.Min(run, span);
                     float bright = 1f + (c.Glow - 1f) * (1f - Mathf.Clamp01(k / 0.15f));   // the fire is out in the first sixth
                     if (c.Soil > 0f)
                     {
