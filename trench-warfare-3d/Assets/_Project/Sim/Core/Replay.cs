@@ -215,7 +215,7 @@ namespace TW.Sim
         // WreckTries sheltering wrecks, nearest first, instead of returning on the nearest one whose shadow is empty
         // or that it cannot see. No field added, moved or dropped; the shots, suppression and prop hit points differ
         // at a tick, so older replays do not verify.
-        public const ushort FormatVersion = 65;
+        public const ushort FormatVersion = 66;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
