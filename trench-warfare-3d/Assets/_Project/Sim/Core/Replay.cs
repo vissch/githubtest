@@ -219,7 +219,7 @@ namespace TW.Sim
         // exactly as it ignores Airborne, so no gunfire path (hit, near miss, fire-step miss, shield graze, wreck
         // shadow) suppresses a hull; blast, gas, fire and beams are unchanged. Hashed Suppression values move, so
         // replays recorded before this commit no longer verify.
-        public const ushort FormatVersion = 66;
+        public const ushort FormatVersion = 67;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
