@@ -15,7 +15,7 @@ namespace TW.Presentation.VFX.Cel
 
         public override string Name => KindName;
         public override Shader FindShader() => Shader.Find("TW/Cel/ElectricBolt");
-        public override Mesh BuildMesh() => CelMeshes.Strip(48, "Cel Electric Bolt");
+        public override Mesh BuildMesh() => CelMeshes.Strip(128, "Cel Electric Bolt");
         public override int Capacity => 1536;
         public override int Order => 22;
     }
