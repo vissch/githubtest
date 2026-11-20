@@ -176,7 +176,7 @@ namespace TW.Sim
         // move (CoastTests.TheShippedGroundsHashesAreUnchanged pins them). A replay recorded on the old Landing map
         // does not replay: its MapHash no longer matches. Layout and chain unchanged.
         // This number is renumbered to the next free version when the lane lands.
-        public const ushort FormatVersion = 55;
+        public const ushort FormatVersion = 56;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
