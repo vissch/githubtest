@@ -718,6 +718,26 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **See it:** `C:/Users/PC/Documents/celfx/tools/capture.ps1 -Effect fireball` (the Range film; the reference is
   `fireball_nolora.mp4`, what it shows is written down in `C:/Users/PC/Documents/celfx/spec/eye/fireball.md`).
 
+### Ice ball (a CelFx effect: a ball of ice that flies in, hangs before the target, strikes and bursts into a crystal that shatters in a cold mist, 2026-11-15)
+- **Files (SHOW):** `Presentation/VFX/Cel/Effects/ice_ball/IceBallRecipe.cs` (`IceBallRecipe.Play(from, target,
+  ground, right, seed, delay)`: every record spawned at once, nothing left to do per frame; the clip's numbers as
+  named constants, its colours written through the Range's night grade; `Lens(intensity, smoothness)` hands the
+  scene's lens vignette to the shader; `Chart` films a colour chart for the grade),
+  `Presentation/VFX/Cel/Effects/ice_ball/IceBallKind.cs` (the pool: one shader, a 40-segment strip, 768 records;
+  the modes of a record - Comet, Drop, **Crystal**, **Mist**, **Swirl**, Chart, Glow),
+  `Presentation/VFX/Cel/Effects/ice_ball/IceBallRange.cs` (lab-only: where the Range's ball comes from, the
+  vignette, and the chart effects `ice_ball_swatch` and `ice_ball_palette`),
+  `Shaders/Cel/Effects/ice_ball/CelIceBall_URP.shader` (seven modes in one shader, its header the record layout;
+  the crystal is a table of blades drawn in one card, the mist one billowing cloud that the target shows through by
+  the scene's depth, the swirl a decal laid out on the level plane through the target's foot), keeper
+  `Resources/ShaderKeep/KeepCelIceBall.mat`.
+- **Tests:** IceBallTests (`Tests/Cel`: the ball's arc ends where it hangs, 1.7 m short of the target; a close play
+  has every layer and fits half its pool; far < mid < close; nothing is drawn after the effect's length; the lens is
+  put back with the session; 0 B per play).
+- **See it:** `C:/Users/PC/Documents/celfx/tools/capture.ps1 -Effect ice_ball` (the Range film; the reference is a
+  splice, frames 0-23 of `ice_ball_nolora_00001_.mp4` then frames 24-191 of `ice_ball_cel_00001_.mp4`, kept as
+  frames in `C:/Users/PC/Documents/celfx/runs/ice_ball/_ref/frames`).
+
 ### Debris and destruction of props and houses
 - **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers,
   `ZoomShare`; a pool whose last piece has sunk is not drawn), `Presentation/Camera/DebrisRenderer.Parts.cs` (a man's
@@ -1181,7 +1201,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Cel:** CelFxTests, FireballTests, NeonAcidTests
+- **Cel:** CelFxTests, FireballTests, IceBallTests, NeonAcidTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, ScriptedEnemySlotTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** AnimClockPlayTests, CaptureRigPlayTests, DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudMinimapPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, GymRequestTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
