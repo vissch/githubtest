@@ -195,7 +195,7 @@ namespace TW.Sim
         // The system chain is unchanged.
         // v38 (2026-10-06): what keeps two hulls apart is the footprints' extents along the line between them
         // (VehicleProfile.KeepApart), not the sum of two Radii, so every machine drives a little differently.
-        public const ushort FormatVersion = 60;
+        public const ushort FormatVersion = 61;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
