@@ -176,14 +176,10 @@ namespace TW.Tests
             r.Decide();
             Assert.AreEqual(Clip.FireProne, r.ClipOf(man), "the AT rifle fires from the ground, not standing or kneeling");
 
-            var atArms = TW.Presentation.Tactical.CombatFx.ArmsFor(InfantryArchetype.AtRifle, 10u, 3);
-            var sniperArms = TW.Presentation.Tactical.CombatFx.ArmsFor(InfantryArchetype.Sniper, 10u, 3);
             Assert.AreEqual(TW.Presentation.Tactical.CombatFx.ArmsKind.AtRifle, TW.Presentation.Tactical.CombatFx.KindOf(InfantryArchetype.AtRifle));
             Assert.AreNotEqual(TW.Presentation.Tactical.CombatFx.ArmsKind.Sniper, TW.Presentation.Tactical.CombatFx.KindOf(InfantryArchetype.AtRifle));
-            var mgArms = TW.Presentation.Tactical.CombatFx.ArmsFor(InfantryArchetype.Machinegunner, 10u, 3);
-            Assert.LessOrEqual(atArms.Spurt, mgArms.Spurt, "the bipod blast is no wider than the machine gun's (critique r1)");
-            Assert.LessOrEqual(atArms.Flare, mgArms.Flare, "the bipod flare is no wider than the machine gun's (critique r1)");
-            Assert.Less(atArms.Streak, sniperArms.Streak, "the AT rifle's streak is thick and short, unlike the Sniper's thin long one");
+            // its flash and round are AtRifleLookTests' (the fire-at-rifle-look goal: 2.5x a rifleman's flash area), which
+            // replaced atrifle-look r2's "no wider than the MG's" (overhaul 2026-11-20: the two lanes' numbers cannot both hold)
         }
 
         [Test]

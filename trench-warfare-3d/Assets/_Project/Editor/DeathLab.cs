@@ -113,8 +113,6 @@ namespace TW.Editor
             switch (name)
             {
                 case "shot": return Row(6, x, z, 0) + "; " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 4f, z + 30f, 180f) + " " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 6f, z + 30f, 180f);
-                // the balloon: frogs shot standing in the open by two riflemen up the field (DeathLab.Force("balloon") to be sure of it)
-                case "frogshot": return Row(6, x, z, 0, 1.6f, 1f, -1f, InfantryArchetype.Frog) + "; " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 4f, z + 30f, 180f) + " " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 6f, z + 30f, 180f);
                 case "mg": return Row(6, x, z, 0) + "; " + TankCapture.Spawn(1, InfantryArchetype.Machinegunner, x + 4f, z + 30f, 180f);
                 // hit and not killed (CombatFx.HitBlood, the blood on the uniform): men tough enough to take many hits, their
                 // hp and max hp raised together so the stain grows with what they lose, a machine gun and two rifles on them

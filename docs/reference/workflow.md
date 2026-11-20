@@ -579,9 +579,8 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.CrabManifest.MachineOf(assetPath)` | Editor/CrabManifest.cs | The machine a model file belongs to: "Kettle" for .../Kettle_LOD1.fbx. |
 | `TW.Editor.DeathLab.Absurd(intensity)` | Editor/DeathLab.cs | Pins how absurd the deaths are (0 today's, 1 the new look, 2 ludicrous; negative: the knob decides). |
 | `TW.Editor.DeathLab.Planted()` | Editor/DeathLab.cs | Where the newest man planted head first in the mud (DeathGag.Planted) came to rest, so a capture can be aimed at him instead of guessing: "x z" in ... |
-| `TW.Editor.DeathLab.Row(n, x, z, team, spacing, hp, maxHp, archetype, alongZ)` | Editor/DeathLab.cs | n men in a line along x (or, with alongZ, along z) from (x, z), facing +z, each with hp hit points; returns their slots. |
 | `TW.Editor.DeathLab.Force(gag)` | Editor/DeathLab.cs | Pins the gag every death that can takes (DeathGags.Force), so a rare one can be filmed: a gag still only happens where its own conditions hold (a ... |
-| `TW.Editor.DeathLab.Row(n, x, z, team, spacing, hp, maxHp, archetype)` | Editor/DeathLab.cs | n men in a line along x from (x, z), facing +z, each with hp hit points; returns their slots. |
+| `TW.Editor.DeathLab.Row(n, x, z, team, spacing, hp, maxHp, archetype, alongZ)` | Editor/DeathLab.cs | n men in a line along x (or, with alongZ, along z) from (x, z), facing +z, each with hp hit points; returns their slots. |
 | `TW.Editor.DeathLab.Shell(x, z, radius, damage)` | Editor/DeathLab.cs | One shell, bursting next tick in every world (the men it kills die of it as they would in battle). |
 | `TW.Editor.DeathLab.Fire(x, z, radius)` | Editor/DeathLab.cs | An incendiary burst: the men inside it catch fire and burn to death over the next seconds. |
 | `TW.Editor.DeathLab.Call(ability, x, z, args)` | Editor/DeathLab.cs | A support call for player 0 at a point (silver topped up first); `args` is SimCommand.B (AbilityArgs: a line ability's heading, pattern and length; 0 ... |
@@ -619,9 +618,8 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.RiderLab.Fire(on)` | Editor/RiderLab.cs | (no summary: read the method) |
 | `TW.Editor.RiderLab.Freeze(on)` | Editor/RiderLab.cs | (no summary: read the method) |
 | `TW.Editor.RiderLab.Panel(on)` | Editor/RiderLab.cs | (no summary: read the method) |
-| `TW.Editor.RiderLab.Camera(slot, zoom, yaw, pitch)` | Editor/RiderLab.cs | Frame the camera on a slot: zoom, yaw, pitch (the follow keeps it framed while it walks). |
-| `TW.Editor.RiderLab.CameraRestore()` | Editor/RiderLab.cs | Puts ZoomMin, Pitch and ClosePitch back as the scene shipped them (what Camera(...) overwrote). |
 | `TW.Editor.RiderLab.Camera(slot, zoom, bearing, pitch)` | Editor/RiderLab.cs | Frame the camera on a slot: zoom, bearing, pitch (the follow keeps it framed while it walks). |
+| `TW.Editor.RiderLab.CameraRestore()` | Editor/RiderLab.cs | Puts ZoomMin, Pitch and ClosePitch back as the scene shipped them (what Camera(...) overwrote). |
 | `TW.Editor.RiderLab.Film(dir, seconds, fps, w, h)` | Editor/RiderLab.cs | Record `seconds` of GAME time as `fps` frames a second into `dir` (a frame is repeated when the editor renders slower). |
 | `TW.Editor.RiderLab.VolleyShot(path, shots)` | Editor/RiderLab.cs | Save a still to `path` the frame `shots` more rider shots have been fired (a volley caught as it lands). |
 | `TW.Editor.RiderLab.FilmStatus()` | Editor/RiderLab.cs | (no summary: read the method) |

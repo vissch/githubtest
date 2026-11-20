@@ -30,7 +30,6 @@ namespace TW.Presentation.Tactical
                 case InfantryArchetype.Officer: return ArmsKind.Carbine;
                 case InfantryArchetype.Shield: return ArmsKind.Pistol;
                 case InfantryArchetype.Jetpack: return ArmsKind.MachinePistol;
-                case InfantryArchetype.AtRifle: return ArmsKind.AtRifle;
                 case VehicleArchetype.Maw: case VehicleArchetype.Tusk: case VehicleArchetype.Breaker: case VehicleArchetype.Skimmer: return ArmsKind.HullMg;
                 default: return ArmsKind.Rifle;
             }
