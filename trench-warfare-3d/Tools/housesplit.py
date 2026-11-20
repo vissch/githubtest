@@ -431,6 +431,7 @@ for m in manifest: over[m["house"]] = over.get(m["house"], 0) + 1
 over = {h: n for h, n in over.items() if n > MAX_CHUNKS}
 if over:
     for h in sorted(over): print("OVER LIMIT %s %d chunks, HouseKit holds %d" % (h, over[h], MAX_CHUNKS))
+    splitlog.write(__file__, argv)
     sys.exit(1)
 print("DONE", len(manifest), "chunks")
 splitlog.write(__file__, argv)

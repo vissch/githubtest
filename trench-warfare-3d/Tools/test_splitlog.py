@@ -153,10 +153,12 @@ class Records(unittest.TestCase):
 class TheScripts(unittest.TestCase):
     def test_every_blender_split_records_its_run_on_every_way_out(self):
         tools = Path(__file__).resolve().parent
-        # a split is a Blender script (it imports bpy at the top) that writes model FBXs
+        # a split is a Blender script (it imports bpy at the top) that writes model FBXs and is run by itself (it reads
+        # its own command line): battleform.py exports too, but only for the splits that import it
         splits = sorted(p for p in tools.glob('*.py')
                         if re.search(r'^import bpy', p.read_text(encoding='utf-8'), re.M)
-                        and 'bpy.ops.export_scene.fbx(' in p.read_text(encoding='utf-8'))
+                        and 'bpy.ops.export_scene.fbx(' in p.read_text(encoding='utf-8')
+                        and 'sys.argv' in p.read_text(encoding='utf-8'))
         self.assertGreaterEqual(len(splits), 8, [p.name for p in splits])
         for p in splits:
             lines = p.read_text(encoding='utf-8').rstrip().split('\n')

@@ -460,6 +460,7 @@ if os.environ.get("TW_BATTLE", "") == "1":
     own = LOD2_FROM != "derive"
     battleform.write(NAME, OUTDIR, RENDERDIR, lods[0], lods[2], ALL_PARTS, PARENT, piv, sock, mats[0], bases[0], SCALE, manifest, tris_of,
                      far_mat=mats[2] if own else None, far_base=bases[2] if own else None)
+    splitlog.write(__file__, argv)
     sys.exit(0)
 for lod, P in enumerate(lods):
     root, objs = make(lod, P, piv, mats[lod])

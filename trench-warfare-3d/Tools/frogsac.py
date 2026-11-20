@@ -32,6 +32,7 @@ import numpy as np
 from mathutils import Vector
 
 argv = sys.argv[sys.argv.index("--") + 1:]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import splitlog   # Tools/splitlog.py: this run, written down
 IN, OUT, REPORT = argv[0], argv[1], argv[2]
 SAC_R = float(os.environ.get("TW_SAC_R", "0.07"))
 # How far in FRONT of the chest skin the inflated ball's centre stands, at TW_SAC_TEST_SCALE. This is the number
@@ -250,3 +251,4 @@ json.dump(old, open(os.path.join(os.path.dirname(OUT), "frogrig.json"), "w", new
 json.dump(rep, open(REPORT, "w", newline="\n"), indent=1)
 print("DONE", [(l["lod"], l["verts"], l["tris"]) for l in rep["lods"]],
       "sac across %.3f m at scale %g, rest poke-out %.4f m" % (rep["sac_across_m_at_test_scale"], TEST_SCALE, poke))
+splitlog.write(__file__, argv)

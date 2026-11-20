@@ -1239,9 +1239,9 @@ namespace TW.Presentation
         /// <summary>Move every frame on, close the cross-fades, end the one-shots; then the stand-in row and phase per slot.</summary>
         public void Advance(float dt)
         {
-            for (int k = 0; k < activeCount; k++)
+            for (int at = 0; at < activeCount; at++)
             {
-                int i = active[k];
+                int i = active[at];
                 var s = State[i];
                 var info = Clips.Table[(int)s.Clip];
                 if (s.Clip == Clip.None) { Row[i] = (ushort)Clip.Idle; Phase[i] = 0f; Blend[i] = 0f; continue; }
