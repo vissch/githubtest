@@ -203,6 +203,11 @@ def handler(where: Path, key: str):
                     if self.path not in concepts.ROUTES:
                         return self.reply(404, dict(ok=False, why='nothing here'))
                     return self.reply(200, dict(ok=True, **concepts.post(self.path, d)))
+                elif self.path.startswith('/priority/'):        # a unit moved up or down the relay's queue (priomove.py)
+                    import priomove
+                    if self.path not in priomove.ROUTES:
+                        return self.reply(404, dict(ok=False, why='nothing here'))
+                    return self.reply(200, dict(ok=True, **priomove.post(self.path, d)))
                 else:
                     return self.reply(404, dict(ok=False, why='nothing here'))
                 self.reply(200, dict(ok=True, note=note))

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Animations{% endblock %}
+{% block bodyclass %}overview anims{% endblock %}
+{% block head %}<link rel="stylesheet" href="anims.css">{% endblock %}
+{% block main %}
+{# The animation reference clips MiniMax H3 made per unit (anims.py lists them, anims.js draws them): attack, move, hit
+   and death, three takes each. The clips play straight from the owner's Drive (file:/// links), they are not in the site. #}
+<section class="k-office an-page" id="anims">
+  <header class="k-head">
+    <p class="k-eyebrow"><span class="k-star" aria-hidden="true"></span>Animations</p>
+    <h2>Animation references, <span class="k-soft">made with MiniMax H3.</span></h2>
+    <p class="an-count" id="an-count" aria-live="polite">reading the clips…</p>
+  </header>
+  <div class="an-tools">
+    <div class="an-tabs" id="an-actions" role="group" aria-label="Show one action"></div>
+    <select class="an-unit" id="an-unit" aria-label="Unit"></select>
+    <label class="an-opt"><input type="checkbox" id="an-auto" checked> Play on hover</label>
+    <label class="an-opt"><input type="checkbox" id="an-rej"> Show re-rolled first takes</label>
+  </div>
+  <div id="an-board"></div>
+</section>
+<dialog class="an-big" id="an-big"><video id="an-bigv" controls loop playsinline></video><p id="an-bigp"></p><button type="button" id="an-close">Close</button></dialog>
+<noscript><p class="warn">This page is drawn by a script.</p></noscript>
+{% endblock %}
+{% block script %}<script src="data/anims.js"></script><script src="anims.js"></script>{% endblock %}

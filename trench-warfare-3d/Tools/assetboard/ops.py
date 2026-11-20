@@ -102,10 +102,10 @@ def page(out: Path, meta):
     from jinja2 import Environment, FileSystemLoader, select_autoescape
     env = Environment(loader=FileSystemLoader(str(HERE / 'templates')), autoescape=select_autoescape(['html']), trim_blocks=True, lstrip_blocks=True)
     env.globals.update(meta=meta)
-    for name in ('floor.html', 'house.html', 'graphs.html', 'decide.html', 'tasks.html', 'runs.html', 'priorities.html', 'concepts.html'):
+    for name in ('floor.html', 'house.html', 'graphs.html', 'decide.html', 'tasks.html', 'runs.html', 'priorities.html', 'concepts.html', 'anims.html'):
         write_if_changed(out / name, env.get_template(name).render(root=''))
     for name in ('floor.js', 'crew.js', 'queue.js', 'office.js', 'house.js', 'housedraw.js', 'touch.js', 'touchdraw.js', 'house.css', 'board.js', 'board.css', 'counted.js', 'countedscene.js', 'three.min.js', 'three.LICENSE.txt',
-                 'control.js', 'control.css', 'decide.js', 'decide.css', 'ideas.js', 'ideas.css', 'tasks.js', 'taskboard.js', 'tasks.css', 'runs.js', 'runsboard.js', 'runs.css', 'priorities.js', 'priorities.css', 'concepts.js', 'conceptstop.js', 'concepts.css', 'site.css', 'kinetic.css'):
+                 'control.js', 'control.css', 'decide.js', 'decide.css', 'ideas.js', 'ideas.css', 'tasks.js', 'taskboard.js', 'tasks.css', 'runs.js', 'runsboard.js', 'runs.css', 'priorities.js', 'priorities.css', 'concepts.js', 'conceptstop.js', 'concepts.css', 'anims.js', 'anims.css', 'site.css', 'kinetic.css'):
         write_if_changed(out / name, (HERE / 'static' / name).read_text(encoding='utf-8'))
     crew(out)
     frog(out)
@@ -420,6 +420,18 @@ def the_concepts(out: Path, watching=False):
         return 0
 
 
+def the_anims(out: Path):
+    """The H3 animation reference clips per unit (anims.py) as data/anims.js; a Drive that is not there is no reason to have no site."""
+    if os.environ.get('TW_CONCEPTS_OFF'):
+        return 0
+    import anims
+    try:
+        return anims.site(out)
+    except Exception as e:      # noqa: BLE001
+        print(f'ops: the animation clips were not put in the site ({type(e).__name__}: {e})', flush=True)
+        return 0
+
+
 def once(out: Path, watching=False):
     data = src_ops.collect(build.REPO, out, share=watching)      # a watcher is this station's voice: its floor goes where the other station reads it
     ready_since(data, out / 'data' / 'ready-since.json')
@@ -436,6 +448,7 @@ def once(out: Path, watching=False):
     briefs.site(briefs.folder(), out, got=got, owed=owed)          # the decisions that wait on the owner, each as a brief with what it shows (decide.html)
     the_ideas(out, watching)
     the_concepts(out, watching)
+    the_anims(out)
     the_priorities(out, data)          # last: it is made of what the lines above wrote
     # the stamp changes every time; compare without it so an unchanged floor is not uploaded again
     body = json.dumps({k: v for k, v in data.items() if k not in ('now', 'queue', 'notes', 'tasks', 'runs')}, sort_keys=True, default=str)

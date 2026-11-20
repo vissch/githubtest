@@ -19,7 +19,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 TMP = Path(tempfile.mkdtemp(prefix='tw-concepts-test-'))
-os.environ.update(TW_CONCEPTS=str(TMP / 'concepts'), TW_NOTES=str(TMP / 'notes'), TW_CONCEPT_IMAGES=str(TMP / 'drive'), TW_CONCEPT_PROJECT=str(TMP / 'project'))
+os.environ.update(TW_CONCEPTS=str(TMP / 'concepts'), TW_NOTES=str(TMP / 'notes'), TW_CONCEPT_IMAGES=str(TMP / 'drive'), TW_CONCEPT_PROJECT=str(TMP / 'project'), TW_CONCEPT_BIG=str(TMP / 'big'), TW_CONCEPT_BIG_PROMPTS=str(TMP / 'big-prompts.json'), TW_CONCEPT_THEMES=str(TMP / 'themes'))
 import concepts  # noqa: E402
 import notes     # noqa: E402
 
@@ -90,6 +90,147 @@ def asking():
     case('request: 0 or 9 pictures, an unknown kind, an unknown theme and a LoRA over 1.5 are refused', all(raises(concepts.request, 'a frog tank with a long gun', **k) for k in (dict(takes=0), dict(takes=9), dict(kind='planet'), dict(theme='x'), dict(lora=2))))
     case('build_prompt: a trigger he typed himself is not doubled', concepts.build_prompt('item', '@clashroyale, 3d render, a brass lantern.', '').count('@clashroyale') == 1)
     return r, r2
+
+
+def shelves():
+    c = concepts
+    case('shelves: the guess puts flying, crab, mech and size on the right shelf',
+         [c.classify(dict(t=a, n='', c=b, s=s)) for a, b, s in (('Biplane fighter', 'aircraft', 'frog'), ('Wading crab walker', 'amphibious', 'frog'), ('Gatling gunner mech', 'mechs', 'frog'),
+                                                              ('Trench buggy', 'light_vehicles', 'frog'), ('Armoured thing', 'tanks', 'frog'), ('Giant slingshot launcher', 'inventions', 'frog'),
+                                                              ('x', 'tiny', 'vehicles4000'), ('x', 'medium', 'vehicles4000'), ('x', 'giant', 'vehicles4000'), ('colossal flying scrap heap', 'giant', 'vehicles4000'), ('Anti-aircraft flak tank', 'tanks', 'frog'))]
+         == ['flying', 'crab', 'mech', 'small', 'medium', 'big', 'small', 'medium', 'big', 'flying', 'medium'])
+    ids = ['twf3d_mech60_exploration/mechs60_a/01_light-biped-scout-runner/01-1_gauge-dash-runner_s1_00001_.png']
+    before = dict(c.approved())
+    d = c.set_group(ids, 'crab')
+    case('shelves: his word is kept in groups.json and approved.json is left alone', d == {ids[0]: 'crab'} and c.groups() == d and c.approved() == before, d)
+    case('shelves: an unknown shelf is refused, and an empty one gives the guess back', raises(c.set_group, ids, 'tiny') and c.set_group(ids, '') == {})
+    case('shelves: the route returns his words', c.route('/concept/group', dict(ids=ids, group='mech')) == dict(own={ids[0]: 'mech'}) and '/concept/group' in c.ROUTES)
+    c.set_group(ids, '')
+
+
+def big_sets():
+    c = concepts
+    big = TMP / 'big'
+    for folder, nn in (('twf3d_frog_pickelhaube_300', '007_small-feldgrau-scout'), ('twf3d_frog_antiair_400', '012_tiny-flak-hopper')):
+        picture(big / folder / ('small' if 'pickel' in folder else 'tiny') / nn / (nn[:3] + '-2_frog-anatomy_s2_00001_.png'))
+    (big / 'twf3d_frog_pickelhaube_300' / 'INDEX.md').write_text('| # | size | combat level | movement | shape | folder |\n|---|---|---|---|---|---|\n| 007 | small | armed | wheels | manta | 007_small-feldgrau-scout |\n', encoding='utf-8')
+    keep = [b['prompts'] for b in c.BIGS]
+    for b, key in zip(c.BIGS[1:], ('g007/B_s2', 'h012/B_s2')):
+        f = TMP / (b['sid'] + '.json')
+        f.write_text(json.dumps({key: dict(prompt='p of ' + key, seed=4242)}), encoding='utf-8')
+        b['prompts'] = str(f)
+    try:
+        got = {it['s']: it for it in c.scan_big()}
+    finally:
+        for b, k in zip(c.BIGS, keep):
+            b['prompts'] = k
+    a, b = got.get('pickelhaube300', {}), got.get('antiair400', {})
+    case('big sets: each set is a session, its prompt and seed are found under its own key prefix, and the index words go on the picture',
+         a.get('p') == 'p of g007/B_s2' and a.get('seed') == 4242 and b.get('p') == 'p of h012/B_s2' and 'vehicles4000' not in got and 'manta shape' in a.get('t', '')
+         and a['id'].startswith('twf3d_frog_pickelhaube_300/small/') and b['c'] == 'tiny', got)
+    case('big sets: the sessions table lists the big sets, then the themed ones, the weapons, the prompted one last',
+         [s['id'] for s in c.sessions_table()][-4:] == ['themes1', 'themes2', 'weapons', 'prompted'] and c.sessions_table()[-1]['label'].startswith('11 - ')
+         and [s['id'] for s in c.sessions_table()][-4 - len(c.BIGS):-4] == c.BIG_SIDS)
+    # a loose set (2026-11-15): the pictures straight in the set folder, the prompts file keyed by the stem gives category, label and title
+    lroot = TMP / 'loose_root'
+    (lroot / 'twf3d_loose').mkdir(parents=True, exist_ok=True)
+    for f in ('001_green_frog_quad_aa.png', '002_odd_one.png', 'notes.txt'):
+        (lroot / 'twf3d_loose' / f).write_bytes(b'x')
+    lb = dict(sid='loose', folder='twf3d_loose', flat=True, loose=True, shelf='characters')
+    lo = c.scan_flat(lb, lroot, {'001_green_frog_quad_aa': dict(prompt='a prompt', seed=5, cat='02_quad_aa', cl='Quad AA', t='Green Frog - Quad AA')})
+    case('loose set: a picture a concept, its row gives category, label, title and seed; a picture with no row goes under other; other files are skipped',
+         [it['id'] for it in lo] == ['twf3d_loose/001_green_frog_quad_aa.png', 'twf3d_loose/002_odd_one.png']
+         and (lo[0]['c'], lo[0]['cl'], lo[0]['t'], lo[0]['seed'], lo[0]['p'], lo[0]['g']) == ('02_quad_aa', 'Quad AA', 'Green Frog - Quad AA', 5, 'a prompt', 'characters')
+         and (lo[1]['c'], lo[1]['cl'], lo[1]['p']) == ('99_other', 'Other', ''))
+    # the weapon cards (2026-10-28): read from their index, a card whose file is missing left out, each on the Weapons shelf, its file found on the Drive's folder
+    wroot = TMP / 'weapons_root'
+    (wroot / 'weapons_round3' / 'cards' / 'shield').mkdir(parents=True, exist_ok=True)
+    (wroot / 'weapons_round3' / 'cards' / 'shield' / 'a.png').write_bytes(b'x')
+    (wroot / 'weapons_round3' / 'index.json').write_text(json.dumps({'shield/a.png': dict(g='shield', gl='Shield', n='hedgehog wall', t='Shield: spiked shield', p='a prompt', seed=7, i=1),
+                                                                    'shield/gone.png': dict(g='shield', gl='Shield', n='gone', i=2)}), encoding='utf-8')
+    w = c.scan_weapons(wroot)
+    case('weapons: the index gives the cards, a missing file is left out, each goes on the Weapons shelf',
+         [it['id'] for it in w] == ['weapons_round3/cards/shield/a.png'] and w[0]['s'] == 'weapons' and w[0]['cl'] == 'Shield' and w[0]['seed'] == 7
+         and c.classify(w[0]) == 'weapons' and 'weapons' in dict(c.GROUPS)
+         and c.source_of(Path('X:/images'), w[0]['id']) == c.BIG_ROOT / 'weapons_round3/cards/shield/a.png')
+
+    # the frog characters (2026-11-13): <elements>/<NNNN_idea>/<NNNN>-<variation>_s<seed>.png read in place from the set's own root, on the Characters shelf
+    uroot = TMP / 'units_root'
+    (uroot / 'twf3d_frog_units' / 'ice-electric' / '0001_frost_spark_banjo_thrower').mkdir(parents=True, exist_ok=True)
+    (uroot / 'twf3d_frog_units' / 'normal' / '0002_trench_tree_rifleman').mkdir(parents=True, exist_ok=True)
+    for rel in ('ice-electric/0001_frost_spark_banjo_thrower/0001-2_s1.png', 'ice-electric/0001_frost_spark_banjo_thrower/0001-1_s2.png', 'normal/0002_trench_tree_rifleman/0002-3_s1.png',
+                'normal/0002_trench_tree_rifleman/notes.txt'):
+        (uroot / 'twf3d_frog_units' / rel).write_bytes(b'x')
+    ub = [x for x in c.BIGS if x['sid'] == 'frogunits'][0]
+    keep_u = ub['prompts']
+    uf = TMP / 'units_prompts.json'
+    uf.write_text(json.dumps({'normal/0002_trench_tree_rifleman/0002-3_s1.png': dict(prompt='a hero frog', seed=99)}), encoding='utf-8')
+    ub['prompts'] = str(uf)
+    try:
+        ui = [it for it in c.scan_big(uroot) if it['s'] == 'frogunits']
+    finally:
+        ub['prompts'] = keep_u
+    case('frog characters: found by element folder (one element first), the idea and variation named, the prompt by path, every one on the Characters shelf, read from the set own root',
+         [it['id'] for it in ui] == ['twf3d_frog_units/normal/0002_trench_tree_rifleman/0002-3_s1.png', 'twf3d_frog_units/ice-electric/0001_frost_spark_banjo_thrower/0001-1_s2.png',
+                                    'twf3d_frog_units/ice-electric/0001_frost_spark_banjo_thrower/0001-2_s1.png']
+         and ui[0]['p'] == 'a hero frog' and ui[0]['seed'] == 99 and ui[1]['cl'] == 'Ice + Electric' and ui[1]['n'] == '0001 Frost Spark Banjo Thrower - ready pose'
+         and ui[1]['k'] == 2 and all(it['g'] == 'characters' and c.classify(it) == 'characters' for it in ui) and 'characters' in dict(c.GROUPS)
+         and c.source_of(Path('X:/images'), ui[0]['id']) == c.IMAGES / ui[0]['id'] and c.source_of(Path('X:/images'), 'twf3d_trees_120/big/001_oak/a.png') == c.BIG_ROOT / 'twf3d_trees_120/big/001_oak/a.png', ui)
+    # the later character rounds: a group folder, four named versions (desert / Slavic / sea) or one unnamed version (the older rounds)
+    for rel in ('snakes/0001_colonial_armoured_taipan_legless_burnous_hood/0001-2_s1.png', 'sea_mammals/0003_ww2_plain_seal_side_cap/0003-4_s1.png'):
+        (uroot / 'twf3d_desert_nomads_500' / rel).parent.mkdir(parents=True, exist_ok=True)
+        (uroot / 'twf3d_desert_nomads_500' / rel).write_bytes(b'x')
+    (uroot / 'twf3d_reptile_biomes_1000' / 'winter' / '0004_ww2_plain_adder_ushanka').mkdir(parents=True, exist_ok=True)
+    (uroot / 'twf3d_reptile_biomes_1000' / 'winter' / '0004_ww2_plain_adder_ushanka' / '0004-1_s2.png').write_bytes(b'x')
+    got = {it['s']: it for it in c.scan_big(uroot) if it['s'] in ('desert', 'reptbiome')}
+    case('character rounds: a group folder is the category, the four versions are named normal / fire / ice / electric, a one-version round has no version word, all on the Characters shelf',
+         got['desert']['n'] in ('0001 Colonial Armoured Taipan Legless Burnous Hood - fire', '0003 Ww2 Plain Seal Side Cap - electric') and got['desert']['g'] == 'characters'
+         and got['reptbiome']['n'] == '0004 Ww2 Plain Adder Ushanka' and got['reptbiome']['cl'] == 'Winter' and got['reptbiome']['k'] == 2
+         and {it['cl'] for it in c.scan_big(uroot) if it['s'] == 'desert'} == {'Snakes', 'Sea Mammals'}, got)
+
+
+def themed():
+    c = concepts
+    root = TMP / 'themes'
+    root.mkdir(parents=True, exist_ok=True)
+    (root / 'themes_index.json').write_text(json.dumps({'approved_themes': {'x_00_00001_.png': 'i001_frog_s1', 'x_01_00001_.png': 'i001_pw_s2', 'x_00_00002_.png': 'i002_frog_s1'}, 'approved_themes2': {'x_00_00001_.png': 'i001_frog_s1'}}), encoding='utf-8')
+    units = [dict(idx=1, unit='twf3d_frog_antiair_400/giant/114_garbage-heap-walking-flak', file='114-1_plain_s2_00001_.png', damage='freeze', role='anti-flight'),
+             dict(idx=2, unit='twf3d_frog_antiair_400/tiny/012_flak-hopper', file='012-2_frog-anatomy_s1_00001_.png', damage='fire', role='anti-vehicle')]
+    files = {}
+    for name, rows in (('units.json', units), ('prompts1.json', {'i001_frog_s1': dict(prompt='frozen frog flak', seed=7), 'i001_pw_s2': dict(prompt='frozen pickelhaube flak', seed=8), 'i002_frog_s1': dict(prompt='fire frog hopper', seed=9)}),
+                       ('prompts2.json', {'i001_frog_s1': dict(prompt='frozen harder', seed=10)})):
+        files[name] = TMP / ('th-' + name)
+        files[name].write_text(json.dumps(rows), encoding='utf-8')
+    keep = [(s['units'], s['prompts']) for s in c.THEME_SETS]
+    c.THEME_SETS[0].update(units=str(files['units.json']), prompts=str(files['prompts1.json']))
+    c.THEME_SETS[1].update(units=str(files['units.json']), prompts=str(files['prompts2.json']))
+    try:
+        orig = units[0]['unit'] + '/' + units[0]['file']
+        got = c.scan_themes({orig: dict(t='x', c='giant', s='vehicles4000', n='', i=1, k=1)})
+        by = {(i['s'], i['i'], i['n'].rsplit(' - ', 1)[-1], i['k']): i for i in got}
+    finally:
+        for s, (u, pr) in zip(c.THEME_SETS, keep):
+            s.update(units=u, prompts=pr)
+    a = by.get(('themes1', 1, 'frog', 1), {})
+    case('themes: each file is its unit, version and seed; the theme, prompt, seed and the approved picture it comes from go with it',
+         len(got) == 4 and a.get('c') == 'freeze' and a.get('cl') == 'Frozen' and a.get('p') == 'frozen frog flak' and a.get('seed') == 7 and a.get('o') == orig and a.get('id') == 'approved_themes/x_00_00001_.png'
+         and by[('themes1', 1, 'pickelhaube', 2)]['k'] == 2 and by[('themes2', 1, 'frog', 1)]['p'] == 'frozen harder', got)
+    case('themes: a version stands on the shelf of its approved unit (its size when the unit is not known), and no index means no pictures',
+         a.get('g') == 'big' and by[('themes1', 2, 'frog', 1)]['g'] == 'small' and by[('themes1', 2, 'frog', 1)]['cl'] == 'Fire' and c.scan_themes({}, root=TMP / 'nowhere') == [])
+    case('themes: classify keeps the shelf a version came with, and the files are found in the themes folder',
+         c.classify(dict(t='flying thing', c='fire', s='themes1', g='mech')) == 'mech' and c.source_of(TMP / 'drive', 'approved_themes2/x.png') == c.THEMES_DIR / 'approved_themes2/x.png')
+
+
+def newest_first():
+    c = concepts
+    d = TMP / 'drive' / 'twf3d_mech60_exploration' / 'mechs60_a'
+    old, new = d / '01_light-biped-scout-runner' / '01-1_gauge-dash-runner_s1_00001_.png', d / '01_light-biped-scout-runner' / '01-2_webfoot-skimmer_s1_00001_.png'
+    for f, when in ((old, 1_000_000_000), (new, 1_800_000_000)):
+        os.utime(f, (when, when))
+    c.MADE.clear()
+    ids = [it['id'] for it in c.scan(requests=[])]
+    first, last = ids.index(new.relative_to(TMP / 'drive').as_posix()), ids.index(old.relative_to(TMP / 'drive').as_posix())
+    case('order: the picture made last comes first, the one made first after it', first < last, ids)
 
 
 def approving():
@@ -292,6 +433,42 @@ def the_page():
     case('page: an approval and a request go to the notes listener\'s concept routes', all(x in js for x in ("'/concept/approve'", "'/concept/request'", "'/concept/' + what")))
 
 
+def themed_page():
+    node = shutil.which('node')
+    if not node:
+        print('      (no node on this machine: the themed page cases were not run)')
+        return
+    js = r"""
+const P = require(process.argv[1]);
+const mk = (id, s, c, o, g, i) => ({id, s, c, o, g, i, n: id, k: 1});
+const L = [mk('a1', 'themes1', 'fire', 'o1', 'big', 2), mk('a2', 'themes2', 'fire', 'o1', 'big', 2), mk('a3', 'themes1', 'freeze', 'o1', 'big', 1), mk('a4', 'themes1', 'poison', 'o2', 'small', 3),
+           mk('a5', 'themes1', 'fire', 'o3', 'flying', 4), {id: 'z', s: 'frog', c: 'tanks'}];
+const g = P.themeGroups(L.filter(P.isTheme), null, {});
+const own = P.themeGroups(L.filter(P.isTheme), null, {o3: 'mech', o2: 'crab'});
+console.log(JSON.stringify({
+  isTheme: [P.isTheme(L[0]), P.isTheme(L[5])],
+  shelves: g.map(s => [s[0], s[3], s[2].map(t => t[0] + ':' + t[2].map(x => x.id).join(','))]),
+  moved: own.map(s => [s[0], s[3]]),
+  fold: [P.folded({}, 'th:big'), P.folded({}, 'th:big:fire'), P.folded({}, 'ap:big'), P.folded({'th:big': false}, 'th:big'), P.folded({'ap:big': true}, 'ap:big')],
+  weapons: P.weaponGroups([{id: 'w3', s: 'weapons', c: 'medic', cl: 'Medic', i: 3}, {id: 'w2', s: 'weapons', c: 'shield', cl: 'Shield', i: 2}, {id: 'w1', s: 'weapons', c: 'shield', cl: 'Shield', i: 1}]
+    .filter(P.isWeapon)).map(g => [g[0], g[1], g[2].map(x => x.id).join(',')]).concat([[P.isWeapon(L[0]), P.folded({}, 'wp:shield')]])
+}));
+"""
+    r = subprocess.run([node, '-e', js, str(HERE / 'static' / 'concepts.js')], capture_output=True)
+    try:
+        g = json.loads(r.stdout.decode())
+    except ValueError:
+        case('themes page: concepts.js runs under node', False, r.stderr.decode()[-900:])
+        return
+    case('themes page: the versions are told from the others, grouped by shelf and then theme (fire before frozen), the units one after the other with the newest round first',
+         g['isTheme'] == [True, False] and g['shelves'] == [['small', 1, ['poison:a4']], ['flying', 1, ['fire:a5']], ['big', 3, ['fire:a2,a1', 'freeze:a3']]], g)
+    case('themes page: a version follows the shelf its approved unit was moved to', ['crab', 1] in g['moved'] and ['mech', 1] in g['moved'] and ['big', 3] in g['moved'], g)
+    case('themes page: a themed shelf starts hidden, a theme and an approved shelf start open, and what he said stands',
+         g['fold'] == [True, False, False, False, True], g['fold'])
+    case('weapons page: the weapons are told from the rest and grouped by soldier in the order they come, each in its own order; a group starts open',
+         g['weapons'] == [['shield', 'Shield', 'w1,w2'], ['medic', 'Medic', 'w3'], [False, False]], g['weapons'])
+
+
 def page_rules():
     node = shutil.which('node')
     if not node:
@@ -351,6 +528,11 @@ if __name__ == '__main__':
     publishing()
     the_page()
     page_rules()
+    shelves()
+    newest_first()
+    big_sets()
+    themed()
+    themed_page()
     shutil.rmtree(TMP, ignore_errors=True)
     print(f'{sum(results)} of {len(results)} cases behaved')
     sys.exit(0 if all(results) else 1)

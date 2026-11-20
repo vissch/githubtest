@@ -78,7 +78,43 @@
     (mine || []).forEach(function (m) { if (now - m.at < 90000 || !by[m.r.id]) by[m.r.id] = m.r; });
     return Object.keys(by).map(function (k) { return by[k]; });
   }
-  var api = { STEP: STEP, STATES: STATES, plural: plural, pictures: pictures, compose: compose, visible: visible, categories: categories, sessionCount: sessionCount,
+  var SHELVES = [['small', 'Small'], ['flying', 'Flying'], ['crab', 'Crab'], ['medium', 'Medium'], ['big', 'Big'], ['mech', 'Mech'], ['weapons', 'Weapons'], ['characters', 'Characters']];
+  // the infantry weapons (concepts.py WEAPON_SETS) have a section of their own: [[group key, label, [cards]]] in the order they come
+  function isWeapon(it) { return String(it.s || '') === 'weapons'; }
+  function weaponGroups(items) {
+    var by = {}, out = [];
+    items.forEach(function (it) { if (!by[it.c]) { by[it.c] = [it.c, it.cl, []]; out.push(by[it.c]); } by[it.c][2].push(it); });
+    out.forEach(function (g) { g[2].sort(function (a, b) { return a.i - b.i; }); });
+    return out.sort(function (a, b) { return a[2][0].i - b[2][0].i; });       // the groups in the index's order (a soldier's place), not the order the files were made
+  }
+  // the shelf of an approved picture as the page shows it: his click not yet in the state, else his word, else the first guess
+  function shelf(id, state, pg) { return ((pg || {})[id] || {}).g || ((state || {}).own || {})[id] || ((state || {}).auto || {})[id] || 'medium'; }
+  function settleShelf(own, pg, now) {
+    var left = {}; Object.keys(pg || {}).forEach(function (k) { if ((own || {})[k] !== pg[k].g && now - pg[k].at < 90000) left[k] = pg[k]; });
+    return left;
+  }
+  // [[shelf key, label, [pictures]]] in the shelves' order, those with nothing left out
+  function shelves(items, order, of) {
+    return (order || SHELVES).map(function (g) { return [g[0], g[1], items.filter(function (it) { return of(it.id) === g[0]; })]; }).filter(function (g) { return g[2].length; });
+  }
+  // the themed versions: each shelf holds its themes, each theme its pictures, the units one after the other
+  function isTheme(it) { return String(it.s || '').indexOf('themes') === 0; }
+  var THEMES = [['fire', 'Fire'], ['freeze', 'Frozen'], ['poison', 'Toxic'], ['electric', 'Electric'], ['normal', 'Plain']];
+  function themeShelf(it, own) { return ((own || {})[it.o]) || it.g || 'medium'; }
+  // [[shelf key, label, [[theme key, label, [pictures]]], count]], the shelves in their order, the themes in theirs, those with nothing left out
+  function themeGroups(items, order, own) {
+    return (order || SHELVES).map(function (g) {
+      var mine = items.filter(function (it) { return themeShelf(it, own) === g[0]; });
+      var themes = THEMES.map(function (t) {
+        var of = mine.filter(function (it) { return it.c === t[0]; }).sort(function (a, b) { return a.i - b.i || (a.s < b.s ? 1 : a.s > b.s ? -1 : 0) || (a.n < b.n ? -1 : a.n > b.n ? 1 : 0) || a.k - b.k; });
+        return [t[0], t[1], of];
+      }).filter(function (t) { return t[2].length; });
+      return [g[0], g[1], themes, mine.length];
+    }).filter(function (g) { return g[3]; });
+  }
+  // a shelf or a theme is hidden when he said so; a themed shelf starts hidden (there are thousands of pictures under them)
+  function folded(fold, key) { return (fold || {})[key] !== undefined ? !!fold[key] : key.indexOf('th:') === 0 && key.split(':').length === 2; }
+  var api = { isWeapon: isWeapon, weaponGroups: weaponGroups, isTheme: isTheme, themeGroups: themeGroups, themeShelf: themeShelf, folded: folded, SHELVES: SHELVES, shelf: shelf, settleShelf: settleShelf, shelves: shelves, STEP: STEP, STATES: STATES, plural: plural, pictures: pictures, compose: compose, visible: visible, categories: categories, sessionCount: sessionCount,
               fullUrl: fullUrl, shortLabel: shortLabel, count: count, requestLine: requestLine, pending: pending, settle: settle, mergeRequests: mergeRequests };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   root.Concepts = api;
@@ -88,14 +124,14 @@
   var $ = function (id) { return document.getElementById(id); };
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   var LS = 'tw3d-concepts';
-  var pend = {}, sig = {}, limit = STEP, list = [], kind = 'vehicle', edited = false, openId = '', local = [];
+  var fold = {}, pend = {}, pg = {}, sig = {}, limit = STEP, list = [], kind = 'vehicle', edited = false, openId = '', local = [];
   var view = { sessions: [], cat: '', q: '', hide: false };
-  try { var kept = JSON.parse(localStorage.getItem(LS) || '{}'); view.sessions = kept.sessions || []; view.cat = kept.cat || ''; } catch (e) { /* private window */ }
-  function keep() { try { localStorage.setItem(LS, JSON.stringify({ sessions: view.sessions, cat: view.cat })); } catch (e) { /* kept until the page closes */ } }
+  try { var kept = JSON.parse(localStorage.getItem(LS) || '{}'); view.sessions = kept.sessions || []; view.cat = kept.cat || ''; fold = kept.fold || {}; } catch (e) { /* private window */ }
+  function keep() { try { localStorage.setItem(LS, JSON.stringify({ sessions: view.sessions, cat: view.cat, fold: fold })); } catch (e) { /* kept until the page closes */ } }
   function changed(key, s) { if (sig[key] === s) return false; sig[key] = s; return true; }
   function S() { return root.CONCEPT_STATE || { approved: {}, requests: [], builder: null }; }
   function ap() { return pending(S().approved, pend); }
-  function rootPath() { return (root.CONCEPTS || {}).root || ''; }
+  function rootPath(id) { var C = root.CONCEPTS || {}; return (C.roots && id && C.roots[String(id).split('/')[0]]) || C.root || ''; }     // a set that sits in another folder has a root of its own
   function sessionById(id) { return ((root.CONCEPTS || {}).sessions || []).filter(function (s) { return s.id === id; })[0] || { id: id, label: id, about: '' }; }
   function say(text, bad) { var s = $('cc-say'); s.textContent = text || ''; s.classList.toggle('cc-bad', !!bad); }
   function warn(text) { var w = $('cc-warn'); w.hidden = !text; w.textContent = text || ''; }
@@ -118,17 +154,82 @@
   }
 
   // ---- a picture
-  function card(it, approved) {
-    var ok = !!approved[it.id], c = el('div', 'cc-card' + (ok ? ' cc-ok' : ''));
+  function card(it, approved, mine) {
+    var ok = !!approved[it.id], c = el('div', 'cc-card' + (ok ? ' cc-ok' : '') + (isWeapon(it) ? ' cc-wpn' : ''));
     var img = el('img', 'cc-pic'); img.loading = 'lazy'; img.alt = it.n; img.src = 'img/concept/' + it.th; img.dataset.open = it.id;
-    img.onerror = function () { img.onerror = null; img.removeAttribute('src'); img.classList.add('cc-wait'); };     // a thumbnail the watcher has not made yet
+    var tries = 0;
+    img.onload = function () { img.classList.remove('cc-wait'); };
+    img.onerror = function () {         // a thumbnail the watcher has not made yet: a quiet place for it, and another look every 15 seconds (a set still syncing from the Drive)
+      img.removeAttribute('src'); img.classList.add('cc-wait');
+      if (tries++ < 60) setTimeout(function () { if (img.isConnected) img.src = 'img/concept/' + it.th + '?r=' + tries; }, 15000);
+    };
     c.appendChild(img);
     var m = el('div', 'cc-meta'); m.appendChild(el('b', 'cc-name', it.n)); m.appendChild(el('span', 'cc-type', it.t)); c.appendChild(m);
     var foot = el('div', 'cc-foot');
     foot.appendChild(el('span', 'k-qchip', shortLabel(sessionById(it.s).label))); foot.appendChild(el('span', 'k-qchip', it.cl));
     var b = el('button', 'cc-ap' + (ok ? ' on' : ''), ok ? 'Approved ✓' : 'Approve'); b.type = 'button'; b.dataset.ap = it.id; b.setAttribute('aria-pressed', ok ? 'true' : 'false');
     foot.appendChild(b); c.appendChild(foot);
+    if (mine && !isWeapon(it)) {         // the shelves: a button each, the one it is on is lit (a weapon has the one shelf; a machine is never moved onto it)
+      var mv = el('div', 'cc-move'); mv.setAttribute('role', 'group'); mv.setAttribute('aria-label', 'Shelf of ' + it.n);
+      shelfList().filter(function (g) { return g[0] !== 'weapons'; }).forEach(function (g) {
+        var on = g[0] === mine, x = el('button', 'cc-mv' + (on ? ' on' : ''), g[1]); x.type = 'button'; x.dataset.grp = it.id; x.dataset.to = g[0]; x.setAttribute('aria-pressed', on ? 'true' : 'false'); mv.appendChild(x);
+      });
+      c.appendChild(mv);
+    }
     return c;
+  }
+  function foldButton(key, shut) {
+    var b = el('button', 'cc-fold', shut ? '▸ Show' : '▾ Hide'); b.type = 'button'; b.dataset.fold = key; b.setAttribute('aria-expanded', shut ? 'false' : 'true'); b.title = shut ? 'Show it' : 'Minimize it';
+    return b;
+  }
+  function toggleFold(key) { fold[key] = !folded(fold, key); keep(); sig = {}; drawAll(); }
+  // the new versions: a shelf each (hidden to start with), a theme under it, the pictures of the units under that
+  function fillThemes(home, items, approved) {
+    home.textContent = '';
+    themeGroups(items, shelfList(), S().own).forEach(function (g) {
+      var key = 'th:' + g[0], shut = folded(fold, key), sec = el('section', 'cc-group' + (shut ? ' folded' : '')), h = el('h4', null, g[1]);
+      h.appendChild(el('span', 'cc-n', String(g[3]))); h.appendChild(foldButton(key, shut)); sec.appendChild(h);
+      if (!shut) {
+        var body = el('div', 'cc-body cc-subgroups');
+        g[2].forEach(function (t) {
+          var k2 = key + ':' + t[0], shut2 = folded(fold, k2), sub = el('div', 'cc-subgroup' + (shut2 ? ' folded' : '')), h5 = el('h5', null, t[1]);
+          h5.appendChild(el('span', 'cc-n', String(t[2].length))); h5.appendChild(foldButton(k2, shut2)); sub.appendChild(h5);
+          if (!shut2) { var grid = el('div', 'cc-grid'); t[2].forEach(function (it) { grid.appendChild(card(it, approved)); }); sub.appendChild(grid); }
+          body.appendChild(sub);
+        });
+        sec.appendChild(body);
+      }
+      home.appendChild(sec);
+    });
+  }
+  // the weapons not approved yet: a group per soldier (open to start with), the cards under it
+  function fillWeapons(home, items, approved) {
+    home.textContent = '';
+    weaponGroups(items).forEach(function (g) {
+      var key = 'wp:' + g[0], shut = folded(fold, key), sec = el('section', 'cc-group' + (shut ? ' folded' : '')), h = el('h4', null, g[1]);
+      h.appendChild(el('span', 'cc-n', String(g[2].length))); h.appendChild(foldButton(key, shut)); sec.appendChild(h);
+      if (!shut) { var body = el('div', 'cc-body'), grid = el('div', 'cc-grid'); g[2].forEach(function (it) { grid.appendChild(card(it, approved)); }); body.appendChild(grid); sec.appendChild(body); }
+      home.appendChild(sec);
+    });
+  }
+  function shelfList() { var B = S().builder; return (B && B.groups && B.groups.length ? B.groups : SHELVES); }
+  function shelfOf(id) { return shelf(id, S(), pg); }
+  function setShelf(id, to) {
+    if (shelfOf(id) === to) return;
+    pg[id] = { g: to, at: Date.now() };
+    drawAll();
+    return post('/concept/group', { ids: [id], group: to }).then(function (d) {
+      S().own = d.own; pg = settleShelf(d.own, pg, Date.now()); warn(''); drawAll();
+    }, function (e) { delete pg[id]; warn('Not saved: ' + e.message); drawAll(); });
+  }
+  function fillShelves(home, items, approved, none) {
+    home.textContent = '';
+    if (!items.length) { home.appendChild(el('p', 'cc-none', none)); return; }
+    shelves(items, shelfList(), shelfOf).forEach(function (g) {
+      var key = 'ap:' + g[0], shut = folded(fold, key), sec = el('section', 'cc-group' + (shut ? ' folded' : '')), h = el('h4', null, g[1]); h.appendChild(el('span', 'cc-n', String(g[2].length))); h.appendChild(foldButton(key, shut)); sec.appendChild(h);
+      if (!shut) { var body = el('div', 'cc-body'), grid = el('div', 'cc-grid'); g[2].forEach(function (it) { grid.appendChild(card(it, approved, g[0])); }); body.appendChild(grid); sec.appendChild(body); }
+      home.appendChild(sec);
+    });
   }
   function fill(home, items, approved, none) {
     home.textContent = '';
@@ -163,11 +264,17 @@
   function drawGrids() {
     var approved = ap(), everything = visible(list, view, approved), mine = visible(list, { sessions: view.sessions, cat: view.cat, q: view.q }, approved);
     var yes = mine.filter(function (it) { return approved[it.id]; }).sort(function (a, b) { return String(approved[b.id]).localeCompare(String(approved[a.id])); });
-    var rest = everything;
+    var rest = everything.filter(function (it) { return !isTheme(it) && !isWeapon(it); });         // the themed versions and the weapons have their own places above
+    var themed = mine.filter(function (it) { return isTheme(it) && !approved[it.id]; }), own = S().own || {};
+    var weapons = visible(list, { q: view.q }, approved).filter(function (it) { return isWeapon(it) && !approved[it.id]; });     // a section of its own: only the search words narrow it
+    var ws = $('cc-wp-sec'); if (ws) { ws.hidden = !weapons.length; $('cc-wp-n').textContent = String(weapons.length);
+      if (changed('wp', JSON.stringify([weapons.map(function (it) { return it.id; }), fold]))) fillWeapons($('cc-wp'), weapons, approved); }
     $('cc-ap-n').textContent = String(yes.length); $('cc-all-n').textContent = String(rest.length);
+    var ts = $('cc-th-sec'); ts.hidden = !themed.length; $('cc-th-n').textContent = String(themed.length);
+    if (themed.length && changed('th', JSON.stringify([themed.length, themed[0].id, themed[themed.length - 1].id, fold, own, S().builder && S().builder.groups]))) fillThemes($('cc-th'), themed, approved);
     var filtered = view.sessions.length || view.cat || view.q;
-    var s1 = JSON.stringify(yes.map(function (it) { return it.id; }));
-    if (changed('ap', s1)) fill($('cc-ap'), yes, approved, 'Nothing approved' + (filtered ? ' in this filter' : ' yet') + '. Press Approve on a picture below.');
+    var s1 = JSON.stringify([yes.map(function (it) { return it.id + ':' + shelfOf(it.id); }), fold]);
+    if (changed('ap', s1)) fillShelves($('cc-ap'), yes, approved, 'Nothing approved' + (filtered ? ' in this filter' : ' yet') + '. Press Approve on a picture below.');
     var shown = rest.slice(0, limit), s2 = JSON.stringify([shown.map(function (it) { return it.id + (approved[it.id] ? '+' : ''); }), rest.length]);
     if (changed('all', s2)) fill($('cc-all'), shown, approved, list.length ? 'No pictures match this filter.' : 'No pictures yet.');
     var more = $('cc-more'); more.hidden = rest.length <= limit; more.textContent = 'Show ' + Math.min(STEP, rest.length - limit) + ' more (' + (rest.length - limit) + ' left)';
@@ -234,7 +341,7 @@
     var it = list.filter(function (x) { return x.id === id; })[0], box = $('cc-lb');
     if (!it) { closeLb(); return; }
     openId = id; box.hidden = false; box.textContent = '';
-    var img = el('img'); img.alt = it.n; img.src = fullUrl(rootPath(), it.id);
+    var img = el('img'); img.alt = it.n; img.src = fullUrl(rootPath(it.id), it.id);
     img.onerror = function () { img.onerror = null; img.src = 'img/concept/' + it.th; };       // the original is not reachable from here: the thumbnail
     var side = el('div', 'cc-side'), ok = !!ap()[id];
     side.appendChild(el('h3', null, it.n)); side.appendChild(el('p', 'cc-type', it.t));
@@ -262,6 +369,8 @@
   // ---- wiring
   document.addEventListener('click', function (e) {
     var t = e.target; if (!t || !t.dataset) return;
+    if (t.dataset.fold) return toggleFold(t.dataset.fold);
+    if (t.dataset.grp) return setShelf(t.dataset.grp, t.dataset.to);
     if (t.dataset.ap) return setApproved([t.dataset.ap], !ap()[t.dataset.ap]);
     if (t.dataset.open) return lightbox(t.dataset.open);
     if (t.id === 'cc-lb') return closeLb();
