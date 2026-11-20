@@ -32,7 +32,7 @@ namespace TW.Tests
 
             var back = ReplayPlayer.Parse(new ReplayRecorder(cfg, default, 1).Serialize()).Config;
 
-            Assert.AreEqual(38, ReplayRecorder.FormatVersion, "a header that carries the upgrades is v38's: bump with the format");
+            Assert.AreEqual(68, ReplayRecorder.FormatVersion, "a header that carries the upgrades is v38's: bump with the format");
             Assert.AreEqual(2, back.UpgradesOf(0).Armour, "[Z009.1-sim] the armour plate a side paid for must reach the match");
             Assert.AreEqual(1, back.UpgradesOf(0).AbilityCooldown, "[Z009.1-sim] signal discipline must reach the match");
             Assert.AreEqual(3, back.UpgradesOf(0).AbilityCost, "[Z009.1-sim] requisition must reach the match");

@@ -100,7 +100,9 @@ namespace TW.Tests
                     var g = spec.Gun(k);
                     TestContext.WriteLine($"machine {a} gun {k}: {g.RangeMax:F0} m");
                     Assert.Less(g.RangeMax, reachToFront, $"machine {a}'s gun {k} reaches the enemy's front trench from its spawn");
-                    Assert.GreaterOrEqual(g.RangeMax, noMansLand, $"machine {a}'s gun {k} cannot reach across no man's land from its own front trench");
+                    // the owner, 2026-11-20: the 20 % range cut stacks on these reaches, so a gun covers 0.8 of no man's
+                    // land from its own front trench and closes in for the rest
+                    Assert.GreaterOrEqual(g.RangeMax, noMansLand * CombatTables.RangeScale, $"machine {a}'s gun {k} cannot reach 0.8 of no man's land from its own front trench");
                     guns++;
                 }
             }
@@ -135,13 +137,13 @@ namespace TW.Tests
             Assert.AreEqual(380, sa.Cost); Assert.AreEqual(2000f, sa.Hp); Assert.AreEqual(1.8f, sa.Speed);
             Assert.AreEqual(ChassisKind.Tracked, w.ChassisOf(VehicleArchetype.Salvo));
             Assert.AreEqual(110f * CombatTables.RangeScale, m.Catalogue.Weapon[VehicleArchetype.Salvo].RangeMax, "a hull machine gun for the 48 m its rockets cannot reach");
-            Assert.AreEqual(155f, m.Catalogue.Tank[VehicleArchetype.Salvo].StandOffMetres, "it holds to fire at its rockets' reach");
+            Assert.AreEqual(155f * CombatTables.RangeScale, m.Catalogue.Tank[VehicleArchetype.Salvo].StandOffMetres, "it holds to fire at its rockets' reach");
             Assert.AreEqual(32f, m.Catalogue.Tank[VehicleArchetype.Salvo].StandOffPatience, "two reloads without a hit and it moves on");
             var rockets = m.Catalogue.Tank[VehicleArchetype.Salvo];
             Assert.AreEqual(1, rockets.GunCount);
             Assert.IsTrue(rockets.Gun0.Indirect, "the rockets need no line of sight");
             Assert.AreEqual(11f, rockets.Gun0.ReloadSeconds, "and take a while to reload (16 s until the owner, 2026-10-06, asked for a third off)");
-            Assert.AreEqual(60f * CombatTables.RangeScale, rockets.Gun0.RangeMin); Assert.AreEqual(155f, rockets.Gun0.RangeMax);
+            Assert.AreEqual(60f * CombatTables.RangeScale, rockets.Gun0.RangeMin); Assert.AreEqual(155f * CombatTables.RangeScale, rockets.Gun0.RangeMax);
             Assert.AreEqual(7f, rockets.Gun0.HeRadius, "a wide burst"); Assert.AreEqual(360f, rockets.Gun0.HeDamage);
             Assert.IsTrue(rockets.Gun0.FullCircle, "the box turns all the way round on its turntable");
             Assert.AreEqual(0.5f, m.Vehicles.Profiles[VehicleArchetype.Salvo].TurnRateRad);

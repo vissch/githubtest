@@ -115,11 +115,11 @@ namespace TW.Sim.Match
                 TurretChance = 0.35f, Crew = 3, GunCount = 1, ShortHalt = true, FuelRisk = 0.30f, AmmoRisk = 0.70f,
                 // the shell below is the whole rack: a rocket from each of its sixteen tubes, each landing on its own
                 // tick (TankGunnerySystem); it holds where it is while it has a target, so it fires from its reach
-                Rockets = 16, RocketSpeed = 140f, StandOffMetres = 155f, StandOffPatience = 32f,   // about three reloads without a hit: move on (the reload is 11 s since 2026-10-14; the hold rule is unchanged)
+                Rockets = 16, RocketSpeed = 140f, StandOffMetres = 155f * CombatTables.RangeScale, StandOffPatience = 32f,   // about three reloads without a hit: move on (the reload is 11 s since 2026-10-14; the hold rule is unchanged)
                 Gun0 = new TankGun
                 {
                     Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = SimMath.Pi, TraverseRate = 20f * Deg,
-                    Indirect = true, RangeMin = 60f * CombatTables.RangeScale, RangeMax = 155f, Accuracy = 0.22f, ReloadSeconds = 11f,
+                    Indirect = true, RangeMin = 60f * CombatTables.RangeScale, RangeMax = 155f * CombatTables.RangeScale, Accuracy = 0.22f, ReloadSeconds = 11f,
                     PenMm = 0f, ApDamage = 0f,
                     HeDamage = 360f, HeRadius = 7.0f, HeSuppression = 90f, HeCrater = 1.6f, Mount3 = new float3(0f, 4.8f, 0.3f),
                 },
@@ -194,7 +194,7 @@ namespace TW.Sim.Match
                 Gun0 = new TankGun
                 {
                     Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = 105f * Deg, TraverseRate = 60f * Deg,
-                    RangeMax = 110f, Accuracy = 0.5f, ReloadSeconds = 3.0f, PenMm = 34f, ApDamage = 500f,
+                    RangeMax = 110f * CombatTables.RangeScale, Accuracy = 0.5f, ReloadSeconds = 3.0f, PenMm = 34f, ApDamage = 500f,
                     HeDamage = 150f, HeRadius = 3.2f, HeSuppression = 35f, HeCrater = 0.8f, Mount3 = new float3(0f, 4.2f, 0.6f),
                 },
             },
@@ -225,7 +225,7 @@ namespace TW.Sim.Match
                 Gun0 = new TankGun
                 {
                     Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = SimMath.Pi, TraverseRate = 90f * Deg,
-                    RangeMax = 110f, Accuracy = 0.40f, ReloadSeconds = 1.5f, PenMm = 0f, ApDamage = 0f,
+                    RangeMax = 110f * CombatTables.RangeScale, Accuracy = 0.40f, ReloadSeconds = 1.5f, PenMm = 0f, ApDamage = 0f,
                     HeDamage = 90f, HeRadius = 2.5f, HeSuppression = 25f, HeCrater = 0.3f, Mount3 = new float3(0f, 3.0f, 1.0f),
                 },
             },
@@ -357,7 +357,7 @@ namespace TW.Sim.Match
                 Gun0 = new TankGun
                 {
                     Mount = TankMount.Hull, RestYaw = 0f, ArcHalf = 25f * Deg, TraverseRate = 20f * Deg,
-                    RangeMax = 125f, Accuracy = 0.45f, ReloadSeconds = 4f, PenMm = 40f, ApDamage = 650f,
+                    RangeMax = 125f * CombatTables.RangeScale, Accuracy = 0.45f, ReloadSeconds = 4f, PenMm = 40f, ApDamage = 650f,
                     HeDamage = 220f, HeRadius = 4.5f, HeSuppression = 45f, HeCrater = 1.2f, Mount3 = new float3(0f, 2.4f, 3.0f),
                 },
             },

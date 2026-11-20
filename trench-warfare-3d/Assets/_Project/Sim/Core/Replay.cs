@@ -219,7 +219,13 @@ namespace TW.Sim
         // exactly as it ignores Airborne, so no gunfire path (hit, near miss, fire-step miss, shield graze, wreck
         // shadow) suppresses a hull; blast, gas, fire and beams are unchanged. Hashed Suppression values move, so
         // replays recorded before this commit no longer verify.
-        public const ushort FormatVersion = 67;
+        // v55-v67 (2026-11-20, the overhaul merge, overhaul/clean-2026-11): the unlanded sim lanes of 2026-10-07 .. 11-08 joined in date order,
+        // one number each (home-front upgrade seam, coast shore defences, Hopper flight, Mercy carries, houses cover,
+        // Kettle turns, machines keep apart, no dead ground, prone at range, salvo reload, skimmer 14 mm, the ridge, the
+        // wreck and pin found-fixes). The comments above keep the numbers each had on its own lane.
+        // v68 (2026-11-20, the owner): the 20 % range cut stacks on the machines' reaches (main guns 88-124 m, the
+        // Salvo's stand-off 124 m). Same inputs, a different battle: a v67 replay does not replay. Layout and chain unchanged.
+        public const ushort FormatVersion = 68;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
