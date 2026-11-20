@@ -211,7 +211,7 @@ namespace TW.Sim
         // catalogue, whose fingerprints fold into every tick's hash, are not the ones v37 recorded against: a v37
         // replay does not replay. Layout and hash chain unchanged. Renumbered at landing if another sim lane lands
         // 38 first.
-        public const ushort FormatVersion = 64;
+        public const ushort FormatVersion = 65;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
