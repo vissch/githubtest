@@ -346,6 +346,82 @@ namespace TW.Presentation.VFX.Cel
                 Extra = new Vector4(0.9f, 3f, 0.8f, -3f),
             });
 
+        /// <summary>Layers of Recipe the fire sheet stands in for in CloseRecipe (their slots stay: every layer's
+        /// random stream is seeded from its index).</summary>
+        static readonly string[] SheetReplaces = { "jet", "jet tongues", "onset tongues", "travelling front", "target curls",
+            "ground wash", "target afterglow" };   // the last two: the light pass below lights the ground instead of covering it
+
+        /// <summary>The close shot's version (2026-11-18, reference-first rebuild): Recipe with the procedural jet, its
+        /// tongues, the travelling front and the 320 px target atlas switched off at every tier, and one FlameSheet
+        /// card appended after the last slot (the jet, the catch, the fire at the target and its burn-out, cut from
+        /// the reference clip); the two ground washes off as well and one FlameLight record in their place.
+        /// Recipe itself is untouched; Mid and Far still play it.</summary>
+        public static readonly CelFxRecipe CloseRecipe = BuildClose();
+
+        static CelFxRecipe BuildClose()
+        {
+            var dst = new CelFxRecipe(Recipe.Name, Recipe.Length);
+            foreach (var s in Recipe.Layers)
+            {
+                var l = JsonUtility.FromJson<CelLayer>(JsonUtility.ToJson(s));
+                if (System.Array.IndexOf(SheetReplaces, l.Name) >= 0) { l.Close = 0; l.Mid = 0; l.Far = 0; }
+                // the clip's sparks are fewer round haloed embers, not a radial burst of streaks
+                if (l.Name == "ember arcs") l.Close = 110;
+                if (l.Name == "embers") l.Close = 50;
+                if (l.Name == "smoke column") { l.Offset = new Vector3(-0.4f, l.Offset.y, 0f); l.Close = 52; l.Size = new CelCurve(0.45f, 0.85f, 0.6f); }   // over the fire, as in the clip
+                dst.Layers.Add(l);
+            }
+            dst.Layers.Add(new CelLayer
+            {
+                // one cell a film frame from the frame after the trigger: 111 cells at 24 a second
+                Name = "fire sheet", Kind = "FlameSheet", Start = 0f, Life = 4.7f, LifeJitter = 0f,
+                Close = 1, Mid = 1, Far = 1, Shape = CelShape.Point, Aim = CelAim.None, Speed = 0f, SpeedJitter = 0f,
+                Size = CelCurve.Const(1f), SizeJitter = 0f, Erode = CelCurve.Const(0f), Palette = Flame, Core = 1f,
+                // y, z: the beach close lens (Atmosphere's vignette: intensity (0.34 + 0.10 x 0.564) x 3, smoothness 0.5 x 5)
+                Extra = new Vector4(24f, 1.189f, 2.5f, 0f),
+            });
+            dst.Layers.Add(new CelLayer
+            {
+                // the fire's light on the scene (a multiply): in film frames after the shot, the front leaves the nozzle
+                // at 1 and reaches the aim 19 later; the tail leaves at 86.2 and takes 8.5; the fade at the target ends at 117
+                // and takes 15 (the clip's gain at the dummy: 7.9, 4.8, 2.4, 1.5, 1.04 at f104, 108, 112, 114, 116)
+                // four records: an 8-bit target lets one multiply reach x2 at most, each takes the fourth root of the gain
+                Name = "fire light", Kind = "FlameLight", Start = 0f, Life = 4.7f, LifeJitter = 0f,
+                Close = 4, Mid = 4, Far = 4, Shape = CelShape.Point, Aim = CelAim.None, Speed = 0f, SpeedJitter = 0f,
+                Size = new CelCurve(86.2f, 8.5f, 117f), SizeJitter = 0f, Stretch = 15f, Erode = new CelCurve(1f, 19f, 1f),
+                Palette = Flame, Core = 1f, Extra = new Vector4(24f, 1f, 4f, 0f),
+            });
+            // the smoke's skirt: the clip's smoke comes down to the ground and wraps the burning target (f88-f120);
+            // the column alone is born 1.8 m up and downstream. Small lobes born low round the target, rising slowly.
+            foreach (var s in Recipe.Layers)
+            {
+                if (s.Name != "smoke column") continue;
+                var k = JsonUtility.FromJson<CelLayer>(JsonUtility.ToJson(s));
+                k.Name = "smoke skirt";
+                // offsets are (right, up, along the jet): screen-left is minus right and minus along
+                k.Offset = new Vector3(-1.6f, 0.9f, -0.8f);
+                k.Start = 2.6f; k.Duration = 1.2f; k.Life = 1.3f;
+                k.Close = 22; k.Mid = 0; k.Far = 0;
+                k.ShapeSize = new Vector3(1.6f, 0f, 0f);
+                k.Speed = 0.5f; k.Buoyancy = 0.9f;
+                k.Size = new CelCurve(0.4f, 0.85f, 0.6f);
+                dst.Layers.Add(k);
+            }
+            foreach (var s in Recipe.Layers)
+            {
+                if (s.Name != "late embers") continue;
+                var k = JsonUtility.FromJson<CelLayer>(JsonUtility.ToJson(s));
+                k.Name = "burn embers";
+                k.Start = 1.0f; k.Duration = 3.0f; k.Life = 1.4f; k.LifeJitter = 0.3f;
+                k.Close = 70; k.Mid = 0; k.Far = 0;
+                k.ShapeSize = new Vector3(2.6f, 0f, 0f);
+                k.Speed = 3.2f; k.UpBias = 0.8f; k.Gravity = 1.2f;
+                k.Size = new CelCurve(0.13f, 0.03f, 2f);
+                dst.Layers.Add(k);
+            }
+            return dst;
+        }
+
         /// <summary>Fire the flamethrower from `nozzle` onto `target` (a body's chest).</summary>
         public static void Play(Vector3 nozzle, Vector3 target, uint seed) => Play(Recipe, nozzle, target, seed);
 
@@ -369,7 +445,7 @@ namespace TW.Presentation.VFX.Cel
                 l.Start = l.Start * k + delay; l.Duration *= k; l.TimeJitter *= k; l.Life *= k;
                 l.Speed /= k; l.Gravity /= k2; l.Buoyancy /= k2; l.Drag /= k; l.Spin /= k;
                 if (l.Kind == "FlameJet" && l.Extra.w > -1.5f) { l.Erode = new CelCurve(l.Erode.From * k, l.Erode.To * k, l.Erode.Pow); l.Extra.x /= k; }
-                if (l.Kind == "FlameImpact") l.Extra.x /= k;
+                if (l.Kind == "FlameImpact" || l.Kind == "FlameSheet") l.Extra.x /= k;
                 if (l.Kind == "FlameWash") l.Erode = new CelCurve(l.Erode.From * k, l.Erode.To * k, l.Erode.Pow);
                 if (l.Kind == "FlameSmoke") { l.Extra.w *= k; l.Opacity = 1f + (l.Opacity - 1f) * k + delay; }
                 if (l.Kind == CelKinds.StreakName) l.Stretch *= k;

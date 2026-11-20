@@ -33,8 +33,10 @@ namespace TW.Presentation.VFX.Cel
                 lateEmbers.CountAt(CelFx.LodBlend(CelFx.Zoom), CelFx.QualityShare(FxQuality.Tier)));
             float k = Time.deltaTime * 24f;
             k = (k > 1.05f && k < 1.6f) ? Mathf.Round(k * 100f) / 100f : 1f;
-            if (k == 1f) { FlamethrowerRecipe.Play(nozzle, s.Target, (uint)s.Seed); return; }
-            var stretched = FlamethrowerRecipe.TimeScaled(FlamethrowerRecipe.Recipe, k, 0.8f * (k - 1f));   // once a shot (a Range lab hook)
+            // 2026-11-18: the close film plays the reference-first version (fire from the sheet); the LOD stills the kit's
+            var recipe = s.Lod == RangeLod.Close ? FlamethrowerRecipe.CloseRecipe : FlamethrowerRecipe.Recipe;
+            if (k == 1f) { FlamethrowerRecipe.Play(recipe, nozzle, s.Target, (uint)s.Seed); return; }
+            var stretched = FlamethrowerRecipe.TimeScaled(recipe, k, 0.8f * (k - 1f));   // once a shot (a Range lab hook)
             Debug.Log("Range: flamethrower plays " + k + "x stretched (shot clock step " + Time.deltaTime + " s)");
             FlamethrowerRecipe.Play(stretched, nozzle, s.Target, (uint)s.Seed);
         }
