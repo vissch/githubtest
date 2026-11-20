@@ -377,6 +377,7 @@ namespace TW.Presentation
                         if (e.A >= 0 && e.A < count) { blow[e.A] = (byte)(1 + math.clamp((int)math.round(e.Dir.y), 0, 3)); shotAt[e.A] = e.B; }
                         if (e.B >= 0 && e.B < count && e.Scalar == 0f) blocked[e.B] = 1;
                         if (e.B >= 0 && e.B < count && e.Scalar > 0f) { blocked[e.B] = 2; hitDir[e.B] = e.Dir; }   // it landed: he is driven back
+                        break;
                     case SimEventType.SapperLaying:
                         if (e.A >= 0 && e.A < count) layUntil[e.A] = tick + (uint)math.max(1f, math.round(e.Scalar / tickSeconds));
                         break;
