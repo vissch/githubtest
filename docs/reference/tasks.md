@@ -747,12 +747,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   clock (`SimNow`) so it comes down with the burst at any speed and holds when paused; its `Explosion`
   (`SourceId.Grenade`) is drawn small (flash, spurt, puff, a few clods, a small kick) instead of as a shell. The
   thrower plays `Clip.Throw` from its swing (`AnimationController`, the `threw` latch).
-  **The paratroop drop** (`CombatFx.Drops.cs`, 2026-10-01, laptop, on the local play build): on `DropInbound` the
-  aircraft crosses the point as the men jump (`DropFall` 3.5 s before they land) and a canopy comes down for each man
-  onto the spot the sim will land him (`CombatFx.DropSpot` repeats the sim's die), swinging on its cords, and folds on
-  the ground beside him over `DropFold`; `DropLanded` kicks up his dust. Timed by `SimNow`. Every other gore is in
-  the side's colour and the man hangs a canopy's width under the silk (`CanopyDrop`): all pale and close, a canopy
-  read as a mushroom in the air and as one more puddle on the ground (critic). Tests: `ParaDropPictureTests`.
+  **The paratroop drop** is integration's (`CombatFx.Barrage.cs` `OnDropInbound`/`OnDropLanded`, the canopies drawn per
+  frame by `CombatFx.Abilities.cs` `DrawCanopies` behind `DropCanopies`). The play build's own drop picture of 2026-10-01
+  (`CombatFx.Drops.cs`: striped canopies on cords, the man hanging under the silk) is on `origin/play/merged-v2`, left
+  out of the overhaul so the drop is drawn once (2026-11-20).
   **Three events nothing drew** (2026-10-01, same build): `ShieldBlocked` strikes a spark off the bearer's plate,
   thrown back the way the round came; `CriticalHit` is a wide white star and a flash on the man it struck;
   `VehicleHullMended` is weld sparks and a blue-white flicker on the plate facing the engineer (on the machine, not

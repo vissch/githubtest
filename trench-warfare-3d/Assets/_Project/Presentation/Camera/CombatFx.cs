@@ -806,7 +806,6 @@ namespace TW.Presentation.Tactical
                     // still for three seconds and a mine appeared. He digs: the earth he turns flies up at the spot
                     if (e.A >= 0 && e.A < w.HighWater) digs.Add(new Dig { Slot = e.A, At = (Vector3)e.Pos, Until = SimNow + e.Scalar });
                     break;
-                case SimEventType.DropInbound: DropInbound(e); break;   // the paratroop drop (CombatFx.Drops.cs)
                 // ---- the hero moment (HeroSystem: "losing becomes a story"): the sim made it and nothing drew it ----
                 case SimEventType.HeroMoment:
                 {
@@ -1382,7 +1381,6 @@ namespace TW.Presentation.Tactical
             TickSmoulders(now);
             TickHeroes(now);
             TickDigs();
-            DrawCanopies(SimNow);
             books?.Draw(now, bounds);
             hitsThisFrame = 0; healsThisFrame = 0;
 
