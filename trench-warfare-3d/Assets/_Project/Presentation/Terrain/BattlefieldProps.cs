@@ -386,6 +386,9 @@ namespace TW.Presentation.Terrain
 
         /// <summary>The staged composition into the batches. The composer reads nothing of ours, so emitting after it has
         /// run instead of while it runs places every instance exactly as before.</summary>
+        /// <summary>Tests only: a composition applied now, so Generation moves on as a crater's recomposition moves it.</summary>
+        public void RecomposeNowForTests() => ApplyComposition();
+
         void ApplyComposition()
         {
             Generation++;

@@ -157,6 +157,15 @@ namespace TW.Presentation.Terrain
         /// <summary>Tests only (PropWearTests): one settle pass at this time, as Update drives through Twitch.</summary>
         public void TwitchForTests(float now) => Twitch(now);
 
+        /// <summary>Tests only (ShowAllocationTests, [TS5]): one frame of the prop work with no sim world: the
+        /// recomposition guard Wear runs first (a new composition forgets what was swept and knocked), then the
+        /// settling of knocked props. Without a map there is no fire grid, so the wear pass itself does nothing.</summary>
+        public void StepForTests(float now)
+        {
+            if (props != null && props.Generation != generation) { swept.Clear(); jolts.Clear(); generation = props.Generation; }
+            Twitch(now);
+        }
+
         bool MakeGrid()
         {
             var map = Host.Local.Map;

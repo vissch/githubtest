@@ -17,7 +17,7 @@ namespace TW.Presentation.Tactical
     public sealed partial class CombatFx
     {
         public const float BankMergeZoom = 120f;
-        const float GasBankFirst = 17f, GasBankLast = 28f;       // the bank at its full spread (its early frames are a puff)
+        public const float GasBankFirst = 17f, GasBankLast = 28f;       // the bank at its full spread (its early frames are a puff)
         // How clearly the bank reads: a thin cell's card and a full one's. One card is a haze now, not a tile - three
         // stacked cards reach 1-(1-0.62)^3 = 0.945, so the bank is volume and not stripes. Less pale than the sheet was
         // (0.14/0.5), because "pale green stripes" is the alpha as much as the overlap.
