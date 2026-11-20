@@ -130,6 +130,12 @@ namespace TW.Presentation
         public uint KnockedUntil, DazedUntil;           // on his face where the blast put him until then; then on one knee, dazed, until then
         public bool Rubbed;                             // the dazed man has rubbed his eyes once (he does not do it again after every shot)
         public uint AlightUntil;                        // he is on fire until this tick (A5c show side: Flamethrower.Ignite, via SetAlight)
+        // 2026-09-30 (unit motion): a jetpack leap (the tick it started, seconds in the air, the tick he came down), a landing
+        // (a leap's or a parachute's) whose crouch still has to rise, the last brace behind the shield plate, and the
+        // medic's or the engineer's work (until this tick, on this slot; 1 tending a man, 2 mending a machine)
+        public uint LeapTick, LandTick; public float LeapFor; public bool Landing;
+        public uint LastBrace;
+        public uint TendUntil; public int TendOn; public byte TendKind;
     }
 
     /// <summary>One class in two files: this one is the ladder, the latch and the render-frame advance;
@@ -163,6 +169,19 @@ namespace TW.Presentation
         public NativeArray<float> Grime;     // 0..1: mud and soot the bursts near him have thrown over a man (VATRenderer hands it to the shader)
         public NativeArray<ushort> PrevRow;  // the clip fading out, where it stopped, and its weight (VATRenderer reads these)
         public NativeArray<float> PrevPhase, Blend;
+        /// <summary>A jetpack man's leap (from.xz, to.xz) and the top of its drawn arc in metres (0: not leaping). The
+        /// renderer lifts him by UnitMotion.ArcHeight at the point it draws him, so the arc keeps pace with the sim's line.</summary>
+        public NativeArray<float4> LeapLine;
+        public NativeArray<float> LeapPeak;
+        /// <summary>Clip seconds into JumpDown ("Jumping Down") where his feet meet the ground, and the airborne frame he is
+        /// held on in the middle of a leap (hips 0.56 m over standing: legs drawn up after the spring), measured from the
+        /// FBX's hips curve (the take-off crouch is at 1.0 s, the top of the spring at 1.3 s, the landing at 1.73 s).</summary>
+        public const float JumpTouch = 1.72f, JumpAir = 1.3f, JumpDescent = 0.3f;
+        /// <summary>Clip seconds into ClimbLand ("Jump Down") at the bottom of its crouch: a landing rises from here.</summary>
+        public const float LandCrouch = 0.47f;
+        /// <summary>A medic kneels to his patient within this many metres (the sim heals from 8 m; further off he only
+        /// turns to him).</summary>
+        public const float TendReach = 4f;
         readonly int maxSlots;
         int count;
         uint tick; float tickSeconds = 0.05f;
@@ -179,6 +198,11 @@ namespace TW.Presentation
         NativeArray<byte> shotThisTick, leftTrench, gasHere;
         NativeArray<byte> threw;        // he threw a bomb this tick (GrenadeThrown); shotAt holds whom at
         NativeArray<int> shotAt;        // whom the shot went to (the sim clears TargetSlot on a kill the same tick)
+        // this tick's task event naming him: 1 he healed a man (UnitHealed), 2 he mended a machine (VehicleHullMended),
+        // 3 he came down by parachute (DropLanded), 4 he leapt on his jetpack (LeapStarted); actOn is the patient, the
+        // machine, nothing, or his ticks in the air. blocked: a round rang off his shield plate (ShieldBlocked).
+        NativeArray<byte> act, blocked;
+        NativeArray<int> actOn;
         float3[] prevPos;
 
         // ---- trace: one man followed through his fight
@@ -212,6 +236,11 @@ namespace TW.Presentation
             gasHere = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             threw = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             shotAt = new NativeArray<int>(maxSlots, Allocator.Persistent);
+            act = new NativeArray<byte>(maxSlots, Allocator.Persistent);
+            blocked = new NativeArray<byte>(maxSlots, Allocator.Persistent);
+            actOn = new NativeArray<int>(maxSlots, Allocator.Persistent);
+            LeapLine = new NativeArray<float4>(maxSlots, Allocator.Persistent);
+            LeapPeak = new NativeArray<float>(maxSlots, Allocator.Persistent);
             prevPos = new float3[maxSlots];
             AllocateDeaths(maxSlots);
         }
@@ -220,6 +249,7 @@ namespace TW.Presentation
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
             shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); shotAt.Dispose();
+            act.Dispose(); blocked.Dispose(); actOn.Dispose(); LeapLine.Dispose(); LeapPeak.Dispose();
             DisposeDeaths();
         }
 
@@ -262,7 +292,7 @@ namespace TW.Presentation
             s.Stance = s.WantStance = w.StanceOf[i]; s.BodyYaw = s.AimYaw = s.ShownYaw = w.Yaw[i];
             s.Team = w.Team[i]; s.Archetype = w.Archetype[i];
             prevPos[i] = w.Position[i];
-            Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u; Char[i] = 0;   // a new man in the slot comes up clean
+            Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u; Char[i] = 0; LeapPeak[i] = 0f;   // a new man in the slot comes up clean
             return s;
         }
 
@@ -285,7 +315,7 @@ namespace TW.Presentation
 
         void Latch(SimWorld w)
         {
-            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; threw[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; died[i] = 0; clawed[i] = 0; }
+            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; threw[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; died[i] = 0; clawed[i] = 0; act[i] = 0; blocked[i] = 0; }
             crushSpotCount = 0;
             var ev = w.Events.Events;
             for (int k = 0; k < ev.Length; k++)
@@ -294,7 +324,30 @@ namespace TW.Presentation
                 switch (e.Type)
                 {
                     case SimEventType.Hit:
-                        if (e.B >= 0 && e.B < count) { hitKind[e.B] = (byte)(e.Scalar > 0.4f * math.max(1f, w.MaxHp[e.B]) ? 2 : 1); hitDir[e.B] = e.Dir; }
+                        // a negative scalar is a round his shield plate stopped (DirectFire.Stopped): a brace, not a wound
+                        if (e.B >= 0 && e.B < count && e.Scalar < 0f) { blocked[e.B] = 1; hitDir[e.B] = e.Dir; }
+                        else if (e.B >= 0 && e.B < count) { hitKind[e.B] = (byte)(e.Scalar > 0.4f * math.max(1f, w.MaxHp[e.B]) ? 2 : 1); hitDir[e.B] = e.Dir; }
+                        break;
+                    case SimEventType.ShieldBlocked:
+                        if (e.A >= 0 && e.A < count) blocked[e.A] = 1;
+                        break;
+                    case SimEventType.UnitHealed:
+                        if (e.A >= 0 && e.A < count) { act[e.A] = 1; actOn[e.A] = e.B; }
+                        break;
+                    case SimEventType.VehicleHullMended:
+                        if (e.B >= 0 && e.B < count) { act[e.B] = 2; actOn[e.B] = e.A; }   // a = the machine, b = the man mending it
+                        break;
+                    case SimEventType.DropLanded:
+                        if (e.A >= 0 && e.A < count) act[e.A] = 3;
+                        break;
+                    case SimEventType.LeapStarted:
+                        if (e.A >= 0 && e.A < count)
+                        {
+                            // dir = where he left from, pos = where he lands, scalar = seconds in the air (LeapSystem.Jump)
+                            act[e.A] = 4; actOn[e.A] = (int)math.round(e.Scalar / math.max(0.01f, tickSeconds));
+                            LeapLine[e.A] = new float4(e.Dir.x, e.Dir.z, e.Pos.x, e.Pos.z);
+                            LeapPeak[e.A] = UnitMotion.LeapPeak(math.distance(e.Dir.xz, e.Pos.xz));
+                        }
                         break;
                     case SimEventType.NearMiss:
                         if (e.A >= 0 && e.A < count && hitKind[e.A] == 0) hitKind[e.A] = 3;
@@ -450,6 +503,73 @@ namespace TW.Presentation
             if (aimAt >= 0 && aimAt < count) { float3 d = w.Position[aimAt] - p; s.AimYaw = math.atan2(d.x, d.z); }
             else if (speed > 0.15f) s.AimYaw = s.BodyYaw;
 
+            // ---- a jetpack leap (unit motion, 2026-09-30). The sim flies him level along a straight line at 12 m/s; the
+            // renderer lifts him on an arc over it (LeapLine, LeapPeak: UnitMotion.ArcHeight at the point it draws him).
+            // His body: the spring off the ground (Jump Up from its push, 0.15 s in), then held in the air on Jumping Down's
+            // airborne frame (legs drawn up after its spring), then that clip's fall timed so his feet meet the ground on
+            // the tick the sim puts him down, then its landing crouch, which Jump Down's rise lifts him out of (below). The
+            // landing burst the sim sets off under him the tick after lands in the crouch. Above everything but death: he
+            // is in the air, nothing else can take the body.
+            if (simStance == Stance.Leap || act[i] == 4)
+            {
+                s.Routine = 0; s.Stance = s.WantStance = (byte)Stance.Standing; s.PrevLayer = (byte)NavLayer.Surface; s.Aimed = false;
+                s.Down = false; s.DownUntil = 0u; s.KnockedUntil = 0u; s.DazedUntil = 0u; s.HopHeight = 0f; s.AlightUntil = 0u;
+                if (act[i] == 4)
+                {
+                    s.LeapTick = tick; s.LandTick = 0u; s.Landing = true; s.LeapFor = math.max(0.1f, actOn[i] * tickSeconds);
+                    var line = LeapLine[i];
+                    s.BodyYaw = s.ShownYaw = s.AimYaw = s.TurnTo = math.atan2(line.z - line.x, line.w - line.y);
+                    Start(i, ref s, Clip.ClimbOut, Rung.Trench, (i == FollowSlot ? "jetpack: takes off, " + s.LeapFor.ToString("0.0") + " s in the air" : null), 1f, 0.06f);
+                    s.Frame = 0.15f;   // from the push: a crouch here would be drawn already a metre up the arc
+                    return;
+                }
+                float left = s.LeapFor - (tick - s.LeapTick) * tickSeconds;
+                if (left <= JumpDescent + 0.02f)
+                {
+                    if (s.Clip != Clip.JumpDown || s.Rate < 0.5f)
+                    {
+                        Start(i, ref s, Clip.JumpDown, Rung.Trench, "jetpack: comes down", 1f, 0.12f);
+                        s.Frame = math.max(0f, JumpTouch - math.max(0f, left));   // his feet meet the ground as the sim lands him
+                    }
+                }
+                else if (s.Clip == Clip.ClimbOut ? !Playing(s) || s.Frame > 0.4f : s.Clip != Clip.JumpDown)
+                {
+                    Start(i, ref s, Clip.JumpDown, Rung.Trench, "jetpack: in the air", 0.02f, 0.2f);
+                    s.Frame = JumpAir;   // held (a fiftieth of real time: it drifts, it does not freeze)
+                }
+                return;
+            }
+            if (s.LeapTick != 0u)
+            {
+                // down: the arc is drawn until the tick after the landing (the drawn position is a tick behind the sim's)
+                if (s.LandTick == 0u) s.LandTick = tick;
+                else if (tick > s.LandTick) { LeapPeak[i] = 0f; s.LeapTick = 0u; }
+            }
+            // down by parachute: the canopy brought him to this point on this tick (TroopMotionFx drew him hanging under
+            // it); he lands on it, the knees taking it
+            if (act[i] == 3)
+            {
+                s.Stance = (byte)Stance.Standing; s.PrevLayer = inTrench ? (byte)NavLayer.Trench : (byte)NavLayer.Surface; s.Routine = 0; s.Landing = true;
+                Start(i, ref s, Clip.JumpDown, Rung.Trench, "lands by parachute", 1f, 0.05f);
+                s.Frame = JumpTouch;
+                return;
+            }
+            // the landing crouch rises (a leap's or a parachute's): Jumping Down is cut at its deepest crouch, so Jump Down's
+            // rise carries him up out of it instead of a cross-fade popping him straight
+            if (s.Landing && s.Clip == Clip.JumpDown && s.Rung == Rung.Trench)
+            {
+                s.PrevLayer = inTrench ? (byte)NavLayer.Trench : (byte)NavLayer.Surface;   // he is where he landed: no drop into it after
+                bool leapt = s.LandTick == tick;   // the landing tick itself still carries the leap's 12 m/s: not a run
+                if (Playing(s) && (speed < 0.5f || leapt)) return;
+                s.Landing = false;
+                if (speed < 0.5f) { Start(i, ref s, Clip.ClimbLand, Rung.Trench, "rises out of the landing", 1f, 0.08f); s.Frame = LandCrouch; return; }
+            }
+            else if (s.Clip != Clip.JumpDown) s.Landing = false;
+
+            // the medic's and the engineer's work, renewed by each of the sim's sweeps (every SupportEvery ticks): latched
+            // here, above every rung that can return early, so a sweep that lands while his work plays still renews it
+            if (act[i] == 1 || act[i] == 2) { s.TendUntil = tick + 8u; s.TendOn = actOn[i]; s.TendKind = act[i]; }
+
             // on fire. A man alight does not take cover, does not flinch at a near miss and does not keep his place in a
             // trench routine: he breaks and runs until he drops, which is the whole reason the clip exists. It is
             // decided here, above every reaction, because every one of them would otherwise interrupt him.
@@ -504,6 +624,15 @@ namespace TW.Presentation
                 return;
             }
             if (s.Rung == Rung.Reaction && Playing(s) && hitClip && !(speed > 0.3f && cur != Clip.HitRun && Left(s) > 0.4f)) return;   // a hit the sim runs through is dropped
+            // a round rang off the shield bearer's plate (ShieldBlocked): he braces behind it (ducks his head, or flinches on
+            // his knee or flat) instead of reeling as if it had hit him. Not every round of a burst: once in 12 ticks.
+            if (blocked[i] != 0 && tick - s.LastBrace > 12u && !(s.Rung == Rung.Reaction && Playing(s) && (hitClip || cur == Clip.DiveAway || cur == Clip.Trip || cur == Clip.GetUp)))
+            {
+                s.LastBrace = tick; s.Routine = 0;
+                Clip brace = prone ? Clip.ProneFlinch : low ? Clip.KneelFlinch : Clip.Duck;
+                Start(i, ref s, brace, Rung.Reaction, (i == FollowSlot ? "a round rings off his plate from " + Side(hitDir[i], s.BodyYaw) + ": braces" : null), 1.25f, 0.06f);
+                return;
+            }
             bool flatNow = s.Stance == (byte)Stance.Prone || s.DownUntil > tick;
             if (incoming.Count > 0 && !prone && !flatNow && tick - s.LastDive > 30 && !(s.Rung == Rung.Reaction && Playing(s) && (hitClip || cur == Clip.DiveAway || cur == Clip.Trip || cur == Clip.GetUp || cur == Clip.MaskOn)) && !(s.Rung == Rung.Trench && Playing(s)))
             {
@@ -677,12 +806,40 @@ namespace TW.Presentation
             // the magazine: reloaded in the gap before the sim's next shot, played faster to fit it (the rifle has 0.85 s after
             // its fire clip, so its reload runs at 2x and the next shot cuts the last quarter); a man with no target takes his time
             float gap = w.FireCooldown[i] * tickSeconds;
-            if (s.Shots >= magazine && shotThisTick[i] == 0 && speed < 0.3f && arche != 2 && (gap >= 0.7f || target < 0) && !(s.Rung == Rung.Fire && Playing(s) && s.Frame < 0.5f) && !(s.Rung == Rung.Action && Playing(s)))
+            // The MG (2) changes its belt too (2026-09-30: it was barred, so ReloadProne, "the MG belt change", never played):
+            // its 7 rounds a second leave no 0.7 s gap, so the belt goes in when its burst ends (no target).
+            if (s.Shots >= magazine && shotThisTick[i] == 0 && speed < 0.3f && (gap >= 0.7f || target < 0) && !(s.Rung == Rung.Fire && Playing(s) && s.Frame < 0.5f) && !(s.Rung == Rung.Action && Playing(s)))
             {
                 s.Shots = 0;
                 Clip reload = prone ? Clip.ReloadProne : low ? (inTrench || arche != 2 ? Clip.ReloadKneel : Clip.ReloadStoop) : Clip.ReloadStand;
                 float rate = target < 0 ? 1f : math.clamp(Clips.Table[(int)reload].Seconds / math.max(0.5f, gap), 1f, 2f);
                 Start(i, ref s, reload, Rung.Action, (i == FollowSlot ? "magazine empty: reloads" + (rate > 1.05f ? " (" + rate.ToString("0.0") + "x)" : "") : null), rate); return;
+            }
+
+            // ---- the medic tending a man, the engineer mending a machine: turned to it and working for as long as the
+            // sim's sweeps keep naming him (TendUntil), once he has stopped a moment beside it. The medic kneels to a man
+            // within TendReach and goes over him (KneelInspect: hands busy at knee height); further off he only turns to
+            // him. The engineer stands at the hull looking it over (FidgetInspect); TroopMotionFx puts the sparks of his
+            // work on the hull. A shot or a reload of his own (the engineer is armed) cuts in above, and he goes back to it.
+            if (tick < s.TendUntil && speed < 0.3f && !prone && s.TendOn >= 0 && s.TendOn < count && s.StopTick != 0 && tick - s.StopTick >= 10)
+            {
+                bool machine = s.TendKind == 2;
+                float3 d = w.Position[s.TendOn] - p; d.y = 0f;
+                float face = math.atan2(d.x, d.z);
+                if (machine || math.length(d) <= TendReach)
+                {
+                    Clip work = machine ? Clip.FidgetInspect : Clip.KneelInspect;
+                    s.Routine = 0; s.Aimed = false;
+                    if (cur != work || !Playing(s))
+                    {
+                        byte was = s.Stance;
+                        s.Stance = machine ? (byte)Stance.Standing : (byte)Stance.Crouch;
+                        Start(i, ref s, work, Rung.Action, (i == FollowSlot ? (machine ? "mends machine " + s.TendOn : "tends man " + s.TendOn) : null), 1f, was == s.Stance ? 0.15f : 0.4f);
+                    }
+                    s.BodyYaw = s.AimYaw = s.TurnTo = face;   // after Start: a turn it cut short keeps its own yaw
+                    return;
+                }
+                s.BodyYaw = s.TurnTo = face;   // too far to kneel to him: he faces him, the rungs below keep his stance
             }
 
             // ---- dazed: a shell close by has knocked the wind out of him. Standing still, he stays on one knee a few

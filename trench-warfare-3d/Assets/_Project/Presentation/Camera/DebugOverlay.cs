@@ -45,6 +45,9 @@ namespace TW.Presentation.Tactical
             var tanks = GetComponent<TankRenderer>();
             if (tanks == null) tanks = gameObject.AddComponent<TankRenderer>();
             if (tanks.Host == null) tanks.Host = Host;
+            var motion = GetComponent<TroopMotionFx>();              // the paratroopers' canopies, the jetpack's flame (2026-09-30)
+            if (motion == null) motion = gameObject.AddComponent<TroopMotionFx>();
+            if (motion.Host == null) motion.Host = Host;
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null) shader = Shader.Find("Standard");
             matA = new Material(shader) { enableInstancing = true, color = new Color(0.55f, 0.45f, 0.25f) };

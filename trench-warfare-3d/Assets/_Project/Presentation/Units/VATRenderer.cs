@@ -114,6 +114,7 @@ namespace TW.Presentation.Units
         NativeArray<ushort> nearRowOf, farRowOf;   // Clip -> row in the near / far atlas
         NativeArray<float> spare;                   // stands in for the controller's arrays when there is no controller
         NativeArray<byte> spareBytes;
+        NativeArray<float4> spareLines;             // the same for the controller's leap lines
         readonly Plane[] frustum = new Plane[6];
         GraphicsBuffer.IndirectDrawIndexedArgs[] args;
         readonly Matrix4x4[] tankBatchA = new Matrix4x4[256], tankBatchB = new Matrix4x4[256];
@@ -211,6 +212,7 @@ namespace TW.Presentation.Units
             planes = new NativeArray<float4>(6, Allocator.Persistent);
             spare = new NativeArray<float>(1, Allocator.Persistent);
             spareBytes = new NativeArray<byte>(1, Allocator.Persistent);
+            spareLines = new NativeArray<float4>(1, Allocator.Persistent);
             instanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxSlots, 48);
         }
 
@@ -245,6 +247,7 @@ namespace TW.Presentation.Units
                 Controlled = controlled, NearRowOf = nearRowOf, FarRowOf = farRowOf,
                 PrevRow = anim != null ? anim.PrevRow : nearRowOf, PrevPhase = anim != null ? anim.PrevPhase : spare, Blend = anim != null ? anim.Blend : spare, Lift = anim != null ? anim.Lift : spare,
                 Hop = anim != null ? anim.Hop : spare, Grime = anim != null ? anim.Grime : spare, Char = anim != null ? anim.Char : spareBytes,
+                LeapLine = anim != null ? anim.LeapLine : spareLines, LeapPeak = anim != null ? anim.LeapPeak : spare,
                 Hidden = HiddenMask(Host.Local.World.Config.MaxSlots),
             }.Run();
             DrawnNear = counts[0]; DrawnFar = counts[2];
@@ -317,6 +320,7 @@ namespace TW.Presentation.Units
             float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var z) ? z.CurrentZoom : 0f;
             float scale = UnitScale * Mathf.Clamp(zoom / Mathf.Max(1f, GrowFromZoom), 1f, MaxGrow);
             at.y += anim.Hop[slot] * scale;   // a shell has him in the air (life-size metres, drawn at his scale)
+            if (anim.LeapPeak[slot] > 0f) { var l = anim.LeapLine[slot]; at.y += UnitMotion.ArcHeight(l.xy, l.zw, p.xz, anim.LeapPeak[slot]); }   // on a jetpack leap
             int row = nearRowOf[math.min((int)anim.Row[slot], nearRowOf.Length - 1)], prev = nearRowOf[math.min((int)anim.PrevRow[slot], nearRowOf.Length - 1)];
             float t = anim.Phase[slot], pt = anim.PrevPhase[slot], blend = anim.Blend[slot];
             Vector3 Sample(int k)
@@ -360,7 +364,8 @@ namespace TW.Presentation.Units
             public float Scale;
             public bool Controlled;
             [ReadOnly] public NativeArray<ushort> NearRowOf, FarRowOf, PrevRow;
-            [ReadOnly] public NativeArray<float> PrevPhase, Blend, Lift, Hop, Grime;
+            [ReadOnly] public NativeArray<float> PrevPhase, Blend, Lift, Hop, Grime, LeapPeak;
+            [ReadOnly] public NativeArray<float4> LeapLine;
             [ReadOnly] public NativeArray<byte> Hidden;
             [ReadOnly] public NativeArray<byte> Char;
             public NativeArray<VatInstance> Instances;
@@ -391,6 +396,7 @@ namespace TW.Presentation.Units
                     float original = Height.Sample(p.Pos.x, p.Pos.z);
                     float y = Ground.Sample(p.Pos.x, p.Pos.z, original);
                     if (Controlled) { float lift = Lift[PoseSlot[i]]; if (lift > 0f) y = math.lerp(y, original, lift); y += Hop[PoseSlot[i]] * Scale; }   // climbing: drawn up the trench wall; blown off his feet: in the air
+                    if (Controlled && LeapPeak[PoseSlot[i]] > 0f) { var l = LeapLine[PoseSlot[i]]; y += UnitMotion.ArcHeight(l.xy, l.zw, p.Pos.xz, LeapPeak[PoseSlot[i]]); }   // a jetpack leap: world metres over the line the sim flies him along
                     if (!Visible(new float3(p.Pos.x, y + 1f, p.Pos.z))) continue;
                     if ((p.Flags & (byte)UnitFlags.Vehicle) != 0)
                     {
@@ -451,6 +457,7 @@ namespace TW.Presentation.Units
             if (planes.IsCreated) planes.Dispose();
             if (spare.IsCreated) spare.Dispose();
             if (spareBytes.IsCreated) spareBytes.Dispose();
+            if (spareLines.IsCreated) spareLines.Dispose();
             instanceBuffer?.Dispose(); instanceBuffer = null;
         }
 

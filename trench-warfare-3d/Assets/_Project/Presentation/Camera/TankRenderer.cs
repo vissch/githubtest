@@ -93,6 +93,11 @@ namespace TW.Presentation.Tactical
             public float NextExhaust, NextDust, NextSmoke, Born, DiedAt;
             public bool Linked; public Vector3 PropPos;   // the sim's wreck prop drawn by this hull
             public Matrix4x4[] World;              // LOD0 part matrices, this frame
+            // unit motion (TankRenderer.Motion.cs): the hull drawn off its sim position (a Breaker's lunge, a Skimmer's slide),
+            // the Breaker's phase and when it began, and when a hovering machine's engine died, how fast it was going then
+            public Vector3 Offset;
+            public int BreakerPhase; public float BreakerSince, NextBreakerSmoke, NextBreakerDust;
+            public float KnockedAt = -1f, KnockSpeed, TiltSide; public Vector3 KnockDir;
             public readonly List<Debris> Pieces = new List<Debris>();
         }
 
@@ -461,8 +466,9 @@ namespace TW.Presentation.Tactical
                 // its middle, and it stands as high as they let it
                 pitch = v.Legs.Pitch; roll = v.Legs.Roll; heave = v.Legs.Height;
             }
-            else if (v.Hover) HoverPose(v, fwd, right, now, dt, out pitch, out roll, out heave);
+            else if (v.Hover) { HoverPose(v, fwd, right, now, dt, out pitch, out roll, out heave); SettleOnPods(v, now, fwd, ref roll, ref heave); }
             else Settle(v, fwd, right, out pitch, out roll, out heave);
+            if (!legged && !v.Hover) BreakerMotion(match, v, now, fwd, right, ref pitch, ref roll, ref heave);
             if (v.Ditched && !v.Hover) { pitch -= 17f * Mathf.Deg2Rad; heave -= 1.1f; }   // a cushion neither ditches nor bogs
             if (v.Bogged && !v.Hover) heave -= 0.25f;
             float vib = v.Stalled ? 0f : (0.006f + 0.01f * v.Throttle);
@@ -500,12 +506,15 @@ namespace TW.Presentation.Tactical
                     float dh = Ground(q.x, q.z) + ((w.Flags[t] & (uint)UnitFlags.Vehicle) != 0 ? 1.5f : 0.6f) - (v.Heave.Value + spec.Gun(k).Mount3.y);
                     want = Mathf.Atan2(dh, Mathf.Max(1f, dist)) + dist * 0.0007f;   // and a little for the drop
                 }
+                // a mortar lobs: the high angle for the range, and up at its rest with nothing to shoot at (Motion.cs)
+                bool lobs = Lobbed(spec, k, t >= 0 && t < w.HighWater && w.IsAlive(t), t >= 0 && t < w.HighWater ? new Vector2(w.Position[t].x - v.Pos.x, w.Position[t].z - v.Pos.z).magnitude : 0f, out float lob);
+                if (lobs) want = lob;
                 // a rack of rockets rides raised, and higher still to fire (2026-09-28: it read as a grey lump flat on its
                 // back at 45-120 m): the whole box is the Gun part (Tools/mechsplit.py halftrack), pitched at its yoke
                 bool rack = spec.Rockets > 0 && k == 0;
                 if (rack) want = (t >= 0 ? RackFiringPitch : RackRidingPitch) * Mathf.Deg2Rad;
                 if (gun != null && gun.GunHealth[s * TankGunnerySystem.Guns + k] <= 0f) want = -7f * Mathf.Deg2Rad;
-                v.GunPitch[k] = Mathf.MoveTowards(v.GunPitch[k], Mathf.Clamp(want, -8f * Mathf.Deg2Rad, (rack ? RackMaxPitch : 22f) * Mathf.Deg2Rad), dt * (rack ? RackRaiseRate : 12f) * Mathf.Deg2Rad);
+                v.GunPitch[k] = Mathf.MoveTowards(v.GunPitch[k], Mathf.Clamp(want, -8f * Mathf.Deg2Rad, (rack ? RackMaxPitch : lobs ? MortarMaxPitch : 22f) * Mathf.Deg2Rad), dt * (rack ? RackRaiseRate : lobs ? MortarLayRate : 12f) * Mathf.Deg2Rad);
                 v.Recoil[k] = Mathf.Max(0f, v.Recoil[k] - dt * (rack ? RackRecoilDecay : 2.6f));
             }
 
@@ -684,7 +693,7 @@ namespace TW.Presentation.Tactical
         /// <summary>Every part of one LOD in the world; a part drawn apart (debris) and what hangs off it are left out.</summary>
         void Pose(View v, TankModel.Lod lod, Matrix4x4[] world)
         {
-            var root = Matrix4x4.TRS(new Vector3(v.Pos.x, v.Heave.Value + v.Bob, v.Pos.z), HullRotation(v), Vector3.one);
+            var root = Matrix4x4.TRS(new Vector3(v.Pos.x + v.Offset.x, v.Heave.Value + v.Bob, v.Pos.z + v.Offset.z), HullRotation(v), Vector3.one);
             // the legs are solved against the body as it is actually sitting, tilt and all, so a machine standing
             // across a slope has its downhill legs reach further rather than its feet float
             if (v.Legs != null && v.Legs.Ready && lod.Legs != null)
@@ -981,6 +990,7 @@ namespace TW.Presentation.Tactical
             // the fire dies down, but embers glow dimly in the seams for three minutes: burnt metal, not a grey prop
             v.Burn = Mathf.MoveTowards(v.Burn, age < 180f ? 0.15f : 0f, dt / (v.CookOff ? 70f : 45f));
             v.Flash = Mathf.Max(0f, v.Flash - dt * 5f);
+            SettleWreck(v, now, dt);   // a hovering wreck comes down onto its pods, its fan running down (Motion.cs)
             Pose(v, v.Model.Lods[0], v.World);
             float fire = v.CookOff ? Mathf.Clamp01(1f - age / 40f) : Mathf.Clamp01(v.Fire - age / 30f);
             float smoke = Mathf.Clamp01(1f - age / 120f);

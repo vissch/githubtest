@@ -3,6 +3,9 @@
 // hands them over each frame at their seats), and anything else that wants a living figure at a pose of its own.
 // Mirrors the fallen path (own buffer, own args), but with the living material, shadows when the frame affords
 // them, and a Clip in each record's AnimRow that this maps to the near or far atlas row as the fallen do.
+// Each caller draws through a set of its own (ExtraSets: 0 the riders, 1 the paratroopers under their canopies,
+// TroopMotionFx), since a draw reads its buffer when the frame renders, not when it is issued: two callers sharing
+// one buffer drew the second one's men twice (2026-09-30).
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -16,14 +19,23 @@ namespace TW.Presentation.Units
         /// <summary>The zoom growth living men were drawn with this frame (UnitScale * this is their Scale).</summary>
         public float CurrentGrow { get; private set; } = 1f;
         public const int MaxExtras = 512;
+        /// <summary>How many callers may draw extras in one frame, each through its own buffers (0 riders, 1 paratroopers).</summary>
+        public const int ExtraSets = 2;
 
-        GraphicsBuffer extraBuffer, extraArgs;
-        NativeArray<VatInstance> extraInstances;
-        GraphicsBuffer.IndirectDrawIndexedArgs[] extraArgsData;
-        MaterialPropertyBlock[] extraProps; MaterialPropertyBlock farExtraProps;
-        readonly List<int>[] extraByFigure = new List<int>[8];
-        /// <summary>Extras drawn last frame (near + far), for the lab's readout.</summary>
-        public int DrawnExtras { get; private set; }
+        sealed class ExtraSet
+        {
+            public GraphicsBuffer Buffer, Args;
+            public NativeArray<VatInstance> Instances;
+            public GraphicsBuffer.IndirectDrawIndexedArgs[] ArgsData;
+            public MaterialPropertyBlock[] Props; public MaterialPropertyBlock FarProps;
+            public readonly List<int>[] ByFigure = new List<int>[8];
+            public int Drawn;
+        }
+        readonly ExtraSet[] extraSets = new ExtraSet[ExtraSets];
+        /// <summary>Extras drawn last frame (near + far) by the riders' set, for the lab's readout.</summary>
+        public int DrawnExtras => extraSets[0] != null ? extraSets[0].Drawn : 0;
+        /// <summary>Extras drawn last frame by one set.</summary>
+        public int DrawnExtrasOf(int set) => set >= 0 && set < ExtraSets && extraSets[set] != null ? extraSets[set].Drawn : 0;
         /// <summary>How far the extras (the men riding machines) are lifted off the dark hull they kneel on: brighter, with
         /// their side's colour on their edge (VAT_URP _Lift).</summary>
         [Range(0f, 1.5f)] public float ExtrasLift = 1f;
@@ -90,25 +102,33 @@ namespace TW.Presentation.Units
         /// tier's atlas; Pos is the drawn position (his feet); Scale the caller's (UnitScale * CurrentGrow to match the men
         /// around him). Called from another renderer's LateUpdate, after this one's, so the frustum is this frame's.
         /// </summary>
-        public void DrawExtras(VatInstance[] src, byte[] figureOfExtra, int count)
+        public void DrawExtras(VatInstance[] src, byte[] figureOfExtra, int count) => DrawExtras(src, figureOfExtra, count, 0);
+
+        /// <summary>The same through set `set` (0..ExtraSets-1): one set per caller, each drawn once a frame.</summary>
+        public void DrawExtras(VatInstance[] src, byte[] figureOfExtra, int count, int set)
         {
-            DrawnExtras = 0;
+            if (set < 0 || set >= ExtraSets) return;
+            var es = extraSets[set];
+            if (es != null) es.Drawn = 0;
             if (count <= 0 || src == null || figures == null || Host == null || Host.Local == null) return;
-            if (!extraInstances.IsCreated)
+            if (es == null)
             {
-                extraInstances = new NativeArray<VatInstance>(MaxExtras, Allocator.Persistent);
-                extraBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, MaxExtras, 48);
-                extraArgs = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, figures.Length + 1, GraphicsBuffer.IndirectDrawIndexedArgs.size);
-                extraArgsData = new GraphicsBuffer.IndirectDrawIndexedArgs[figures.Length + 1];
-                extraProps = new MaterialPropertyBlock[figures.Length];
+                es = extraSets[set] = new ExtraSet();
+                es.Instances = new NativeArray<VatInstance>(MaxExtras, Allocator.Persistent);
+                es.Buffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, MaxExtras, 48);
+                es.Args = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, figures.Length + 1, GraphicsBuffer.IndirectDrawIndexedArgs.size);
+                es.ArgsData = new GraphicsBuffer.IndirectDrawIndexedArgs[figures.Length + 1];
+                es.Props = new MaterialPropertyBlock[figures.Length];
                 for (int k = 0; k < figures.Length; k++)
                 {
-                    extraProps[k] = new MaterialPropertyBlock();
-                    extraProps[k].SetVector(PosMinId, figures[k].Asset.PosMin); extraProps[k].SetVector(PosSizeId, figures[k].Asset.PosSize);
+                    es.Props[k] = new MaterialPropertyBlock();
+                    es.Props[k].SetVector(PosMinId, figures[k].Asset.PosMin); es.Props[k].SetVector(PosSizeId, figures[k].Asset.PosSize);
                 }
-                if (far != null) { farExtraProps = new MaterialPropertyBlock(); farExtraProps.SetVector(PosMinId, far.Asset.PosMin); farExtraProps.SetVector(PosSizeId, far.Asset.PosSize); }
-                for (int k = 0; k < extraByFigure.Length; k++) extraByFigure[k] = new List<int>(64);
+                if (far != null) { es.FarProps = new MaterialPropertyBlock(); es.FarProps.SetVector(PosMinId, far.Asset.PosMin); es.FarProps.SetVector(PosSizeId, far.Asset.PosSize); }
+                for (int k = 0; k < es.ByFigure.Length; k++) es.ByFigure[k] = new List<int>(64);
             }
+            var extraInstances = es.Instances; var extraArgsData = es.ArgsData; var extraByFigure = es.ByFigure;
+            var extraBuffer = es.Buffer; var extraArgs = es.Args; var extraProps = es.Props; var farExtraProps = es.FarProps;
             for (int k = 0; k < figures.Length; k++) extraByFigure[k].Clear();
             var cam = Camera.main;
             Vector3 eye = cam != null ? cam.transform.position : Vector3.zero;
@@ -140,7 +160,7 @@ namespace TW.Presentation.Units
                 extraArgsData[k] = Args(figures[k].Asset.Mesh, near - start, start);
             }
             if (near + farCount == 0) return;
-            DrawnExtras = near + farCount;
+            es.Drawn = near + farCount;
             int farStart = extraInstances.Length - farCount;
             if (near > 0) extraBuffer.SetData(extraInstances, 0, 0, near);
             if (farCount > 0) extraBuffer.SetData(extraInstances, farStart, farStart, farCount);
@@ -175,9 +195,14 @@ namespace TW.Presentation.Units
 
         void ReleaseExtras()
         {
-            extraBuffer?.Dispose(); extraBuffer = null;
-            extraArgs?.Dispose(); extraArgs = null;
-            if (extraInstances.IsCreated) extraInstances.Dispose();
+            for (int k = 0; k < extraSets.Length; k++)
+            {
+                var es = extraSets[k];
+                if (es == null) continue;
+                es.Buffer?.Dispose(); es.Args?.Dispose();
+                if (es.Instances.IsCreated) es.Instances.Dispose();
+                extraSets[k] = null;
+            }
         }
     }
 }
