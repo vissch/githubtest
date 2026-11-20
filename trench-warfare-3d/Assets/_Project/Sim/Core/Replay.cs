@@ -199,7 +199,7 @@ namespace TW.Sim
         // behind his own front trench is seen and shot at by the far side again -- and in its place DirectFireSystem
         // halves the chance of a hit on him (CombatTables.ApproachShare, the owner 2026-10-08), from the trench line
         // back, not from 10 m behind it. Layout and hash chain unchanged; a v37 replay does not replay.
-        public const ushort FormatVersion = 61;
+        public const ushort FormatVersion = 62;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
