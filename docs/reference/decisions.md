@@ -830,7 +830,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   each man in GreyboxCorridor at night, photographing the same ground empty, and keeping the pixels that differ.
   Measured on a reshoot this leg, that mask holds **only the pale kit**: the Flamer's 2 342 differing pixels are
   his wand alone and the Sentry's 1 606 are his plate alone, so both cutouts come out a bare slab with no man in
-  them (`docs/evidence/special-portraits-r3/cut-Flamer.png`, `cut-Sentry.png`). Lowering the threshold from 18 to 4
+  them (cut-Flamer.png and cut-Sentry.png, in docs/evidence/special-portraits-r3 on `origin/lane/show/special-portraits-r3`). Lowering the threshold from 18 to 4
   adds 600 pixels and no body; `--lift` only brightens the slab. His khaki body simply does not separate from the
   mud at night - the same fault as the open `UnitCloseStills` row above, and what `CaptureRig` itself reports as
   `"men barely separate from the ground: unreadable"` with `contrast_median` 0.07-0.12 against the owner's 0.15 bar.

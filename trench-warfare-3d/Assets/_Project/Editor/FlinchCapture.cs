@@ -142,7 +142,7 @@ namespace TW.Editor
                 shot.Clip = h.Animation != null ? h.Animation.State[slot].Clip.ToString() : "";
                 shots[i] = shot;
                 CaptureRig.Hold(120f);
-                CaptureRig.Shot(shot.Path, fx, fz, Zoom, Yaw, Pitch, W, H, aimY, Fit);
+                CaptureRig.Shot(shot.Path, fx, fz, Zoom, Yaw, Pitch, W, H, aimY, fit: Fit);
                 while (int.Parse(CaptureRig.Pending()) > 0) yield return null;
                 CaptureRig.Release();
             }
