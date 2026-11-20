@@ -87,8 +87,11 @@ namespace TW.Editor
         static void OnPlayMode(PlayModeStateChange change)
         {
             if (change != PlayModeStateChange.EnteredPlayMode) return;
-            string req = SessionState.GetString(Request, null);
-            if (req == null) return;
+            // Unity's native string bridge returns an empty string for a null fallback. Empty options are a
+            // valid Gym.Run() request, so distinguish an absent key with a nonempty sentinel instead.
+            const string missing = "TW.Gym.Request:missing:05916c5ae2424a099a458d7961e289cb";
+            string req = SessionState.GetString(Request, missing);
+            if (req == missing) return;
             SessionState.EraseString(Request);   // a crash must not leave the editor looping
             StartRunner(req);
         }
