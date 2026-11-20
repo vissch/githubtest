@@ -7,6 +7,8 @@ a check that no longer works. This breaks things on purpose and asserts each bre
 (your checkout is never touched), a few minutes.
 
     python Tools/selftest.py        from trench-warfare-3d/; exit 0 = every case behaved
+    python Tools/selftest.py --only land,relay     only these groups (codemap, port_split, scorecard, land,
+                                                   relay, health): a land.py check in 20 s, not 130
 
 Cases: codemap --check passes on a clean tree, then fails on each of: a command that runs a missing Tools/ script, a
 cited file that does not exist, a folder with no purpose line, an undocumented command-line flag, a test class
@@ -993,6 +995,7 @@ def scorecard_cases():
     case('scorecard takes an accepted run as the new baseline', not worse, str(worse))
 
 
+<<<<<<< HEAD
 LONG = chr(92) * 2 + '?' + chr(92)   # Windows' prefix for a path over 260 characters
 
 
@@ -1036,12 +1039,27 @@ def sweep_stale():
 def main():
     sweep_stale()
     run(['git', 'worktree', 'prune'], REPO)   # a run killed half way leaves its worktree registered
+=======
+GROUPS = ('codemap', 'port_split', 'scorecard', 'land', 'relay', 'health')
+
+
+def main():
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--only', default='', help='run only these groups, comma separated: ' + ', '.join(GROUPS))
+    a = ap.parse_args()
+    only = [g.strip() for g in a.only.split(',') if g.strip()] or list(GROUPS)
+    unknown = [g for g in only if g not in GROUPS]
+    if unknown:
+        sys.exit('selftest: no group named %s (have: %s)' % (', '.join(unknown), ', '.join(GROUPS)))
+    # Run by a relay leg, the tools tested here would refuse (land.py and pipeline.py do, inside a leg). They run
+    # on throwaway repos, so the leg's mark is taken off; relay_cases puts it back where it tests the refusal.
+    __import__('os').environ.pop('TW_RELAY', None)
+>>>>>>> c7be85f8 (selftest: --only <groups> runs some groups (land,relay in 10 s, not 130); passes when a relay leg runs it)
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='tw-selftest-'))
     wt = tmp / 'wt'
-    code, out = run(['git', 'worktree', 'add', '-q', '--detach', str(wt), 'HEAD'], REPO)
-    if code:
-        sys.exit('could not create a worktree: ' + out)
     try:
+<<<<<<< HEAD
         # test the tree as it is on disk (the change you are about to commit): copy every changed and new file over
         changed = run(['git', 'diff', '--name-only', '--diff-filter=AMR', 'HEAD'], REPO)[1].split('\n')
         changed += run(['git', 'ls-files', '--others', '--exclude-standard'], REPO)[1].split('\n')
@@ -1074,6 +1092,42 @@ def main():
         run(['git', 'worktree', 'prune'], REPO)
         case('the run leaves no folder behind', not tmp.exists(), str(tmp))
     print(f'{sum(results)} of {len(results)} cases behaved')
+=======
+        if 'codemap' in only:                     # the one group that needs a copy of this checkout
+            run(['git', 'worktree', 'prune'], REPO)   # a run killed half way leaves its worktree registered
+            code, out = run(['git', 'worktree', 'add', '-q', '--detach', str(wt), 'HEAD'], REPO)
+            if code:
+                sys.exit('could not create a worktree: ' + out)
+            # test the tree as it is on disk (the change you are about to commit): copy every changed and new file over
+            changed = run(['git', 'diff', '--name-only', '--diff-filter=AMR', 'HEAD'], REPO)[1].split('\n')
+            changed += run(['git', 'ls-files', '--others', '--exclude-standard'], REPO)[1].split('\n')
+            for rel in filter(None, (c.strip() for c in changed)):
+                (wt / rel).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(REPO / rel, wt / rel)
+            for rel in filter(None, run(['git', 'diff', '--name-only', '--diff-filter=D', 'HEAD'], REPO)[1].split('\n')):
+                (wt / rel.strip()).unlink(missing_ok=True)
+            run(['git', 'add', '-A'], wt)
+            run(['git', '-c', 'user.name=selftest', '-c', 'user.email=selftest@local', 'commit', '-qm', 'selftest: the working tree as it is on disk',
+                 '--allow-empty', '--no-verify'], wt)
+            codemap_cases(wt)
+        if 'port_split' in only:
+            port_split_cases(tmp)
+            port_split_twin_case(tmp)
+        if 'scorecard' in only:
+            scorecard_cases()
+        if 'land' in only:
+            land_cases(tmp)
+        if 'relay' in only:
+            relay_cases(tmp)
+        if 'health' in only:
+            code, out = run([sys.executable, str(HERE / 'health.py'), '--lanes'], PROJ)
+            case('health.py --lanes lists this checkout', code == 0 and '(you)' in out, out)
+    finally:
+        if wt.exists():
+            run(['git', 'worktree', 'remove', '--force', str(wt)], REPO)
+        shutil.rmtree(tmp, ignore_errors=True)
+    print(f'{sum(results)} of {len(results)} cases behaved' + ('' if len(only) == len(GROUPS) else ' (only: %s)' % ', '.join(only)))
+>>>>>>> c7be85f8 (selftest: --only <groups> runs some groups (land,relay in 10 s, not 130); passes when a relay leg runs it)
     sys.exit(0 if all(results) else 1)
 
 
