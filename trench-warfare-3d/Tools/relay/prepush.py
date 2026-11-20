@@ -40,6 +40,8 @@ def marker():
 def refusal(rec, line):
     local_ref, local_sha, remote_ref, remote_sha = line.split()[:4]
     lane = rec.get("lane")
+    if remote_ref in TRUNK:
+        return "a relay leg pushes only its own lane (%s), never the trunk (%s)" % (lane, remote_ref)
     if not lane or remote_ref != "refs/heads/" + lane:
         return "a relay leg pushes only its own lane (%s), not %s" % (lane, remote_ref)
     if local_sha == ZERO:
