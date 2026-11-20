@@ -71,6 +71,9 @@ namespace TW.Presentation.Terrain
         /// so how much of a crater is painted by a given frame depends on the machine. While this is set every queued tile
         /// and row is done in the frame it is queued, so a still does not. Never set during a measured window.</summary>
         public static bool Unmetered;
+        /// <summary>Tooling only (Editor/Footage.cs, 2026-11-18): the share of shell holes under water, in place of the biome's.
+        /// Below zero (always, in the game) the biome decides.</summary>
+        public static float FloodingOverride = -1f;
         float[] rowBehindAhead = new float[0];   // the samples 0.25 m either side of a row's vertices along x, shared
         int chunkCursor;
         readonly List<int> chunkPass = new List<int>();
@@ -146,6 +149,7 @@ namespace TW.Presentation.Terrain
             if (launched != null) { Field = chosen; if (mood != null) mood.Field = chosen; }
             Profile = BiomeProfile.For(chosen);
             flooding = Profile.Flooding;   // the night field is a soaked one; nothing stands in water on lava
+            if (FloodingOverride >= 0f) flooding = FloodingOverride;
             Surface = new BattlefieldSurface(map, flooding);
             renderGrid = new RenderGroundGrid { Width = Mathf.RoundToInt(hf.Width / GridStep) + 1, Length = Mathf.RoundToInt(hf.Length / GridStep) + 1, Step = GridStep };
             renderGrid.Heights = new Unity.Collections.NativeArray<float>(renderGrid.Width * renderGrid.Length, Unity.Collections.Allocator.Persistent);

@@ -51,6 +51,9 @@ namespace TW.Presentation
         public float BombardmentPerMinute = 0f;
         /// <summary>Set by the debug panel before a restart; survives the scene reload. Negative = use the field above.</summary>
         public static float BombardmentOverride = -1f;
+        /// <summary>Tooling only (Editor/Footage.cs, 2026-11-18): edits the generated field's dials before the match is built
+        /// (river, shelling, water table). Null in the game.</summary>
+        public static System.Func<TW.Sim.Terrain.BattlefieldParams, TW.Sim.Terrain.BattlefieldParams> FieldEdit;
         /// <summary>Tooling (TW.Perf.PerfBench): riflemen a side for the stress preset, set before the scene loads so a
         /// player build can run it; negative = the field below. Read once, in Awake.</summary>
         public static int StressOverride = -1;
@@ -148,6 +151,7 @@ namespace TW.Presentation
             {
                 var field = MatchLaunch.Field(Ground, BattlefieldSeed);
                 field.Bombardment = BombardmentOverride >= 0f ? BombardmentOverride : BombardmentPerMinute;
+                if (FieldEdit != null) field = FieldEdit(field);
                 m = MatchSim.CreateBattlefield(cfg, field);
             }
             else m = PlaytestMap ? MatchSim.CreatePlaytest(cfg) : MatchSim.CreateGreybox(cfg);
