@@ -614,7 +614,7 @@ namespace TW.Presentation.Tactical
             flames.Clear();
             SceneHooks.FootFall = null;
             books?.Dispose();
-            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat, canopyMat, sapperPackMat, sapperChargeMat }) if (mat != null) Destroy(mat);
+            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat, canopyMat, sapperPackMat, sapperChargeMat, plateMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             foreach (var mat in markMats) if (mat != null) Destroy(mat);
             foreach (var mat in new[] { fallenMat, brassMat, helmetMat, vapourMat, beamSheath, kitMat }) if (mat != null) Destroy(mat);
