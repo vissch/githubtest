@@ -188,7 +188,7 @@ namespace TW.Sim
         // field while carried), drives out past its own rear edge and puts them back at full health, then returns for
         // more (MercyCarrySystem, new at the end of the system chain; SimEventType.UnitBoarded / UnitReturned). The
         // chain and the hashed layout grow: a v37 replay does not replay.
-        public const ushort FormatVersion = 57;
+        public const ushort FormatVersion = 58;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
