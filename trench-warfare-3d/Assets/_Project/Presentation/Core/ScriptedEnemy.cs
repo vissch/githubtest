@@ -49,6 +49,23 @@ namespace TW.Presentation
         public int SupportReserve = 180;
         /// <summary>The odds it wants behind a barrage: its front garrison against the player's. Bare, one more.</summary>
         public float Odds = 2f;
+        /// <summary>Patience (2026-09-29): every PatienceTicks without going over the top, the odds it wants behind a
+        /// barrage fall a step toward PatienceOdds (two, one and a half, then even). With the trench mouth hidden from far
+        /// guns (v23) nobody dies between attacks, both armies grow alike and it never reached two to one: ten-minute
+        /// matches of the script against itself took no trench at all. Behind smoke and a barrage, even odds are an even
+        /// trade that takes the trench one time in three, and one and a half to one takes it every time
+        /// (AssaultLadderTests). 0 turns it off. The bare attack keeps its three to one.</summary>
+        public int PatienceTicks = 2400;
+        public float PatienceOdds = 1f;
+        uint lastAttack;
+        /// <summary>The odds it wants behind a barrage at tick <paramref name="t"/>.</summary>
+        public float WantedOdds(uint t)
+        {
+            if (PatienceTicks <= 0 || Odds <= PatienceOdds) return Odds;
+            uint waited = t > lastAttack ? t - lastAttack : 0u;
+            int steps = (int)(waited / (uint)PatienceTicks);
+            return Mathf.Max(PatienceOdds, Odds - steps * 0.5f * (Odds - PatienceOdds));
+        }
         /// <summary>Ticks from calling the barrage to going over the top: its warm-up and the first shells.</summary>
         public int BarrageLeadTicks = 110;
         /// <summary>The tick its planned attack goes over the top, 0 with none planned.</summary>
@@ -151,7 +168,7 @@ namespace TW.Presentation
                     // did, held it at the player's count for good and it never had the odds to attack (Play, 2026-09-29)
                     short theirs = view.Fields.FrontTrench(Other);
                     int held = theirs >= 0 ? view.Fields.Trenches[theirs].GarrisonCount : 0;
-                    int army = Mathf.Max(AttackGarrison, Mathf.CeilToInt(Odds * held));
+                    int army = Mathf.Max(AttackGarrison, Mathf.CeilToInt(WantedOdds(t) * held));
                     int reserve = UsesSupport && t > 600 && MenOf(pw, Side) >= army ? SupportReserve : 0;
                     // threatened (the player's front garrison is at least eight and no smaller than its own), it keeps an
                     // SOS barrage's price in hand: spending every coin on men, it never had one when an attack came over
@@ -191,6 +208,7 @@ namespace TW.Presentation
                 short front = view.Fields.FrontTrench(Side), theirs = view.Fields.FrontTrench(Other);
                 if (front >= 0 && view.Fields.Trenches[front].GarrisonCount > 0)
                 {
+                    lastAttack = t;
                     enemy.Issue(OverTheTop(t, front));
                     Said?.Invoke($"{t / 20} s over the top behind the barrage, {view.Fields.Trenches[front].GarrisonCount} against {(theirs >= 0 ? view.Fields.Trenches[theirs].GarrisonCount : 0)}");
                 }
@@ -202,15 +220,17 @@ namespace TW.Presentation
                 int held = theirs >= 0 ? view.Fields.Trenches[theirs].GarrisonCount : 0;
                 if (front >= 0 && mine >= AttackGarrison)
                 {
+                    float want = WantedOdds(t);
                     if (mine >= (Odds + 1f) * held)
                     {
+                        lastAttack = t;
                         enemy.Issue(OverTheTop(t, front));
                         Said?.Invoke($"{t / 20} s over the top bare, {mine} against {held}");
                     }
-                    else if (mine >= Odds * held && UsesSupport && Barrage(view, enemy, t, theirs))
+                    else if (mine >= want * held && UsesSupport && Barrage(view, enemy, t, theirs))
                     {
                         PlannedAttack = t + (uint)Mathf.Max(1, BarrageLeadTicks);
-                        Said?.Invoke($"{t / 20} s barrage called, {mine} against {held}");
+                        Said?.Invoke($"{t / 20} s barrage called{(want < Odds ? $" (patience, odds {want:0.0})" : "")}, {mine} against {held}");
                     }
                 }
             }

@@ -182,10 +182,13 @@ namespace TW.Tests
         public void ABareAttackAtTwoToOne_IsBeatenOff_ButBleedsTheGarrison()
         {
             // eight seeds: the rung sits on the edge (one seed where eight men got in used to decide it), so four were
-            // noise; measured 2026-09-29 with dead ground, 1 of 8 taken and the garrison 22 % down (38 % without it)
+            // noise; measured 2026-09-29 with dead ground, 1 of 8 taken and the garrison 22 % down (38 % without it).
+            // The trench mouth (v23) took most of that: one defender a seed never reaches his trench and stood 8 m behind
+            // it in the open, a free kill from 110 m. Hidden now, the bare attack costs the garrison what it shoots and
+            // bombs in the trench itself (about 7 %); the barrage and smoke are what thin a line (the rungs below).
             var (taken, bled, said) = Rung4(2, Support.None, 8);
             Assert.LessOrEqual(taken, 3, said);
-            Assert.GreaterOrEqual(bled, 0.15f, "the next wave finds a thinner line: " + said);
+            Assert.GreaterOrEqual(bled, 0.04f, "the next wave finds a thinner line: " + said);
         }
 
         /// <summary>The guns hold the parapet (v22): twenty men with four machine gunners against a garrison of ten with

@@ -65,7 +65,11 @@ namespace TW.Sim
         // where it lands on that tick (DirectFireSystem hashes the bombs in the air). Layout unchanged.
         // v22 (2026-09-29, the guns): machine gunners (and the Sentry) answer OrderGroup.Gun, not Line, so a
         // TrenchSelectAdvance naming the line leaves them in the trench. The unit table's groups are hashed. Layout unchanged.
-        public const ushort FormatVersion = 22;
+        // v23 (2026-09-29, the trench mouth): a man on foot in the open from CombatTables.DeadGroundLipMetres in front of
+        // his own front trench's line back is not a target for a far-side shooter more than DeadGroundCloseMetres away
+        // unless that shooter is a sniper (TargetAcquisition; beyond DeadGroundMetres behind it, as v20, for anyone
+        // there). Layout unchanged.
+        public const ushort FormatVersion = 23;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

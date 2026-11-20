@@ -2,6 +2,8 @@
 // of sight of the far side's small arms (TargetAcquisition, CombatTables.DeadGroundMetres). The same man out in no
 // man's land is seen, and a man in his own trench is what he always was. Before it, a machine gun in the enemy's
 // front trench shot the player's reinforcements dead on the way up from the spawn (MatchLoopTests).
+// The trench mouth (2026-09-29, v23): closer in, stepping down into his trench, the parapet hides him from a gun in the
+// far trench, but not from a sniper there (owner) nor from an attacker who has come within DeadGroundCloseMetres.
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -39,8 +41,10 @@ namespace TW.Tests
 
         /// <summary>The battle scene's ground with an enemy machine gunner in his front trench at x 45, and one
         /// unkillable, unmoving rifleman of ours at <paramref name="behindOurs"/> metres behind our front trench
-        /// (negative: in front of it). Returns how many ticks of 200 the gunner had him as his target.</summary>
-        static int Watched(float behindOurs)
+        /// (negative: in front of it). Returns how many ticks of 200 the gunner had him as his target.
+        /// <paramref name="shooter"/> puts another archetype in the gunner's place; <paramref name="outFront"/> &gt; 0
+        /// stands him, unmoving, in the open that many metres in front of our trench instead.</summary>
+        static int Watched(float behindOurs, byte shooter = InfantryArchetype.Machinegunner, float outFront = 0f)
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
             var field = BattlefieldParams.ShelledForest(1917u); field.Bombardment = 0f;
@@ -48,16 +52,27 @@ namespace TW.Tests
             var w = m.World;
             short ours = m.Fields.FrontTrench(0), theirs = m.Fields.FrontTrench(1);
             var e = w.Roster[1 * RosterEntry.SlotCount + 0];
-            int gunner = w.Spawn(1, InfantryArchetype.Machinegunner, new float3(45f, 0f, TrenchZ(m, theirs, 45f) + 6f), 100000f, e.Speed, false);
-            w.MaxHp[gunner] = 100000f;
-            w.GoalId[gunner] = m.Fields.GetGoal(GoalKey.Trench(theirs));
-            for (int k = 0; k < 600 && w.TrenchId[gunner] < 0; k++) Step(m);
-            Assert.GreaterOrEqual(w.TrenchId[gunner], 0, "setup: the gunner is in his trench");
-            float x = w.Position[gunner].x;
+            int gunner;
+            float x;
+            if (outFront > 0f)
+            {
+                x = 45f;
+                gunner = w.Spawn(1, shooter, new float3(x, 0f, TrenchZ(m, ours, x) + outFront), 100000f, 0f, false);
+                w.MaxHp[gunner] = 100000f;
+            }
+            else
+            {
+                gunner = w.Spawn(1, shooter, new float3(45f, 0f, TrenchZ(m, theirs, 45f) + 6f), 100000f, e.Speed, false);
+                w.MaxHp[gunner] = 100000f;
+                w.GoalId[gunner] = m.Fields.GetGoal(GoalKey.Trench(theirs));
+                for (int k = 0; k < 600 && w.TrenchId[gunner] < 0; k++) Step(m);
+                Assert.GreaterOrEqual(w.TrenchId[gunner], 0, "setup: the gunner is in his trench");
+                x = w.Position[gunner].x;
+            }
             int man = w.Spawn(0, InfantryArchetype.Rifle, new float3(x, 0f, TrenchZ(m, ours, x) - behindOurs), 100000f, 0f, false);
             w.MaxHp[man] = 100000f;
             float range = math.distance(w.Position[man].xz, w.Position[gunner].xz);
-            Assert.Less(range, CombatTables.WeaponFor(InfantryArchetype.Machinegunner).RangeMax, "setup: he is inside the gun's range");
+            Assert.Less(range, CombatTables.WeaponFor(shooter).RangeMax, "setup: he is inside the gun's range");
             int seen = 0;
             for (int k = 0; k < 200; k++) { Step(m); if (w.TargetSlot[gunner] == man) seen++; }
             return seen;
@@ -73,6 +88,21 @@ namespace TW.Tests
         public void TheSameManInNoMansLand_IsSeen()
         {
             Assert.Greater(Watched(-20f), 100, "twenty metres in front of his trench he is fair game");
+        }
+
+        [Test]
+        public void AManSteppingDownIntoHisTrench_IsHiddenFromTheFarGun_ButNotFromTheFarSniper()
+        {
+            // the ten-minute matches lost most of their dead here, shot at 100-130 m (decisions.md 2026-09-29)
+            Assert.AreEqual(0, Watched(4f), "four metres behind his own trench the parapet hides him from the gun");
+            Assert.AreEqual(0, Watched(0.5f), "at the trench's line, dropping in, too");
+            Assert.Greater(Watched(4f, InfantryArchetype.Sniper), 0, "picking him off there is the sniper's job (owner)");
+        }
+
+        [Test]
+        public void AnAttackerCloseToTheTrench_SeesTheManBehindIt()
+        {
+            Assert.Greater(Watched(4f, InfantryArchetype.Rifle, 15f), 100, "fifteen metres out, an attacker looks over the parapet");
         }
     }
 }

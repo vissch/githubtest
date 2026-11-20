@@ -23,6 +23,10 @@
 //    that trench. He is on the approaches, which the parapet, the traverses and the communication trenches hide. Before
 //    it a machine gun in a front trench reached 170 m, past the whole of no man's land, and shot the other side's
 //    reinforcements dead between their spawn and their lines (MatchLoopTests): no army ever grew.
+//  - the trench mouth (2026-09-29, v23): closer in, from CombatTables.DeadGroundLipMetres in front of the trench's line
+//    back, the parapet hides him from a far-side shooter more than DeadGroundCloseMetres away, but not from a sniper
+//    (owner, 2026-09-29: picking off men there is the sniper's job). With dead ground alone, most of a ten-minute
+//    match's dead were men shot at 100-130 m as they stepped down into their own trench.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -155,9 +159,11 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<float> FrontZ;   // team * NavWidth + column (dead ground)
             public float2 HomeSign;
 
-            /// <summary>True when <paramref name="j"/>, on foot in the open, stands more than DeadGroundMetres behind
-            /// his own front trench and a shooter at <paramref name="p"/> is on the far side of it: the approaches hide him.</summary>
-            bool InDeadGround(int j, float3 p)
+            /// <summary>True when <paramref name="j"/>, on foot in the open, is hidden from shooter <paramref name="i"/>
+            /// at <paramref name="p"/> on the far side of his own front trench: more than DeadGroundMetres behind it the
+            /// approaches hide him from everyone there; closer in (from DeadGroundLipMetres in front of its line) the
+            /// parapet does, from anyone more than DeadGroundCloseMetres away but a sniper (owner, 2026-09-29).</summary>
+            bool InDeadGround(int i, int j, float3 p)
             {
                 int team = Team[j] & 1;
                 float3 q = Position[j];
@@ -165,7 +171,12 @@ namespace TW.Sim.Combat
                 float fz = FrontZ[team * NavWidth + col];
                 if (math.isnan(fz)) return false;
                 float s = team == 0 ? HomeSign.x : HomeSign.y;
-                return (q.z - fz) * s > CombatTables.DeadGroundMetres && (p.z - fz) * s < 0f;
+                if ((p.z - fz) * s >= 0f) return false;   // the shooter is on his side of it
+                float behind = (q.z - fz) * s;
+                if (behind > CombatTables.DeadGroundMetres) return true;
+                if (behind <= -CombatTables.DeadGroundLipMetres || Archetype[i] == InfantryArchetype.Sniper) return false;
+                float close = CombatTables.DeadGroundCloseMetres;
+                return math.distancesq(p.xz, q.xz) > close * close;
             }
 
             [ReadOnly] public NativeParallelMultiHashMap<int, int> Grid;
@@ -261,7 +272,7 @@ namespace TW.Sim.Combat
                     if ((Flags[i] & (uint)UnitFlags.Vehicle) != 0) return false;
                     return distSq <= CombatTables.CloseAssaultRange * CombatTables.CloseAssaultRange;
                 }
-                if ((fj & (uint)UnitFlags.InTrench) == 0 && TrenchId[j] < 0 && InDeadGround(j, p)) return false;
+                if ((fj & (uint)UnitFlags.InTrench) == 0 && TrenchId[j] < 0 && InDeadGround(i, j, p)) return false;
                 if ((fj & (uint)UnitFlags.InTrench) != 0 && StanceOf[j] != (byte)Stance.FireStep)
                 {
                     short theirs = TrenchAt(Position[j]);

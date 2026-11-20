@@ -125,7 +125,8 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   medics), fixed on `lane/show/order-chips`.
 - **Dead ground (2026-09-29), the agent's choice:** a man more than 10 m behind his own front trench is out of sight of
   the other side's small arms (the approaches and communication trenches the map does not draw). Without it the
-  machine gun's 170 m covered the other side's whole rear area. The alternative was a shorter machine gun.
+  machine gun's 170 m covered the other side's whole rear area. The alternative was a shorter machine gun. The strip
+  between the trench and those 10 m is the owner's (2026-09-29, above): hidden from far guns but a sniper's.
 - **The enemy plans its attacks (2026-09-29), the agent's choices:** it masses until it has two to one and lays a barrage
   and smoke first, or three to one bare, and only then goes over the top; it deploys men before it saves for support.
   Measured in ten-minute matches (`MatchLoopTests`): it now breaks a player who only sits in his trench in five to nine

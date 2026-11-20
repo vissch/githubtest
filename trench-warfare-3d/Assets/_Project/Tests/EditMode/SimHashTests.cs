@@ -46,7 +46,7 @@ namespace TW.Tests
         /// overhaul and units-meta, 2026-09-27). This fails instead: a change to the chain is a format change, so it
         /// bumps ReplayRecorder.FormatVersion and pins the new chain here in the same commit.</summary>
         // v9's chain held until v16 (v10-v16 changed what the tables hold and what TankGunnerySystem hashes); v17 put the
-        // sapper in at 120, v18 the fight on foot at 1108, v19 DirectFireSystem's bombs (same order), v20 dead ground (no new state). Named for what it is, not for a version it no longer matches.
+        // sapper in at 120, v18 the fight on foot at 1108, v19 DirectFireSystem's bombs (same order), v20 dead ground, v23 the trench mouth (no new state). Named for what it is, not for a version it no longer matches.
         const string SystemChain =
             "40 CombatCatalogueSystem;50 TerrainHashSystem;110 TrenchOrdersSystem;120 SapperSystem;130 OffMapAbilitySystem;" +
             "400 FlowFieldManager;600 TargetAcquisitionSystem;650 AuraSystem;700 DirectFireSystem;" +
@@ -62,7 +62,7 @@ namespace TW.Tests
             using var match = TW.Sim.Match.MatchSim.CreateGreybox(SimConfig.Default);
             var chain = new System.Text.StringBuilder();
             foreach (var s in match.World.Systems) chain.Append(s.Order).Append(' ').Append(s.GetType().Name).Append(';');
-            Assert.AreEqual(22, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
+            Assert.AreEqual(23, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
             Assert.AreEqual(SystemChain, chain.ToString(), "the hash chain changed: bump ReplayRecorder.FormatVersion and pin this chain: " + chain);
         }
     }
