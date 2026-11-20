@@ -63,7 +63,7 @@ namespace TW.Tests
             using var match = TW.Sim.Match.MatchSim.CreateGreybox(SimConfig.Default);
             var chain = new System.Text.StringBuilder();
             foreach (var s in match.World.Systems) chain.Append(s.Order).Append(' ').Append(s.GetType().Name).Append(';');
-            Assert.AreEqual(54, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
+            Assert.AreEqual(55, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
             Assert.AreEqual(SystemChain, chain.ToString(), "the hash chain changed: bump ReplayRecorder.FormatVersion and pin this chain: " + chain);
         }
 
@@ -232,7 +232,7 @@ namespace TW.Tests
         [Test]
         public void TheGreyboxHashAfter300TicksIsTheGoldenOneForThisFormatVersion()
         {
-            Assert.AreEqual(54, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
+            Assert.AreEqual(55, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
             using var match = ScriptedGreybox();
             var fight = Script(match);
             Assert.Greater(match.World.HighWater, 0,
@@ -267,7 +267,7 @@ namespace TW.Tests
         [Test]
         public void TheLandingBattlefieldHashAfter300TicksIsTheGoldenOneForThisFormatVersion()
         {
-            Assert.AreEqual(54, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
+            Assert.AreEqual(55, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
             using var match = TW.Sim.Match.MatchSim.CreateBattlefield(ScriptedConfig(), TW.Sim.Terrain.BattlefieldParams.Landing(Seed));
             var fight = Script(match);
             Assert.Greater(match.World.HighWater, 0,

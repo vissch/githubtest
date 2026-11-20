@@ -168,7 +168,7 @@ namespace TW.Sim
         // damage and accuracy tracks), written after the loadouts as three tier bytes and a count plus that many
         // track bytes per side, so the header layout changed. With every tier at zero the sim behaves exactly as v37
         // did and SimWorld.Hash()'s chain is untouched, so a zero-upgrade match hashes as before.
-        public const ushort FormatVersion = 54;
+        public const ushort FormatVersion = 55;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
