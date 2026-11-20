@@ -1,0 +1,286 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+index 9e889c8..fdb5e12 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+@@ -145,6 +145,9 @@ namespace TW.Presentation.Tactical
+         // knobs fx.columnBurstLit and fx.columnCap (Awake, AOSA C108): C103's light and cap on the old column, on a moonlit
+         // field (FlipbookFx.ColumnBurstLit, from ApplyTints; FlipbookFx.ColumnCapScale where the column is thrown). 1 and 0 = today.
+         float columnBurstLit = FlipbookFx.DefaultColumnBurstLit, columnCap = FlipbookFx.DefaultColumnCap;
++        // knob fx.columnPlay (Awake, AOSA C109): the part of the Column book the old dry column plays on a moonlit field
++        // before it fades out (FlipbookFx.ColumnPlayCut, the card's cut). 1 = today.
++        float columnPlay = FlipbookFx.DefaultColumnPlay;
+         /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
+         /// aiming circle and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
+         /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
+@@ -303,6 +306,7 @@ namespace TW.Presentation.Tactical
+             columnSoil = FlipbookFx.ReadColumnSoil();
+             columnBurstLit = FlipbookFx.ReadColumnBurstLit();
+             columnCap = FlipbookFx.ReadColumnCap();
++            columnPlay = FlipbookFx.ReadColumnPlay();
+         }
+ 
+         void Start()
+@@ -743,6 +747,8 @@ namespace TW.Presentation.Tactical
+                         // AOSA C103: a dry column on a moonlit field is the soil heave at fx.columnSoil (0: the old column exactly)
+                         float soil = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? columnSoil : 0f;
+                         float columnWidth = r * (damp ? 1.25f : 2.1f) * columnScale * earth;
++                        // AOSA C109: a dry column on a moonlit field stops before its book's late arcs at fx.columnPlay (1: cut 0, the old card exactly)
++                        float cut = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? FlipbookFx.ColumnPlayCut(columnPlay) : 0f;
+                         if (soil > 0f)
+                         {
+                             // rule 6: kept low where men stand behind it, so its top stops at their feet (FlipbookFx.SoilCap);
+@@ -758,10 +764,10 @@ namespace TW.Presentation.Tactical
+                             float tall = books.CardHeight(FlipbookFx.Book.Column, columnWidth), reach = tall * (1f + FlipbookFx.ColumnGrow);
+                             float behind = MenBehind(p, columnWidth * (1f + FlipbookFx.ColumnGrow) * 0.3f + 0.4f, reach * 3f, out float tanPitch);
+                             books.Add(FlipbookFx.Book.Column, p, columnWidth, 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: FlipbookFx.ColumnGrow, alpha: 1f, pop: 0.15f,
+-                                height: tall * FlipbookFx.ColumnCapScale(columnCap, FlipbookFx.SoilCap(behind, tanPitch, reach)));
++                                height: tall * FlipbookFx.ColumnCapScale(columnCap, FlipbookFx.SoilCap(behind, tanPitch, reach)), cut: cut);
+                         }
+                         else
+-                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
++                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f, cut: cut);
+                         // the two wings are not a mirror pair: the second is born a little later and a little smaller
+                         books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
+                         books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+index d32cb0b..fb8f9e8 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+@@ -31,6 +31,7 @@ namespace TW.Presentation.Tactical
+         {
+             public Vector3 Pos, Vel;
+             public float Born, Life, Width, Height, Grow, Roll, Alpha, Glow, Pop;
++            public float Cut;         // AOSA C109 (fx.columnPlay): the part of its life (and so of its book) it plays before it is gone (0 = all)
+             public float Soil, Cap;   // AOSA C103 (fx.columnSoil): how far this column plays the soil heave (SoilShape; 0 = the book's own timing), and its height cap over men (SoilCap)
+             public Book Book; public Kind Kind;
+         }
+@@ -392,6 +393,44 @@ namespace TW.Presentation.Tactical
+             m.SetFloat("_BurstLit", Mathf.Clamp01(share));
+         }
+ 
++        // AOSA C109 (juice J01, from C108's finding, runs 10/c108.md): the orange arcs a blind critic reads as flame or spray
++        // at night, partly over men, are the Column book's own late drawing (frames 6-15, the column split into thin arcs),
++        // in C57's night-earth paint, drawn 0.7-1.8 s into the old column's 1.8 s life. How the book plays (Draw): a card's
++        // frame is k x Frames x Sheet.Play (k = its age over its life), so a Sheet's Play slows the whole book to end at that
++        // frame; it neither stops early nor fades sooner. Every card fades over its last 35% of life and is gone at its life.
++        // So a Sheet Play would stretch the heave (frames 0-5) over the whole 1.8 s. Instead this cuts the card: its frames,
++        // swell, pop and glow run on the old 1.8 s clock exactly (the heave as today), but it is gone at Cut x its life, and
++        // it fades (and, eroding, tears) over the last PlayFade of that shortened life, to 0 at the cut: no pop.
++        //   fx.columnPlay   the part of the Column book the old dry column plays on a moonlit field (as C57), in
++        //                   [MinColumnPlay, 1]. 1 = today (no card is cut, the old fade line runs). 0.4: gone at 0.72 s at
++        //                   frame 6.4, the arcs' first frame (6) at fade 0.085. With fx.columnSoil above 0 the heave's own
++        //                   timing applies (no cut); with fx.columnCap the capped column is cut the same. Splash is never cut.
++        // No book, material, mesh or draw is added: the same card, gone sooner.
++        public const string ColumnPlayKnob = "fx.columnPlay";
++        public const float DefaultColumnPlay = 1f, OldColumnPlay = 1f;   // off until a blind 2-way against the default passes (rule 6)
++        public const float MinColumnPlay = 0.1f;
++        public const float PlayFade = 0.35f;   // the cut card fades over this part of its shortened life (every card's own last 35%)
++
++        /// <summary>fx.columnPlay, in [MinColumnPlay, 1] (1 = today).</summary>
++        public static float ReadColumnPlay() => Mathf.Clamp(Knobs.Get(ColumnPlayKnob, DefaultColumnPlay), MinColumnPlay, 1f);
++
++        /// <summary>The Cut a column card is added with at this knob: 0 (no cut, today exactly) at 1 or above.</summary>
++        public static float ColumnPlayCut(float play) => play >= 1f ? 0f : Mathf.Clamp(play, MinColumnPlay, 1f);
++
++        /// <summary>A card's age (seconds) at which it is gone: its life, or Cut x its life when it is cut.</summary>
++        public static float CardEnd(float life, float cut) => cut > 0f ? life * cut : life;
++
++        /// <summary>The fade of a cut card at k (its age over its FULL life): 1 until the last PlayFade of its shortened
++        /// life (cut x life), then smoothly to 0 at the cut.</summary>
++        public static float CutFade(float k, float cut)
++        {
++            float u = Mathf.Clamp01(k / Mathf.Max(0.0001f, cut));
++            return 1f - Mathf.SmoothStep(0f, 1f, (u - (1f - PlayFade)) / PlayFade);
++        }
++
++        /// <summary>The Cut the card at this index holds, for the tests.</summary>
++        public float CardCut(int index) => cards[index].Cut;
++
+         /// <summary>The _BurstLit the Column book's material holds (1 when the book did not load), for the tests.</summary>
+         public float ColumnBurstLitNow => mats[(int)Book.Column] != null ? mats[(int)Book.Column].GetFloat("_BurstLit") : 1f;
+         readonly int maxCards;   // MaxCards, or the knob flipbook.maxCards (read in the constructor)
+@@ -460,12 +499,12 @@ namespace TW.Presentation.Tactical
+         /// fraction of its size it is born at, growing to full in the first fifth (0 = born full size). Every card fades
+         /// out over its last third.
+         /// </summary>
+-        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float soil = 0f, float soilCap = 1f)
++        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float soil = 0f, float soilCap = 1f, float cut = 0f)
+         {
+             if (!Ready) return;
+             if (cards.Count >= maxCards) cards.RemoveAt(0);
+             float h = height > 0f ? height : width / Mathf.Max(0.05f, aspect[(int)book]);
+-            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Soil = soil, Cap = soilCap, Book = book, Kind = kind });
++            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Soil = soil, Cap = soilCap, Cut = cut > 0f && cut < 1f ? cut : 0f, Book = book, Kind = kind });
+         }
+ 
+         /// <summary>Move, age and draw every card. Clouds before the lights, so the flash is not hidden by its own smoke.</summary>
+@@ -476,7 +515,7 @@ namespace TW.Presentation.Tactical
+             for (int i = cards.Count - 1; i >= 0; i--)
+             {
+                 var c = cards[i];
+-                if (now - c.Born > c.Life) { cards.RemoveAt(i); continue; }
++                if (now - c.Born > (c.Cut > 0f ? CardEnd(c.Life, c.Cut) : c.Life)) { cards.RemoveAt(i); continue; }   // AOSA C109: a cut card goes at its cut
+                 if (now < c.Born) continue;   // not born yet
+                 if (c.Vel.sqrMagnitude > 0f) { c.Pos += c.Vel * dt; c.Vel = Vector3.Lerp(c.Vel, Vector3.zero, dt * 0.6f); cards[i] = c; }   // the throw slows; the drift on a long card stays
+             }
+@@ -491,7 +530,7 @@ namespace TW.Presentation.Tactical
+                     float k = Mathf.Clamp01((now - c.Born) / c.Life);
+                     float swell = 1f + c.Grow * k;
+                     if (c.Pop > 0f) { float u = 1f - Mathf.Clamp01(k / 0.2f); swell *= Mathf.Lerp(1f, c.Pop, u * u * u); }   // bursts out of a point, eased
+-                    float fade = 1f - Mathf.SmoothStep(0f, 1f, (k - 0.65f) / 0.35f);
++                    float fade = c.Cut > 0f ? CutFade(k, c.Cut) : 1f - Mathf.SmoothStep(0f, 1f, (k - 0.65f) / 0.35f);   // AOSA C109: a cut card fades to 0 at its cut
+                     if (Sheets[b].RampIn > 0f) fade *= Mathf.Clamp01((now - c.Born) / Sheets[b].RampIn);
+                     float play = Sheets[b].Play > 0f ? Sheets[b].Play : 1f;
+                     float frame = (c.Kind & Kind.HoldLast) != 0 ? Mathf.Min(k * frames, frames - 1f) : Mathf.Min(k * frames * play, frames - 1.001f);
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/ColumnPlayTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ColumnPlayTests.cs
+new file mode 100644
+index 0000000..341b7b1
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ColumnPlayTests.cs
+@@ -0,0 +1,137 @@
++// Phase: AOSA C109 (juice J01, from C108's finding) - fx.columnPlay: the part of the Column book the old dry column
++// plays on a moonlit field before it fades out, so it stops before the book's late arcs (frames 6-15). At its default
++// (1) no card is cut and the old fade and removal lines run.
++using System.IO;
++using System.Reflection;
++using NUnit.Framework;
++using UnityEngine;
++using TW.Presentation;
++using TW.Presentation.Tactical;
++
++namespace TW.Tests
++{
++    public class ColumnPlayTests
++    {
++        const int Frames = 16;        // the Column sheet (4 x 4, 16 frames, Play 0 = all)
++        const float OldLife = 1.8f;   // the old dry column's life (CombatFx)
++
++        [SetUp] public void SetUp() => Knobs.Clear();
++        [TearDown] public void TearDown() => Knobs.Clear();
++
++        static float OldFade(float k) => 1f - Mathf.SmoothStep(0f, 1f, (k - 0.65f) / 0.35f);
++
++        [Test]
++        public void Knob_DefaultIsToday_AndReadsAreClamped()
++        {
++            Assert.AreEqual("fx.columnPlay", FlipbookFx.ColumnPlayKnob);
++            Assert.AreEqual(FlipbookFx.OldColumnPlay, FlipbookFx.DefaultColumnPlay, "the default is today's column");
++            Assert.AreEqual(1f, FlipbookFx.ReadColumnPlay());
++            Assert.AreEqual("1", Knobs.Read["fx.columnPlay"]);
++
++            Knobs.Set(FlipbookFx.ColumnPlayKnob, "0.4");
++            Assert.AreEqual(0.4f, FlipbookFx.ReadColumnPlay(), 1e-6f);
++            Knobs.Set(FlipbookFx.ColumnPlayKnob, "0");
++            Assert.AreEqual(FlipbookFx.MinColumnPlay, FlipbookFx.ReadColumnPlay(), 1e-6f, "never cut to nothing");
++            Knobs.Set(FlipbookFx.ColumnPlayKnob, "3");
++            Assert.AreEqual(1f, FlipbookFx.ReadColumnPlay());
++        }
++
++        [Test]
++        public void Cut_IsZeroExactlyAtOne()
++        {
++            Assert.IsTrue(FlipbookFx.ColumnPlayCut(1f) == 0f, "knob 1: no cut, the old card bit for bit");
++            Assert.IsTrue(FlipbookFx.ColumnPlayCut(FlipbookFx.DefaultColumnPlay) == 0f);
++            Assert.IsTrue(FlipbookFx.ColumnPlayCut(2f) == 0f);
++            Assert.AreEqual(0.4f, FlipbookFx.ColumnPlayCut(0.4f), 1e-6f);
++            Assert.AreEqual(FlipbookFx.MinColumnPlay, FlipbookFx.ColumnPlayCut(0f), 1e-6f);
++            Assert.IsTrue(FlipbookFx.CardEnd(OldLife, 0f) == OldLife, "no cut: gone at its life");
++            Assert.AreEqual(0.72f, FlipbookFx.CardEnd(OldLife, 0.4f), 1e-6f, "0.4: gone at 0.72 s");
++        }
++
++        [Test]
++        public void CutFade_EndsAtZeroAtTheCut_WithNoPop()
++        {
++            foreach (float cut in new[] { 0.3f, 0.4f, 0.5f })
++            {
++                Assert.AreEqual(1f, FlipbookFx.CutFade(0f, cut), 1e-6f);
++                Assert.AreEqual(1f, FlipbookFx.CutFade(cut * (1f - FlipbookFx.PlayFade) - 1e-4f, cut), 1e-6f, "whole until its last PlayFade");
++                Assert.AreEqual(0f, FlipbookFx.CutFade(cut, cut), 1e-6f, "0 at the cut: nothing pops off");
++                Assert.AreEqual(0f, FlipbookFx.CutFade(1f, cut), 1e-6f);
++                // continuous and falling: no step bigger than a smooth ramp's over 1000 samples of the cut life
++                float last = 1f;
++                for (int i = 1; i <= 1000; i++)
++                {
++                    float f = FlipbookFx.CutFade(cut * i / 1000f, cut);
++                    Assert.LessOrEqual(f, last + 1e-6f);
++                    Assert.Less(last - f, 0.01f, "a smooth fade, no pop");
++                    last = f;
++                }
++            }
++            // a cut of 1 would be today's fade (the curve is every card's own last 35%)
++            for (int i = 0; i <= 20; i++) Assert.AreEqual(OldFade(i / 20f), FlipbookFx.CutFade(i / 20f, 1f), 1e-5f);
++        }
++
++        [Test]
++        public void Cut04_StopsBeforeTheArcs_AndKeepsTheHeave()
++        {
++            // the frame runs on the old clock (k over the full life), so the heave's frames come at today's times
++            float cut = FlipbookFx.ColumnPlayCut(0.4f);
++            Assert.AreEqual(6.4f, cut * Frames, 1e-4f, "the last frame drawn: just past the arcs' first (6)");
++            float kArc = 6f / Frames;   // the arcs' first frame
++            Assert.Less(FlipbookFx.CutFade(kArc, cut), 0.1f, "the arcs' first frame is nearly gone");
++            for (int f = 0; f <= 4; f++)
++                Assert.AreEqual(1f, FlipbookFx.CutFade((float)f / Frames, cut), 1e-6f, "frame " + f + ": the heave is whole, as today");
++            Assert.AreEqual(OldFade(4f / Frames), 1f, 1e-6f);
++        }
++
++        [Test]
++        public void Add_StoresTheCut_AndNoCutByDefault()
++        {
++            var fx = new FlipbookFx();
++            try
++            {
++                Assume.That(fx.Ready, "the flipbook shader and sheets load in the editor");
++                fx.Add(FlipbookFx.Book.Column, Vector3.zero, 4f, OldLife);
++                fx.Add(FlipbookFx.Book.Column, Vector3.zero, 4f, OldLife, cut: 0f);
++                fx.Add(FlipbookFx.Book.Column, Vector3.zero, 4f, OldLife, cut: 1f);
++                fx.Add(FlipbookFx.Book.Column, Vector3.zero, 4f, OldLife, cut: 0.4f);
++                Assert.AreEqual(4, fx.Alive);
++                Assert.IsTrue(fx.CardCut(0) == 0f, "the old Add: no cut");
++                Assert.IsTrue(fx.CardCut(1) == 0f);
++                Assert.IsTrue(fx.CardCut(2) == 0f, "a cut of 1 is no cut");
++                Assert.AreEqual(0.4f, fx.CardCut(3), 1e-6f);
++            }
++            finally
++            {
++                // DestroyImmediate: Dispose's Object.Destroy is not allowed in edit mode
++                var mats = (Material[])typeof(FlipbookFx).GetField("mats", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(fx);
++                foreach (var m in mats) if (m != null) Object.DestroyImmediate(m);
++                var quad = (Mesh)typeof(FlipbookFx).GetField("quad", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(fx);
++                if (quad != null) Object.DestroyImmediate(quad);
++            }
++        }
++
++        [Test]
++        public void Source_OldLinesRunWithNoCut_AndOnlyTheNightDryColumnIsCut()
++        {
++            // the bit-identity guard: with Cut 0 the old removal and fade expressions run unchanged
++            string fx = File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Presentation", "Camera", "FlipbookFx.cs"));
++            StringAssert.Contains("if (now - c.Born > (c.Cut > 0f ? CardEnd(c.Life, c.Cut) : c.Life))", fx);
++            StringAssert.Contains("float fade = c.Cut > 0f ? CutFade(k, c.Cut) : 1f - Mathf.SmoothStep(0f, 1f, (k - 0.65f) / 0.35f);", fx);
++            StringAssert.Contains("Cut = cut > 0f && cut < 1f ? cut : 0f", fx);
++
++            // CombatFx: a cut only for a dry column on a moonlit field (as C57), passed to the capped and old column Adds
++            string combat = File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Presentation", "Camera", "CombatFx.cs"));
++            StringAssert.Contains("float cut = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? FlipbookFx.ColumnPlayCut(columnPlay) : 0f;", combat);
++            StringAssert.Contains("columnPlay = FlipbookFx.ReadColumnPlay();", combat);
++            Assert.AreEqual(2, Count(combat, "cut: cut"), "the capped and the old column; never the soil heave or another book");
++        }
++
++        static int Count(string s, string what)
++        {
++            int n = 0;
++            for (int i = s.IndexOf(what); i >= 0; i = s.IndexOf(what, i + what.Length)) n++;
++            return n;
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/ColumnPlayTests.cs.meta b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ColumnPlayTests.cs.meta
+new file mode 100644
+index 0000000..863df0d
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ColumnPlayTests.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 01ba7f5dd5644e25b2ddc16875987d45
+\ No newline at end of file
