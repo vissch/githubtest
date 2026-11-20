@@ -75,9 +75,10 @@ def real_tree():
         case('real tree: the Narrows, built inline in the launch, reads as no river and no sea, and gets no village',
              code['grounds']['Narrows'] == dict(river=False, sea=False) and 'Narrows' not in tags, (code['grounds']['Narrows'], tags))
     case('real tree: the Salvo has its sixteen rocket tubes', sum(s.startswith('Socket_Tube') for m in assets['Salvo']['models'] for s in m['sockets']) == 16)
-    # the sapper since the VFX pass (2026-09-28) drew the jetpack's leap, which had been this case's example
-    case('real tree: the sapper laying is an event nothing draws', 'SapperLaying' in extra['orphan_events']
-         and any(not r['ok'] for r in assets['Sapper']['vfx']['rows']), extra['orphan_events'])
+    # the sapper laying is drawn now too (sapper-lay-mine-anim's kneel, the earth he throws off the spot), so a
+    # mission trigger stands for the events that still are not
+    case('real tree: the sapper laying is drawn, and an event nothing draws is still listed', 'SapperLaying' not in extra['orphan_events']
+         and 'MissionTriggerFired' in extra['orphan_events'], extra['orphan_events'])
     case('real tree: the jetpack leap is drawn', 'LeapStarted' not in extra['orphan_events']
          and all(r['ok'] for r in assets['Jetpack']['vfx']['rows']), assets['Jetpack']['vfx']['rows'])
     case('real tree: an idea from the notes file is a bucket of its own', assets['Arditi']['status'] == 'IDEA')
