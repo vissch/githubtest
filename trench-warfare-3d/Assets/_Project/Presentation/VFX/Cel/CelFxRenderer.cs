@@ -45,7 +45,7 @@ namespace TW.Presentation.VFX.Cel
         static readonly int RecordsId = Shader.PropertyToID("_CelRecords"), PaletteId = Shader.PropertyToID("_CelPalette"),
             NowId = Shader.PropertyToID("_CelNow"), LodId = Shader.PropertyToID("_CelLod");
 
-        void Awake() { if (CelFx.Renderer == null || CelFx.Renderer == this) CelFx.Adopt(this); }
+        void Awake() { if (CelFx.ExistingRenderer == null || CelFx.ExistingRenderer == this) CelFx.Adopt(this); }
 
         void OnDestroy()
         {
