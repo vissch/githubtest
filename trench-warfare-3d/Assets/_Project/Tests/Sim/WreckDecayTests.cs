@@ -616,6 +616,8 @@ namespace TW.Tests
             Assert.Greater(atWreck, 20, "[found-shelter-body-uses-full-wreckblastreach-reach-20261015-0] the gun never fired at the wreck");
             Assert.Greater(suppressed, 20f, "[found-shelter-body-uses-full-wreckblastreach-reach-20261015-0] the man on the line was not kept down");
             Assert.Less(m.World.Suppression[extra], 2f, "[found-shelter-body-uses-full-wreckblastreach-reach-20261015-0] a man 1.6 m off the firing line was kept down: the body is twice the shadow's half-width");
+        }
+
         // [found-atwreck-picks-nearest-shelter-by-teams-not-b-20261015-0] AtWreck picked one wreck, the nearest whose
         // Teams bit (built over the whole reach disc) held an enemy, and returned outright when its shadow was empty.
         // An enemy on the flank of a nearer wreck won the pick and silenced the gun for the tick, so a covering machine
