@@ -195,31 +195,6 @@ namespace TW.Presentation.Tactical
         static readonly Color Mud = new Color(0.38f, 0.33f, 0.27f), Bark = new Color(0.36f, 0.30f, 0.24f), Charred = new Color(0.20f, 0.17f, 0.14f);
         static readonly Color ClothA = new Color(0.60f, 0.53f, 0.33f), ClothB = new Color(0.26f, 0.30f, 0.33f), Steel = new Color(0.27f, 0.30f, 0.26f), Skin = new Color(0.72f, 0.54f, 0.42f), Gore = new Color(0.30f, 0.06f, 0.05f);
         readonly HashSet<int> blowStruck = new HashSet<int>(); int blowFrame = -1;   // the men a MeleeBlow landed on this frame
-        /// <summary>The jetpack men in the air: x = slot, y = the Time.time he is down by.</summary>
-        readonly List<Vector2> jets = new List<Vector2>(8);
-        float jetNext;
-
-        /// <summary>A flame and a thread of smoke under each man in the air on his jetpack, where he is drawn.</summary>
-        void TickJets(float now)
-        {
-            if (jets.Count == 0 || Host == null || Host.Local == null) return;
-            var w = Host.Local.World; var anim = Host.Animation;
-            bool puff = Time.time >= jetNext;
-            if (puff) jetNext = Time.time + 0.05f;
-            for (int k = jets.Count - 1; k >= 0; k--)
-            {
-                int s = (int)jets[k].x;
-                if (Time.time > jets[k].y || s < 0 || s >= w.HighWater || !w.IsAlive(s)) { jets.RemoveAt(k); continue; }
-                if (!puff || books == null || !books.Ready) continue;
-                float size = units != null ? units.UnitScale : 1f;
-                Vector3 at = Host.Presenter != null ? (Vector3)Host.Presenter.Drawn(s) : (Vector3)w.Position[s];
-                at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + (anim != null && s < anim.Hop.Length ? anim.Hop[s] * size : 0f) + 0.5f * size;
-                books.Add(FlipbookFx.Book.Flash, at, 1.1f * size, 0.06f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : 2f, pop: 0.5f);
-                books.Add(FlipbookFx.Book.Puff, at - Vector3.up * 0.3f, 0.9f * size, 0.7f, velocity: Vector3.down * 1.5f, grow: 1.4f, alpha: 0.35f);
-                SceneHooks.Flash?.Invoke(at, new Color(1f, 0.6f, 0.25f), 4f, 5f, 0.08f);
-            }
-        }
-
         struct Dig { public int Slot; public Vector3 At; public float Until, Next; }
         readonly List<Dig> digs = new List<Dig>(4);
         public const float DigEvery = 0.42f;   // seconds between a sapper's spadefuls
@@ -597,7 +572,7 @@ namespace TW.Presentation.Tactical
             foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             foreach (var mat in markMats) if (mat != null) Destroy(mat);
-            foreach (var mat in new[] { fallenMat, brassMat, helmetMat, vapourMat }) if (mat != null) Destroy(mat);
+            foreach (var mat in new[] { fallenMat, brassMat, helmetMat, vapourMat, beamSheath }) if (mat != null) Destroy(mat);
             foreach (var mesh in fallen) if (mesh != null) Destroy(mesh);
             FreeMeshes();
             // the gag marks' two materials are made lazily with HideAndDontSave (CombatFx.Gags) and were left behind
@@ -816,26 +791,6 @@ namespace TW.Presentation.Tactical
                     if (e.A >= 0 && e.A < w.HighWater) digs.Add(new Dig { Slot = e.A, At = (Vector3)e.Pos, Until = SimNow + e.Scalar });
                     break;
                 case SimEventType.DropInbound: DropInbound(e); break;   // the paratroop drop (CombatFx.Drops.cs)
-                case SimEventType.DropLanded: DropLanded(e); break;
-                case SimEventType.LeapStarted:
-                {
-                    // a jetpack man leaves the ground (a = the man, dir = where he left, scalar = seconds in the air): a
-                    // blast of dust and flame where he stood, and a jet under him until he is down (TickJets)
-                    if (e.A < 0 || e.A >= w.HighWater) break;
-                    jets.Add(new Vector2(e.A, Time.time + Mathf.Max(0.2f, e.Scalar) / Mathf.Max(0.05f, Host.TimeScale)));
-                    if (books != null && books.Ready)
-                    {
-                        Vector3 from = (Vector3)e.Dir; from.y = RenderGround.Sample(Host.Local.Map, from.x, from.z) + 0.3f;
-                        books.Add(FlipbookFx.Book.Flash, from, 2.6f, 0.14f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4.5f : 2.2f, pop: 0.5f);
-                        for (int k = 0; k < 6; k++)
-                        {
-                            float a = k * Mathf.PI / 3f; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
-                            books.Add(FlipbookFx.Book.Puff, from + o * 0.5f, 1.8f, 1.0f, velocity: o * 2.6f + Vector3.up * 0.5f, grow: 1.6f, alpha: 0.5f);
-                        }
-                        SceneHooks.Flash?.Invoke(from, new Color(1f, 0.6f, 0.25f), 10f, 8f, 0.25f);
-                    }
-                    break;
-                }
                 // ---- the hero moment (HeroSystem: "losing becomes a story"): the sim made it and nothing drew it ----
                 case SimEventType.HeroMoment:
                 {
@@ -875,20 +830,6 @@ namespace TW.Presentation.Tactical
                     if (e.Type == SimEventType.HeroFallen) SceneHooks.Flash?.Invoke((Vector3)e.Pos + Vector3.up, HeroGold, 9f, 9f, 0.6f);   // the light goes out with a last flare
                     break;
                 }
-                case SimEventType.UnitHealed:
-                {
-                    // a medic's hands or the ambulance beside him (SupportSystem; a = the healer, b = the patient): nothing
-                    // showed it, so a Mercy parked by a wounded section looked idle. A green glint off the patient and a
-                    // breath of green light on the ground round him, a few a frame at most
-                    if (books == null || !books.Ready || e.B < 0 || e.B >= w.HighWater || healsThisFrame >= 4) break;
-                    if (CameraShake.DistanceToLook(w.Position[e.B]) > 70f) break;
-                    healsThisFrame++;
-                    float size = units != null ? units.UnitScale : 1f;
-                    Vector3 chest = EstimateChest(e.B, size);
-                    books.Add(FlipbookFx.Book.Star, chest + Vector3.up * (0.5f * size), 0.55f * size, 0.5f, velocity: Vector3.up * 0.9f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 2.2f : 1.2f);
-                    SceneHooks.Flash?.Invoke(chest, HealGreen, 3.5f, 3.2f, 0.45f);
-                    break;
-                }
                 case SimEventType.WeaponDropped:
                 {   // (blowStruck / blowFrame: the men a blow landed on this frame, for the Hit that follows it)
                     // a fists man throws his weapon down as a fight starts (MeleeSystem; pos = where it falls, dir = the way he
@@ -899,33 +840,6 @@ namespace TW.Presentation.Tactical
                     Vector3 hands = EstimateChest(e.A, size);
                     Vector3 toss = new Vector3(e.Dir.x, 0f, e.Dir.z); toss = toss.sqrMagnitude > 1e-4f ? toss.normalized : Vector3.right;
                     debris.Throw(DebrisRenderer.Piece.Rifle, hands, toss * 2.2f + Vector3.up * 1.6f, size, Bark, ref rng, 25f);
-                    break;
-                }
-                case SimEventType.ShieldBlocked:
-                {
-                    // a round stopped by a shield bearer's plate (DirectFire; pos = where it struck, dir = the round's way):
-                    // nothing showed it, so the man behind the plate looked merely lucky. A spark off the steel, thrown back
-                    // the way the round came
-                    if (books == null || !books.Ready || hitsThisFrame >= 40 || CameraShake.DistanceToLook(e.Pos) > 70f) break;
-                    hitsThisFrame++;
-                    float size = units != null ? units.UnitScale : 1f;
-                    Vector3 at = e.A >= 0 && e.A < w.HighWater && w.IsAlive(e.A) ? EstimateChest(e.A, size) : (Vector3)e.Pos;
-                    Vector3 back = new Vector3(-e.Dir.x, 0f, -e.Dir.z); if (back.sqrMagnitude > 1e-4f) at += back.normalized * (0.35f * size);
-                    books.Add(FlipbookFx.Book.Star, at, 0.45f * size, 0.07f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 3f : 1.6f);
-                    SceneHooks.Sparks?.Invoke(at, 4);
-                    break;
-                }
-                case SimEventType.CriticalHit:
-                {
-                    // a charging Breaker's round finds the mark (DirectFire; b = the target, scalar = damage): the Hit that
-                    // goes with it is drawn as any other, so the one blow that matters looked like the rest. A wide white
-                    // star and a flash of light on the man it struck
-                    if (books == null || !books.Ready || e.B < 0 || e.B >= w.HighWater || CameraShake.DistanceToLook(e.Pos) > 80f) break;
-                    float size = units != null ? units.UnitScale : 1f;
-                    Vector3 at = w.IsAlive(e.B) ? EstimateChest(e.B, size) : (Vector3)e.Pos + Vector3.up * (1.1f * size);
-                    books.Add(FlipbookFx.Book.Star, at, 1.5f * size, 0.16f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 3.5f : 1.8f, pop: 0.4f);
-                    SceneHooks.Sparks?.Invoke(at, 8);
-                    SceneHooks.Flash?.Invoke(at, new Color(1f, 0.92f, 0.75f), 6f, 6f, 0.12f);
                     break;
                 }
                 case SimEventType.VehicleHullMended:
@@ -1438,7 +1352,6 @@ namespace TW.Presentation.Tactical
             flames.Update(now, view, books, drawnAt, groundAt);
             TickSmoulders(now);
             TickHeroes(now);
-            TickJets(now);
             TickDigs();
             DrawCanopies(SimNow);
             books?.Draw(now, bounds);
