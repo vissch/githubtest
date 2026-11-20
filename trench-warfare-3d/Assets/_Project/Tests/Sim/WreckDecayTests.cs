@@ -618,6 +618,7 @@ namespace TW.Tests
             Assert.Less(m.World.Suppression[extra], 2f, "[found-shelter-body-uses-full-wreckblastreach-reach-20261015-0] a man 1.6 m off the firing line was kept down: the body is twice the shadow's half-width");
         }
 
+        [Test]
         // [found-atwreck-picks-nearest-shelter-by-teams-not-b-20261015-0] AtWreck picked one wreck, the nearest whose
         // Teams bit (built over the whole reach disc) held an enemy, and returned outright when its shadow was empty.
         // An enemy on the flank of a nearer wreck won the pick and silenced the gun for the tick, so a covering machine
@@ -646,6 +647,7 @@ namespace TW.Tests
                 "wreck with an empty shadow silenced the gun");
         }
 
+        [Test]
         // [found-buildshelters-excludes-vehicles-from-teams-i-20261015-0] BuildShelters skips Vehicle and Airborne when
         // it builds a shelter's Teams bitmask, so a machine never makes a wreck worth firing at; InShadow counted and
         // suppressed it anyway once the wreck was picked for the men behind it. One set for both ends of the rule.
@@ -752,6 +754,7 @@ namespace TW.Tests
             Assert.Greater(checkedTicks, 0, "at least one tick must have had every living slot with a target");
         }
 
+        [Test]
         // the owner's rule (decisions.md 2026-10-18): small arms do not shake a crew, so no gunfire path suppresses a
         // hull. A Maw parked in the wreck's shadow, where the men beside it are kept down, takes nothing and is never
         // silenced for it.

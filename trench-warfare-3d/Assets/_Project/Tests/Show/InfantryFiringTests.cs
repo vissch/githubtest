@@ -159,6 +159,7 @@ namespace TW.Tests
             if (pace < 1.6f) Assert.AreEqual(Clip.FireStoop, seen, "below 1.6 m/s the fire pose should still be kept");
         }
 
+        [Test]
         public void AtRifleFiresProneOffItsBipod()
         {
             // the AT rifle (27) drops to the ground to fire, which tells him from the Sniper (3) at a glance,
