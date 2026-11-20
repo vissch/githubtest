@@ -48,6 +48,33 @@ import build  # noqa: E402
 
 IMAGES = Path(os.environ.get('TW_CONCEPT_IMAGES') or 'G:/Other computers/My Computer/drive')
 PROJECT = Path(os.environ.get('TW_CONCEPT_PROJECT') or Path.home() / 'Documents' / 'claude' / 'twf3d-vehicle-exploration')
+BIG_ROOT = Path(os.environ.get('TW_CONCEPT_BIG') or 'G:/My Drive/TW3D-pipeline/concepts')      # the Drive folder that holds BIG_FOLDER (not the desktop's drive folder)
+PROMPTS_DIR = 'G:/My Drive/dieselpunk_iso_compare'
+# the big sets of vehicles on the Drive's TW3D-pipeline/concepts, each <size>/<NNN_vehicle>/<NNN-k_variant_sS_00001_>.png: a session each. The prompts file keys
+# are "<prefix><NNN>/<A|B|C>_s<seed number>" with {prompt, seed}. A set that is still syncing shows what has come.
+BIGS = [
+    dict(sid='vehicles4000', label='5 - Frog vehicles 4000', folder='twf3d_frog_vehicles_4000', prefix='v', prompts=PROMPTS_DIR + '/vehicles4000/vehicles4000_prompts.json',
+         about='2026-10-20: 667 frog + dieselpunk vehicles from tiny to giant, three ideas each (plain, frog anatomy, frog species), two seeds each.'),
+    dict(sid='pickelhaube300', label='6 - Pickelhaube frogs 300', folder='twf3d_frog_pickelhaube_300', prefix='g', prompts=PROMPTS_DIR + '/pickelhaube_frogs/vehicles_pw_prompts.json',
+         about='2026-10-21: 300 Imperial German WW1 machines with the pickelhaube spiked-helmet motif, frog themed; plain, frog anatomy, frog species, two seeds each.'),
+    dict(sid='antiair400', label='7 - Pickelhaube anti-air 400', folder='twf3d_frog_antiair_400', prefix='h', prompts=PROMPTS_DIR + '/pickelhaube_antiair/vehicles_aa_prompts.json',
+         about='2026-10-21: 400 pickelhaube anti-air machines, frog themed; plain, frog anatomy, frog species, two seeds each.'),
+]
+BIG_SIDS = [b['sid'] for b in BIGS]
+# the themed (elemental) versions of the approved units (the desktop, 2026-10-21): each approved unit drawn again as fire, frozen, toxic, electric or plain, in a frog and a
+# pickelhaube version, two seeds each, in two rounds. The files are copied to THEMES_DIR (ComfyUI's x_<slot>_<run>_.png) and themes_index.json says which file is which.
+THEMES_DIR = Path(os.environ.get('TW_CONCEPT_THEMES') or build.LOCAL / 'themes')
+UNITS_DIR = PROMPTS_DIR + '/approved_units'
+THEME_SETS = [
+    dict(sid='themes1', label='9 - Elemental versions, round 1', folder='approved_themes', units=UNITS_DIR + '/units_with_themed_prompts.json', prompts=UNITS_DIR + '/approved_themes_prompts.json',
+         about='2026-10-21: each approved unit again as fire, frozen, toxic, electric or plain, in a frog and a pickelhaube version, two seeds each.'),
+    dict(sid='themes2', label='10 - Elemental versions, round 2', folder='approved_themes2', units=UNITS_DIR + '/round2/units_with_round2_prompts.json',
+         prompts=UNITS_DIR + '/round2/approved_themes_prompts_round2.json', about='2026-10-21: the same units, the themes drawn harder (round 2).'),
+]
+THEME_WORDS = {'fire': 'Fire', 'freeze': 'Frozen', 'poison': 'Toxic', 'electric': 'Electric', 'normal': 'Plain'}
+THEME_KEY = re.compile(r'^i(?P<n>\d+)_(?P<v>frog|pw)_s(?P<s>\d+)$')
+BIG_SIZES = ['tiny', 'small', 'medium', 'large', 'giant']
+BIG_VARIANT = {1: ('A', 'plain'), 2: ('B', 'frog anatomy'), 3: ('C', 'frog species')}
 PROMPTED = 'twf3d_concepts'                      # the folder of IMAGES the page's own requests render into
 DESKTOP = 'emtd-desktop'                         # the ssh host of the GPU machine (the owner's ~/.ssh/config)
 DESKTOP_DIR = 'C:/Users/PC/Documents/claude/twf3d-vehicle-exploration'      # gen.py and launch.ps1 are there
@@ -72,7 +99,7 @@ SESSIONS = [
     ('mechjp', '4 - Mech JP', 'twf3d_mechjp_exploration', ['manifest_mechjp.json'], 'ideas_index_mechjp.json',
      '2026-10-11: 20 Japanese-style mecha types fused with frog + dieselpunk.'),
 ]
-PROMPTED_SESSION = ('prompted', '5 - Prompted on the board', 'Made from the page\'s own box: what you described, with the Clash LoRA.')
+PROMPTED_SESSION = ('prompted', '11 - Prompted on the board', 'Made from the page\'s own box: what you described, with the Clash LoRA.')
 
 # the words a request's prompt is made of: the LoRA's trigger, the description, then a closing for the kind of thing
 TRIGGER = '@clashroyale, 3d render, '
@@ -136,6 +163,57 @@ def safe_id(i):
 def approved(where: Path = None):
     d = load_json((where or folder()) / 'approved.json', {})
     return d if isinstance(d, dict) else {}
+
+
+GROUPS = [('small', 'Small'), ('flying', 'Flying'), ('crab', 'Crab'), ('medium', 'Medium'), ('big', 'Big'), ('mech', 'Mech')]     # the shelves of the approved section (the owner, 2026-10-20)
+FLYING = re.compile(r'ornithopter|flying|rotor|copter|helicopter|balloon|wyvern|quadcopter|floatplane|seaplane|airship|zeppelin|biplane|aircraft|glider|propeller|ducted fan|winged|\bwings?\b|\bkite\b|drone|bomber|\bdrake\b', re.I)
+CRAB = re.compile(r'\bcrab', re.I)
+MECH = re.compile(r'\bmechs?\b|mecha\b|walker|centaur|biped', re.I)
+BIG = re.compile(r'giant|heavy|vast|colossal|huge|mountain|siege|fortress|massive|enormous', re.I)
+
+
+def classify(it):
+    """The shelf a picture starts on: flying, then crab, then mech, then by size. A first guess: the owner moves what is wrong.
+    A themed version stands where its approved unit does (`g`)."""
+    if it.get('g'):
+        return it['g']
+    words = re.sub(r'anti-?aircraft', '', f"{it.get('t', '')} {it.get('c', '')}", flags=re.I)       # the type and the category, not the idea's name (a "throat balloon" is no balloon)
+    if FLYING.search(words):
+        return 'flying'
+    if CRAB.search(words):
+        return 'crab'
+    if it.get('s') in ('mech60', 'mechjp') or str(it.get('c', '')).startswith('mech') or MECH.search(words):
+        return 'mech'
+    if it.get('s') in BIG_SIDS:
+        return {'tiny': 'small', 'small': 'small', 'medium': 'medium'}.get(it.get('c'), 'big')
+    if it.get('c') in ('light_vehicles', 'boards'):
+        return 'small'
+    if BIG.search(words):
+        return 'big'
+    return 'medium'
+
+
+def groups(where: Path = None):
+    """What the owner put on a shelf himself: {picture id: shelf}. The rest is classify()'s guess."""
+    d = load_json((where or folder()) / 'groups.json', {})
+    return d if isinstance(d, dict) else {}
+
+
+def set_group(ids, group, where: Path = None):
+    """Put one picture or several on a shelf (group '' takes his word back, so the guess stands). Returns his words. approved.json is not touched."""
+    where = where or folder()
+    if group and group not in dict(GROUPS):
+        raise ValueError('no such shelf: ' + str(group))
+    ids = [safe_id(i) for i in (ids if isinstance(ids, list) else [ids])]
+    with LOCK:
+        d = groups(where)
+        for i in ids:
+            if group:
+                d[i] = group
+            else:
+                d.pop(i, None)
+        atomic(where / 'groups.json', json.dumps(d, indent=1, sort_keys=True))
+    return d
 
 
 def approve(ids, on, where: Path = None, now=None):
@@ -241,7 +319,7 @@ def change(rid, action, where: Path = None):
     raise ValueError(f'{rid} is {r["state"]}: it cannot be {"cancelled" if action == "cancel" else "retried"}')
 
 
-ROUTES = ('/concept/approve', '/concept/request', '/concept/cancel', '/concept/retry')      # what the listener passes on (notes.py)
+ROUTES = ('/concept/approve', '/concept/group', '/concept/request', '/concept/cancel', '/concept/retry')      # what the listener passes on (notes.py)
 
 
 def post(path, d, where: Path = None):
@@ -256,6 +334,8 @@ def post(path, d, where: Path = None):
 def route(path, d, where: Path = None):
     if path == '/concept/approve':
         return dict(approved=approve(d.get('ids') or d.get('id'), bool(d.get('approved')), where))
+    if path == '/concept/group':
+        return dict(own=set_group(d.get('ids') or d.get('id'), d.get('group') or '', where))
     if path == '/concept/request':
         return dict(request=request(d.get('text'), kind=d.get('kind') or 'vehicle', title=d.get('title') or '', takes=d.get('takes') or 4,
                                     theme=d.get('theme') or '', prompt=d.get('prompt') or '', lora=d.get('lora') if d.get('lora') is not None else 1.0, where=where))
@@ -267,7 +347,9 @@ def route(path, d, where: Path = None):
 # ---- the pictures ---------------------------------------------------------------------------------------------------
 
 def sessions_table():
-    return [dict(id=s[0], label=s[1], about=s[5]) for s in SESSIONS] + [dict(id=PROMPTED_SESSION[0], label=PROMPTED_SESSION[1], about=PROMPTED_SESSION[2])]
+    return ([dict(id=s[0], label=s[1], about=s[5]) for s in SESSIONS] + [dict(id=b['sid'], label=b['label'], about=b['about']) for b in BIGS]
+            + [dict(id=b['sid'], label=b['label'], about=b['about']) for b in THEME_SETS]
+            + [dict(id=PROMPTED_SESSION[0], label=PROMPTED_SESSION[1], about=PROMPTED_SESSION[2])])
 
 
 def listing(root: Path):
@@ -285,6 +367,100 @@ def listing(root: Path):
                 continue
             out += [(cat, typ, f) for f in sorted(os.listdir(tdir)) if IMG.search(f)]
     return out
+
+
+def big_index(root: Path, folder):
+    """INDEX.md of a big set: {vehicle number: (size, combat level, movement, shape)}. A missing file gives {}."""
+    out = {}
+    try:
+        text = (root / folder / 'INDEX.md').read_text(encoding='utf-8')
+    except OSError:
+        return out
+    for ln in text.splitlines():
+        cells = [c.strip() for c in ln.strip().strip('|').split('|')]
+        if len(cells) >= 6 and cells[0].isdigit():
+            out[int(cells[0])] = tuple(cells[1:5])
+    return out
+
+
+def scan_big(root: Path = None):
+    """The big sets as items: each in the order tiny..giant, then vehicle, idea and seed. The prompt and seed of each come from its prompts file."""
+    root = Path(root or BIG_ROOT)
+    items = []
+    for b in BIGS:
+        given = load_json(Path(b['prompts']), {})
+        info = big_index(root, b['folder'])
+        mine = []
+        for cat, typ, f in listing(root / b['folder']):
+            m = NAME.match(os.path.splitext(f)[0])
+            if not m:
+                continue
+            n, i, k = int(m['n']), int(m['i']), int(m['s'])
+            letter, label = BIG_VARIANT.get(i, ('', m['slug']))
+            row = given.get(f"{b['prefix']}{n:03d}/{letter}_s{k}", {})
+            size, level, move, shape = (info.get(n) or (cat, '', '', ''))
+            words = ', '.join(w for w in (level, move, shape and shape + ' shape') if w)
+            mine.append(dict(id=f"{b['folder']}/{cat}/{typ}/{f}", s=b['sid'], c=cat, cl=cat.capitalize(), t=f'{pretty(typ.split("_", 1)[-1])} ({words})' if words else pretty(typ),
+                             n=f'{n:03d} {pretty(typ.split("_", 1)[-1])} - {label}', i=i, k=k, seed=row.get('seed'), p=row.get('prompt') or ''))
+        mine.sort(key=lambda it: (BIG_SIZES.index(it['c']) if it['c'] in BIG_SIZES else 9, it['n'], it['i'], it['k']))
+        items += mine
+    return items
+
+
+def scan_themes(by_id=None, root: Path = None):
+    """The themed versions as items, in the order of their unit, then round, version and seed. Which file is which comes from themes_index.json; the unit, its theme and the prompt
+    from the desktop's files on the Drive. `g` is the shelf of the unit's approved picture, `o` that picture's id."""
+    root = Path(root or THEMES_DIR)
+    index = load_json(root / 'themes_index.json', {})
+    items = []
+    for ts in THEME_SETS:
+        files = index.get(ts['folder']) or {}
+        if not files:
+            continue
+        units = {u.get('idx'): u for u in load_json(Path(ts['units']), []) if isinstance(u, dict)}
+        given = load_json(Path(ts['prompts']), {})
+        for f, key in files.items():
+            m = THEME_KEY.match(key)
+            u = units.get(int(m['n'])) if m else None
+            if not u:
+                continue
+            orig = f"{u['unit']}/{u['file']}"
+            name = pretty(str(u['unit']).rsplit('/', 1)[-1].split('_', 1)[-1])
+            dmg = u.get('damage') or 'normal'
+            base = (by_id or {}).get(orig)
+            row = given.get(key, {})
+            items.append(dict(id=f"{ts['folder']}/{f}", s=ts['sid'], c=dmg, cl=THEME_WORDS.get(dmg, str(dmg).title()), t=f"{name} ({u.get('role') or 'unit'})",
+                              n=f"{int(m['n']):03d} {name} - {'frog' if m['v'] == 'frog' else 'pickelhaube'}", i=int(m['n']), k=int(m['s']), seed=row.get('seed'), p=row.get('prompt') or '',
+                              o=orig, g=classify(base) if base else classify(dict(t=name, c=str(u['unit']).split('/')[1] if '/' in str(u['unit']) else '', s=BIG_SIDS[0]))))
+    items.sort(key=lambda it: (it['i'], it['s'], it['n'], it['k']))
+    return items
+
+
+def source_of(images: Path, item_id):
+    """Where a picture's file is: the big sets are on the Drive's TW3D-pipeline folder, the others under the images folder."""
+    first = str(item_id).split('/')[0]
+    if first in [ts['folder'] for ts in THEME_SETS]:
+        return THEMES_DIR / item_id
+    return (BIG_ROOT if first in [b['folder'] for b in BIGS] else Path(images)) / item_id
+
+
+MADE = {}      # picture id -> when its file was written: a file does not change, so each is looked at once
+
+
+def made_at(it, images: Path):
+    """When a picture was made, to order the page newest first. The big frog set was copied to the Drive in a minute, so its
+    files all say the copy's time: it takes its INDEX.md's time and goes by vehicle number (the run made them in that order)."""
+    if it['s'] in BIG_SIDS:
+        try:
+            return os.stat(BIG_ROOT / it['id'].split('/')[0] / 'INDEX.md').st_mtime
+        except OSError:
+            return 0.0
+    if it['id'] not in MADE:
+        try:
+            MADE[it['id']] = os.stat(source_of(images, it['id'])).st_mtime
+        except OSError:
+            return 0.0       # not there (yet): the bottom, and looked at again next read
+    return MADE[it['id']]
 
 
 def scan(images: Path = None, project: Path = None, requests=None):
@@ -312,6 +488,8 @@ def scan(images: Path = None, project: Path = None, requests=None):
             info = ideas.get((cat, n, i), {})
             items.append(dict(id=f'{folder_name}/{cat}/{typ}/{f}', s=sid, c=cat, cl=pretty(cat), t=info.get('type') or pretty(typ), n=info.get('name') or pretty(m['slug']),
                               i=i, k=int(m['s']), seed=job.get('seed'), p=job.get('prompt') or info.get('subject') or ''))
+    items += scan_big()
+    items += scan_themes({it['id']: it for it in items})
     asked = {r['id']: r for r in (requests or [])}
     for cat, typ, f in listing(images / PROMPTED):          # <kind>/<request id>/<slug>_s<seed>_00001_.png
         m = PROMPTED_NAME.match(os.path.splitext(f)[0])
@@ -321,6 +499,7 @@ def scan(images: Path = None, project: Path = None, requests=None):
         seeds = r.get('seeds') or []
         items.append(dict(id=f'{PROMPTED}/{cat}/{typ}/{f}', s=PROMPTED_SESSION[0], c=kind, cl=KINDS[kind][0], t=r.get('text') or pretty(typ), n=r.get('title') or pretty(m['slug'] if m else f),
                           i=0, k=seeds.index(seed) + 1 if seed in seeds else 1, seed=seed, p=r.get('prompt') or ''))
+    items.sort(key=lambda it: (made_at(it, images), it['n'][:3] if it['s'] in BIG_SIDS else '', it['i'], it['k']), reverse=True)       # the last made first (the owner, 2026-10-21)
     return items
 
 
@@ -349,7 +528,7 @@ def thumbs(items, out: Path, images: Path = None, seconds=THUMB_SECONDS):
             missing += 1
             continue
         try:
-            make_thumb(images / it['id'], dst)
+            make_thumb(source_of(images, it['id']), dst)
         except Exception:     # noqa: BLE001  a picture still being written, or one that does not open: next read
             missing += 1
     return missing
@@ -379,10 +558,12 @@ def state_file(out: Path, where: Path = None):
     ap = approved(where)
     by = SITE.get('by_id') or {}
     recent = [dict(id=i, n=by[i]['n'], s=by[i]['s'], th=thumb_name(i)) for i, _when in sorted(ap.items(), key=lambda kv: kv[1], reverse=True) if i in by][:8]
+    own = groups(where)
+    auto = {i: own.get(by[i].get('o')) or classify(by[i]) for i in ap if i in by}       # a themed version stands where its approved unit was put       # the first guess for each approved picture; his own words are in `own`
     top = dict(total=len(by), approved=len(ap), recent=recent)      # what the overview shows of the page: no pictures' list, a few approved ones
-    state = dict(top=top, approved=ap, requests=[{k: r.get(k) for k in ('id', 'when', 'kind', 'title', 'text', 'prompt', 'takes', 'state', 'why', 'theme', 'lora', 'got')} for r in reqs[-30:]],
+    state = dict(top=top, approved=ap, auto=auto, own=own, requests=[{k: r.get(k) for k in ('id', 'when', 'kind', 'title', 'text', 'prompt', 'takes', 'state', 'why', 'theme', 'lora', 'got')} for r in reqs[-30:]],
                  items=SITE['items'], thumbs_missing=SITE['missing'],
-                 builder=dict(trigger=TRIGGER, order=list(KINDS), kinds={k: v[1] for k, v in KINDS.items()}, labels={k: v[0] for k, v in KINDS.items()}, themes=THEMES, most=MOST_TAKES))
+                 builder=dict(groups=GROUPS, trigger=TRIGGER, order=list(KINDS), kinds={k: v[1] for k, v in KINDS.items()}, labels={k: v[0] for k, v in KINDS.items()}, themes=THEMES, most=MOST_TAKES))
     write(out / 'data' / 'concepts-state.js', f'window.CONCEPT_STATE = {json.dumps(state, ensure_ascii=False, sort_keys=True)};\n')
 
 
@@ -400,10 +581,11 @@ def site(out: Path, where: Path = None, force=False, now=None):
         if p not in index:
             index[p] = len(prompts)
             prompts.append(p)
-        rows.append([it['id'], it['s'], it['c'], it['cl'], it['t'], it['n'], it['i'], it['k'], it['seed'], index[p], thumb_name(it['id'])])
+        rows.append([it['id'], it['s'], it['c'], it['cl'], it['t'], it['n'], it['i'], it['k'], it['seed'], index[p], thumb_name(it['id']), it.get('o', ''), it.get('g', '')])
     counts = {s['id']: sum(1 for it in items if it['s'] == s['id']) for s in sessions_table()}
     body = json.dumps(dict(sessions=[dict(s, count=counts[s['id']]) for s in sessions_table()], prompts=prompts, rows=rows,
-                           fields='id s c cl t n i k seed p th'.split(), root=urllib.parse.quote(str(IMAGES).replace('\\', '/'), safe='/:')), ensure_ascii=False, separators=(',', ':'))
+                           fields='id s c cl t n i k seed p th o g'.split(), root=urllib.parse.quote(str(IMAGES).replace('\\', '/'), safe='/:'),
+                           roots=dict({b['folder']: urllib.parse.quote(str(BIG_ROOT).replace('\\', '/'), safe='/:') for b in BIGS}, **{ts['folder']: urllib.parse.quote(str(THEMES_DIR).replace('\\', '/'), safe='/:') for ts in THEME_SETS})), ensure_ascii=False, separators=(',', ':'))
     stamp = hashlib.sha1(body.encode('utf-8')).hexdigest()[:10]
     write(out / 'data' / 'concepts.js', f'window.CONCEPTS = {body};\n')
     SITE.update(out=out, items=stamp, missing=missing, by_id={it['id']: it for it in items})

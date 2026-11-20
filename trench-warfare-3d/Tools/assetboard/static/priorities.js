@@ -1,6 +1,7 @@
 // The priority list (priorities.html, and its first rows under the house on the control screen): data/priorities.js
 // (src_priorities.py) as rows, in the order the work comes, each with why it stands there. Read-only (the owner,
-// 2026-10-12): a row leads to where the thing is, it has no button that writes. The words are pure functions, so
+// 2026-10-12): a row leads to where the thing is. One exception (the owner, 2026-10-21): a unit of the relay's queue has
+// Move up and Move down, which send its new number to the listener (priomove.py). The words are pure functions, so
 // test_priorities.py runs them under node; the drawing is below them.
 (function (root) {
   var TOP = 8;                                  // rows under the house
@@ -42,7 +43,46 @@
       ' turn it takes the part of the game that waited longest instead. ' + n(r.waiting, 'unit waits', 'units wait') + ': ' +
       ['finish', 'fix', 'critique'].filter(function (x) { return k[x]; }).map(function (x) { return k[x] + ' ' + x; }).join(', ') + '. Read off the board ' + (r.as_of || 'at an unknown time') + '.';
   }
-  var api = { TOP: TOP, short: short, n: n, rows: rows, top: top, count: count, relay: relay };
+  // ---- moving a unit of the relay's queue: up = on the top, down = on the bottom (0 to 99, the lower runs first)
+  function queued(rows) { return (rows || []).filter(function (r) { return r.band === 'next' && r.kind === 'relay unit'; }); }
+  // the numbers a unit would get: {up, down}, each null when it is there already (or alone)
+  function targets(rows, id) {
+    var q = queued(rows), me = q.filter(function (r) { return r.name === id; })[0], others = q.filter(function (r) { return r.name !== id; });
+    if (!me || !others.length) return { up: null, down: null };
+    var ns = others.map(function (r) { return r.n; }), lo = Math.min.apply(null, ns), hi = Math.max.apply(null, ns), up = Math.max(0, lo - 1), down = Math.min(99, hi + 1);
+    return { up: me.n >= lo && up !== me.n ? up : null, down: me.n <= hi && down !== me.n ? down : null };
+  }
+  // the rows as they stand with his moves the board has not shown yet: the unit's number, its place among the relay's rows (the
+  // relay sorts by number, then by name) and the rank those rows share out in the same order
+  function withMoves(rows, pend) {
+    var ids = Object.keys(pend || {});
+    if (!ids.length) return rows;
+    var out = (rows || []).map(function (r) {
+      var m = r.band === 'next' && r.kind === 'relay unit' ? pend[r.name] : null;
+      if (!m) return r;
+      var c = {}; Object.keys(r).forEach(function (k) { c[k] = r[k]; });
+      c.n = m.n; c.why = String(r.why || '').replace(/^priority \d+( \(none set, so the usual 50\))?/, 'priority ' + m.n); c.chips = (r.chips || []).slice(); c.chips[0] = 'priority ' + m.n; c.moved = true;
+      return c;
+    });
+    var at = [], mine = [];
+    out.forEach(function (r, i) { if (r.band === 'next' && r.kind === 'relay unit') { at.push(i); mine.push(r); } });
+    var ranks = mine.map(function (r) { return r.rank; }).sort(function (a, b) { return a - b; });
+    mine.sort(function (a, b) { return a.n - b.n || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
+    mine.forEach(function (r, i) { var c = {}; Object.keys(r).forEach(function (k) { c[k] = r[k]; }); c.rank = ranks[i]; at.length && (out[at[i]] = c); });
+    return out;
+  }
+  // which of his moves the board has caught up with (or that are ten minutes old): those stop standing over the rows
+  function settleMoves(rows, pend, now) {
+    var by = {}; queued(rows).forEach(function (r) { by[r.name] = r; });
+    var left = {}; Object.keys(pend || {}).forEach(function (k) { if (by[k] && by[k].n !== pend[k].n && now - pend[k].at < 600000) left[k] = pend[k]; });
+    return left;
+  }
+  // what the line over the list says when a move is saved
+  function moved(title, to, dir, rows, id) {
+    var others = queued(rows).filter(function (r) { return r.name !== id; }), tie = others.some(function (r) { return r.n === to; });
+    return title + ': priority ' + to + ' on the board, ' + (dir === 'up' ? 'on the top' : 'on the bottom') + (tie ? ' (another unit has the same number: the relay takes those by name)' : '') + '.';
+  }
+  var api = { queued: queued, targets: targets, withMoves: withMoves, settleMoves: settleMoves, moved: moved, TOP: TOP, short: short, n: n, rows: rows, top: top, count: count, relay: relay };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   root.Priorities = api;
 
@@ -50,14 +90,33 @@
   var C = root.Crew;
   if (!C || typeof document === 'undefined') return;
   var el = C.el, $ = function (id) { return document.getElementById(id); };
-  var band = 'all', find = '', sig = {};
+  var band = 'all', find = '', sig = {}, pend = {};
+  function say(text, bad) { var s = $('pr-say'); if (!s) return; s.hidden = !text; s.textContent = text || ''; s.classList.toggle('pr-bad', !!bad); }
+  // what is sent to the listener (the box the notes use): plain text, so the browser asks no question first
+  function post(path, body) {
+    var b = root.NOTEBOX && root.NOTEBOX.url ? root.NOTEBOX : null;
+    if (!b) return Promise.reject(new Error('the page does not know where the note box is (ops.py --watch runs it)'));
+    body.key = b.key;
+    return fetch(b.url + path, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); }).then(function (d) { if (!d.ok) throw new Error(d.why || 'refused'); return d; },
+        function (e) { throw new Error(e.message === 'Failed to fetch' ? 'the note box does not answer (it runs while ops.py --watch runs)' : e.message); });
+  }
+  function move(r, dir) {
+    var P = root.PRIORITIES, to = targets(P.rows, r.name)[dir];
+    if (to == null) return;
+    pend[r.name] = { n: to, at: Date.now(), busy: true }; say('Moving ' + r.title + '…'); draw();
+    post('/priority/move', { id: r.name, to: to }).then(function () {
+      pend[r.name].busy = false; say(moved(r.title, to, dir, P.rows, r.name)); draw();
+    }, function (e) { delete pend[r.name]; say('Not moved: ' + e.message, true); draw(); });
+  }
   function changed(key, s) { if (sig[key] === s) return false; sig[key] = s; return true; }
-  function row(r, withBand, names) {
-    var a = el(r.link ? 'a' : 'div', 'pr-row pr-b-' + r.band + (r.first && r.band === 'next' ? ' pr-first' : ''));
-    if (r.link) a.href = r.link;
+  function row(r, withBand, names, rows) {
+    var mv = !!rows && r.band === 'next' && r.kind === 'relay unit';         // the relay's units carry the move buttons: the row is no link then, its title is
+    var a = el(r.link && !mv ? 'a' : 'div', 'pr-row pr-b-' + r.band + (r.first && r.band === 'next' ? ' pr-first' : '') + (mv ? ' pr-has-move' : ''));
+    if (r.link && !mv) a.href = r.link;
     a.appendChild(el('span', 'pr-rank', String(r.rank)));
     var what = el('span', 'pr-what');
-    what.appendChild(el('b', 'pr-title', r.title));
+    if (mv && r.link) { var tl = el('a', 'pr-title', r.title); tl.href = r.link; what.appendChild(tl); } else what.appendChild(el('b', 'pr-title', r.title));
     if (r.about) what.appendChild(el('span', 'pr-about', r.about));
     what.appendChild(el('span', 'pr-why', r.why));
     var chips = el('span', 'pr-chips');
@@ -67,6 +126,16 @@
     if (r.name && r.name !== r.title && r.name !== short(r.lane)) chips.appendChild(el('span', 'k-qchip pr-id', r.name));
     what.appendChild(chips);
     a.appendChild(what);
+    if (mv) {
+      var box = el('span', 'pr-move'), to = targets(rows, r.name), busy = !!(pend[r.name] && pend[r.name].busy);
+      [['up', 'Move up'], ['down', 'Move down']].forEach(function (d) {
+        var b = el('button', 'pr-mv', d[1]); b.type = 'button'; b.disabled = busy || to[d[0]] == null;
+        b.title = to[d[0]] == null ? 'It is there already' : 'Set its priority to ' + to[d[0]] + ' (' + (d[0] === 'up' ? 'the top' : 'the bottom') + ')';
+        b.onclick = function () { move(r, d[0]); };
+        box.appendChild(b);
+      });
+      a.appendChild(box);
+    }
     return a;
   }
   function names(P) { var o = {}; (P.bands || []).forEach(function (b) { o[b.id] = b.name; }); return o; }
@@ -100,8 +169,9 @@
         bar.appendChild(t);
       });
     }
-    var mine = rows(P, band, find);
-    if (!changed('page', JSON.stringify(mine) + band)) return;
+    pend = settleMoves(P.rows, pend, Date.now());
+    var shown = withMoves(P.rows, pend), mine = rows({ rows: shown }, band, find);
+    if (!changed('page', JSON.stringify(mine) + band + JSON.stringify(pend))) return;
     home.textContent = '';
     if (!mine.length) { home.appendChild(el('p', 'pr-none', find ? 'No row holds "' + find + '".' : 'Nothing here.')); return; }
     (P.bands || []).forEach(function (b) {
@@ -111,7 +181,7 @@
       h.appendChild(el('span', 'pr-h-n', String(of.length))); h.appendChild(el('span', 'pr-h-says', b.says));
       g.appendChild(h);
       var list = el('div', 'pr-list');
-      of.forEach(function (r) { list.appendChild(row(r, false, {})); });
+      of.forEach(function (r) { list.appendChild(row(r, false, {}, shown)); });
       g.appendChild(list);
       home.appendChild(g);
     });

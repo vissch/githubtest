@@ -1,5 +1,5 @@
 """Everything that is to be done, in one list, in the order it comes (the owner, 2026-10-12: "i want a priority list
-with everything and its priorities"). Read-only: the page shows the order, he changes it by telling the master.
+with everything and its priorities"). The page shows the order; the relay's units have Move up / Move down (the owner, 2026-10-21: priomove.py sets the number), the rest he changes by telling the master.
 
 Nothing here is a new source. Each row is read from what the board already has, and says in a few plain words why
 it stands where it does:

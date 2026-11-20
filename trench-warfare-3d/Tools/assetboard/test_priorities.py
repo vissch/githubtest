@@ -175,6 +175,52 @@ def page_rules(p):
          'does not go straight down' in g['relay'][0] and 'finishing 60 %' in g['relay'][0] and 'every third turn' in g['relay'][0] and '5 units wait: 3 finish, 1 fix, 1 critique' in g['relay'][0] and g['relay'][1] == '', g['relay'])
 
 
+def moving(p):
+    node = shutil.which('node')
+    if node:
+        js = ('const T = require(process.argv[1]), P = JSON.parse(require("fs").readFileSync(process.argv[2], "utf8")); const q = T.queued(P.rows); const ns = q.map(r => r.n);'
+              ' const first = q[0], last = q[q.length - 1], mid = q[1];'
+              ' const w = T.withMoves(P.rows, {[mid.name]: {n: 0, at: 1}}); const wq = T.queued(w);'
+              ' const ranks = T.queued(P.rows).map(r => r.rank).sort((a, b) => a - b), wranks = wq.map(r => r.rank);'
+              ' console.log(JSON.stringify({ns, first: T.targets(P.rows, first.name), last: T.targets(P.rows, last.name), mid: T.targets(P.rows, mid.name), alone: T.targets([q[0]], q[0].name),'
+              ' order: wq.map(r => r.name), midn: wq[0].n, midwhy: wq[0].why, ranks, wranks, same: T.withMoves(P.rows, {}) === P.rows,'
+              ' settle: [Object.keys(T.settleMoves(P.rows, {[mid.name]: {n: mid.n, at: 5}}, 6)).length, Object.keys(T.settleMoves(P.rows, {[mid.name]: {n: 77, at: 5}}, 6)).length, Object.keys(T.settleMoves(P.rows, {[mid.name]: {n: 77, at: 5}}, 5 + 700000)).length],'
+              ' say: [T.moved("A", 3, "up", P.rows, "x"), T.moved("A", 99, "down", P.rows, "x")]}))')
+        r = subprocess.run([node, '-e', js, str(HERE / 'static' / 'priorities.js'), str(TMP / 'page.json')], capture_output=True)
+        try:
+            g = json.loads(r.stdout.decode())
+        except ValueError:
+            case('move: priorities.js move rules run under node', False, r.stderr.decode()[-900:])
+            g = None
+        if g:
+            lo, hi = min(g['ns']), max(g['ns'])
+            case('move: up is one under the lowest of the others, down one over the highest, and a unit that is there already has no such move',
+                 g['mid']['up'] == max(0, lo - 1) and g['mid']['down'] == min(99, hi + 1) and g['alone'] == {'up': None, 'down': None}
+                 and (g['first']['up'] is None or g['ns'][0] > lo) and (g['last']['down'] is None or g['ns'][-1] < hi), g)
+            case('move: a move not on the board yet shows at once: the unit has its new number, stands first among the relay\'s rows and the rows share out the same ranks',
+                 g['order'][0] and g['midn'] == 0 and g['midwhy'].startswith('priority 0') and g['ranks'] == g['wranks'] and g['same'], g)
+            case('move: a move stands until the board shows its number, or ten minutes have passed', g['settle'] == [0, 1, 0], g['settle'])
+            case('move: the line says where it went, and when another unit has the same number', g['say'][0].startswith('A: priority 3 on the board, on the top') and g['say'][1].startswith('A: priority 99 on the board, on the bottom'), g['say'])
+    import priomove
+    said = []
+    ok = priomove.move('look-07', 3, run=lambda c: (said.append(c) or (0, 'look-07 now has priority 3 (the lower runs first). Board: pushed.')))
+    case('move: the desktop is asked with relay.py prio <id> <n>, and what it said comes back', said == [f'python {priomove.RELAY} prio look-07 3'] and ok == dict(unit='look-07', priority=3, said='look-07 now has priority 3 (the lower runs first). Board: pushed.'), (said, ok))
+    bad = []
+    for uid, n in (('x; rm -rf /', 3), ('', 3), (None, 3), ('a b', 3), ('ok', -1), ('ok', 100), ('ok', '5'), ('ok', 2.5), ('ok', True)):
+        try:
+            priomove.move(uid, n, run=lambda c: bad.append(c) or (0, ''))
+        except ValueError:
+            continue
+    case('move: an id the remote shell could read as more, or a number outside 0 to 99, is refused before anything is run', not bad, bad)
+    try:
+        priomove.move('look-07', 3, run=lambda c: (1, 'relay: look-07 is done already'))
+        why = ''
+    except ValueError as e:
+        why = str(e)
+    case('move: what the desktop refuses is said in its words', 'done already' in why, why)
+    case('move: the listener passes the route on, and nothing else under /priority/', priomove.ROUTES == ('/priority/move',) and 'priomove' in (HERE / 'notes.py').read_text(encoding='utf-8'))
+
+
 def site(board, d):
     import ops
     out = d.parent
@@ -210,9 +256,9 @@ def site(board, d):
          and all('href="priorities.html"' in (out / p).read_text(encoding='utf-8') and 'href="priorities.html" aria-current' not in (out / p).read_text(encoding='utf-8') for p in ('decide.html', 'tasks.html', 'floor.html', 'runs.html')),
          [u for u in loads if u not in readings and not (out / u).exists()])
     order = [loads.index(u) for u in ('data/priorities.js', 'crew.js', 'priorities.js')]
-    case('site: the page loads its scripts each after what it needs, and has no button or form that writes (the list is read-only)', order == sorted(order) and '<form' not in html and '<button' not in html, loads)
+    case('site: the page loads its scripts each after what it needs, and has no form (its move buttons are drawn by the script)', order == sorted(order) and '<form' not in html and 'id="pr-say"' in html, loads)
     src = (HERE / 'static' / 'priorities.js').read_text(encoding='utf-8')
-    case('site: the page\'s script sends nothing: no note, no fetch (the owner, 2026-10-12: read-only)', not re.search(r'\bfetch\(|Board\.note|XMLHttpRequest|\.submit\(', src))
+    case('site: the page\'s script sends one thing, a unit\'s new number to /priority/move (the owner, 2026-10-21); no note, no other fetch', len(re.findall(r'\bfetch\(', src)) == 1 and src.count("'/priority/move'") == 1 and not re.search(r'Board\.note|XMLHttpRequest|\.submit\(', src))
     crew = (HERE / 'static' / 'crew.js').read_text(encoding='utf-8')
     case('site: the list is read again with the floor, so a page left open stays true', "'data/priorities.js'" in crew)
 
@@ -222,6 +268,7 @@ if __name__ == '__main__':
     D = data_dir()
     P = rules(BOARD, D)
     page_rules(P)
+    moving(P)
     site(BOARD, D)
     shutil.rmtree(TMP, ignore_errors=True)
     print(f'{sum(results)} of {len(results)} cases behaved')
