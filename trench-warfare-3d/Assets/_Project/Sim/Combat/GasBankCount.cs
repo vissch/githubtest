@@ -1,3 +1,4 @@
+// Phase: found fix (chlorine-bank-25m-footprint, the owner 2026-10-22) — the chlorine bank counts gas within 25 m.
 // The chlorine bank's count. The field itself is unchanged: this only answers how many live cells
 // belong to the bank a check is looking at. The owner, 2026-10-22: count only the gas within 25 m of
 // the bank's centre. A cell further out is the rest of the field, not this bank.

@@ -454,6 +454,7 @@ beside him), the only way to catch a figure collapsing onto the ground's colour,
 ```bash
 python Tools/crophue.py shot.png --crop x0,y0,x1,y1 --crop x0,y0,x1,y1 --sep 12,0.2
 ```
+Its tests: `python Tools/test_crophue.py`.
 Crops are PIL coordinates (top-left, bottom-right), y down. `--sep H,V` exits 1 when the two crops' hue gap (the
 short way round the circle) is under H degrees AND their value gap is under V, or when the still's `blown_frac`
 (from CaptureRig's sidecar `.json`) is 0.02 or more; exits 0 otherwise, printing both gaps.

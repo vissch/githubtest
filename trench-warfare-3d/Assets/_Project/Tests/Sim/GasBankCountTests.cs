@@ -1,3 +1,4 @@
+// Phase: found fix (chlorine-bank-25m-footprint, the owner 2026-10-22) — the chlorine bank counts gas within 25 m.
 // The chlorine bank's count keeps only the gas within 25 m of the bank's centre.
 using NUnit.Framework;
 using TW.Sim.Combat;
