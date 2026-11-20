@@ -34,6 +34,13 @@ DELTAS (concrete, max 5):
   - Measure figure/ground (`contrast_median`, `contrast_p10`, man-vs-man) before critiquing a shared-look shader (LESSONS.md:129-135).
   - Check that the evidence can contain the effect: tick range, extreme knob (LESSONS.md:143-159).
 
+### The evidence bundle (added 2026-10-06, relay at 6a400bcc)
+- **What travels with a still:** its sidecar as `<band>.json` beside `<band>.jpg`, the A/B partner where there is one, and a reference still where one applies.
+- **What a relay critic gets:** `T\relay\sources\pipeline.py` `critic()` copies only the top-level files of `evidence/<item>/<stage>/` plus `stage.json`. Subfolders, the scoreboards and the reference stills in `D\reference\` do not reach it, and it never sees an earlier round's paper.
+- **What the relay reads from the paper:** `T\relay\papers.py` takes the score from the first line (`VERDICT … <n>/100`) and the list under `TOP-3 MANDATED FIXES` up to the next heading in capitals. `CAPTURES`, `READABILITY`, `PAIR`, `OVERDONE` and `SHOT REQUESTS` are read by agents only. Of the paper, the fix leg gets the three fix lines and nothing else, so in the relay a shot request is acted on only when it sits in the top 3.
+- **Two output shapes:** `critic.md` above (CAPTURES / READABILITY / SCORES / AB / DELTAS) is the AOSA shape. The relay accepts only the skill's shape.
+- **Missing evidence:** `-` everywhere except the rig board, which scores 0 (below).
+
 ### Scoreboards
 **`D\20-rig-scoreboard.md`** (the walkers)
 - **Rules** (:1-17):
