@@ -206,7 +206,7 @@ namespace TW.Sim
         // (the owner, 2026-10-06: "the rocket truck is very slow in reloading"). The wait a player counts from the
         // last rocket of one rack to the first of the next falls from 15.10 s to 10.10 s; the rack's own 1 s is
         // unchanged. Same inputs, a different battle: a v37 replay does not replay. Layout and chain unchanged.
-        public const ushort FormatVersion = 63;
+        public const ushort FormatVersion = 64;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
