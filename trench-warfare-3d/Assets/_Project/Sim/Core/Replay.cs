@@ -261,8 +261,7 @@ namespace TW.Sim
             w.Write(Config.Endless);   // v16
             WriteLoadout(w, Config.LoadoutA); WriteLoadout(w, Config.LoadoutB);
             WriteF3(w, new float3(Init.SizeMeters, 0f)); WriteF3(w, Init.SpawnA); WriteF3(w, Init.SpawnB); w.Write(Init.GoalZA); w.Write(Init.GoalZB); w.Write(Init.TestLevel);   // v39
-            WriteUpgrades(w, Config.UpgradesA); WriteUpgrades(w, Config.UpgradesB);   // v38
-            WriteF3(w, new float3(Init.SizeMeters, 0f)); WriteF3(w, Init.SpawnA); WriteF3(w, Init.SpawnB); w.Write(Init.GoalZA); w.Write(Init.GoalZB);
+            WriteUpgrades(w, Config.UpgradesA); WriteUpgrades(w, Config.UpgradesB);   // v38 on its lane; after the v39 Init since the overhaul merge
             w.Write(MapId);
             w.Write(MapHash); w.Write(DataHash);
             w.Write(MapParams.Length); w.Write(MapParams);
@@ -336,6 +335,7 @@ namespace TW.Sim
                 p.Config.LoadoutA = ReadLoadout(r); p.Config.LoadoutB = ReadLoadout(r);
                 float3 size = ReadF3(r);
                 p.Init = new SimConfig.WorldInit { SizeMeters = size.xy, SpawnA = ReadF3(r), SpawnB = ReadF3(r), GoalZA = r.ReadSingle(), GoalZB = r.ReadSingle(), TestLevel = r.ReadBoolean() };   // v39
+                p.Config.UpgradesA = ReadUpgrades(r); p.Config.UpgradesB = ReadUpgrades(r);   // v38 on its lane; after the v39 Init since the overhaul merge
                 p.MapId = r.ReadInt32();
                 p.MapHash = r.ReadUInt64(); p.DataHash = r.ReadUInt64();
                 int mapParamsLength = r.ReadInt32();
@@ -369,22 +369,6 @@ namespace TW.Sim
             }
             catch (InvalidDataException) { throw; }
             catch (System.Exception ex) when (ex is EndOfStreamException || ex is System.ArgumentException || ex is System.OverflowException)
-                TickRate = r.ReadInt32(), InputDelayTicks = r.ReadInt32(), MaxSlots = r.ReadInt32(), Seed = r.ReadUInt32(),
-                SilverPerSecond = r.ReadSingle(), StartingSilver = r.ReadInt32(), EventCapacity = r.ReadInt32(),
-                FactionA = r.ReadByte(), FactionB = r.ReadByte(), HeroPity0 = r.ReadSingle(), HeroPity1 = r.ReadSingle(),
-                Endless = r.ReadBoolean(),   // v16
-            };
-            p.Config.LoadoutA = ReadLoadout(r); p.Config.LoadoutB = ReadLoadout(r);
-            p.Config.UpgradesA = ReadUpgrades(r); p.Config.UpgradesB = ReadUpgrades(r);   // v38
-            float3 size = ReadF3(r);
-            p.Init = new SimConfig.WorldInit { SizeMeters = size.xy, SpawnA = ReadF3(r), SpawnB = ReadF3(r), GoalZA = r.ReadSingle(), GoalZB = r.ReadSingle() };
-            p.MapId = r.ReadInt32();
-            p.MapHash = r.ReadUInt64(); p.DataHash = r.ReadUInt64();
-            p.MapParams = r.ReadBytes(r.ReadInt32());
-            int ticks = r.ReadInt32();
-            p.Commands = new SimCommand[ticks][];
-            p.Hashes = new ulong[ticks];
-            for (int t = 0; t < ticks; t++)
             {
                 throw new InvalidDataException("Replay file is truncated or corrupt", ex);
             }
