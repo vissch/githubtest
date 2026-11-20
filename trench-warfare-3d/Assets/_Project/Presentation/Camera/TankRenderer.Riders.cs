@@ -50,10 +50,7 @@ namespace TW.Presentation.Tactical
         // The array is readonly but its ROWS are written: Resize (below) puts the rider lab's chosen size in one of
         // them, and the domain is not reloaded when the editor leaves Play. The lab's resize must not outlive Play,
         // or the next match - and the next test - draws that crab at the size a lab session happened to stop at.
-        static TankRenderer() => SceneStatics.Register(nameof(TankRenderer), () =>
-        {
-            for (int c = 0; c < WalkerSizeFactor.Length; c++) WalkerSizeFactor[c] = 1f;
-        });
+        // (reset in the one static constructor, TankRenderer.cs: a partial class may have only one)
         /// <summary>Riders fire from the shell at whatever the machine's own guns are after.</summary>
         public bool RidersFire = true;
         public Clip RiderIdle = Clip.KneelIdle, RiderShot = Clip.FireKneel;

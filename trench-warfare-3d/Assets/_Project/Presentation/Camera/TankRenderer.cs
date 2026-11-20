@@ -69,7 +69,13 @@ namespace TW.Presentation.Tactical
         /// the vehicle. Reset by SceneStatics, as CombatFx.ShowOverlays is.</summary>
         public static bool ShowRings = true;
 
-        static TankRenderer() => SceneStatics.Register(nameof(TankRenderer), () => ShowRings = true);
+        // the statics a session leaves behind, put back when the editor leaves Play: the gym's ring switch, and the rider
+        // lab's walker sizes (TankRenderer.Riders.cs)
+        static TankRenderer() => SceneStatics.Register(nameof(TankRenderer), () =>
+        {
+            ShowRings = true;
+            for (int c = 0; c < WalkerSizeFactor.Length; c++) WalkerSizeFactor[c] = 1f;
+        });
 
         struct Spring
         {
