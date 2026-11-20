@@ -158,8 +158,8 @@ namespace TW.Tests
             Assert.IsFalse(FactionRoster.Fields(FactionId.Frogs, VehicleArchetype.Maw), "the frogs are not Iron: a missing pool row would say they field the Maw");
             Assert.IsFalse(FactionRoster.Fields(FactionId.Frogs, VehicleArchetype.Pincer));
             Assert.IsFalse(FactionRoster.Fields(FactionId.Frogs, InfantryArchetype.Jetpack));
-            foreach (int bit in new[] { FactionRoster.HeBarrageBit, FactionRoster.CreepingBarrageBit, FactionRoster.ChlorineGasBit,
-                                        FactionRoster.SmokeScreenBit, FactionRoster.StrafeRunBit, FactionRoster.BeamBit })
+            foreach (int bit in new[] { (int)OffMapAbilityId.HeBarrage, (int)OffMapAbilityId.CreepingBarrage, (int)OffMapAbilityId.ChlorineGas,
+                                        (int)OffMapAbilityId.SmokeScreen, (int)OffMapAbilityId.StrafeRun, (int)OffMapAbilityId.Beam })
                 Assert.IsTrue(FactionRoster.MayCall(FactionId.Frogs, bit), $"the frogs call the shared card {bit}");
             Assert.IsFalse(FactionRoster.MayCall(FactionId.Frogs, FactionRoster.ParaDropBit), "the drop is Brass's alone");
             Assert.IsFalse(Factions.IsEntente(FactionId.Frogs), "a third party, on nobody's side");
