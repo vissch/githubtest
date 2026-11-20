@@ -47,7 +47,7 @@ namespace TW.Tests
                     float distance = Vector2.Distance(new Vector2(wx, wz), new Vector2(mark.Pos.x, mark.Pos.z));
                     float age = m < scorchBorn.Count ? time - scorchBorn[m] : SnowFillSeconds;
                     float fresh = 1f - Mathf.Clamp01((age - ScorchHoldSeconds) / Mathf.Max(1f, SnowFillSeconds - ScorchHoldSeconds));
-                    burn = Mathf.Max(burn, .45f * (1f - distance / radius) * fresh * fresh);
+                    burn = Mathf.Max(burn, ScorchTilePainter.Burn(distance / radius) * fresh * fresh);
                 }
                 colorTex.SetPixel(x, z, Color.Lerp(c, new Color(.10f, .09f, .08f), burn));
             }

@@ -48,12 +48,20 @@ Shader "TW/Flame (URP)"
 
             half4 frag(Varyings i) : SV_Target
             {
-                float y = i.uvp.y, t = _Time.y, phase = i.uvp.z;
+                float t = _Time.y, phase = i.uvp.z;
+                // Each flame gutters on its own clock: the card is the tallest it gets, and it sinks to three quarters of
+                // that and climbs again, so two flames side by side are never the same height at once.
+                half gutter = 0.74 + 0.26 * SAMPLE_TEXTURE2D(_Noise, sampler_Noise, float2(phase * 3.7, t * 0.55 + phase)).r;
+                float y = saturate(i.uvp.y / gutter);
                 half swell = SAMPLE_TEXTURE2D(_Noise, sampler_Noise, float2(i.uvp.x * 0.35 + phase, y * 0.55 - t * 1.25)).r;
                 half bend = SAMPLE_TEXTURE2D(_Noise, sampler_Noise, float2(i.uvp.x * 0.20 + phase * 2.3, y * 0.9 - t * 2.1)).r;
                 float x = i.uvp.x + (bend - 0.5) * 1.1 * y;                       // the tip wanders, the base stays on the wick
-                float width = (1.0 - y) * (0.45 + 0.75 * swell) * saturate(y * 9.0 + 0.25);
-                half body = saturate((width - abs(x)) * 3.5);
+                float width = pow(max(1.0 - y, 0.0), 0.8) * (0.5 + 0.75 * swell) * saturate(y * 9.0 + 0.25) * step(i.uvp.y, gutter);
+                // The licks: a third read, finer across and climbing faster, cuts the upper flame into separate tongues. It
+                // was one smooth teardrop, the same on every card: a row of candle flames on a burning hull (VFX round 1:
+                // "identical static teardrop sprites"). Whole at the base, torn more and more toward the tip.
+                half lick = SAMPLE_TEXTURE2D(_Noise, sampler_Noise, float2(i.uvp.x * 0.9 + phase * 5.1, y * 0.7 - t * 1.7)).r;
+                half body = saturate((width - abs(x)) * 3.5) * smoothstep(0.0, 0.25, lick - y * 0.55 + 0.30);
                 half heat = body * (1.0 - y * 0.75) * (0.55 + 0.9 * swell);
                 half3 colour = lerp(half3(1.0, 0.16, 0.03), half3(1.0, 0.48, 0.10), smoothstep(0.10, 0.35, heat));
                 colour = lerp(colour, half3(1.0, 0.85, 0.42), smoothstep(0.35, 0.65, heat));

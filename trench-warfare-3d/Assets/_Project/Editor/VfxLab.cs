@@ -10,7 +10,7 @@
 //  - Wreck(archetype, x, z): a machine held where it stands and shelled to death 1.5 s later: its cook-off, then its
 //    wreck burning and smoking for minutes;
 //  - Burning(archetype, x, z): a machine alight and still alive (TankCapture.Ignite): its deck fire and smoke column;
-//  - Flare(): a star shell now (NightLights.FireStarShell); Rain(amount): rain on the field (0 off);
+//  - Flare() / Flare(x, z): a star shell now (NightLights.FireStarShell), over a point; Rain(amount): rain on the field (0 off);
 //  - Later(seconds, act): something done a moment from now;
 //  - Scene(name, x, z): a whole staging by name (Scenes lists them).
 using Unity.Mathematics;
@@ -84,7 +84,9 @@ namespace TW.Editor
             if (!tank.StartsWith("slot ")) return tank;
             int slot = int.Parse(tank.Substring(5));
             RiderLab.Stop(slot);
-            return tank + "; " + Later(0.5f, () => TankCapture.Ignite(slot, 0.9f));
+            // 0.6, not 0.9 (and not 0.4, which showed smoke and no deck fire: round 4): at 0.9 the fire reached the ammunition in about five seconds and the "alight and alive"
+            // staging was a second cook-off (VFX round 3: the turret gone by the fifth still)
+            return tank + "; " + Later(0.5f, () => TankCapture.Ignite(slot, 0.6f));
         }
 
         /// <summary>A star shell now (night: it lights the field for about 16 s).</summary>
@@ -94,6 +96,15 @@ namespace TW.Editor
             if (lights == null) return "no NightLights";
             lights.FireStarShell();
             return "star shell";
+        }
+
+        /// <summary>A star shell now, burning over (x, z).</summary>
+        public static string Flare(float x, float z)
+        {
+            var lights = Object.FindFirstObjectByType<TW.Presentation.Terrain.NightLights>();
+            if (lights == null) return "no NightLights";
+            lights.FireStarShell(new Vector3(x, 0f, z));
+            return "star shell over " + x + ", " + z;
         }
 
         /// <summary>Rain on the field, 0..1 (0 off).</summary>
@@ -134,7 +145,7 @@ namespace TW.Editor
                 case "beam": return Later(0.5f, () => Call((int)OffMapAbilityId.Beam, x - 10f, z, AbilityArgs.Pack(90, 0, 0)));   // walks east along z
                 case "strafe": return Later(0.5f, () => Call((int)OffMapAbilityId.StrafeRun, x - 20f, z, AbilityArgs.Pack(90, 0, 0)));
                 case "fire": return Men(5, x - 3f, z, 1) + "; " + Later(0.8f, () => Fire(x, z, 5f));    // an incendiary on a row: men alight
-                case "flare": return Flare();
+                case "flare": return Flare(x, z);
                 case "rain": return Rain(1f);
                 default: return "unknown scene " + name;
             }

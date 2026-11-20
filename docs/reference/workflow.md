@@ -340,6 +340,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.VfxLab.Wreck(archetype, x, z)` | Editor/VfxLab.cs | A machine held where it stands and shelled to death 1.5 s later. |
 | `TW.Editor.VfxLab.Burning(archetype, x, z)` | Editor/VfxLab.cs | A machine alight and still alive, held where it stands. |
 | `TW.Editor.VfxLab.Flare()` | Editor/VfxLab.cs | A star shell now (night: it lights the field for about 16 s). |
+| `TW.Editor.VfxLab.Flare(x, z)` | Editor/VfxLab.cs | A star shell now, burning over (x, z). |
 | `TW.Editor.VfxLab.Rain(amount)` | Editor/VfxLab.cs | Rain on the field, 0..1 (0 off). |
 | `TW.Editor.VfxLab.Later(seconds, act)` | Editor/VfxLab.cs | Something done `seconds` from now (real time in Play), its answer logged. |
 | `TW.Editor.VfxLab.Scene(name, x, z)` | Editor/VfxLab.cs | A whole staging by name at (x, z), the effect's centre. |

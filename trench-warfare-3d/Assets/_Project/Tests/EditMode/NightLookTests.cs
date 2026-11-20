@@ -90,8 +90,27 @@ namespace TW.Tests
                 var lights = go.AddComponent<NightLights>();
                 lights.AddFirePool(Vector3.zero, Color.white, 0f, 8f, 1f);
                 Assert.AreEqual(0, lights.FirePools, "no strength: no pool");
-                for (int k = 0; k < NightLights.MaxFirePools + 10; k++) lights.AddFirePool(new Vector3(k, 0f, 0f), Color.white, 1f, 8f, 1f);
+                for (int k = 0; k < NightLights.MaxFirePools + 10; k++) lights.AddFirePool(new Vector3(k * 10f, 0f, 0f), Color.white, 1f, 8f, 1f);
                 Assert.AreEqual(NightLights.MaxFirePools, lights.FirePools, "a field of fires stops at the cap");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void AFireRelitOverItsOwnPool_IsOnePool_AtTheBrighterLight()
+        {
+            // VFX round 1 (2026-10-01): a fire renewing its pool over its last copy, and an incendiary's ring of fuel,
+            // summed into one clipped yellow slab; a pool in the middle of a lit one is that one, never added to it
+            var go = new GameObject("NightLookTests lights");
+            try
+            {
+                var lights = go.AddComponent<NightLights>();
+                lights.AddFirePool(Vector3.zero, Color.white, 1f, 8f, 1f);
+                lights.AddFirePool(new Vector3(1f, 0f, 0f), Color.white, 2f, 6f, 1f);
+                lights.AddFirePool(new Vector3(0f, 0f, 2f), Color.white, 0.5f, 8f, 1f);
+                Assert.AreEqual(1, lights.FirePools, "three fires on the same mud light one pool");
+                lights.AddFirePool(new Vector3(9f, 0f, 0f), Color.white, 1f, 8f, 1f);
+                Assert.AreEqual(2, lights.FirePools, "a fire beyond the middle of the first lights its own");
             }
             finally { Object.DestroyImmediate(go); }
         }

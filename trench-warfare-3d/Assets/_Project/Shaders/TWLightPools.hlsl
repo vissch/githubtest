@@ -88,6 +88,18 @@ half3 TWPoolsOnFigure(float3 positionWS, half3 normalWS, half3 viewWS, out half3
     return TWPoolRoll(sum);
 }
 
+/// The flames' glints summed, held to TW_GLINT_MOST in their brightest channel with their hue kept. A pool's tint is
+/// its flame's colour times its strength (a fire's about 5.9, 2.0, 0.09), and the glint added all of it, unscaled by the
+/// ground: wherever wet mud mirrored a fire toward the camera, red and green clipped and blue was nil - a flat
+/// lemon-yellow slab on the near side of every burning man, and on the walls beside him (VFX rounds 1-6; (254, 254, 0)
+/// measured). Capped, a glint is the fire's own orange and never brighter than a lit surface.
+#define TW_GLINT_MOST 1.4
+half3 TWGlintRoll(half3 glints)
+{
+    half m = max(glints.r, max(glints.g, glints.b));
+    return m > TW_GLINT_MOST ? glints * (TW_GLINT_MOST / m) : glints;
+}
+
 /// The ground's pools and, where it is wet (glintOn), the flames' glints in its reflection r, in ONE pass over the pools:
 /// the two separate loops cost the terrain two walks of 32 pools on every wet pixel (round 12: the pool system measured
 /// 0.4-0.5 ms). Same bands, same glints, as TWLightPools and TWPoolGlints.
@@ -109,6 +121,7 @@ half3 TWPoolsAndGlints(float3 positionWS, half3 normalWS, float3 r, bool glintOn
         if (glintOn)
             glints += _TWPoolTint[k].rgb * smoothstep(0.86, 0.92, dot(r, dn)) * (1.0 - smoothstep(0.55, 1.0, dist / glintReach));
     }
+    glints = TWGlintRoll(glints);
     return TWPoolRoll(sum);
 }
 
@@ -127,7 +140,7 @@ half3 TWPoolGlints(float3 positionWS, float3 r)
         half toward = smoothstep(0.86, 0.92, dot(r, d * rsqrt(max(dist2, 1e-4))));
         sum += _TWPoolTint[k].rgb * toward * (1.0 - smoothstep(0.55, 1.0, sqrt(dist2) / reach));
     }
-    return sum;
+    return TWGlintRoll(sum);
 }
 
 #endif

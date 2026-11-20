@@ -27,7 +27,9 @@ half3 TWLocalLights(float3 positionWS, float3 normalWS, float4 positionCS, float
         // the pool of light is layered like the glow: a deep-coloured reach, the light's own colour, a hotter heart
         half3 tint = l.color / max(peak, 1e-4);
         half3 deep = tint * tint * tint;
-        half glint = pow(saturate(dot(mirrored, l.direction)), 22.0) * l.distanceAttenuation * peak;
+        // the mirrored core widens with the light's peak, and a man alight burns at nearly twice a lantern's 6: on a
+        // puddle his glint was the whole sheet, a lemon-yellow slab (VFX rounds 1-5). No wider than a lantern's.
+        half glint = pow(saturate(dot(mirrored, l.direction)), 22.0) * l.distanceAttenuation * min(peak, 6.0);
         highlight += lerp(tint, half3(1, 1, 1), 0.35) * (smoothstep(0.05, 0.11, glint) * 0.55 + smoothstep(0.6, 0.9, glint) * 0.6) * gloss;
         // The three bands are scaled UNEVENLY by the biome. On snow the widest, dimmest band - the deep-coloured
         // reach - is what turns a lantern into a salmon stain twenty metres across, because it is multiplied by an
@@ -37,6 +39,15 @@ half3 TWLocalLights(float3 positionWS, float3 normalWS, float4 positionCS, float
         sum += deep * smoothstep(0.02, 0.04, e) * 0.36 * reach + tint * smoothstep(0.12, 0.20, e) * 0.38 * mid + lerp(tint, half3(1, 1, 1), 0.45) * smoothstep(0.55, 0.75, e) * 0.44 * core;
     LIGHT_LOOP_END
 #endif
+    // One lamp's bands add up to 1.18 at most and its glint to 1.15, and that is what every lamp was tuned to. Several
+    // fires on the same mud - five men alight, an incendiary's pools - each added its full bands, and the sum times the
+    // ground was a flat blown-out yellow slab with the men lost on it (VFX rounds 1-4). So what stacks above one lamp's
+    // worth counts a quarter, and no more than a third of a lamp in all: a single lamp is untouched, a crowd of fires is
+    // brighter than one but never white.
+    half most = max(sum.r, max(sum.g, sum.b));
+    if (most > 1.18) sum *= (1.18 + min((most - 1.18) * 0.25, 0.4)) / most;
+    half glintMost = max(highlight.r, max(highlight.g, highlight.b));
+    if (glintMost > 1.0) highlight *= (1.0 + min((glintMost - 1.0) * 0.25, 0.3)) / glintMost;
     highlight *= lamp;
     // Beyond arm's reach of the lamp itself, a lantern on snow should make it BRIGHTER, not PINKER. Scaling the
     // brightness was not enough: measured, 22% of a winter frame came back warm against the reference's 0.2%, and
