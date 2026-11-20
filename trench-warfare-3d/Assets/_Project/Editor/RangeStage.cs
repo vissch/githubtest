@@ -522,6 +522,7 @@ namespace TW.Editor
                     host.WriteWorlds(m => { if (m.World.IsAlive(sl)) m.World.Despawn(sl); });
                 }
                 if (s == 4) PlaceBeachDummy(map);
+                if (s == 4) OrbitPose(map);   // option orbit= lift=: the same shot from another side
                 if (s == 4) grab = true;   // the drawn box, at still 04's frame (the runner gone, the dummy in)
                 for (int i = 0; i < 3; i++)
                 {
@@ -640,6 +641,27 @@ namespace TW.Editor
             muzzleHigh = hr.origin + hr.direction * (depth / Mathf.Max(0.05f, Vector3.Dot(hr.direction, cam.transform.forward)));
             Debug.Log("Range: beach: dummy foot " + RangeStage.V3(foot) + " (" + RangeStage.Inv(Vector2.Distance(new Vector2(foot.x, foot.z), RangeStage.BeachHero)) + " m from the runner's spot "
                 + RangeStage.V3(heroFoot) + ", runner now " + RangeStage.Inv(hp.x) + ", " + RangeStage.Inv(hp.z) + "), scale " + RangeStage.Inv(scale) + ", width " + RangeStage.Inv(width) + ", depth " + RangeStage.Inv(dummy.Depth) + ", yaw " + RangeStage.Inv(yaw));
+        }
+
+        /// <summary>Options orbit=&lt;deg&gt; (round the hit, about the up axis) and lift=&lt;deg&gt; (higher above it): the camera
+        /// turned round the dummy's chest after the shot is placed, at the same distance, the hit kept where it was on screen.</summary>
+        void OrbitPose(MapData map)
+        {
+            float orbit = float.TryParse(Gym.Opt(Options, "orbit"), NumberStyles.Float, Inv, out float ob) ? ob : 0f;
+            float lift = float.TryParse(Gym.Opt(Options, "lift"), NumberStyles.Float, Inv, out float lf) ? lf : 0f;
+            if (orbit == 0f && lift == 0f) return;
+            var piv = target;
+            var off = posePos - piv; float dist = off.magnitude; var dir = off / Mathf.Max(1e-4f, dist);
+            float yaw = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg + orbit;
+            float el = Mathf.Clamp(Mathf.Asin(Mathf.Clamp(dir.y, -1f, 1f)) * Mathf.Rad2Deg + lift, -10f, 80f);
+            var nd = Quaternion.Euler(-el, yaw, 0f) * Vector3.forward;
+            var keep = Quaternion.Inverse(Quaternion.LookRotation(-off)) * poseRot;   // the hit's place in the frame
+            var np = piv + nd * dist;
+            float gy = RenderGround.Sample(map, np.x, np.z) + 1.5f;
+            if (np.y < gy) np.y = gy;
+            posePos = np; poseRot = Quaternion.LookRotation(piv - np) * keep;
+            cam.transform.SetPositionAndRotation(posePos, poseRot);
+            Debug.Log("Range: beach: orbit " + RangeStage.Inv(orbit) + ", lift " + RangeStage.Inv(lift) + ": camera at " + RangeStage.V3(posePos) + ", " + RangeStage.Inv(dist) + " m from the hit");
         }
 
         void ClearFoes()

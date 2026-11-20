@@ -98,12 +98,16 @@ BOOKS = {
     # other saturated ones, both drawn spraying rightward from a point on the left, so rooted there like the jet
     "BloodSpurt":  ("blood_spurt_1_8x4_12fps_32f.png",            "light", True,  (1, 28)),   # a rifle hit; f0 a stray streak, f29-31 near empty
     "BloodSnipe":  ("blood_sniper_1_8x4_12fps_32f.png",           "light", True,  (5, 29)),   # a heavy hit; f0-4 a different drawing (clouds)
+    # CelFx acid ball (owner, 2026-11-16: "any are good, lets try to integrate"): the impact - flash, starburst, wavy crown,
+    # ring with bubbles - H3 on black guided by the acid_ball clip's own frames (vfx-flipbooks batch9 acid_burst2 take A).
+    # Drawn by the acid ball's own shader (CelAcidBall_URP), not FlipbookFx: no Sheets row.
+    "AcidImpact":  ("tw_acid_impact_8x4_12fps_32f.png",           "light", False, None),
 }
 FRAMES_IN = {"FireBall": 32, "FireColumn": 30, "FireBurst": 32, "FireJet": 29, "FireBlast": 32, "FireFan": 32, "FireStand": 32, "FirePool": 32, "FireCore": 32, "FireBloom": 27, "FireHead": 26,
              "GasBank": 30, "GasVent": 32, "SmokeBank": 32, "MortarBurst": 30, "ShellFall": 30, "LeanBurst": 28,
              "FireCookOff": 32, "FireTall": 32, "FireGunBlast": 32, "Smoulder": 32, "GroundRing": 32, "DustPuff": 32, "ShellPlume": 32,
              "FireLance": 32, "MendSparks": 32, "ShellLean": 32, "WreckSmoke": 32,
-             "BloodSpurt": 32, "BloodSnipe": 32}
+             "BloodSpurt": 32, "BloodSnipe": 32, "AcidImpact": 32}
 # FireBall's band split, measured in round 2: the shader's default _Bands and the levels its Sheet row uses
 FIREBALL_BANDS = (0.12, 0.40, 0.86)
 FIREBALL_LEVELS = (0.16, 0.86)
