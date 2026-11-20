@@ -183,7 +183,7 @@ namespace TW.Sim
         // run down, no tree felled, no wreck ground, no mine or tripwire, and it neither steers round nor pushes a
         // machine on the ground. Its TankSpec gains StandOffMetres 90 / StandOffPatience 8, so it holds off over the
         // front. Same inputs, a different battle: a v37 replay does not replay. Layout and chain unchanged.
-        public const ushort FormatVersion = 56;
+        public const ushort FormatVersion = 57;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
