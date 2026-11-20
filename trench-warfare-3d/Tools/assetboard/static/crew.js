@@ -20,6 +20,7 @@ window.Crew = (function () {
     'tw-destruction-vfx': 'M12 2l2 6 6-2-4 5 5 4-6 1 1 6-4-4-4 4 1-6-6-1 5-4-4-5 6 2z',
     'tw-vfx-sheets': 'M3 6h18v12H3zM3 9h18M3 15h18M7 6v3M11 6v3M15 6v3M7 15v3M11 15v3M15 15v3',
     pipeline: 'M3 7h12l-3-3M21 17H9l3 3',
+    'agent:relay': 'M4 12h5M15 12h5M9 8l4 4-4 4M15 8v8',
     'unity-pipeline': 'M12 3l8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9'
   };
   var MEDIA = window.CREW_MEDIA || {};      // key -> {busy: bool, doze: bool}

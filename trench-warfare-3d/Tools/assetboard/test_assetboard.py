@@ -26,6 +26,7 @@ import model      # noqa: E402
 import src_code   # noqa: E402
 import src_git    # noqa: E402
 import src_queue  # noqa: E402
+import src_relay  # noqa: E402
 
 results = []
 
@@ -123,6 +124,22 @@ def fixtures():
     case('floor: a session belongs to the deepest checkout that holds its folder',
          src_ops.owner_of(tmp / 'a' / 'inner' / 'x', trees) == trees[2] and src_ops.owner_of(tmp / 'a-b', trees) == trees[1]
          and src_ops.owner_of(tmp / 'elsewhere', trees) is None)
+    rh, rb, t0 = tmp / 'relay-home', tmp / 'relay-board', 1791140000
+    stamp = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(t0 - 540))
+    for p, obj in ((rh / 'locks' / 'a.json', dict(who='relay r1 house5--evidence--d1192f67', pid=7, pid_start=1, lane='lane/show/pipe-house5',
+                                                 worktree='C:/x/githubtest-relay-work', taken_at=stamp)),
+                   (rh / 'locks' / 'b.json', dict(who='relay r0 old--unit', pid=8, pid_start=1, lane='lane/show/old', worktree='C:/x/w')),
+                   (rh / 'runs' / 'r1' / 'legs' / '01' / 'leg.json', dict(leg=1, phase='plan', state='RUNNING', unit='house5--evidence--d1192f67', started_at=stamp)),
+                   (rh / 'runs' / 'r1' / 'legs' / '01' / 'meter.json', dict(tokens=128598, level='green')),
+                   (rb / 'relay' / 'desktop' / 'stops' / 'r0.json', dict(run='r0', reason='nothing left to do', legs=1))):
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(obj), encoding='utf-8')
+    rel = src_relay.collect(rb, t0, lambda pid, start: pid == 7, rh)
+    case('relay: a live run is one worker on its unit\'s branch, saying which leg it is on; a dead runner is not shown',
+         [(r['run'], r['lane']) for r in rel['runs']] == [('r1', 'lane/show/pipe-house5')]
+         and src_relay.leg_line(rel['runs'][0]) == 'house5 evidence: plan leg 1, 9 min, 129k tokens', rel)
+    rel = src_relay.collect(rb, t0, lambda pid, start: False, rh)
+    case('relay: with no run going it says how the last one stopped', rel['runs'] == [] and rel['does'] == 'last run stopped: nothing left to do (1 leg)', rel)
     people = src_ops.roster(build.REPO)
     case('real tree: every project skill is on the roster, with what it is for',
          {'tw-critic', 'tw-master', 'pipeline'} <= {r['id'] for r in people} and all(r['does'] for r in people if r['kind'] == 'skill'),
