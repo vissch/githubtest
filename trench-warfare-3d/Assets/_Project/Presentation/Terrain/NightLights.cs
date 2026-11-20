@@ -120,6 +120,7 @@ namespace TW.Presentation.Terrain
             classArms = TW.Presentation.Tactical.CombatFx.ReadClassArms();   // fx.recipes (VFX pass): 0 = the lights as they were
             if (poolSize != PoolSize) { pool = new Pooled[poolSize]; flashPos = new Vector3[poolSize * 4]; flashCol = new Color[poolSize * 4]; }
             SceneHooks.Flash = (at, color, peak, reach, life) => Flash(at, color, peak, reach, life);
+            SceneHooks.FlashWithCard = (at, color, peak, reach, life, card) => Flash(at, color, peak, reach, life, card);
             SceneHooks.FireLight = (at, color, peak, reach, life, card) =>
             {
                 Flash(at, color, peak, reach, life, card);
@@ -436,6 +437,7 @@ namespace TW.Presentation.Terrain
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.SmokeSources.Clear();
             SceneHooks.Flash = null;
+            SceneHooks.FlashWithCard = null;
             SceneHooks.FireLight = null;
             SceneHooks.MachineGlows = null; SceneHooks.MachineLight = null; SceneHooks.LampOut = null;
             foreach (var o in owned) if (o != null) Destroy(o);

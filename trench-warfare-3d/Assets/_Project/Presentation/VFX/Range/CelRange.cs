@@ -6,7 +6,7 @@
 // How an effect joins (no edit to this file or to RangeStage):
 //   [CelRangeEffect("explosion")] static void Fire(RangeShot s) { ... }            // found by reflection, or
 //   CelRange.Register("explosion", s => ..., (s, dt) => ...);                      // from any static constructor
-// The fire callback runs once, on the frame the shot clock passes t0, from an Update (before every LateUpdate, so
+// The fire callback runs once, on the frame the shot clock passes t0 minus optional pre-roll, from an Update (before every LateUpdate, so
 // whatever it adds is drawn that frame). The optional update callback runs every later frame of the shot with the
 // seconds since the fire; an effect that holds (a flamethrower) drives itself from it. RangeShot carries the places
 // (Muzzle, MuzzleHigh, Target, Ground), the LOD tier the shot is filmed at, the zoom and the seed. Nothing here
@@ -27,8 +27,10 @@ namespace TW.Presentation.VFX
     public sealed class RangeShot
     {
         public string Id = "none";
-        /// <summary>When the effect starts, seconds on the shot clock (the clips: 0.8).</summary>
+        /// <summary>When the main effect starts, seconds on the shot clock (the clips: 0.8).</summary>
         public float T0;
+        /// <summary>Seconds the fire callback runs before T0. Clamped to available time so T0=0 shots stay immediate.</summary>
+        public float Preroll;
         /// <summary>Where the rounds come from: off-screen lower left, on the line the clips' tracers take
         /// (enter the frame at the lower-left corner, rise to the dummy). About 1.3 m above the ground.</summary>
         public Vector3 Muzzle;
@@ -60,12 +62,18 @@ namespace TW.Presentation.VFX
     public sealed class CelRangeEffectAttribute : Attribute
     {
         public readonly string Id;
-        public CelRangeEffectAttribute(string id) { Id = id; }
+        public readonly float Preroll;
+        public CelRangeEffectAttribute(string id, float preroll = 0f)
+        {
+            if (float.IsNaN(preroll) || float.IsInfinity(preroll) || preroll < 0f)
+                throw new ArgumentOutOfRangeException(nameof(preroll));
+            Id = id; Preroll = preroll;
+        }
     }
 
     public static class CelRange
     {
-        struct Entry { public Action<RangeShot> Fire; public Action<RangeShot, float> Update; }
+        struct Entry { public Action<RangeShot> Fire; public Action<RangeShot, float> Update; public float Preroll; }
 
         // the registry is registration data, filled once per domain; the shot in flight is per session (reset below)
         static readonly Dictionary<string, Entry> effects = new Dictionary<string, Entry>(StringComparer.Ordinal);
@@ -83,11 +91,14 @@ namespace TW.Presentation.VFX
         }
 
         /// <summary>Add (or replace) an effect. `update` is optional: called every frame after the fire with the
-        /// seconds since it.</summary>
-        public static void Register(string id, Action<RangeShot> fire, Action<RangeShot, float> update = null)
+        /// seconds since it. Omitted preroll preserves an existing entry's timing, including attribute registration.</summary>
+        public static void Register(string id, Action<RangeShot> fire, Action<RangeShot, float> update = null, float? preroll = null)
         {
             if (string.IsNullOrEmpty(id) || fire == null) throw new ArgumentException("an effect needs an id and a fire callback");
-            effects[id] = new Entry { Fire = fire, Update = update };
+            float lead = preroll ?? (effects.TryGetValue(id, out var old) ? old.Preroll : 0f);
+            if (float.IsNaN(lead) || float.IsInfinity(lead) || lead < 0f)
+                throw new ArgumentOutOfRangeException(nameof(preroll));
+            effects[id] = new Entry { Fire = fire, Update = update, Preroll = lead };
         }
 
         /// <summary>Is there an effect by this id (after scanning for [CelRangeEffect] methods)?</summary>
@@ -112,12 +123,13 @@ namespace TW.Presentation.VFX
         /// <summary>Seconds on the shot clock.</summary>
         public static float Now => Time.time - origin;
 
-        /// <summary>Queue effect `id` to fire when the shot clock passes t0, at the stage's places. Returns the shot
+        /// <summary>Queue effect `id` to fire at t0 minus its optional pre-roll, at the stage's places. Returns the shot
         /// (fill Lod, Zoom, Seed, Eye before it fires), or null for an unknown id.</summary>
         public static RangeShot Fire(string effectId, float t0)
         {
             if (!Has(effectId)) { Debug.LogError("CelRange: no effect '" + effectId + "' (known: " + string.Join(", ", Ids()) + ")"); return null; }
-            var s = new RangeShot { Id = effectId, T0 = t0, Muzzle = Muzzle, MuzzleHigh = MuzzleHigh, Target = Target, Ground = Ground };
+            var s = new RangeShot { Id = effectId, T0 = t0, Preroll = Mathf.Min(effects[effectId].Preroll, Mathf.Max(0f, t0)),
+                Muzzle = Muzzle, MuzzleHigh = MuzzleHigh, Target = Target, Ground = Ground };
             live.Add(s);
             return s;
         }
@@ -125,21 +137,25 @@ namespace TW.Presentation.VFX
         /// <summary>Run the queued effects: call once a frame from an Update. Returns how many have fired.</summary>
         public static int Tick()
         {
+            return TickAt(Now, Time.time);
+        }
+
+        static int TickAt(float now, float unityTime)
+        {
             int fired = 0;
-            float now = Now;
             for (int i = 0; i < live.Count; i++)
             {
                 var s = live[i];
                 if (!effects.TryGetValue(s.Id, out var e)) continue;
                 if (!s.Fired)
                 {
-                    if (now + 1e-4f < s.T0) continue;
-                    s.Fired = true; s.FiredAt = Time.time;
+                    if (now + 1e-4f < s.T0 - s.Preroll) continue;
+                    s.Fired = true; s.FiredAt = unityTime;
                     try { e.Fire(s); } catch (Exception ex) { Debug.LogException(ex); }
                 }
                 else if (e.Update != null)
                 {
-                    try { e.Update(s, Time.time - s.FiredAt); } catch (Exception ex) { Debug.LogException(ex); }
+                    try { e.Update(s, unityTime - s.FiredAt); } catch (Exception ex) { Debug.LogException(ex); }
                 }
                 fired++;
             }
@@ -171,7 +187,7 @@ namespace TW.Presentation.VFX
                         if (ps.Length != 1 || ps[0].ParameterType != typeof(RangeShot)) { Debug.LogError("CelRange: " + t.Name + "." + m.Name + " must be static void (RangeShot)"); continue; }
                         var fire = (Action<RangeShot>)Delegate.CreateDelegate(typeof(Action<RangeShot>), m);
                         foreach (CelRangeEffectAttribute a in marks)
-                            if (!effects.ContainsKey(a.Id)) effects[a.Id] = new Entry { Fire = fire };
+                            if (!effects.ContainsKey(a.Id)) effects[a.Id] = new Entry { Fire = fire, Preroll = a.Preroll };
                     }
                 }
             }

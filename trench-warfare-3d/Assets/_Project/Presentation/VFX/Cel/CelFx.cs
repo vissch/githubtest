@@ -90,13 +90,16 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>
         /// Play an effect: origin is where it comes from (the muzzle, the burst), dir the way it faces (normalised here;
         /// zero = +z), target where it goes (the hit; origin + dir when it has none), seed its variety (the same seed
-        /// plays the same effect). Every layer is spawned now; nothing is left to do per frame. No allocation.
+        /// plays the same effect). Delay schedules GPU births and chunk/light callbacks without advancing the active
+        /// clock. Every GPU layer is spawned now; nothing is left to do per frame. No allocation.
         /// </summary>
-        public static void Play(CelFxRecipe recipe, Vector3 origin, Vector3 dir, Vector3 target, uint seed)
+        public static void Play(CelFxRecipe recipe, Vector3 origin, Vector3 dir, Vector3 target, uint seed, float delay = 0f)
         {
             if (recipe == null) return;
+            if (float.IsNaN(delay) || float.IsInfinity(delay) || delay < 0f)
+                throw new ArgumentOutOfRangeException(nameof(delay));
             var r = Renderer;
-            float now = Now;
+            float now = Now + delay;
             float lod = LodBlend(Zoom);
             float q = QualityShare(FxQuality.Tier);
             Frame(dir, out Vector3 fwd, out Vector3 right, out Vector3 up);
@@ -189,8 +192,17 @@ namespace TW.Presentation.VFX.Cel
                 Tone = new Vector4(CelRecord.PackPalette(l.paletteId, l.coolId), l.Core, l.Opacity, l.Ink),
                 Extra = l.Extra,
             };
+            // Consume and pack the complete record before applying an optional birth bound, so every
+            // earlier record and all later random draws remain identical to the unbounded recipe.
+            if (l.BirthEnd >= 0f && rec.Born > now + l.Start + l.BirthEnd) rec.Tone.z = 0f;
             // a beam-like kind wants its far end: Axis carries target - p for the Line shape and the Target aim with no speed
             if (l.Aim == CelAim.None && l.Shape == CelShape.Line) rec.Axis = (target - origin);
+            // Pack only after the complete standard record and its optional overrides. Keep RNG identical.
+            if (l.PackTargetFrame)
+            {
+                rec.Axis = target;
+                rec.Tone.y = Mathf.Max(now, now + l.Start);
+            }
         }
 
         // ------------------------------------------------------------------ chunks and lights, on their frame
@@ -230,9 +242,14 @@ namespace TW.Presentation.VFX.Cel
             var rows = CelPalette.Rows;
             if (l.kindId == CelKinds.Light)
             {
-                if (SceneHooks.Flash == null) return;
                 Vector4 c = rows[row * CelPalette.Stride + 3];
-                SceneHooks.Flash(at, new Color(c.x, c.y, c.z, 1f), l.Core, l.Extra.x > 0f ? l.Extra.x : 12f, l.Life);
+                var color = new Color(c.x, c.y, c.z, 1f);
+                float reach = l.Extra.x > 0f ? l.Extra.x : 12f;
+                // Fire recipes can control the glow card independently from the actual illumination.
+                // The default flash card is deliberately strong for muzzle flashes.
+                if (l.Extra.y > 0f && SceneHooks.FlashWithCard != null)
+                    SceneHooks.FlashWithCard(at, color, l.Core, reach, l.Life, l.Extra.y);
+                else SceneHooks.Flash?.Invoke(at, color, l.Core, reach, l.Life);
                 return;
             }
             if (Chunks == null) return;
