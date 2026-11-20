@@ -47,6 +47,11 @@ namespace TW.Presentation.VFX.Cel
 
         void Awake() { if (CelFx.ExistingRenderer == null || CelFx.ExistingRenderer == this) CelFx.Adopt(this); }
 
+        void OnDisable()
+        {
+            foreach (var p in pools) p.Kind.ResetState();
+        }
+
         void OnDestroy()
         {
             CelFx.Release(this);
@@ -102,6 +107,7 @@ namespace TW.Presentation.VFX.Cel
             buffer = args = palette = null;
             foreach (var p in pools)
             {
+                p.Kind.ResetState();
                 Gone(p.Material); Gone(p.Mesh);
             }
             pools = Array.Empty<Pool>();
@@ -201,6 +207,7 @@ namespace TW.Presentation.VFX.Cel
             for (int k = 0; k < pools.Length; k++)
             {
                 var pool = pools[k];
+                pool.Kind.BeforeSubmit(now);
                 if (pool.DirtyHi >= pool.DirtyLo)
                 {
                     int n = pool.DirtyHi - pool.DirtyLo + 1;
@@ -229,7 +236,11 @@ namespace TW.Presentation.VFX.Cel
         /// <summary>Forget every record (a still between shots, a test).</summary>
         public void Clear()
         {
-            foreach (var p in pools) { p.Head = 0; p.Count = 0; p.AliveUntil = float.NegativeInfinity; p.DirtyLo = int.MaxValue; p.DirtyHi = -1; }
+            foreach (var p in pools)
+            {
+                p.Kind.ResetState();
+                p.Head = 0; p.Count = 0; p.AliveUntil = float.NegativeInfinity; p.DirtyLo = int.MaxValue; p.DirtyHi = -1;
+            }
         }
     }
 }

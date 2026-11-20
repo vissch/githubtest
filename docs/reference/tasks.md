@@ -690,12 +690,23 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ### Orbital laser (lab only, 2026-11-09)
 - **Files:** `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalLaserRecipe.cs` (GPU records for the sweeping shaft,
   smoke rings, sparks and persistent crescent), `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalLaserKind.cs`
-  (one indirect pool), `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalLaserRange.cs` (Range registration),
-  `Shaders/Cel/Effects/orbital_laser/CelOrbitalLaser_URP.shader`, `Resources/ShaderKeep/KeepCelOrbitalLaser.mat`.
-- **Tests:** OrbitalLaserTests (leftward arc, two far records, scorch after eight seconds, no allocation on play),
-  CelFxTests and ShaderInclusionTests (build retention and common renderer contracts).
+  (energy and smoke pool), `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalGroundKind.cs` (displaced ground grid),
+  `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalDebrisKind.cs` (quad fragments and permanent rim stones),
+  `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalLaserLighting.cs` (bounded diffuse-light records),
+  `Presentation/Core/OrbitalShadowCasters.cs` (shared caster bridge),
+  `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalShadowDepth.cs` (opt-in lab depth cube),
+  `Presentation/VFX/Range/OrbitalShadowCaptureFixture.cs` (capture diagnostics),
+  `Presentation/VFX/Cel/Effects/orbital_laser/OrbitalLaserRange.cs` (Range registration),
+  `Shaders/Cel/Effects/orbital_laser/CelOrbitalLaser_URP.shader`,
+  `Shaders/Cel/Effects/orbital_laser/OrbitalLaserLighting.hlsl` (Toon surface illumination),
+  `Resources/ShaderKeep/KeepCelOrbitalLaser.mat`.
+- **Tests:** OrbitalLaserTests (leftward arc, two far records, lasting close scorch/rim stones and their cleanup, allocation-free play and
+  Low-tier pool capacity), OrbitalLaserLightingTests (bounded replacement, reset/disable/expiry cleanup and warmed
+  allocation checks), CelFxTests and ShaderInclusionTests (build retention and common renderer contracts).
 - **See it:** `VfxLab.Range("orbital_laser", outDir, "all")`; reference capture uses `effect=orbital_laser t0=0.625`
   to include the broad arrival at frame 16. No sim handler or weapon uses this effect.
+  `hdr=1` preserves energy before tone mapping. `orbitalshadows=1` enables an experimental, latest-strike-only
+  shadow cube; it remains off by default. Native face orientation, visual acceptance and GPU cost are pending.
 
 ### Debris and destruction of props and houses
 - **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers,
@@ -1151,7 +1162,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Deaths, CombatFx.Ground |
 | `Flash` | NightLights | CelFx, CombatFx.Chunks, TankRenderer, TankRenderer.Riders, TankRenderer.Salvo |
 | `FireLight` | NightLights | Flamethrower, TankRenderer |
-| `FirePool` | NightLights.Pools | NightLights, OrbitalLaserRecipe, TankRenderer |
+| `FirePool` | NightLights.Pools | NightLights, TankRenderer |
 | `CookOff` | CombatFx | PropDestruction |
 | `FootFall` | CombatFx | TankRenderer |
 | `MachineLight` | NightLights, NightLights.Machines | TankRenderer.Lights |
@@ -1160,7 +1171,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Cel:** CelFxTests, OrbitalLaserTests
+- **Cel:** CelFxTests, OrbitalLaserLightingTests, OrbitalLaserTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, ScriptedEnemySlotTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** AnimClockPlayTests, CaptureRigPlayTests, DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudMinimapPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, GymRequestTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests

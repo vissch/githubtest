@@ -5,8 +5,37 @@ using UnityEngine.Rendering;
 
 namespace TW.Presentation.Terrain
 {
-    public sealed class BattlefieldProps : MonoBehaviour
+    public sealed class BattlefieldProps : MonoBehaviour, IOrbitalShadowCasterSource
     {
+        // Effect-local caster query: independent of main/editor camera visibility and module.Shadows.
+        public OrbitalCasterRole ShadowCasterRole => OrbitalCasterRole.BattlefieldProps;
+        void OnEnable() => OrbitalShadowCasters.Register(this);
+        void OnDisable() => OrbitalShadowCasters.Unregister(this);
+        public void CollectOrbitalShadowCasters(OrbitalShadowCasterBuffer into, Vector3 source, float range)
+        {
+            foreach (var batch in batches.Values)
+            {
+                var module = batch.Module;
+                if (!module.Drawn || module.Mesh == null || module.Material == null) continue;
+                float sway = into.SwayPadding(module.Mesh, module.Material);
+                for (int p = 0; p < batch.Counts.Count; p++)
+                {
+                    var pageBounds = batch.PageBounds[p]; pageBounds.Expand(sway * 2f);
+                    if (pageBounds.SqrDistance(source) > range * range) continue;
+                    var page = batch.Pages[p];
+                    for (int s = 0; s < batch.Counts[p]; s++)
+                    {
+                        var matrix = page[s];
+                        if (matrix.m13 < -400f) continue; // Batch.Hide's current destroyed/hidden state.
+                        var bounds = OrbitalShadowCasterBuffer.WorldBounds(module.Mesh, matrix, sway);
+                        if (bounds.SqrDistance(source) > range * range) continue;
+                        Vector4 mask = module.Masked && MaskOf != null ? MaskOf(module, matrix).Packed : Vector4.zero;
+                        into.Add(module.Mesh, module.Material, matrix, mask, bounds, source, range, ShadowCasterRole);
+                    }
+                }
+            }
+        }
+
         public SimHost Host;
         public int DecorationSeed = 1917;
         public Vector3 PreferredFront = Vector3.right;

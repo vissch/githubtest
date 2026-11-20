@@ -9,12 +9,21 @@ using UnityEngine.Rendering;
 namespace TW.Presentation.VFX
 {
     [DefaultExecutionOrder(100)]
-    public sealed class TargetDummy : MonoBehaviour
+    public sealed class TargetDummy : MonoBehaviour, IOrbitalShadowCasterSource
     {
         /// <summary>Height of the board's middle above the foot (the chest, where rounds go), metres.</summary>
         public const float ChestHeight = 0.95f;
         public const float Height = 1.85f;
 
+        public OrbitalCasterRole ShadowCasterRole => OrbitalCasterRole.Dummy;
+        public void CollectOrbitalShadowCasters(OrbitalShadowCasterBuffer into, Vector3 source, float range)
+        {
+            if (!Visible || mesh == null || mat == null) return;
+            var matrix = LocalToWorld;
+            var bounds = OrbitalShadowCasterBuffer.WorldBounds(mesh, matrix, 0f);
+            into.Add(mesh, mat, matrix, Vector4.zero, bounds, source, range, ShadowCasterRole);
+        }
+        void OnDisable() => OrbitalShadowCasters.Unregister(this);
         public bool Visible = true;
         public Vector3 Foot;
         public float Yaw;          // degrees: the board faces local +z turned by this
@@ -48,6 +57,7 @@ namespace TW.Presentation.VFX
                 mat.SetColor("_Emission", Emission);   // the plate's dummy reads warm against the blue night
             }
             rp = new RenderParams(mat) { shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, layer = 0 };
+            OrbitalShadowCasters.Register(this);
         }
 
         void OnDestroy()

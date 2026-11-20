@@ -32,6 +32,10 @@ namespace TW.Presentation.VFX.Cel
         public virtual int Order => 100;
         /// <summary>Set anything the material needs once, after it is made.</summary>
         public virtual void Configure(Material material) { }
+        /// <summary>Maintain bounded auxiliary state before a frame, including when no geometry remains alive.</summary>
+        public virtual void BeforeSubmit(float now) { }
+        /// <summary>Release auxiliary state when the renderer is cleared, disabled or shut down.</summary>
+        public virtual void ResetState() { }
     }
 
     /// <summary>The built-in kinds, in id order: their ids never move.</summary>

@@ -48,6 +48,7 @@ namespace TW.Editor
                 public string Path;
                 public Vector2 Focus; public float Zoom, Yaw, Pitch;
                 public int W = 1600, H = 900;
+                public bool Hdr;
                 public int Gap;        // frames to let run after this shot before the next one: how a series is spaced
                 public float AimY = float.NaN;   // look at THIS world height, not the default; NaN keeps the default
                 public bool Posed;
@@ -207,10 +208,21 @@ namespace TW.Editor
                 {
                     var c = Camera.main; if (c == null) return;
                     if (Verbose) Debug.Log($"[rig] render {Path.GetFileName(shot.Path)} frame={Time.frameCount} at={c.transform.position} want={shot.Want}");
-                    var rt = RenderTexture.GetTemporary(shot.W, shot.H, 24, RenderTextureFormat.ARGB32);
+                    var rt = RenderTexture.GetTemporary(shot.W, shot.H, 24, shot.Hdr ? RenderTextureFormat.ARGBHalf : RenderTextureFormat.ARGB32);
                     var before = c.targetTexture;
                     c.targetTexture = rt; c.Render(); c.targetTexture = before;
-                    var was = RenderTexture.active; RenderTexture.active = rt;
+                    var was = RenderTexture.active;
+                    if (shot.Hdr)
+                    {
+                        var ldr = RenderTexture.GetTemporary(shot.W, shot.H, 0, RenderTextureFormat.ARGB32);
+                        bool srgbWrite = GL.sRGBWrite;
+                        GL.sRGBWrite = QualitySettings.activeColorSpace == ColorSpace.Linear;
+                        Graphics.Blit(rt, ldr);
+                        GL.sRGBWrite = srgbWrite;
+                        RenderTexture.ReleaseTemporary(rt);
+                        rt = ldr;
+                    }
+                    RenderTexture.active = rt;
                     var tex = new Texture2D(shot.W, shot.H, TextureFormat.RGB24, false);
                     tex.ReadPixels(new Rect(0, 0, shot.W, shot.H), 0, 0); tex.Apply();
                     RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
@@ -297,6 +309,7 @@ namespace TW.Editor
             var sb = new StringBuilder();
             sb.Append("{\n");
             F(sb, "path", Path.GetFileName(shot.Path));
+            N(sb, "hdr_capture", shot.Hdr ? 1 : 0);
             N(sb, "zoom", shot.Zoom); N(sb, "yaw", shot.Yaw); N(sb, "pitch", shot.Pitch);
             N(sb, "focus_x", shot.Focus.x); N(sb, "focus_z", shot.Focus.y);
             // where the camera actually ended up, not where we asked it to go: the two are not the same thing while
@@ -385,9 +398,9 @@ namespace TW.Editor
 
         /// <summary>Queue one still. Posed this frame, photographed the next, camera put back when the queue drains.</summary>
         public static string Shot(string path, float x, float z, float zoom, float yaw, float pitch = 25f, int w = 1600, int h = 900,
-                                  float aimY = float.NaN)
+                                  float aimY = float.NaN, bool hdr = false)
         {
-            Get().Queue.Enqueue(new Rig.Shot { Path = path, Focus = new Vector2(x, z), Zoom = zoom, Yaw = yaw, Pitch = pitch, W = w, H = h, AimY = aimY });
+            Get().Queue.Enqueue(new Rig.Shot { Path = path, Focus = new Vector2(x, z), Zoom = zoom, Yaw = yaw, Pitch = pitch, W = w, H = h, AimY = aimY, Hdr = hdr });
             return "queued " + path;
         }
 
@@ -436,14 +449,14 @@ namespace TW.Editor
         /// </summary>
         public static string Series(string dir, string stem, float x, float z, float zoom, float yaw,
                                     float pitch = 25f, int count = 8, int everyFrames = 6, int w = 1600, int h = 900,
-                                    float aimY = float.NaN)
+                                    float aimY = float.NaN, bool hdr = false)
         {
             for (int i = 0; i < count; i++)
                 Get().Queue.Enqueue(new Rig.Shot
                 {
                     Path = Path.Combine(dir, stem + "_" + i.ToString("00") + ".png"),
                     Focus = new Vector2(x, z), Zoom = zoom, Yaw = yaw, Pitch = pitch,
-                    W = w, H = h, Gap = i == count - 1 ? 0 : everyFrames, AimY = aimY
+                    W = w, H = h, Gap = i == count - 1 ? 0 : everyFrames, AimY = aimY, Hdr = hdr
                 });
             return "queued " + count + " frames of " + stem;
         }
