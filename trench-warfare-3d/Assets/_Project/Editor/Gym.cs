@@ -36,6 +36,7 @@ namespace TW.Editor
     {
         public const string EnvVar = "TW_GYM";
         const string Request = "TW.Gym.Request";
+        const string Pending = "TW.Gym.Pending";
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         public static string LastRun = "";
@@ -54,6 +55,7 @@ namespace TW.Editor
                 EditorSceneManager.OpenScene(Scene);
             }
             SessionState.SetString(Request, options ?? "");
+            SessionState.SetBool(Pending, true);
             EditorApplication.EnterPlaymode();
             return Entering + options;
         }
@@ -87,9 +89,12 @@ namespace TW.Editor
         static void OnPlayMode(PlayModeStateChange change)
         {
             if (change != PlayModeStateChange.EnteredPlayMode) return;
-            string req = SessionState.GetString(Request, null);
-            if (req == null) return;
-            SessionState.EraseString(Request);   // a crash must not leave the editor looping
+            // SessionState.GetString returns "" (never null) for a missing key, so a separate flag marks a real request;
+            // without it every ordinary Play started the whole catalogue over the player's battle.
+            if (!SessionState.GetBool(Pending, false)) return;
+            string req = SessionState.GetString(Request, "");
+            SessionState.EraseBool(Pending);     // a crash must not leave the editor looping
+            SessionState.EraseString(Request);
             StartRunner(req);
         }
 
