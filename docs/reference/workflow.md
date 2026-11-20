@@ -409,7 +409,10 @@ It returns `queued ...`; the PNG and a `.json` beside it land a few frames later
 `luma_mean`, `luma_p95`, `blown_frac`, `men_in_frame`, `contrast_median`, `rain`, `drawn_infantry` and the camera pose.
 `contrast_median` (and `contrast_p10`) answer "can you still see the men": each man's brightness against the ground
 around him, where 0.4 means you can find him and 0.1 means he is mud. Use them, with `men_in_frame`, to judge smoke,
-fog or tints over the infantry.
+fog or tints over the infantry. At night, `look.mudSheen` (0.45) is the mud's share of the moon's broad sheen and
+fine spark, and `look.mudSky` (0.85) takes more of the pale sky off the mud than still water keeps (0.55). Day, and
+a knob of 0, are the old night. The close men cut stays on the spark. `python Tools/test_mud_sheen.py` checks that
+share with no editor.
 `Captures/` is ignored by git.
 
 **Whatever the game view shows right now:**

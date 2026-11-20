@@ -72,6 +72,18 @@
 // (`CaptureRig.IsFootFigure`, 2026-10-16), 13 stills with a foot figure are still under the bar — nine too dark
 // (contrast_median under 0.25) and four warned (muzzle-flash blow-out) — so these numbers moved the stills a long
 // way but did not finish the job; see `docs/reference/decisions.md`.
+// look.mudSheen and look.mudSky (the look of 2026-10-17: "unlit wet mud out-brights every soldier, and is cold blue").
+// Measured at zoom 12 with eight men in frame: a crop of plain unlit mud read luma p95 0.567 against the men's 0.444, and
+// its mean RGB 0.201 0.248 0.355 - blue at 1.77 times its own red. So the frame spent its highlights on a big pale
+// surface and tinted it with the sky, which is the opposite of the decided direction (2026-09-29: the highlights go on
+// warm fire and on broken sparkles, "not on big pale surfaces"). This is a value question, not a new look: the night of
+// 2026-10-07 stays, and both knobs are night-only (0 by day, in winter and on lava) and 0 = the old night exactly.
+// look.mudSky: the mud loses look.mudSky of the sky mirror (Toon_URP, the lerp toward TWSky()) where still water keeps
+// today's 0.55 share - the water slab was tuned in rounds 7-10 and must not move. The mirror is not where this mud's
+// blue ratio comes from; the knob stays at 0.85 because unlit mud should mirror less sky than still water, and it bites
+// at grazing angles. look.mudSheen is the mud's share of the broad sheen and the fine spark. look.moonSheen cannot do
+// that job: it is lerped to 1 at close range. Swept at 0.45 / 0.30 / 0.20 against the old night's mud p95 0.5903: 0.45
+// is the mildest that puts the mud under the men (0.3600 against 0.4025). The close men cut stays on the spark.
 // Dark fields only, never lava: its magenta fog is its own look.
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -200,6 +212,11 @@ namespace TW.Presentation.Terrain
         /// <summary>_TWMenSheenCut: what the wet sheen loses at the closest view, so a shader with its own closeness can
         /// write SheenAtClose as sheen x (1 - cut x close).</summary>
         public static float SheenCut(float k) => (1f - MenCloseSheen) * Mathf.Clamp01(k);
+        /// <summary>look.mudSheen: the night mud's own share of the moon's broad sheen and fine spark (1 = as before);
+        /// look.mudSky: how much of the pale sky the mud stops mirroring, where still water keeps today's 0.55 share.</summary>
+        public const float DefaultMudSheen = 0.45f, DefaultMudSky = 0.85f;
+        static readonly int MudSheenId = Shader.PropertyToID("_TWMudSheen"), MudSkyId = Shader.PropertyToID("_TWMudSky");
+        float mudSheen = DefaultMudSheen, mudSky = DefaultMudSky;
         /// <summary>look.glowHue: a distant glow's core keeps its lamp's colour in the haze instead of going white.</summary>
         public const float DefaultGlowHue = 0.8f, DefaultGlowFade = 0.85f;
         static readonly int GlowFadeId = Shader.PropertyToID("_TWGlowFade");
@@ -223,6 +240,8 @@ namespace TW.Presentation.Terrain
                 glowFade = Mathf.Clamp01(Knobs.Get("look.glowFade", DefaultGlowFade));
                 moonSheen = Mathf.Clamp(Knobs.Get("look.moonSheen", DefaultMoonSheen), 0.01f, 1f);
                 menClose = Mathf.Clamp01(Knobs.Get(MenCloseKnob, DefaultMenClose));
+                mudSheen = Mathf.Clamp(Knobs.Get("look.mudSheen", DefaultMudSheen), 0.05f, 1f);
+                mudSky = Mathf.Clamp(Knobs.Get("look.mudSky", DefaultMudSky), 0.55f, 1f);
             }
             bool night = Look == Mood.Night && Profile.HeatStrength <= 0f;
             Shader.SetGlobalFloat(WaterDimId, night ? waterDim : 0f);
@@ -231,6 +250,8 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalFloat(MoonSheenId, night ? moonSheen : 0f);
             Shader.SetGlobalFloat(MenReadId, night ? MenLift(1f, menClose) : 0f);
             Shader.SetGlobalFloat(MenSheenCutId, night ? SheenCut(menClose) : 0f);
+            Shader.SetGlobalFloat(MudSheenId, night ? mudSheen : 0f);
+            Shader.SetGlobalFloat(MudSkyId, night ? mudSky : 0f);
             Shader.SetGlobalVector(CurtainId, night && fogLifted > 0f ? new Vector4(CurtainPale, curtain, 0f, 0f) : Vector4.zero);
             return night ? puddleSky : 1f;
         }
