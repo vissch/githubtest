@@ -250,7 +250,8 @@ namespace TW.Tests
             Assert.Less(worst, 10f, $"no nose hunted either way (flips per 100 m, the worst: archetype {worstOf})");
             Assert.Less(total, 60, "the column spun in place under 3 s between fifteen machines (ticks; 116 when it swerved round every hull ahead)");
             for (int n = 0; n < cast.Length; n++)
-                Assert.Greater(metres[n], 20f, $"[T5] {cast[n]} advanced down the field, not stuck in place");
+                if (cast[n] != VehicleArchetype.Mercy)   // the ambulance holds behind its own line until there is a man to fetch
+                    Assert.Greater(metres[n], 20f, $"[T5] {cast[n]} advanced down the field, not stuck in place");
         }
 
         /// <summary>Do two hulls' footprints overlap: the rectangles VehicleProfile.Covers reads (HalfLength along the

@@ -130,7 +130,7 @@ namespace TW.Tests
             r.Tick();
             var s = r.A.State[mg]; s.Shots = 50; r.A.State[mg] = s;   // a belt fired off; the target is gone
             bool belt = false;
-            for (int t = 0; t < 10 && !belt; t++)
+            for (int t = 0; t < 40 && !belt; t++)   // a gunner who is going down on a knee finishes that first
             {
                 var c = r.A.State[mg].Clip;
                 belt = c == Clip.ReloadStand || c == Clip.ReloadStoop || c == Clip.ReloadKneel || c == Clip.ReloadProne;
