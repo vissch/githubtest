@@ -300,7 +300,7 @@ namespace TW.Tests
                 using var cmds = new NativeArray<SimCommand>(Script(t), Allocator.Temp);
                 match.Step(cmds);
             }
-            Assert.AreEqual(13516860766580246688UL, match.World.LastHash,
+            Assert.AreEqual(17582674881551498786UL, match.World.LastHash,
                 "60 ticks of the greybox match with every upgrade tier at zero must hash as it did before the seam: " + match.World.LastHash);
         }
     }

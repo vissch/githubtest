@@ -41,7 +41,7 @@ namespace TW.Tests
             Assert.AreEqual(System.Math.Atan2(-3, -0.5), SimMath.Atan2(-3f, -0.5f), 1e-4);
         }
 
-        /// <summary>The systems whose state SimWorld.Hash() folds, in the order it folds them, as FormatVersion 54 has
+        /// <summary>The systems whose state SimWorld.Hash() folds, in the order it folds them, as FormatVersion 68 has
         /// them in the greybox match. Two SIM lanes that each add a system merge without a conflict into a chain
         /// neither of them ran, and a determinism rerun then compares the merged build with itself and passes (the
         /// overhaul and units-meta, 2026-09-27). This fails instead: a change to the chain is a format change, so it
@@ -49,7 +49,7 @@ namespace TW.Tests
         // v9's chain held until v16 (v10-v16 changed what the tables hold and what TankGunnerySystem hashes); v17 put the
         // sapper in at 120, v18 the fight on foot at 1108, v19 DirectFireSystem's bombs (same order), v20 dead ground (no new state). Named for what it is, not for a version it no longer matches.
         const string SystemChain =
-            "40 CombatCatalogueSystem;50 TerrainHashSystem;110 TrenchOrdersSystem;120 SapperSystem;130 OffMapAbilitySystem;" +
+            "40 CombatCatalogueSystem;50 TerrainHashSystem;110 TrenchOrdersSystem;112 FlightSystem;120 SapperSystem;130 OffMapAbilitySystem;" +
             "400 FlowFieldManager;600 TargetAcquisitionSystem;650 AuraSystem;700 DirectFireSystem;" +
             "705 TankGunnerySystem;715 AmbientBombardmentSystem;720 BlastSystem;723 BeamSystem;" +
             "725 BurningSystem;730 VehicleModulesSystem;735 SupportSystem;800 SuppressionSystem;" +
@@ -256,8 +256,8 @@ namespace TW.Tests
             Assert.Greater(fight.Shots, 0,
                 "[T24d] not one shot of direct fire in the hashed ticks, so DirectFire, TargetAcquisition, Engage " +
                 "and the guns' tables are all unhashed and this pin cannot see a change in any of them");
-            Assert.AreEqual(0xb128b16c1f94df1eUL, match.World.Hash(),
-                "[T24b] the greybox hash after 300 scripted ticks moved from its FormatVersion 54 pin: a field was " +
+            Assert.AreEqual(0xdb7ae67e7e2ab334UL, match.World.Hash(),
+                "[T24b] the greybox hash after 300 scripted ticks moved from its FormatVersion 68 pin: a field was " +
                 "added, moved or dropped inside SimWorld.Hash(), or a system in the chain changed what it hashes");
         }
 
@@ -304,8 +304,8 @@ namespace TW.Tests
             // So no number of ticks short of ~2450 buys this match a firefight, and 15 s of it buys none at all.
             // Settled by the owner on 2026-10-12 (decisions.md): the Landing pin stays at 300 ticks, with the
             // greybox pin keeping the direct-fire guard alone. No 2450-tick Long pin, no moved spawns.
-            Assert.AreEqual(0x736bcf34c8636894UL, match.World.Hash(),
-                "[T24b] the Landing battlefield hash after 300 scripted ticks moved from its FormatVersion 54 pin: a " +
+            Assert.AreEqual(0xde433d0d65e3fbb7UL, match.World.Hash(),
+                "[T24b] the Landing battlefield hash after 300 scripted ticks moved from its FormatVersion 68 pin: a " +
                 "field was added, moved or dropped inside SimWorld.Hash(), or a system in the chain changed what it hashes");
         }
 

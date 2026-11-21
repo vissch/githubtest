@@ -574,6 +574,15 @@ MonoBehaviour:
     Rate: 1
     KeepRoot: 0
     Aim: 1
+  - Name: Rifle Cheer
+    Clip: {fileID: -203655887218126122, guid: 2937c104813e484497c38b1137e29457, type: 3}
+    Loop: 0
+    Death: 0
+    CutStart: 0
+    CutEnd: 0
+    Rate: 1
+    KeepRoot: 1
+    Aim: 0
   - Name: Rifle Crouch Idle To Walk
     Clip: {fileID: -203655887218126122, guid: 3f9bfd0a40dcade4cbc4ce5c58c0390a, type: 3}
     Loop: 0

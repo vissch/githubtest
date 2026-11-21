@@ -100,8 +100,8 @@ namespace TW.Tests
             var kit = new BattlefieldKit(); kit.ResolveKeysAndRules();
             foreach (var (name, make) in AssetScaleReport.Grounds)
                 foreach (var seed in new[] { 1917, 2, 7 })
-                    // measured 2026-11-21: Landing holds three with or without its shore defences, the 120 m deep Narrows one
-                    CheckGround(kit, seed, make, minPlaced: name == "WinterLine" ? 4 : name == "Narrows" ? 1 : 3);
+                    // measured 2026-11-21: Landing holds three with or without its shore defences; the Narrows has no depth behind its line
+                    CheckGround(kit, seed, make, minPlaced: name == "WinterLine" ? 4 : name == "Narrows" ? 0 : 3);
         }
     }
 }

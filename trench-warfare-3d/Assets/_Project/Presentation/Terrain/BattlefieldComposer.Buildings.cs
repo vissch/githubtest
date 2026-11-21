@@ -131,6 +131,13 @@ namespace TW.Presentation.Terrain
                 float zHi = wide ? Mathf.Max(zLo, front) : zLo + Mathf.Max(1f, front - 3f - 2f * reach);
                 float xLo = wide ? 2f + reach : road - RoadClear - reach - Mathf.Max(4f, road - RoadClear - 2f * reach - 4f);
                 float xHi = wide ? Mathf.Max(xLo, road - RoadClear - reach) : road - RoadClear - reach;
+                if (reasonTag == "ruin" && zLo > front)   // no depth behind the line for it (the Narrows): it is not built in front of it
+                {
+                    string none = reasonTag + ": room";
+                    rejections.TryGetValue(none, out int kept); rejections[none] = kept + 1;
+                    laneIndex++;
+                    continue;
+                }
                 float laneWidth = (xHi - xLo) / lanes;
                 float laneLo = xLo + laneIndex * laneWidth, laneHi = laneLo + laneWidth;
                 bool found = false; string reason = reasonTag + ": room";
