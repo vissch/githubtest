@@ -43,7 +43,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 
 ### Gate verdicts
 **`gate.ps1`** (`R\gate.ps1`)
-- A test over 3 s carries `[Category("Long")]` (73 of them). `gate.ps1 -EditOnly` leaves them out with `-testCategory !Long`; `-Long` runs them, and the full gate always does.
+- A test over 3 s carries `[Category("Long")]` (74 of them). `gate.ps1 -EditOnly` leaves them out with `-testCategory !Long`; `-Long` runs them, and the full gate always does.
 - Exit codes: 0 green, 8 a test failed, 6 no verdict, 5 validate, 3 held, 1 no unity (:5-7).
 - "The xml is the verdict, not unity's exit code" (:22-23, :63-64). Zero tests run, or nothing passed, is exit 6 (:62, :65).
 - **Stale-xml fix:** it deletes `test-results.xml` and `test-results-<mode>.xml` before each run, so "a run that writes nothing must not leave the last green copy" (:70-71; commits `cfc2045` and `34de04b`).

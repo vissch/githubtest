@@ -322,7 +322,7 @@ namespace TW.Tests
             return turn;
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void TheEnemy_BuyingInTurn_TakesARiflemanThenEachOtherArmedClass_AndAMachineARoundWhenItFieldsThem()
         {
             using var m = MatchSim.CreateGreybox(SimConfig.Default);
