@@ -21,7 +21,7 @@ namespace TW.Tests
         /// carcasses, whose meshes the renderer owns and frees in OnDestroy.</summary>
         static readonly HashSet<string> Kept = new HashSet<string>
         {
-            "ribbonPool", "models", "seatsOf", "lampsOf", "furnaceOf", "batches", "carcasses",
+            "ribbonPool", "models", "seatsOf", "lampsOf", "furnaceOf", "batches", "carcasses", "tankFarMats",
         };
 
         static IEnumerable<FieldInfo> Collections(Type t)

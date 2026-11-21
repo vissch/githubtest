@@ -34,6 +34,6 @@ namespace TW.Presentation
         /// <summary>Forget this frame's read: when Play ends, and between tests that hold their own camera.</summary>
         public static void Invalidate() { frame = -1; cam = null; zoom = 0f; }
 
-        static ViewEye() { SceneStatics.Register(nameof(ViewEye), Invalidate); }
+        static ViewEye() { SceneStatics.Register(nameof(ViewEye), Invalidate); SceneStatics.RegisterPerScene(nameof(ViewEye), Invalidate); }
     }
 }

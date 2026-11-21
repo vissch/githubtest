@@ -141,7 +141,7 @@
 .tw-card__film { position: absolute; left: var(--tw-film-inset); top: var(--tw-film-inset); right: var(--tw-film-inset); bottom: var(--tw-film-inset); display: none; background-size: contain; -unity-background-scale-mode: scale-and-crop; }
 /* the loop's bone line sits just above the nameplate (17 px of the card): at the film's own inset the nameplate,
    which draws over it, hid it completely - a round-1 critic could not see it at all. */
-.tw-card__filmline { position: absolute; left: var(--tw-film-inset); bottom: 20px; width: 0; height: var(--tw-film-line); display: none; background-color: #E8E2D2; }
+.tw-card__filmline { position: absolute; left: var(--tw-film-inset); bottom: 20px; width: 0; height: var(--tw-film-line); display: none; background-color: var(--tw-film-line-tint); }
 .tw-card__rim { position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: none; background-image: url("Sprites/card_rim.png"); -unity-slice-left: 14; -unity-slice-top: 14; -unity-slice-right: 14; -unity-slice-bottom: 14; -unity-background-image-tint-color: var(--tw-accent); }
 .tw-card__cooldown { position: absolute; left: 6px; right: 6px; bottom: 6px; height: 0; background-color: var(--tw-cooldown); background-image: url("Sprites/cooldown_mask.png"); background-repeat: repeat; }
 .tw-card__nameplate { position: absolute; left: 3px; right: 3px; bottom: 3px; height: 14px; padding: 0 2px; background-color: var(--tw-plate-900); background-image: url("Sprites/card_nameplate.png"); -unity-slice-left: 6; -unity-slice-right: 6; -unity-slice-top: 0; -unity-slice-bottom: 0; font-size: 10px; color: var(--tw-text); -unity-text-align: middle-center; letter-spacing: 0; -unity-font-style: bold; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -295,7 +295,7 @@
 .tw-portrait-ParaDrop { background-image: url("Portraits/ParaDrop.png"); }
 .tw-portrait-Sapper { background-image: url("Portraits/Sapper.png"); }
 
-/* ---- corners: each component clips to the radius UiSkinGenerator paints into its sprite (v9) ------------------ */
+/* ---- corners: each component clips to the radius UiSkinGenerator paints into its sprite (v10) ------------------ */
 .tw-keycap, .tw-tab, .tw-list-row { border-radius: var(--tw-radius); }
 .tw-plate, .tw-panel, .tw-btn, .tw-btn--icon, .tw-card, .tw-card__rim, .tw-tooltip, .tw-title-plate, .tw-info-panel, .tw-dropdown .unity-base-popup-field__input { border-radius: var(--tw-radius-lg); }
 .tw-window, .tw-header-window, .tw-badge, .tw-card__nameplate, .tw-card__hotkey, .tw-card__cost, .tw-card__badge, .tw-card__cooldown, .tw-info-panel__image, .tw-toggle .unity-toggle__checkmark, .tw-slider .unity-base-slider__tracker, .tw-slider .unity-text-field__input { border-radius: var(--tw-radius-sm); }

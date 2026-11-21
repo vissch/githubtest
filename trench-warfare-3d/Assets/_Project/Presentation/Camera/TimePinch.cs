@@ -137,7 +137,7 @@ namespace TW.Presentation.Tactical
         PunchClock clock = new PunchClock { Since = -1f, Written = -1f };
         static TimePinch active;
 
-        static TimePinch() => SceneStatics.Register(nameof(TimePinch), () => active = null);
+        static TimePinch() { SceneStatics.Register(nameof(TimePinch), () => active = null); SceneStatics.RegisterPerScene(nameof(TimePinch), () => active = null); }
 
         public static TimePinch For(GameObject host)
         {

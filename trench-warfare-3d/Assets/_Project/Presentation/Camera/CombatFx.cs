@@ -79,7 +79,7 @@ namespace TW.Presentation.Tactical
         /// reproduce tick for tick, so both passes turn it off. Presentation only: the sim never reads it.</summary>
         public static bool ShowTracers = true;
         // an image run turns the overlays off; a Play session after it in the same editor must see them again
-        static CombatFx() => SceneStatics.Register(nameof(CombatFx), () => { ShowOverlays = true; DropFx = true; DropCanopies = true; ShowTracers = true; });
+        static CombatFx() => SceneStatics.Register(nameof(CombatFx), () => { ShowOverlays = true; DropFx = true; DropCanopies = true; ShowTracers = true; AtHullShots = AtHullStrikes = AtHullSpurts = 0; });
 
         struct Tracer { public Vector3 From, To; public float Born; public byte Team; public float Width, Life, Streak; }   // Width: 0 = the usual round; Life: its time on screen (s); Streak: its length x the usual (0 = 1)
         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }

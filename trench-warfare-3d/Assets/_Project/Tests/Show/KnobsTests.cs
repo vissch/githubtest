@@ -818,7 +818,7 @@ namespace TW.Tests
             // capacity knobs still read bare (reported, not this unit's to fix): a new one must be added here on purpose
             string[] knownBare = {
                 "debris.capacityScale", "fx.maxAmbientChunks", "fx.maxChunks", "props.maxFalling",
-                "tank.maxLoose", "tank.maxWrecks", "vat.maxGrow",
+                "tank.maxLoose", "tank.maxWrecks",
             };
             foreach (string name in knownClamped)
                 Assert.IsTrue(clamped.Contains(name), "[TS14] " + name + " is no longer read inside a clamp");

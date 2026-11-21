@@ -99,4 +99,5 @@
     --tw-minimap-bezel: 14px;
     --tw-film-inset: 10px;   /* HudLayout.FilmInsetPx: the card film sits inside the portrait window */
     --tw-film-line: 2px;     /* HudLayout.FilmLinePx: the bone line counting the film's loop */
+    --tw-film-line-tint: #E8E2D2;   /* that line's bone colour */
 }

@@ -424,10 +424,10 @@ namespace TW.Tests
                 Assert.That(UnitPicker.MaxGrow, Is.EqualTo(vat.MaxGrow));
                 // [TU10] both sides above are initialisers off the same FigureMetrics constants, so on their own they
                 // compare a value with itself. Pin the numbers too: a man is drawn at 1.125 of his 1.78 m model (2.0 m,
-                // the spacing SeparationJob keeps), x1 up to zoom 24, growing to at most x4.
+                // the spacing SeparationJob keeps), x1 at every zoom (the one-size rule, 2026-10-13).
                 Assert.That(UnitPicker.FigureScale, Is.EqualTo(1.125f), "[TU10] the drawn man's scale moved");
                 Assert.That(UnitPicker.GrowFromZoom, Is.EqualTo(24f), "[TU10] the zoom men start growing at moved");
-                Assert.That(UnitPicker.MaxGrow, Is.EqualTo(4f), "[TU10] the most a man grows moved");
+                Assert.That(UnitPicker.MaxGrow, Is.EqualTo(1f), "[TU10] the most a man grows moved");
             }
             finally { Object.DestroyImmediate(go); }
         }

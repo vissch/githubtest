@@ -111,6 +111,11 @@ namespace TW.Tests
             ["DebrisRenderer.LavaLevel"] = "set by each biome when the scene starts",
             ["DebrisRenderer.figure"] = "the figure source loaded from Resources; the asset outlives Play",
             ["DebrisRenderer.figureTried"] = "a load-once latch for the figure above",
+            ["DebrisRenderer.frogFigure"] = "the frog's figure source loaded from Resources; the asset outlives Play",
+            ["DebrisRenderer.frogTried"] = "a load-once latch for the frog's figure above",
+            ["DebrisRenderer.Watch"] = "a test probe: null in a match; the test that sets it clears it",
+            ["WaterEntry.pending"] = "a fixed buffer: Clear sets pendingCount to 0, so nothing in it is live",
+            ["WaterEntry.cards"] = "a scratch buffer, written in full before each read",
             ["TankModel.grown"] = "mesh copies per (mesh, scale); a copy destroyed when Play ends reads as null and is rebuilt, so only stale keys remain",
             ["CampaignSession.MapNode"] = "part of the mission in flight, carried across the scene load by design",
             ["CampaignSession.HomeBuilding"] = "part of the mission in flight, carried across the scene load by design",
@@ -166,6 +171,8 @@ namespace TW.Tests
             "UnitArt.Faces", "UnitArt.Cutouts", "UnitLook.InfantryNames", "UnitLook.InfantryPortraits",
             "UnitLook.InfantryTips", "UnitStatus.Words", "VATRenderer.FigureNames",
             "PerfBench.HudParts", "PerfBench.SelectionParts", "DebrisRenderer.Capacity",
+            "GymStrip.Names", "DebrisRenderer.FrogParts", "TankRenderer.OldWreckKinds", "TankRenderer.FlyerSheds",
+            "TankRenderer.BipedSheds", "VATRenderer.MidNames", "VATRenderer.FigureBorrows", "ObjectiveTracker.bulletClasses",
             "DebrisRenderer.CastsShadow", "FlipbookFx.Sheets", "TankModel.JoinedLegs",
             "ProvingGround.Ideas", "ProvingGround.AiNames",
             "ProvingGround.AiPresets", "AssetScaleReport.Grounds", "AssetScaleTable.rules", "BattlefieldKit.EnvSets",
@@ -271,6 +278,9 @@ namespace TW.Tests
         /// delegate: no value this test can make is both legal and different), and why each is safe anyway.</summary>
         static readonly Dictionary<string, string> CannotDirty = new Dictionary<string, string>
         {
+            ["TimePinch.active"] = "a live component: this sweep cannot make one; its reset is one line, registered for session and scene",
+            ["ViewEye.cam"] = "a live Camera: this sweep cannot make one; Invalidate clears it, registered for session and scene",
+            ["CardFilm.sheets"] = "a dictionary of Resources textures: ClearCache empties it, and ViewEye-style dirtying cannot build a Texture2D key here",
             ["MetaServices.HomeFront"] = "an interface: no instance this test can make is a legal home-front view. It is the P1a field, and CampaignDeployPlayTests pins that the scene load forgets it",
             ["MetaServices.Map"] = "an interface, as HomeFront above: the same per-scene reset, pinned by the same test",
         };
