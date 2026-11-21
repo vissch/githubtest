@@ -134,8 +134,11 @@ namespace TW.Tests
             const long BudgetBytes = 128L * 1024 * 1024;
             long total = 0;
             var lines = new List<string>();
+            int borrowed = 0;
             foreach (var figure in VATRenderer.FigureNames)   // the mid meshes share these atlases (VatAsset.WithMesh)
             {
+                // a slot that wears another figure's bake by design (the Death Battalion) has no atlas of its own to count
+                if (VATRenderer.FigureBorrows[System.Array.IndexOf(VATRenderer.FigureNames, figure)] >= 0) { borrowed++; continue; }
                 var data = Resources.Load<VatAssetData>("Units/Figure" + figure);
                 // [TS19] every figure's bake is committed: a missing or empty one must not read as fitting the budget
                 Assert.IsNotNull(data, "[TS19] Units/Figure" + figure + " is committed; a missing bake is a broken repo, not a skip");
@@ -146,7 +149,7 @@ namespace TW.Tests
                 lines.Add($"{figure}: {data.VertexCount} verts x {data.TotalFrames} frames, {data.Rows} rows = " +
                           $"{bytes / 1048576.0:0.0} MB");
             }
-            Assert.AreEqual(VATRenderer.FigureNames.Length, lines.Count, "[TS19] every committed bake was measured");
+            Assert.AreEqual(VATRenderer.FigureNames.Length - borrowed, lines.Count, "[TS19] every committed bake was measured");
             Assert.Greater(total, 0L, "[TS19] the measured bakes cost something: a zero total fits any budget");
 
             TestContext.WriteLine(string.Join("\n", lines));

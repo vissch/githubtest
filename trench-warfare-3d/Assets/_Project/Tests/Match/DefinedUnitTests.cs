@@ -202,8 +202,8 @@ namespace TW.Tests
             Assert.AreEqual(0, Count(log, SimEventType.VehicleFired, truck), "nothing inside the minimum range is worth a rocket");
 
             using var m2 = NewMatch();
-            int truck2 = Spawn(m2, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
-            for (int k = 0; k < 6; k++) m2.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 100f, 0f, false);        // 150 m
+            int truck2 = Spawn(m2, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 230f), 0f);
+            for (int k = 0; k < 6; k++) m2.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 100f, 0f, false);        // 120 m
             var log2 = Run(m2, 20 * 20);
             int fired = Count(log2, SimEventType.VehicleFired, truck2);
             Assert.Greater(fired, 0, "at rocket range it fires");
@@ -220,8 +220,8 @@ namespace TW.Tests
         public void TheSalvosRackLoadsAgainInElevenSecondsNotSixteen()
         {
             using var m = NewMatch();
-            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
-            for (int k = 0; k < 6; k++) m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 1e6f, 0f, false);   // 150 m, too tough to die
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 230f), 0f);
+            for (int k = 0; k < 6; k++) m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 1e6f, 0f, false);   // 120 m, too tough to die
             var log = Run(m, 20 * 30);
 
             var launches = new List<uint>();
@@ -248,7 +248,7 @@ namespace TW.Tests
         public void TheSalvoHoldsWhereItIsOnceItHasATarget()
         {
             using var m = NewMatch();
-            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 160f));   // at its own speed, heading south
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 135f));   // at its own speed, heading south
             // men who outlive the rockets (a target that dies lets it drive on, which is right)
             for (int k = 0; k < 6; k++) m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 20f), 1e6f, 0f, false);
             Run(m, 20 * 30);
@@ -256,7 +256,7 @@ namespace TW.Tests
             Assert.GreaterOrEqual(m.Gunnery.GunTarget[truck * TankGunnerySystem.Guns], 0, "it has the men as its target");
             Run(m, 20 * 10);
             Assert.Less(math.distance(held, m.World.Position[truck]), 0.5f, "and it holds while it has them");
-            Assert.Greater(math.distance(held.xz, new float2(30f, 20f)), 130f, "from well back: they were in reach where it stood (140 m), so it never closed");
+            Assert.Greater(math.distance(held.xz, new float2(30f, 20f)), 105f, "from well back: they were in reach where it stood (115 m), so it never closed");
 
             using var m2 = NewMatch();
             int tusk = m2.World.Spawn(1, VehicleArchetype.Tusk, new float3(30f, 0f, 160f), m2.World.Units.Roster[VehicleArchetype.Tusk].Hp, m2.World.Units.Roster[VehicleArchetype.Tusk].Speed, true);
@@ -378,7 +378,7 @@ namespace TW.Tests
         public void TheHoldIsGivenUpOnAMarkItIsNotHurting()
         {
             using var m = NewMatch();
-            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 160f));   // 140 m: inside its reach
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 135f));   // 115 m: inside its reach (124 m)
             int man = m.World.Spawn(0, 0, new float3(30f, 0f, 20f), 1e6f, 0f, false);
             Run(m, 20 * 3);
             Assert.AreEqual(man, m.Gunnery.GunTarget[truck * TankGunnerySystem.Guns]);
@@ -399,7 +399,7 @@ namespace TW.Tests
         public void ANewUnitInADeadSalvosSlotInheritsNoHold()
         {
             using var m = NewMatch();
-            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 160f), 0f);   // 140 m: inside its reach
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 135f), 0f);   // 115 m: inside its reach (124 m)
             m.World.Spawn(0, 0, new float3(30f, 0f, 20f), 1e6f, 0f, false);
             Run(m, 20 * 3);
             var g = m.Gunnery;
@@ -421,7 +421,7 @@ namespace TW.Tests
         public void AHeldSalvoSentElsewhereGoes()
         {
             using var m = NewMatch();
-            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 160f));   // 140 m: inside its reach
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 135f));   // 115 m: inside its reach (124 m)
             m.World.Spawn(0, 0, new float3(30f, 0f, 20f), 1e6f, 0f, false);
             Run(m, 20 * 3);
             Assert.That(m.Gunnery.HoldTarget[truck], Is.GreaterThanOrEqualTo(0), "[T36] it is holding");
@@ -446,7 +446,7 @@ namespace TW.Tests
             for (int run = 0; run < 2; run++)
             {
                 using var m = NewMatch();
-                int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
+                int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 230f), 0f);
                 for (int k = 0; k < 6; k++) m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 1e6f, 0f, false);
                 var log = new List<SimEvent>();
                 using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
@@ -482,7 +482,7 @@ namespace TW.Tests
             cfg.LoadoutA = Ten(InfantryArchetype.Rifle);
             cfg.LoadoutB = Ten(VehicleArchetype.Salvo);
             var recorder = new ReplayRecorder(cfg, default, 1);
-            // the Salvo reaches 155 m (2026-10-01): on the playtest map it fires once it has driven to within that of the
+            // the Salvo reaches 124 m (155 m on 2026-10-01, less the 20 % cut): on the playtest map it fires once it has driven to within that of the
             // riflemen's trench, a couple of minutes in; recorded until two seconds after its first rack is in the air
             bool inTheAir = false; int after = 0;
             using (var m = MatchSim.CreatePlaytest(cfg))
@@ -521,7 +521,7 @@ namespace TW.Tests
         public void ADeadSalvoFiresNoMoreRockets()
         {
             using var m = NewMatch();
-            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 230f), 0f);
             for (int k = 0; k < 6; k++) m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 1e6f, 0f, false);
             var log = new List<SimEvent>();
             using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
@@ -550,7 +550,7 @@ namespace TW.Tests
         {
             using var m = NewMatch();
             float width = m.Map.NavWidth * TW.Sim.Terrain.MapData.NavCellSize;
-            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(width - 2f, 0f, 260f), 0f);
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(width - 2f, 0f, 230f), 0f);
             Clear(m, -1);
             m.World.Spawn(0, 0, new float3(width - 0.6f, 0f, 110f), 1e6f, 0f, false);
             var log = Run(m, 20 * 8);
@@ -570,7 +570,7 @@ namespace TW.Tests
         public void AManWhoMovesAwayBeforeTheRocketsLandEscapes()
         {
             using var m = NewMatch();
-            Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
+            Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 230f), 0f);
             Clear(m, -1);
             int man = m.World.Spawn(0, 0, new float3(30f, 0f, 110f), 100f, 0f, false);
             using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
@@ -588,10 +588,10 @@ namespace TW.Tests
         // ------------------------------------------------------------------ the Salvo's rack (format v11)
         struct Landing { public uint Tick; public float3 Pos; }
 
-        /// <summary>A Salvo 150 m from six men in the open, run long enough for one rack to fire and come down.</summary>
+        /// <summary>A Salvo 120 m from six men in the open, run long enough for one rack to fire and come down.</summary>
         static (List<SimEvent> log, int truck, List<int> men) Rack(MatchSim m)
         {
-            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 230f), 0f);
             var men = new List<int>();
             for (int k = 0; k < 6; k++) men.Add(m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 100f, 0f, false));
             return (Run(m, 20 * 12), truck, men);
@@ -638,7 +638,7 @@ namespace TW.Tests
         public void TheMenAreHurtWhenTheRocketsLandNotWhenTheRackFires()
         {
             using var m = NewMatch();
-            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 230f), 0f);
             var men = new List<int>();
             for (int k = 0; k < 6; k++) men.Add(m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 100f, 0f, false));
             uint fired = uint.MaxValue, firstLand = uint.MaxValue, firstHurt = uint.MaxValue;

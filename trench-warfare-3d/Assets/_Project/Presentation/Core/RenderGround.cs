@@ -179,7 +179,7 @@ namespace TW.Presentation
             CloseUp = 0f; TanksDrawn = false; SmokeSources.Clear();
             IsWater = null; WaterY = null; AddRing = null; Sparks = null; Biplane = null; VehicleTracks = null; VehicleGunPort = null;
             DrawnWreck = null; IsTankSlot = null; Flash = null; FireLight = null; FirePool = null; CookOff = null; FootFall = null; AimPreview = null;
-            MachineGlows = null; MachineLight = null; LampOut = null; Standing = null;
+            MachineGlows = null; MachineLight = null; LampOut = null; Standing = null; StandingTall = null;
         }
     }
 
