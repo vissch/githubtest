@@ -18,7 +18,7 @@ namespace TW.UI
     {
         public Button Root;
         public VisualElement Portrait, Film, FilmLine, Cooldown, Rim, Lock, Weapon;
-        public Label Name, Cost, Hotkey, Badge;
+        public Label Name, Cost, Hotkey;
         public int Slot = -1;                      // roster slot, or -1 for a support card
         public byte Archetype;
         public OffMapAbilityId Ability = OffMapAbilityId.None;
@@ -214,7 +214,7 @@ namespace TW.UI
             if (parent.childCount == 1) holder.AddToClassList(FirstSlotClass);   // USS has no :first-child, so the group's first card is marked here
             c.Root = holder.Q<Button>("card");
             c.Portrait = holder.Q("portrait"); c.Film = holder.Q("film"); c.FilmLine = holder.Q("filmline"); c.Cooldown = holder.Q("cooldown"); c.Rim = holder.Q("rim"); c.Lock = holder.Q("lock"); c.Weapon = holder.Q("weapon");
-            c.Name = holder.Q<Label>("name"); c.Cost = holder.Q<Label>("cost"); c.Hotkey = holder.Q<Label>("hotkey"); c.Badge = holder.Q<Label>("badge");
+            c.Name = holder.Q<Label>("name"); c.Cost = holder.Q<Label>("cost"); c.Hotkey = holder.Q<Label>("hotkey");
             return c;
         }
 

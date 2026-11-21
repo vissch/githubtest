@@ -129,7 +129,9 @@ namespace TW.Tests
             const ulong Forest = 330536166753067018UL, Winter = 15193885026306347569UL, Landing = 5359672224418286410UL;
             using var forest = BattlefieldGenerator.Create(BattlefieldParams.ShelledForest(1917), Allocator.Persistent);
             using var winter = BattlefieldGenerator.Create(BattlefieldParams.WinterLine(1917), Allocator.Persistent);
-            using var landing = BattlefieldGenerator.Create(BattlefieldParams.Landing(1917), Allocator.Persistent);
+            var bareShore = BattlefieldParams.Landing(1917);
+            bareShore.ShoreDefences = false;   // the pin predates the shore defences (their own tests hold them); the ridge must not move either
+            using var landing = BattlefieldGenerator.Create(bareShore, Allocator.Persistent);
             Assert.AreEqual(Forest, forest.Hash(SimHash.Offset), "ShelledForest(1917) moved: the ridge leaked into the level field");
             Assert.AreEqual(Winter, winter.Hash(SimHash.Offset), "WinterLine(1917) moved: the ridge leaked into the level field");
             Assert.AreEqual(Landing, landing.Hash(SimHash.Offset), "Landing(1917) moved: the ridge leaked into the level field");

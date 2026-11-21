@@ -145,7 +145,7 @@ namespace TW.Tests
                     var w = m.Catalogue.Weapon[a];
                     var spec = m.World.Units.Infantry[a];
                     bool unarmedOnPurpose = spec.HealPerSecond > 0f || spec.RepairPerSecond > 0f || m.Catalogue.Tank[a].GasStrength > 0f
-                                            || m.Catalogue.Tank[a].ClawDamage > 0f;
+                                            || m.Catalogue.Tank[a].ClawDamage > 0f || m.Catalogue.Tank[a].Seats > 0;
                     Assert.IsTrue(w.RangeMax > 0f || unarmedOnPurpose, $"archetype {a} has neither a weapon nor a job that needs none");
                 }
         }

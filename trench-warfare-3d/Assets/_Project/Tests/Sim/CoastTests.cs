@@ -424,7 +424,7 @@ namespace TW.Tests
             Assert.IsFalse(BattlefieldParams.Deserialize(BattlefieldParams.ShelledForest(1917).Serialize()).ShoreDefences);
             // an older blob, written before the field existed, reads back as a bare shore
             var bytes = p.Serialize();
-            var older = new byte[bytes.Length - 1];
+            var older = new byte[bytes.Length - 1 - sizeof(float)];   // ShoreDefences, then Rise after it
             System.Array.Copy(bytes, older, older.Length);
             Assert.IsFalse(BattlefieldParams.Deserialize(older).ShoreDefences, "absent means no defences, so an older map keeps its geometry");
         }
