@@ -61,6 +61,9 @@ namespace TW.Playground
             foreach (var w in wheels)
             {
                 if (w.Loose) continue;
+                // [A6] a standing rig that has never rolled keeps the pose VehicleRig.Pose set on it (Sag left, a
+                // missing wheel's tilt): writing RestRot here replaced that lean every frame.
+                if (roll == 0f && WheelTurn == 0f) continue;
                 w.T.localRotation = w.RestRot * Quaternion.AngleAxis(WheelTurn * Mathf.Rad2Deg, Vector3.right);
             }
             foreach (var t in tracks) if (!t.Loose) t.T.localRotation = t.RestRot;   // a belt does not turn; its texture runs

@@ -2,7 +2,7 @@
 // knob (the absurd deaths: fx.deathAbsurd 0 against 1 on the barrage), one Unity launch per side. CaptureRig.Bench does
 // the same from a running editor: the bench string goes in the TW_BENCH environment variable (it crosses the domain
 // reload on entering Play), the bench runs the match, writes its report and leaves Play. Compare two reports with
-// Tools/aosa/cmp.py.
+// docs/reference/perf-pass-2026-09/tools/cmp.py.
 //
 // Run it by name WITH a graphics device (not -nographics): the draw counts and the render thread are what it measures.
 //   Unity.exe -batchmode -projectPath <project> -runTests -testPlatform EditMode -testFilter BenchRuns \

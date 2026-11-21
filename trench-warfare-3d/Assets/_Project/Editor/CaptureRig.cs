@@ -231,6 +231,42 @@ namespace TW.Editor
             bool running;
             Shot toRender;      // batch mode only: rendered from LateUpdate, which is the whole point — see Run()
 
+            // Static, not instance fields: the rig (and this Rig component) can die with Play while the tactical
+            // camera is still part of the scene and must still be handed back — a domain reload or Play stopping
+            // destroys the coroutine's frame but not the camera.
+            static TacticalCamera heldTc; static Camera heldCam; static bool holding;
+            static bool heldEnabled; static float heldZoom, heldFov; static Vector2 heldFocus;
+            static Vector3 heldPos; static Quaternion heldRot; static float heldShake;
+
+            /// <summary>Save the pre-capture state and switch the tactical camera off for the length of a set.</summary>
+            public static void Take(TacticalCamera tc, Camera cam)
+            {
+                heldTc = tc; heldCam = cam;
+                heldEnabled = tc.enabled;
+                heldZoom = tc.Zoom; heldFocus = tc.Focus; heldFov = cam.fieldOfView;
+                heldPos = cam.transform.position; heldRot = cam.transform.rotation;
+                heldShake = CameraShake.Strength;
+                holding = true;
+                tc.enabled = false;
+                CameraShake.Strength = 0f;
+            }
+
+            /// <summary>Put the camera back exactly as `Take` found it. Safe to call more than once (the second
+            /// call is a no-op) and safe after Play has destroyed the camera (the null guards cover it).
+            /// `why` is non-null only when this is not the normal end of a drained queue, and is logged — the
+            /// finding this fixes is that an interrupted set left the camera dead with nothing said about it.</summary>
+            public static void GiveBack(string why)
+            {
+                if (!holding) return;
+                var tc = heldTc; var cam = heldCam;
+                if (tc != null) { tc.Zoom = heldZoom; tc.Focus = heldFocus; }
+                if (cam != null) { cam.fieldOfView = heldFov; cam.transform.SetPositionAndRotation(heldPos, heldRot); }
+                if (tc != null) tc.enabled = heldEnabled;
+                CameraShake.Strength = heldShake;
+                holding = false; heldTc = null; heldCam = null;
+                if (why != null) Debug.LogWarning("[rig] put the tactical camera back (" + why + "): the capture set did not finish");
+            }
+
             void LateUpdate()
             {
                 // This component is [DefaultExecutionOrder(30000)], so this LateUpdate is the LAST one in the frame:
@@ -265,18 +301,12 @@ namespace TW.Editor
                     Queue.Clear(); running = false; yield break;
                 }
 
-                bool keepEnabled = tc.enabled;
-                float keepZoom = tc.Zoom; Vector2 keepFocus = tc.Focus; float keepFov = cam.fieldOfView;
-                Vector3 keepPos = cam.transform.position; Quaternion keepRot = cam.transform.rotation;
-                tc.enabled = false;
+                Take(tc, cam);
                 // CameraShake is [DefaultExecutionOrder(10000)] and, with TacticalCamera disabled for the set, adds
                 // its shove/jolt to the camera transform EVERY frame with nothing re-placing it from scratch in
                 // between: the offsets accumulate between one Pose and the next Render, which measured as a 0.351 m
                 // drift and a pitch falling from 25 to 22.9 across a two-shot before/after set. Zeroed for the set
-                // and restored after, same as zoom/focus/fov below.
-                float keepShake = CameraShake.Strength;
-                CameraShake.Strength = 0f;
-
+                // and put back by GiveBack, with zoom/focus/fov.
                 try
                 {
                     while (Queue.Count > 0)
@@ -308,16 +338,10 @@ namespace TW.Editor
                         for (int k = 0; k < shot.Gap; k++) yield return null;   // let the world move on between stills
                     }
                 }
-                finally
-                {
-                    // A throw from Pose or Render used to kill this coroutine right here: the TacticalCamera stayed
-                    // disabled, the camera stayed parked at the last pose, and `running` stayed true forever, which
-                    // made LateUpdate never start a run again — every later shot queued silently and wrote no PNG.
-                    if (tc != null) { tc.Zoom = keepZoom; tc.Focus = keepFocus; tc.enabled = keepEnabled; }
-                    if (cam != null) { cam.fieldOfView = keepFov; cam.transform.SetPositionAndRotation(keepPos, keepRot); }
-                    CameraShake.Strength = keepShake;
-                    running = false;
-                }
+                // Covers the normal drain AND an exception from Pose/Render AND the coroutine being torn down by
+                // Play stopping or a domain reload without ever reaching here on its own — the finding this fixes
+                // is a capture that never finishes leaving the tactical camera dead and at the wrong zoom.
+                finally { GiveBack(null); running = false; }
             }
 
             bool TryPose(TacticalCamera tc, Camera cam, Shot shot)
@@ -1305,11 +1329,19 @@ namespace TW.Editor
         {
             EditorApplication.playModeStateChanged -= OnPlayMode;   // once per reload, not once per reload ever since
             EditorApplication.playModeStateChanged += OnPlayMode;
+            AssemblyReloadEvents.beforeAssemblyReload -= OnReload;  // a recompile kills the coroutine's finally too
+            AssemblyReloadEvents.beforeAssemblyReload += OnReload;
         }
+
+        static void OnReload() => Rig.GiveBack("scripts reloaded");
 
         static void OnPlayMode(PlayModeStateChange change)
         {
-            if (change == PlayModeStateChange.EnteredPlayMode)
+            if (change == PlayModeStateChange.ExitingPlayMode)
+            {
+                Rig.GiveBack("play stopped");
+            }
+            else if (change == PlayModeStateChange.EnteredPlayMode)
             {
                 string req = SessionState.GetString(Request, "");
                 if (string.IsNullOrEmpty(req)) return;
