@@ -327,6 +327,14 @@ namespace TW.Tests
             StringAssert.Contains($"{TankSpec.Pavise.Gun0.RangeMax:0} m", BattleHud.VehicleTip(VehicleArchetype.Pavise));
         }
 
+        /// <summary>The range cut (RangeScale) reaches these two men's weapons; their tips once typed the metres from before it.</summary>
+        [Test]
+        public void TheAtRifleAndFlamethrowerTipsQuoteTheirRealReach()
+        {
+            StringAssert.Contains($"to {UnitDefinitions.AtRifle.Weapon.RangeMax:0.#} m", UnitLook.Tip(InfantryArchetype.AtRifle));
+            StringAssert.Contains($"a {UnitDefinitions.Flamethrower.Weapon.RangeMax:0.#} m jet", UnitLook.Tip(InfantryArchetype.Flamethrower));
+        }
+
         /// <summary>A superlative is the most fragile claim a tooltip can make: it goes stale when some OTHER
         /// machine changes, which is exactly where nobody looks.</summary>
         [Test]

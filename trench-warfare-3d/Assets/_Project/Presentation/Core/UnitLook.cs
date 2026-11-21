@@ -115,10 +115,10 @@ namespace TW.Presentation
                 // the Proving Ground's men: numbers from UnitDefinitions (ProvingGroundTests holds them)
                 case InfantryArchetype.Frog: return "Frog: line infantry on the frog figure. A rifleman's rifle, reach and wound";
                 case InfantryArchetype.Sentry: return "Sentry: a machine gun behind an 8 mm plate over a 60 degree arc, dug in and hard to shift";
-                case InfantryArchetype.AtRifle: return "AT rifle: a bipod-laid heavy rifle. Pierces 20 mm to 70 m, one round in five seconds";
+                case InfantryArchetype.AtRifle: return $"AT rifle: a bipod-laid heavy rifle. Pierces 20 mm to {UnitDefinitions.AtRifle.Weapon.RangeMax:0.#} m, one round in five seconds";
                 case InfantryArchetype.DeathBattalion: return "Death Battalion: a harder-hitting rifleman in a greatcoat who never stays pinned";
                 case InfantryArchetype.Sapper: return "Sapper: carries two charges. Walks out and lays a mine or a tripwire";
-                case InfantryArchetype.Flamethrower: return "Flamethrower: fuel on his back, a 12 m jet that sets men and ground alight, past a plate";
+                case InfantryArchetype.Flamethrower: return $"Flamethrower: fuel on his back, a {UnitDefinitions.Flamethrower.Weapon.RangeMax:0.#} m jet that sets men and ground alight, past a plate";
                 default: return null;
             }
         }

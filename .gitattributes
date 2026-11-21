@@ -34,6 +34,7 @@
 # The script names are unanchored on purpose: a pattern with a slash in it is anchored to THIS file's directory,
 # and the Unity project is a folder down.
 *.shader     text eol=lf
+*.sh         text eol=lf
 .gitattributes text eol=lf
 flamefight   text eol=lf
 flameshots   text eol=lf
