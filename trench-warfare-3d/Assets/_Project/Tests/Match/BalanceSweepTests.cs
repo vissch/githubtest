@@ -652,10 +652,12 @@ namespace TW.Tests
                         if (!harness.Sea) m.World.SeaLift = null;
                         if (harness.WindZ != -1f) m.Map.Wind = new float2(m.Map.Wind.x, harness.WindZ);
                         if (harness.SpawnAheadA != 0f || harness.SpawnAheadB != 0f)
+                        {
                             var init = m.World.Init;
                             float toward = init.SpawnB.z > init.SpawnA.z ? 1f : -1f;
                             init.SpawnA.z += toward * harness.SpawnAheadA; init.SpawnB.z -= toward * harness.SpawnAheadB;
                             m.World.Init = init;
+                        }
                         ApplyUnits(m, v);
                         // built runs on the fresh world before its first tick, so the first sample stands at t=0 [SW.4]
                         if (!string.IsNullOrEmpty(trackDir) && track == null)
