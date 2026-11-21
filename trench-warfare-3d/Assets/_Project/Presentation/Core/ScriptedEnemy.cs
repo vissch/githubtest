@@ -208,7 +208,7 @@ namespace TW.Presentation
                 if (s > 0 && ArmedOf(pw, Side, s)) others++;
                 if (DeploysTanks && MachineOf(pw, s)) machines++;
             }
-            bool rifle = Armed(pw, 0) && pw.SlotUnlocked[Side * RosterEntry.SlotCount] != 0;
+            bool rifle = Armed(pw, Side, 0) && pw.SlotUnlocked[Side * RosterEntry.SlotCount] != 0;
             int line = rifle ? (others == 0 ? 1 : Mathf.Max(0, LineMen)) : 0;
             int men = others == 0 ? line : others * (line + 1);
             int round = men + (machines > 0 ? 1 : 0);
