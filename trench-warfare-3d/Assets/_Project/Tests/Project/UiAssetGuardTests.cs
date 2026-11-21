@@ -40,6 +40,17 @@ namespace TW.Tests
             }
         }
 
+        [Test]
+        public void TheHudPanelLeavesTheCameraImageOnScreen()
+        {
+            // A screen-space panel with Clear Color on wipes the whole frame before it draws: the game shows a black
+            // field behind a working HUD, while every capture that renders the camera to a texture still looks right.
+            var panel = Resources.Load<PanelSettings>("UI/DustFrontPanel");
+            Assert.IsNotNull(panel, "the HUD panel asset is missing from Resources/UI");
+            Assert.IsNull(panel.targetTexture, "the HUD panel must draw to the screen");
+            Assert.IsFalse(panel.clearColor, "the HUD panel must not clear the screen: it blacks out the battlefield");
+        }
+
         static bool TryParseSidecar(string text, out object side, out string error)
         {
             var m = typeof(UiSkinGenerator).GetMethod("TryParseSidecar", BindingFlags.Static | BindingFlags.Public);
