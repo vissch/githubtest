@@ -401,8 +401,9 @@ namespace TW.Tests
             const float want = VehicleSize.Walker;
             foreach (var (name, archetype) in Walkers)
             {
-                var sculpt = TankModel.Load(name, archetype, "Body", 1f);
-                var built = TankModel.Load(name, archetype, "Body", want);
+                string hullPart = name == "Banner" ? "Hull" : "Body";   // recut 2026-10-10 with a Hull and a Turret
+                var sculpt = TankModel.Load(name, archetype, hullPart, 1f);
+                var built = TankModel.Load(name, archetype, hullPart, want);
                 Assert.NotNull(sculpt, name); Assert.NotNull(built, name);
 
                 // the body: this is the half that can fail quietly, because a mesh is shared, must be copied

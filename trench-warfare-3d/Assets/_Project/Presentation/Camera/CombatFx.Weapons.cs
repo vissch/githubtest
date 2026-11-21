@@ -68,7 +68,7 @@ namespace TW.Presentation.Tactical
                 case InfantryArchetype.Shield:   // a pistol behind the plate: a short spit
                     return Look(0.6f, 0.7f, 0.7f, 0.5f, true, 0.18f, 0.6f, 0.3f);
                 case InfantryArchetype.AtRifle:  // an anti-tank rifle: a huge flash with side blast, a heavy round that carries, a big cloud
-                    return Look(2.6f, 1.6f, 1.1f, 1.8f, true, 0.26f, 1.6f, 1.4f);
+                    return Look(2.6f, 1.6f, 1.6f, 1.8f, true, 0.26f, 1.6f, 1.4f);
                 case InfantryArchetype.Jetpack:  // a machine pistol: tiny flares that flicker three times (CombatFx.Close.cs)
                     return Look(0.5f, 0.8f, 0.8f, 0.6f, true, 0.18f, 0.55f, 0.4f);
                 case VehicleArchetype.Maw: case VehicleArchetype.Tusk: case VehicleArchetype.Breaker: case VehicleArchetype.Skimmer:

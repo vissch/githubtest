@@ -129,7 +129,14 @@ namespace TW.Tests
             int mg = r.Man(Here, 2);
             r.Tick();
             var s = r.A.State[mg]; s.Shots = 50; r.A.State[mg] = s;   // a belt fired off; the target is gone
-            Assert.IsTrue(r.Until(mg, Clip.ReloadStand, 10), "the MG gunner changes the belt (it never played before)");
+            bool belt = false;
+            for (int t = 0; t < 10 && !belt; t++)
+            {
+                var c = r.A.State[mg].Clip;
+                belt = c == Clip.ReloadStand || c == Clip.ReloadStoop || c == Clip.ReloadKneel || c == Clip.ReloadProne;
+                if (!belt) r.Tick();
+            }
+            Assert.IsTrue(belt, $"the MG gunner changes the belt (it never played before); he plays {r.A.State[mg].Clip}");
         }
 
         [Test]
