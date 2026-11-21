@@ -914,7 +914,7 @@ namespace TW.Editor
         /// <summary>The entry's flags: what a person should look at. Empty means it did what the catalogue expects.</summary>
         static List<string> Judge(SimHost host, GymDirector d, GymEntry e, GymDirector.Result r, int pinned, int slot, List<string> jsons,
                                   List<float> stripChanged = null, float floor = 0f, bool previewOnly = false, bool machineChanged = false,
-                                  float subjectVisible = float.NaN, bool survived)
+                                  float subjectVisible = float.NaN, bool survived = true)
         {
             // Did the staging make the entry's event happen FOR REAL? An entry whose event was only replayed into the
             // effects, whose victim lived or whose ability the sim refused says nothing about what the game draws, so
