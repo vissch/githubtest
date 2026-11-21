@@ -64,7 +64,7 @@ def real_tree():
     case('real tree: 14 chunked buildings and the five Siege structures', len(by['building']) == 19, by['building'])
     want = {'Sniper': 'FINAL', 'Rifle': 'FINAL', 'Maw': 'FINAL', 'Pincer': 'FINAL', 'Officer': 'NEEDS_VISUAL', 'Breaker': 'NEEDS_VISUAL',
             'MarkIV': 'NEEDS_VISUAL', 'Brute': 'FINAL', 'Frog': 'READY_UNUSED', 'Skimmer': 'READY_UNUSED', 'Salvo': 'READY_UNUSED',
-            'Boilerhouse': 'READY_UNUSED', 'Gasholder': 'READY_UNUSED', 'House0': 'FINAL', 'Watchtower': 'FINAL', 'Cutter': 'FINAL'}
+            'Boilerhouse': 'FINAL', 'Gasholder': 'FINAL', 'House0': 'FINAL', 'Watchtower': 'FINAL', 'Cutter': 'FINAL'}
     got = {k: assets[k]['status'] for k in want}
     case('real tree: the known assets are in their buckets', got == want, {k: v for k, v in got.items() if want[k] != v})
     case('real tree: the Breaker and the Officer say whose model they borrow',

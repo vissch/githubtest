@@ -260,7 +260,10 @@ def attach(P: Path, assets, code, stage: Path, out: Path, local: Path, meta, onl
                 proc.wait(timeout=4 * 3600)
             except subprocess.TimeoutExpired:
                 proc.kill()
-                proc.wait()
+                try:
+                    proc.wait(timeout=30)
+                except subprocess.TimeoutExpired:   # it would not die: still only this worker's jobs fail [N12.11]
+                    pass
                 ended = True
                 meta['warnings'].append(f'films: a Blender worker hung and was killed ({res.name})')
                 continue

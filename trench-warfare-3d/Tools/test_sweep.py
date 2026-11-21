@@ -4,7 +4,7 @@
 The spec's grids and its refusals, the numbers (percentile, how the seeds moved, in or out of a band), and a run
 played by a stand-in for Unity: what is written, what a resume skips, and the exit codes.
 """
-import contextlib, io, json, os, sys, tempfile, unittest, warnings
+import contextlib, io, json, os, shutil, sys, tempfile, unittest, warnings
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -280,6 +280,7 @@ class RunTest(unittest.TestCase):
         # 0.9 win_a is also out of the owner's faction band, but only `targets` (win_a's own) can move the exit code.
         self.assertEqual(S.run(Args(self.spec), stand_in({"now": 0.9})), 2, "targets, not the faction band, failed this")
         json.dump(dict(SPEC, targets={}), open(self.spec, "w"))
+        shutil.rmtree(self.run_folder())  # run folders are named to the second, and a second run in the same one is refused
         self.assertEqual(S.run(Args(self.spec), stand_in({"now": 0.9})), 0, "no targets: the faction band does not fail it either")
         out = self.run_folder()
         self.assertIn("OUT OF BAND", open(os.path.join(out, "report.md"), encoding="utf-8").read())
