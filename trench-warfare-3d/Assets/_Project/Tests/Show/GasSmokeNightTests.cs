@@ -91,8 +91,9 @@ namespace TW.Tests
                 CombatFx.BankRim(true, t, out _, out _, out float lift);
                 Assert.LessOrEqual(Mathf.Min(1f, CombatFx.GasBankAlpha(t) + lift), 1f, "the gas card's alpha passed 1");
             }
-            Assert.AreEqual(1f, Mathf.Min(1f, CombatFx.GasBankAlpha(1f) + edLift), 1e-6f,
-                "a thick edge cell is the one that clamps: GasBankFull is already 1");
+            Assert.AreEqual(Mathf.Min(1f, CombatFx.GasBankFull + edLift), Mathf.Min(1f, CombatFx.GasBankAlpha(1f) + edLift), 1e-6f,
+                "a thick edge cell is GasBankFull plus the edge's lift");
+            Assert.Greater(CombatFx.GasBankAlpha(1f) + edLift, CombatFx.GasBankAlpha(1f), "the edge reads denser than the full interior");
 
             // the knobs' day guard stays: the colours the rim is drawn in have not moved
             Assert.AreEqual(new Color(0.50f, 0.64f, 0.12f), CombatFx.GasBankDay, "the gas bank's day colour moved");

@@ -21,7 +21,7 @@ namespace TW.UI
         public const string FolderPath = "CardFilms/";
         /// <summary>A frame's worth of float slack. 0.35 + 1/10 in floats is a hair under 0.45 and 0.35 + 3 a hair
         /// under 3.35, so without it the clock names the frame before the one it means and the line reads full.</summary>
-        const float Slack = 1e-4f;
+        const float Slack = 0.01f;
 
         // Sprite.Create every frame of every hovered card would allocate once a frame; both caches live for the
         // session (four sheets of ~3 MB, 30 sprites each), and Resources.Load returns the same texture anyway.

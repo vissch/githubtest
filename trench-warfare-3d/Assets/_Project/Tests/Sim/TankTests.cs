@@ -324,6 +324,7 @@ namespace TW.Tests
             // Immobilised is VehicleModulesSystem's to set, from the tracks, and it rewrites the flag every tick: a
             // walker's side fails on its last leg (a repair needs RepairQuietTicks + RepairTicks, well past this run)
             m.Modules.Module[ks[1] * (int)VehicleModule.Count + (int)VehicleModule.TrackLeft] = 0f;
+            m.Modules.LegsLost[ks[1]] = (byte)((1 << math.max(1, m.Vehicles.Profiles[VehicleArchetype.Kettle].Legs / 2)) - 1);   // every leg of its left side
             m.World.Flags[ks[2]] = m.World.Flags[ks[2]] | (uint)UnitFlags.Bogged;
             m.Vehicles.BogTicks[ks[2]] = 200;
             m.Vehicles.DitchTicks[ks[3]] = 300;
