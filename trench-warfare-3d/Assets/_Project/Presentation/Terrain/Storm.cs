@@ -113,7 +113,7 @@ namespace TW.Presentation.Terrain
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 thunder = new[] { MakeThunder(0, 1f, 5.5f), MakeThunder(1, .45f, 6.5f), MakeThunder(2, .08f, 7.5f) };   // near: a crack; far: all rumble
                 sw.Stop();
-                Debug.Log($"[Storm] thunder synth {sw.Elapsed.TotalMilliseconds:F1} ms, 3 clips, {5.5f + 6.5f + 7.5f}s");
+                if (!Application.isBatchMode) Debug.Log($"[Storm] thunder synth {sw.Elapsed.TotalMilliseconds:F1} ms, 3 clips, {5.5f + 6.5f + 7.5f}s");
                 shared = thunder;
             }
             nextStrike = clock + 9f;

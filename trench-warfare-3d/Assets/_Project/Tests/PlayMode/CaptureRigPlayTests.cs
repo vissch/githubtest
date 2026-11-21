@@ -76,8 +76,8 @@ namespace TW.Tests
             string badPath = Path.Combine(tempFile, "shot.png");
             string goodPath = Path.Combine(tempDir, "shot.png");
 
-            shotMethod.Invoke(null, new object[] { badPath, 0f, 0f, 20f, 0f, 25f, 64, 64, float.NaN });
-            shotMethod.Invoke(null, new object[] { goodPath, 0f, 0f, 20f, 0f, 25f, 64, 64, float.NaN });
+            shotMethod.Invoke(null, new object[] { badPath, 0f, 0f, 20f, 0f, 25f, 64, 64, float.NaN, null, float.NaN });
+            shotMethod.Invoke(null, new object[] { goodPath, 0f, 0f, 20f, 0f, 25f, 64, 64, float.NaN, null, float.NaN });
 
             var tc = tcGo.GetComponent<TacticalCamera>();
 

@@ -221,8 +221,11 @@ namespace TW.Presentation
             float tick = Local.World.Config.TickSeconds;
             float dt = Time.deltaTime * Mathf.Max(0f, TimeScale);   // the sim's clock: wall time at TimeScale, never backwards
             accumulator += dt;
-            int guard = Mathf.Max(8, Mathf.CeilToInt(TimeScale * 2f));
-            StepFrame(ref accumulator, tick, guard, syncEnemy, stepOnce);
+            // [T37] a held match steps nothing, even with time still owed. [M1] what the guard could not pay is dropped
+            // (one tick's leftover stays for Alpha), or the frames after one slow frame each pay the guard's full count.
+            int guard = TimeScale > 0f ? Mathf.Max(8, Mathf.CeilToInt(TimeScale * 2f)) : 0;
+            int stepped = StepFrame(ref accumulator, tick, guard, syncEnemy, stepOnce);
+            if (guard > 0 && stepped == guard) accumulator = Mathf.Min(accumulator, tick);
             if (Local.World.WinnerTeam >= 0) FinishRecording();   // the match is over: write the recording once
             Alpha = Mathf.Clamp01(accumulator / tick);
             animTime += dt;   // the AnimT seed must run at the sim's speed, not the wall's: a paused match must not keep walking
