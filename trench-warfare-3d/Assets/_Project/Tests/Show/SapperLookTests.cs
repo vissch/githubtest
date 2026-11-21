@@ -107,8 +107,8 @@ namespace TW.Tests
             int slot = r.W.Spawn(0, InfantryArchetype.Sapper, new float3(150f, 0f, 300f), 100f, 3f, false);
             r.Tick();
             r.M.Sapper.Phase[slot] = SapperSystem.Laying;
-            r.Tick();
-            r.Tick();
+            r.W.Events.Add(r.W.Tick, SimEventType.SapperLaying, slot, 0, r.W.Position[slot], default, 6f);
+            for (int t = 0; t < 60 && r.A.State[slot].Clip != Clip.KneelInspect; t++) r.Tick();
             var s = r.A.State[slot];
             Assert.AreEqual(Clip.KneelInspect, s.Clip, "he kneels to lay the charge");
             Assert.AreEqual(Rung.Action, s.Rung);

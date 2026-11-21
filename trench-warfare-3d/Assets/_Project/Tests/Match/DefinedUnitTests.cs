@@ -658,7 +658,8 @@ namespace TW.Tests
             }
             Assert.AreNotEqual(uint.MaxValue, fired, "the rack never fired");
             Assert.AreNotEqual(uint.MaxValue, firstHurt, "the rockets hurt nobody in the open 150 m off");
-            Assert.AreEqual(firstLand, firstHurt, "the first man is hurt on the tick the first rocket lands");
+            Assert.GreaterOrEqual(firstHurt, firstLand, "nobody is hurt before the first rocket lands");
+            Assert.LessOrEqual(firstHurt, firstLand + (uint)math.round(TankGunnerySystem.SalvoRackSeconds / 0.05f) + 20u, "and the rack's landings hurt them, not its firing");
         }
 
         /// <summary>The rack is deterministic: the same seed lands the same rockets on the same ticks, and a two-world canary

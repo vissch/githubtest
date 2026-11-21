@@ -232,9 +232,13 @@ namespace TW.Editor
                 var rtUi = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "HudCapture UI" };
                 var rtScene = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "HudCapture Scene" };
                 Begin(panel, rtUi, rtScene);
-                yield return new WaitForEndOfFrame();     // the panel draws into rtUi during this frame
-                yield return new WaitForEndOfFrame();     // and once more after layout settled for the new size
-                Finish(panel, cam, rtUi, rtScene, full, w, h);
+                try
+                {
+                    yield return new WaitForEndOfFrame();     // the panel draws into rtUi during this frame
+                    yield return new WaitForEndOfFrame();     // and once more after layout settled for the new size
+                    Finish(panel, cam, rtUi, rtScene, full, w, h);
+                }
+                finally { Restore(); }   // a coroutine stopped between its yields runs this and nothing else
             }
 
             /// <summary>The capture in a batch editor: take the panel, give it two editor ticks to lay out and draw

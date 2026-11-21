@@ -452,7 +452,7 @@ namespace TW.Playground
                     {
                         // by name, or by index in the library's (alphabetical) order: a new machine shifts every index after
                         // it (the Bullfrog made round2.sh's "Croaker 1" select itself)
-                        int byName = System.Array.FindIndex(Library.Vehicles, x => string.Equals(x.Name, a[2], System.StringComparison.OrdinalIgnoreCase));
+                        int byName = Library == null ? -1 : System.Array.FindIndex(Library.Vehicles, x => string.Equals(x.Name, a[2], System.StringComparison.OrdinalIgnoreCase));
                         int vi = byName >= 0 ? byName : (int)F(a, 2, 0);
                         // Y15: a negative index used to be taken and answered "ok"; every later scene then threw on
                         // Library.Vehicles[index % Length] (a negative remainder).

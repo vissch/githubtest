@@ -116,7 +116,7 @@ namespace TW.Tests
         [Test]
         public void TheBakedMidMeshIsTheFullFigureWithFewerTriangles()
         {
-            for (int k = 0; k < VATRenderer.FigureNames.Length; k++)
+            for (int k = 0; k < VATRenderer.MidNames.Length; k++)   // only the soldier and the sniper have a mid bake
             {
                 var full = Resources.Load<VatAssetData>("Units/Figure" + VATRenderer.FigureNames[k]);
                 var mid = Resources.Load<Mesh>("Units/Figure" + VATRenderer.MidNames[k] + "Mesh");
