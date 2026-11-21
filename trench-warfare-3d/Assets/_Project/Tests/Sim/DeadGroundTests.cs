@@ -40,13 +40,13 @@ namespace TW.Tests
         /// <summary>The battle scene's ground with an enemy machine gunner in his front trench at x 45, and one
         /// unkillable, unmoving rifleman of ours at <paramref name="behindOurs"/> metres behind our front trench
         /// (negative: in front of it). Returns how many ticks of 200 the gunner had him as his target.</summary>
-        static int Watched(float behindOurs) => Run(behindOurs, 200, false, out _, out _);
+        static int Watched(float behindOurs) => Run(behindOurs, 200, false, out _, out _, out _);
 
         /// <summary>The same stand-off for <paramref name="ticks"/> ticks: how many of them the gunner had him as his
         /// target, and of <paramref name="shots"/> rounds how many were <paramref name="hits"/>. Same seed and same
         /// slots either way, so the two spots draw the same roll stream. <paramref name="bareGround"/> asserts that
         /// nothing but the ground is between them, which the hit-chance test needs and the sight test does not.</summary>
-        static int Run(float behindOurs, int ticks, bool bareGround, out int hits, out int shots)
+        static int Run(float behindOurs, int ticks, bool bareGround, out int hits, out int shots, out float range, bool standingOnly = false)
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
             var field = BattlefieldParams.ShelledForest(1917u); field.Bombardment = 0f;
@@ -62,7 +62,7 @@ namespace TW.Tests
             float x = w.Position[gunner].x;
             int man = w.Spawn(0, InfantryArchetype.Rifle, new float3(x, 0f, TrenchZ(m, ours, x) - behindOurs), 100000f, 0f, false);
             w.MaxHp[man] = 100000f;
-            float range = math.distance(w.Position[man].xz, w.Position[gunner].xz);
+            range = math.distance(w.Position[man].xz, w.Position[gunner].xz);
             Assert.Less(range, CombatTables.WeaponFor(InfantryArchetype.Machinegunner).RangeMax, "setup: he is inside the gun's range");
             int cell = (int)(w.Position[man].z / MapData.NavCellSize) * m.Map.NavWidth + (int)(w.Position[man].x / MapData.NavCellSize);
             if (bareGround)
@@ -73,10 +73,12 @@ namespace TW.Tests
             int seen = 0; hits = 0; shots = 0;
             for (int k = 0; k < ticks; k++)
             {
+                if (standingOnly) w.Suppression[man] = 0f;   // nothing keeps him down, so both spots are shot at on his feet
+                bool counts = !standingOnly || w.StanceOf[man] == (byte)Stance.Standing;
                 Step(m);
                 if (w.TargetSlot[gunner] == man) seen++;
                 var evs = w.Events.Events;
-                for (int ei = 0; ei < evs.Length; ei++)
+                for (int ei = 0; counts && ei < evs.Length; ei++)
                 {
                     if (evs[ei].A != gunner) continue;
                     if (evs[ei].Type == SimEventType.Shot) shots++;
@@ -351,21 +353,23 @@ namespace TW.Tests
         }
 
         /// <summary>The owner's pick of 2026-10-08 in a match: he is shot at behind his own lines, and hit distinctly
-        /// less often there. Measured 0.66, not 0.50: the halving is exact (the test above), but the man 8 m in front
-        /// of the trench is nearer the gun and takes a stance of his own, and both of those move the rate as well. The
-        /// band is wide enough for that and still fails if the halving goes.</summary>
+        /// less often there. Left to himself the man in front lies pinned under the fire and takes the lying-target rule
+        /// (prone-at-range), which swamps the halving, so both spots are measured on his feet with the gun's own range
+        /// falloff divided out. What is left is the rule: about 0.5, and about 1 if the halving goes.</summary>
         [Test]
         public void BehindHisOwnFrontTrench_AShotHitsHalfAsOften()
         {
-            Run(8f, 6000, true, out int behind, out int behindShots);
-            Run(-8f, 6000, true, out int ahead, out int aheadShots);
+            Run(8f, 6000, true, out int behind, out int behindShots, out float behindRange, standingOnly: true);
+            Run(-8f, 6000, true, out int ahead, out int aheadShots, out float aheadRange, standingOnly: true);
             Assert.Greater(ahead, 0, "setup: in front of his trench he is hit");
             Assert.Greater(behind, 0, "he is shot at behind it too: dead ground is gone");
             Assert.Greater(behindShots, 0); Assert.Greater(aheadShots, 0);
             // per round fired, so the few ticks' difference in how long the gunner held him does not count
-            float share = (behind / (float)behindShots) / (ahead / (float)aheadShots);
+            float reach = CombatTables.WeaponFor(InfantryArchetype.Machinegunner).RangeMax;
+            float share = (behind / (float)behindShots) / (ahead / (float)aheadShots)
+                        / (CombatTables.RangeFalloff(behindRange, reach) / CombatTables.RangeFalloff(aheadRange, reach));
             TestContext.Out.WriteLine($"approach share: {behind}/{behindShots} behind, {ahead}/{aheadShots} in front = {share:0.000}");
-            Assert.That(share, Is.InRange(0.45f, 0.80f),
+            Assert.That(share, Is.InRange(0.40f, 0.60f),
                 $"half as easy to hit: {behind} of {behindShots} rounds behind his trench, {ahead} of {aheadShots} in front = {share:0.00}");
         }
 

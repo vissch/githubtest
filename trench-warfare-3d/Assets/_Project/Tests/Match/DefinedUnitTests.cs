@@ -483,11 +483,11 @@ namespace TW.Tests
             cfg.LoadoutB = Ten(VehicleArchetype.Salvo);
             var recorder = new ReplayRecorder(cfg, default, 1);
             // the Salvo reaches 124 m (155 m on 2026-10-01, less the 20 % cut): on the playtest map it fires once it has driven to within that of the
-            // riflemen's trench, a couple of minutes in; recorded until two seconds after its first rack is in the air
+            // riflemen's trench, a little over three minutes in; recorded until two seconds after its first rack is in the air
             bool inTheAir = false; int after = 0;
             using (var m = MatchSim.CreatePlaytest(cfg))
             {
-                for (uint t = 0; t < 20 * 180 && after < 40; t++)
+                for (uint t = 0; t < 20 * 240 && after < 40; t++)
                 {
                     var cmds = new List<SimCommand>();
                     if (t == 5) cmds.Add(SimCommand.Deploy(t, 1, 0));

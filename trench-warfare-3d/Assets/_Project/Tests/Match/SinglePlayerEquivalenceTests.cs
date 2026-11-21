@@ -55,7 +55,8 @@ namespace TW.Tests
             // config and the Said collector are shared.
             var said = new System.Collections.Generic.List<string>();
             ScriptedEnemy NewAi() => new ScriptedEnemy { Enabled = true, DeployEveryTicks = 20, Attacks = true, AttackGarrison = 6, UsesSupport = true, SupportReserve = 100,
-                                                          StressUnits = 60, StressAdvanceDelayTicks = 120, Defends = true, Said = x => said.Add(x) };
+                                                          StressUnits = 60, StressAdvanceDelayTicks = 120, Defends = true, Said = x => said.Add(x),
+                                                          SosReach = 300f };   // the player's men stay at their own trenches for these 50 s, 200 m and more from the enemy's
             var one = Play(NewAi(), canary: false, 0, 0, 0f, out int oneEnemy, out bool oneDesync);
             var even = Play(NewAi(), canary: true, 0, 0, 0f, out int evenEnemy, out bool evenDesync);
             var lossy = Play(NewAi(), canary: true, 2, 1, 0.05f, out int lossyEnemy, out bool lossyDesync);
