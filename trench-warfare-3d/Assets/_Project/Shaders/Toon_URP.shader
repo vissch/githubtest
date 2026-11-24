@@ -15,6 +15,9 @@
 // The ground switches the pass off (SetShaderPassEnabled("SRPDefaultUnlit", false)): its ink is in its texture.
 // _CHUNKMASK (the village houses only, HouseKit): a house is one mesh, each vertex tagged with its chunk in TEXCOORD1.x,
 // and a set bit in the per-instance _ChunkMask hides that chunk in every pass. Other materials never compile it in.
+// _KITJITTER (the trench lining only, BattlefieldKit.Handmade): every part of a panel (a board, a post, a sack) carries
+// its pivot and a seed in TEXCOORD2, and each instance turns, shifts, sinks and tones its parts by a hash of its own
+// matrix, so one mesh is a different panel at every place. Same in every pass; Resources/Env/KitJitter.mat keeps it in a build.
 Shader "TW/Toon (URP)"
 {
     Properties
@@ -43,6 +46,11 @@ Shader "TW/Toon (URP)"
         _Sway ("Sway in the wind (reeds, grass, scrub)", Range(0,1)) = 0
         _OutlineColor ("Outline", Color) = (0.13, 0.10, 0.08, 1)
         _OutlineWidth ("Outline width (pixels up close)", Float) = 2.6
+        _KitJitter ("Lining parts: turn (deg), shift (m), tone, sink (m)", Vector) = (0, 0, 0, 0)
+        _KitJitterAxes ("Lining turn per axis (x, y, z), w: share of loose parts left out", Vector) = (1, 1, 1, 0)
+        // Hessian soaks dark in the rain but does not shine: 0 (every material so far) keeps the wet gloss as it was
+        _Matte ("Wet without the shine (cloth)", Range(0,1)) = 0
+        _KitGrime ("Lining grime from its joints: 0 none, 1 on", Float) = 0
     }
     SubShader
     {
@@ -60,6 +68,8 @@ Shader "TW/Toon (URP)"
             half4 _BaseColor, _ShadeColor, _OutlineColor, _Emission;
             float4 _BaseMap_ST;
             float _DetailScale, _DetailStrength, _DetailBump, _OutlineWidth, _Gloss, _Sway, _Pigment, _SnowRelief, _SnowBareLuma;
+            float4 _KitJitter, _KitJitterAxes;   // in every variant: the SRP Batcher wants one layout
+            float _Matte, _KitGrime;
         CBUFFER_END
         float4 _TWWind;   // xz: the wind (Atmosphere.WindNow, scaled), w: 1 when set
         #if defined(_CHUNKMASK)
@@ -96,6 +106,162 @@ Shader "TW/Toon (URP)"
             positionWS.xz += _TWWind.xy * (gust * _Sway * heightOS * heightOS);
             return positionWS;
         }
+
+        /// The trench lining's grime (_KitGrime 1, BattlefieldKit.Handmade: knob props.grime; 0, every other material, does
+        /// nothing; the owner's pick of six, 2026-11-24, "lived in"). Laid out in world space, so a mark runs on across the
+        /// next board and the next sack, it reads the part's height in its panel (kit.x), its seed (kit.y) and how far the
+        /// point lies above the nearest joint (kit.z, BattlefieldKit.Joints: 0 where its part meets another part or the
+        /// ground, 0.6 where nothing touches). The water slows in a joint and drops its silt there, thick on the shelves
+        /// that face up and thin on the upright faces, and carries some down the faces below in streaks. Mud dries from its
+        /// edge, so the rim is thicker than the middle, and it cracks in plates that grow with how thick it lies. The wet is
+        /// held dark round it and climbs a little further in tongues; moss keeps to the deepest crevices. Men lean and climb
+        /// on the top of a heap and of a wall and rub it clean and dark; timber rots along its grain out of the joints;
+        /// hessian wears through at a seam to the earth inside; lichen spots the bare dry timber. Close up the cloth shows
+        /// its weave and the board its grain, both faded out before they would shimmer.
+        float TWGrimeHash(float3 p) { p = frac(p * 0.3183099 + 0.1); p *= 17.0; return frac(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+        float TWGrimeNoise(float3 x)
+        {
+            float3 i = floor(x), f = frac(x); f = f * f * (3.0 - 2.0 * f);
+            return lerp(lerp(lerp(TWGrimeHash(i), TWGrimeHash(i + float3(1, 0, 0)), f.x), lerp(TWGrimeHash(i + float3(0, 1, 0)), TWGrimeHash(i + float3(1, 1, 0)), f.x), f.y),
+                        lerp(lerp(TWGrimeHash(i + float3(0, 0, 1)), TWGrimeHash(i + float3(1, 0, 1)), f.x), lerp(TWGrimeHash(i + float3(0, 1, 1)), TWGrimeHash(i + float3(1, 1, 1)), f.x), f.y), f.z);
+        }
+        /// Mud plates: the distance to the nearest and the next nearest of one jittered point per cell (d2 - d1 is small
+        /// on a crack). 18 hashes.
+        float2 TWCells(float2 p)
+        {
+            float2 i = floor(p), f = frac(p); float d1 = 8.0, d2 = 8.0;
+            for (int y = -1; y <= 1; y++)
+            for (int x = -1; x <= 1; x++)
+            {
+                float2 g = float2(x, y), c = i + g;
+                float2 o = float2(TWGrimeHash(float3(c, 1.7)), TWGrimeHash(float3(c, 9.1)));
+                float d = length(g + o - f);
+                if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d;
+            }
+            return float2(d1, d2);
+        }
+        half3 TWKitGrime(half3 albedoIn, float3 ws, float3 nWS, float2 uv, float3 kit)
+        {
+            bool sack = _Pigment > 6.5 && _Pigment < 7.5;   // BattlefieldPigment.Surface.Sacking; the rest is timber
+            float3 albedo = albedoIn;
+            float h = kit.x, seed = kit.y, wick = kit.z;
+            float big = TWGrimeNoise(ws * 0.85 + 11.0), mid = TWGrimeNoise(ws * 3.1), fine = TWGrimeNoise(ws * 9.7 + 5.3);
+            float upward = saturate(nWS.y), away = saturate(-nWS.y), upright = 1.0 - abs(nWS.y);
+            if (sack)
+            {
+                float2 w = uv * float2(70.0, 110.0);
+                float fade = saturate(1.6 - max(fwidth(w.x), fwidth(w.y)) * 1.6);
+                albedo *= 1.0 + (abs(sin(w.x * 3.14159)) + abs(sin(w.y * 3.14159)) - 1.27) * 0.07 * fade;   // warp and weft
+            }
+            else
+            {
+                float g = TWGrimeNoise(float3(uv.x * 4.0, uv.y * 20.0, seed * 29.0));
+                float rings = abs(frac(uv.y * 7.0 + g * 1.6) - 0.5) * 2.0;
+                float fade = saturate(1.6 - fwidth(uv.y * 7.0) * 3.0);
+                albedo *= lerp(1.0, lerp(0.86, 1.04, smoothstep(0.08, 0.4, rings)), fade);
+            }
+            // the damp wicks along what it can: the threads of the cloth, the grain of the board
+            float along = sack ? TWGrimeNoise(float3(uv.x * 38.0, uv.y * 5.0, seed * 11.0)) : TWGrimeNoise(float3(uv.x * 2.5, uv.y * 26.0, seed * 11.0));
+            const float reach = 0.26;
+            float near = 1.0 - saturate(wick / reach);
+            // how thick the silt lies: in the joint, on what faces up, more where the ground threw more
+            float thick = near * lerp(0.6, 1.25, upward) * (0.6 + 0.8 * mid);
+            float edge = thick + 0.16 * (fine - 0.5);
+            float silt = smoothstep(0.30, 0.40, edge);
+            float rim = smoothstep(0.32, 0.38, edge) * (1.0 - smoothstep(0.38, 0.5, edge));
+            // dry pale where thin, darker and still wet in the thick of it, the rim darker than the middle
+            float dry = saturate(1.6 - thick * 1.1);
+            float3 clay = lerp(float3(0.34, 0.29, 0.22), float3(0.66, 0.60, 0.48), dry * (0.85 + 0.3 * fine));
+            clay *= 1.0 - 0.18 * rim;
+            // plates on the plane the face looks along, cracks wider where it lies thick
+            float3 an = abs(nWS);
+            float2 plane = an.y > max(an.x, an.z) ? ws.xz : (an.x > an.z ? ws.zy : ws.xy);
+            float2 cells = TWCells(plane * 24.0 + seed * 3.0);
+            float crack = (1.0 - smoothstep(0.0, 0.05 + 0.10 * saturate(thick), cells.y - cells.x)) * dry;
+            clay *= 1.0 - 0.5 * crack;
+            albedo = lerp(albedo, clay, silt * 0.9);
+            // the wet held round it, dark, climbing a little further in tongues
+            float finger = TWGrimeNoise(float3(ws.x * 11.0, ws.y * 1.8, ws.z * 11.0) + seed * 7.0);
+            float wet = (1.0 - smoothstep(0.0, reach * (0.8 + 0.5 * finger), wick)) * (1.0 - silt);
+            albedo *= 1.0 - 0.34 * wet;
+            // silt carried down the upright faces below a shelf, in streaks along the fall
+            float fall = TWGrimeNoise(float3(ws.x * 17.0, ws.y * 1.1, ws.z * 17.0) + 3.0);
+            float streak = smoothstep(0.6, 0.82, fall) * upright * (1.0 - smoothstep(reach, reach * 2.6, wick)) * (1.0 - silt);
+            albedo = lerp(albedo, albedo * float3(0.82, 0.74, 0.62) + float3(0.08, 0.07, 0.05), streak * 0.65);
+            // moss only in the deepest crevices, out of the sky
+            float moss = smoothstep(0.6, 0.8, mid * 0.6 + away * 0.4) * (1.0 - smoothstep(0.0, 0.08, wick)) * (1.0 - silt * 0.6);
+            albedo = lerp(albedo, float3(0.16, 0.21, 0.08), moss * 0.6);
+            // rubbed clean and dark where men lean and climb: the top of a heap, the top of a wall
+            float top = sack ? upward * smoothstep(0.32, 0.5, wick) : smoothstep(1.65, 1.95, h) * (0.4 + 0.6 * upward);
+            float rub = top * smoothstep(0.35, 0.6, big + 0.3 * (fine - 0.5));
+            albedo = lerp(albedo, albedoIn * 0.74, rub * 0.8);
+            float bare = smoothstep(reach * 1.2, reach * 2.4, wick);
+            if (sack)
+            {
+                // worn through at a seam: the weave thins, then gives, and the earth inside shows
+                float thin = near * smoothstep(0.62, 0.8, TWGrimeNoise(ws * 6.3 + seed * 17.0));
+                float hole = smoothstep(0.55, 0.65, thin);
+                albedo = lerp(albedo, albedo * 0.72 + 0.05, smoothstep(0.3, 0.55, thin) * (1.0 - hole));
+                albedo = lerp(albedo, float3(0.20, 0.16, 0.12), hole);
+                albedo *= lerp(1.0, 1.1, bare * upward);
+            }
+            else
+            {
+                // rot follows the grain out of the joint: dark, soft, in streaks along the board
+                float rot = near * smoothstep(0.45, 0.7, along + 0.25 * mid);
+                albedo = lerp(albedo, albedo * float3(0.42, 0.38, 0.33), rot * 0.8);
+                float lichen = smoothstep(0.8, 0.86, TWGrimeNoise(ws * 21.0 + seed * 5.0)) * bare * (0.5 + 0.5 * upward);
+                albedo = lerp(albedo, float3(0.62, 0.66, 0.52), lichen * 0.5);
+            }
+            return (half3)albedo;
+        }
+        #if defined(_KITJITTER)
+        float TWKitHash(float3 p)
+        {
+            p = frac(p * float3(0.1031, 0.1030, 0.0973));
+            p += dot(p, p.yzx + 33.33);
+            return frac((p.x + p.y) * p.z);
+        }
+        /// The panel's own dice. Its matrix's turn and scale are set per trench edge by the composer and a bullet's knock
+        /// only pushes a panel (PropWear), so they never change under fire; its place to the nearest 2 m (x and z only)
+        /// tells apart two panels turned alike.
+        float3 TWKitPanel()
+        {
+            float2 at = floor(float2(UNITY_MATRIX_M._m03, UNITY_MATRIX_M._m23) * 0.5 + 0.5);
+            float3 a = float3(UNITY_MATRIX_M._m00, UNITY_MATRIX_M._m20, UNITY_MATRIX_M._m11);
+            float3 b = float3(UNITY_MATRIX_M._m02, UNITY_MATRIX_M._m22, UNITY_MATRIX_M._m21);
+            return float3(at.x * 0.173, at.y * 0.311, 0) + a * 41.7 + b * 23.9;
+        }
+        float3x3 TWKitTurn(float3 a)
+        {
+            float3 s, c; sincos(a, s, c);
+            float3x3 rx = float3x3(1, 0, 0, 0, c.x, -s.x, 0, s.x, c.x);
+            float3x3 ry = float3x3(c.y, 0, s.y, 0, 1, 0, -s.y, 0, c.y);
+            float3x3 rz = float3x3(c.z, -s.z, 0, s.z, c.z, 0, 0, 0, 1);
+            return mul(rz, mul(ry, rx));
+        }
+        /// One part of a lining panel turned about its own pivot, shifted, sunk, and its tone; a part whose seed is
+        /// positive (a loose board, never a post, rail or sack) is now and then left out, collapsed onto its pivot.
+        /// Returns true when it is left out, so the outline does not ink the collapsed point.
+        bool TWKitPart(inout float3 positionOS, inout float3 normalOS, inout float3 smoothOS, float4 part, out half3 tone)
+        {
+            float3 panel = TWKitPanel();
+            float seed = abs(part.w);
+            float h1 = TWKitHash(panel + seed * 17.13), h2 = TWKitHash(panel.zxy + seed * 9.71 + 3.1);
+            float h3 = TWKitHash(panel.yzx + seed * 5.37 + 7.7), h4 = TWKitHash(panel + seed * 2.91 + 11.3);
+            float h5 = TWKitHash(panel * 1.7 + seed * 13.9 + 1.9), h6 = TWKitHash(panel * 2.3 + seed * 7.1 + 4.4);
+            float hp = TWKitHash(panel + 5.5);
+            float3x3 r = TWKitTurn((float3(h1, h2, h3) * 2.0 - 1.0) * _KitJitterAxes.xyz * radians(_KitJitter.x));
+            float3 shift = float3((h4 * 2.0 - 1.0) * _KitJitter.y, -h5 * _KitJitter.w, (h2 * 2.0 - 1.0) * _KitJitter.y * 0.5);
+            positionOS = part.xyz + mul(r, positionOS - part.xyz) + shift;
+            normalOS = mul(r, normalOS); smoothOS = mul(r, smoothOS);
+            // value first (a part and the whole panel), then a little warm or cold: fresh timber, grey timber, wet sacking
+            tone = (half)((1.0 + (h3 - 0.5) * 2.0 * _KitJitter.z) * (1.0 + (hp - 0.5) * _KitJitter.z)) * lerp(half3(0.96, 1.0, 1.05), half3(1.05, 1.0, 0.93), (half)h4);
+            bool gone = part.w > 0.0 && h6 < _KitJitterAxes.w;
+            if (gone) positionOS = part.xyz;
+            return gone;
+        }
+        #endif
         ENDHLSL
 
         Pass
@@ -107,6 +273,7 @@ Shader "TW/Toon (URP)"
             #pragma fragment frag
             #pragma multi_compile_instancing
             #pragma shader_feature_local_vertex _ _CHUNKMASK
+            #pragma shader_feature_local_vertex _ _KITJITTER
             #pragma multi_compile_fog
             // [Hs7] the screen-space shadow variant is left out on purpose: this pass builds its shadow coord with
             // TransformWorldToShadowCoord (light-space), and the renderer has no Screen Space Shadows feature.
@@ -121,19 +288,27 @@ Shader "TW/Toon (URP)"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
             #include "Assets/_Project/Shaders/TWLightPools.hlsl"
 
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; float2 chunk : TEXCOORD1; half4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; half4 color : COLOR; float fog : TEXCOORD3; };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; float2 chunk : TEXCOORD1; float4 part : TEXCOORD2; half4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; half4 color : COLOR; float fog : TEXCOORD3; float3 kit : TEXCOORD4; };
 
             Varyings vert(Attributes v)
             {
                 UNITY_SETUP_INSTANCE_ID(v);
                 v.positionOS.xyz = TWChunk(v.positionOS.xyz, v.chunk.x);
+                half3 kitTone = 1.0;
+                float3 kit = float3(v.positionOS.y, abs(v.part.w), v.chunk.y);   // the grime's height in the panel, the part's seed, its joints
+            #if defined(_KITJITTER)
+                float3 unusedSmooth = 0;
+                TWKitPart(v.positionOS.xyz, v.normalOS, unusedSmooth, v.part, kitTone);
+            #endif
                 Varyings o;
                 o.positionWS = TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y);
                 o.positionCS = TransformWorldToHClip(o.positionWS);
                 o.normalWS = TransformObjectToWorldNormal(v.normalOS);
                 o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
                 o.color = v.color;
+                o.color.rgb *= kitTone;   // before the albedo step, so the biome's tint, snow and the night still win
+                o.kit = kit;
                 o.fog = ComputeFogFactor(o.positionCS.z);
                 return o;
             }
@@ -151,6 +326,7 @@ Shader "TW/Toon (URP)"
                 }
                 else base = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv);
                 half3 albedo = base.rgb * _BaseColor.rgb * i.color.rgb;
+                if (_KitGrime > 0.5) albedo = TWKitGrime(albedo, i.positionWS, normalize(i.normalWS), i.uv, i.kit);   // a per-material branch: the lining only
                 half gloss = max(_Gloss, 1.0 - base.a);
                 half shore = 0;
                 if (base.a < 0.45)
@@ -172,7 +348,7 @@ Shader "TW/Toon (URP)"
                 {
                     // everything standing in the rain is wet: bags, timber, trunks, wrecks. Wettest on top.
                     half soaked = _TWWet.x * saturate(normalize(i.normalWS).y * 0.55 + 0.5);
-                    gloss = max(gloss, soaked * 0.46);
+                    gloss = max(gloss, soaked * 0.46 * (1.0 - _Matte));
                     albedo *= 1.0 - 0.28 * soaked;
                 }
                 if (_DetailStrength > 0.0)
@@ -367,10 +543,11 @@ Shader "TW/Toon (URP)"
             #pragma fragment frag
             #pragma multi_compile_instancing
             #pragma shader_feature_local_vertex _ _CHUNKMASK
+            #pragma shader_feature_local_vertex _ _KITJITTER
             #pragma multi_compile_fog
             #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
 
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 chunk : TEXCOORD1; float3 smoothOS : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 chunk : TEXCOORD1; float4 part : TEXCOORD2; float3 smoothOS : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings { float4 positionCS : SV_POSITION; float fog : TEXCOORD0; float3 positionWS : TEXCOORD1; };
 
             Varyings vert(Attributes v)
@@ -378,6 +555,10 @@ Shader "TW/Toon (URP)"
                 UNITY_SETUP_INSTANCE_ID(v);
                 bool hidden = TWChunkHidden(v.chunk.x);                 // a hidden chunk is collapsed below; the rim must not pull it apart again
                 v.positionOS.xyz = TWChunk(v.positionOS.xyz, v.chunk.x);
+            #if defined(_KITJITTER)
+                half3 kitTone;
+                hidden = TWKitPart(v.positionOS.xyz, v.normalOS, v.smoothOS, v.part, kitTone) || hidden;
+            #endif
                 Varyings o;
                 o.positionWS = TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y);
                 float3 n = dot(v.smoothOS, v.smoothOS) > 0.01 ? v.smoothOS : v.normalOS;
@@ -405,16 +586,21 @@ Shader "TW/Toon (URP)"
             #pragma fragment fragNull
             #pragma multi_compile_instancing
             #pragma shader_feature_local_vertex _ _CHUNKMASK
+            #pragma shader_feature_local_vertex _ _KITJITTER
             #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
             float3 _LightDirection;
             float3 _LightPosition;
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 chunk : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 chunk : TEXCOORD1; float4 part : TEXCOORD2; UNITY_VERTEX_INPUT_INSTANCE_ID };
             float4 vertShadow(Attributes v) : SV_POSITION
             {
                 UNITY_SETUP_INSTANCE_ID(v);
                 v.positionOS.xyz = TWChunk(v.positionOS.xyz, v.chunk.x);
+            #if defined(_KITJITTER)
+                half3 kitTone; float3 unusedSmooth = 0;
+                TWKitPart(v.positionOS.xyz, v.normalOS, unusedSmooth, v.part, kitTone);
+            #endif
                 float3 ws = TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y);
                 float3 n = TransformObjectToWorldNormal(v.normalOS);
             #if _CASTING_PUNCTUAL_LIGHT_SHADOW
@@ -444,8 +630,18 @@ Shader "TW/Toon (URP)"
             #pragma fragment fragDepth
             #pragma multi_compile_instancing
             #pragma shader_feature_local_vertex _ _CHUNKMASK
-            struct Attributes { float4 positionOS : POSITION; float2 chunk : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            float4 vertDepth(Attributes v) : SV_POSITION { UNITY_SETUP_INSTANCE_ID(v); v.positionOS.xyz = TWChunk(v.positionOS.xyz, v.chunk.x); return TransformWorldToHClip(TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y)); }
+            #pragma shader_feature_local_vertex _ _KITJITTER
+            struct Attributes { float4 positionOS : POSITION; float2 chunk : TEXCOORD1; float4 part : TEXCOORD2; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            float4 vertDepth(Attributes v) : SV_POSITION
+            {
+                UNITY_SETUP_INSTANCE_ID(v);
+                v.positionOS.xyz = TWChunk(v.positionOS.xyz, v.chunk.x);
+            #if defined(_KITJITTER)
+                half3 kitTone; float3 unusedNormal = float3(0, 1, 0), unusedSmooth = 0;
+                TWKitPart(v.positionOS.xyz, unusedNormal, unusedSmooth, v.part, kitTone);
+            #endif
+                return TransformWorldToHClip(TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y));
+            }
             half4 fragDepth() : SV_Target { return 0; }
             ENDHLSL
         }
