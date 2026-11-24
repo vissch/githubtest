@@ -114,11 +114,19 @@ Shader "TW/Flipbook (URP)"
             }
             half4 frag(Varyings i) : SV_Target
             {
-                half4 a = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv.xy), b = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv.zw);
+                half4 a = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv.xy);
                 // Blending one frame into the next is right for a painted cloud, which has no edges to lose, and wrong
                 // for a drawing: cross-dissolving two cels puts a ghost of each over the other and every crisp line in
-                // the book goes soft. A book drawn frame by frame (_Grid.w) CUTS, the way it was animated.
-                half4 tex = lerp(a, b, i.tone.z * (1.0 - step(0.5, _Grid.w)));
+                // the book goes soft. A book drawn frame by frame (_Grid.w) CUTS, the way it was animated. The next frame
+                // is only fetched when it carries weight (a cutting book, or a frame that is whole, never reads it); its
+                // gradients are taken here, outside the branch, so it samples exactly as it did.
+                float2 dxB = ddx(i.uv.zw), dyB = ddy(i.uv.zw);
+                half4 tex = a;
+                if (_Grid.w < 0.5 && i.tone.z > 0.001)
+                    tex = lerp(a, SAMPLE_TEXTURE2D_GRAD(_MainTex, sampler_MainTex, i.uv.zw, dxB, dyB), i.tone.z);
+                // the transparent border of the card is most of its pixels: nothing below can bring it back (each term
+                // only scales the drawing's alpha), so leave before the scene depth is read
+                if (tex.a * i.tone.x <= 0.001) return 0;
                 // a cloud tears apart as it goes: the edges go first and the dense heart last, and what is left thins
                 half gone = 1.0 - i.tone.x;
                 half edge = saturate(length(i.local - 0.5) * 2.0);
@@ -155,14 +163,24 @@ Shader "TW/Flipbook (URP)"
                 }
                 // soft where it meets the ground or a wall (the scene's depth behind it, over 0.8 m), and gone as it comes
                 // through the lens: up close a card wider than the picture was a wall of smoke for seconds
-                float scene = LinearEyeDepth(SampleSceneDepth(i.screen.xy / i.screen.w), _ZBufferParams);
-                // a ground book (_Ground 1) lies a hand above the ground, so the ground soften would take most of it away
-                alpha *= lerp(saturate((scene - i.extra.y) / 0.8), 1.0, max(_Ground, _Solid)) * saturate((i.extra.y - 0.25 * i.extra.x) / (0.5 * i.extra.x + 0.01));
+                // The scene depth is read only when something below uses it: a ground or solid book (_Ground/_Solid 1)
+                // takes a factor of exactly 1 from it, and the cloud's own soften (_Soft) may be off.
+                float soft = _Soft * (1.0 - _TWClose);
+                float groundSoft = max(_Ground, _Solid);
+                float depthFade = 1.0;
+                float scene = 0.0;
+                if (groundSoft < 0.999 || soft > 0.0)
+                {
+                    float2 screenUV = i.screen.xy / i.screen.w;
+                    scene = LinearEyeDepth(SampleSceneDepth(screenUV), _ZBufferParams);
+                    // a ground book (_Ground 1) lies a hand above the ground, so the ground soften would take most of it away
+                    depthFade = lerp(saturate((scene - i.extra.y) / 0.8), 1.0, groundSoft);
+                }
+                alpha *= depthFade * saturate((i.extra.y - 0.25 * i.extra.x) / (0.5 * i.extra.x + 0.01));
                 // AOSA C52 (fx.smokeSoft, the smoke and the burst's cloud only): a cloud is as deep as it is wide, so it
                 // thins in front of whatever it stands among over a share of its own width. Its base, where the men are,
                 // lets them through; the smoke aloft, far in front of the ground, stays dark. The standard view only
                 // (_TWClose 0); at 0 the line is skipped and the old image is drawn bit for bit.
-                float soft = _Soft * (1.0 - _TWClose);
                 if (soft > 0.0) alpha *= saturate((scene - i.extra.y) / (soft * i.extra.x + 0.01));
                 if (alpha < 0.004) discard;
                 // the packs keep black under their transparent pixels, so the small mips of a thin wisp go dark: read the

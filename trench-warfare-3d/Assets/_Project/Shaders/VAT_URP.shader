@@ -90,8 +90,8 @@ Shader "TW/VAT Infantry (URP)"
             return lerp(lerp(a, b, f.y), lerp(d, e, f.y), f.z);
         }
 
-        // one clip: the frame pair at t (0..1 through the row) and the blend between them
-        void SampleClip(float u, float rowIndex, float t, out float3 p, out float3 n)
+        // one clip's frame pair at t (0..1 through the row): the two atlas rows (V) and the blend weight between them
+        void ClipFrames(float rowIndex, float t, out float v0, out float v1, out float w)
         {
             float2 row = _RowTable[(uint)rowIndex];
             float count = max(1.0, abs(row.y));
@@ -99,12 +99,34 @@ Shader "TW/VAT Infantry (URP)"
             float local = (loops ? frac(t) : saturate(t)) * count;
             float f0 = min(floor(local), count - 1.0);
             float f1 = loops ? fmod(f0 + 1.0, count) : min(f0 + 1.0, count - 1.0);
-            float v0 = (row.x + f0 + 0.5) / _TotalFrames, v1 = (row.x + f1 + 0.5) / _TotalFrames;
-            float w = saturate(local - f0) * _Lerp;
-            p = lerp(SAMPLE_TEXTURE2D_LOD(_PosTex, sampler_PosTex, float2(u, v0), 0).xyz,
-                     SAMPLE_TEXTURE2D_LOD(_PosTex, sampler_PosTex, float2(u, v1), 0).xyz, w);
-            n = lerp(SAMPLE_TEXTURE2D_LOD(_NrmTex, sampler_NrmTex, float2(u, v0), 0).xyz,
-                     SAMPLE_TEXTURE2D_LOD(_NrmTex, sampler_NrmTex, float2(u, v1), 0).xyz, w);
+            v0 = (row.x + f0 + 0.5) / _TotalFrames; v1 = (row.x + f1 + 0.5) / _TotalFrames;
+            w = saturate(local - f0) * _Lerp;
+        }
+
+        // one clip: the frame pair at t (0..1 through the row) and the blend between them. The second frame is only
+        // fetched when it is worth anything: on an exact frame, or with _Lerp 0 (zoomed out), its weight is 0 and the
+        // fetch is half of every vertex texture read there is.
+        void SampleClip(float u, float rowIndex, float t, out float3 p, out float3 n)
+        {
+            float v0, v1, w;
+            ClipFrames(rowIndex, t, v0, v1, w);
+            p = SAMPLE_TEXTURE2D_LOD(_PosTex, sampler_PosTex, float2(u, v0), 0).xyz;
+            n = SAMPLE_TEXTURE2D_LOD(_NrmTex, sampler_NrmTex, float2(u, v0), 0).xyz;
+            if (w > 0.001)
+            {
+                p = lerp(p, SAMPLE_TEXTURE2D_LOD(_PosTex, sampler_PosTex, float2(u, v1), 0).xyz, w);
+                n = lerp(n, SAMPLE_TEXTURE2D_LOD(_NrmTex, sampler_NrmTex, float2(u, v1), 0).xyz, w);
+            }
+        }
+
+        // the same, positions only: the depth prepass has no use for a normal
+        void SampleClipPosOnly(float u, float rowIndex, float t, out float3 p)
+        {
+            float v0, v1, w;
+            ClipFrames(rowIndex, t, v0, v1, w);
+            p = SAMPLE_TEXTURE2D_LOD(_PosTex, sampler_PosTex, float2(u, v0), 0).xyz;
+            if (w > 0.001)
+                p = lerp(p, SAMPLE_TEXTURE2D_LOD(_PosTex, sampler_PosTex, float2(u, v1), 0).xyz, w);
         }
 
         Animated Animate(uint vertexID, uint svInstanceID, float limb)
@@ -181,6 +203,62 @@ Shader "TW/VAT Infantry (URP)"
             o.cut = lost != 0u && limb < 0.5 ? 1.0 : 0.0;   // he lost something: the inside of his body (what a cut opens onto) is a wound; the inside of a helmet or a sleeve is not
             o.grime = float3(((packed >> 6) & 255u) / 255.0, (packed >> 14) & 255u, (packed >> 22) & 3u);
             o.wound = wound;
+            return o;
+        }
+
+        // Animate for a pass that wears no normal and no tint (the depth prepass): the same position and the same limb
+        // test, step for step - coat, pitch, roll, squash, scale, yaw - so positionCS comes out bit for bit, but no
+        // _NrmTex fetch and none of the normal's rotations. What the other fields hold is not defined here.
+        Animated AnimatePosOnly(uint vertexID, uint svInstanceID, float limb)
+        {
+            InitIndirectDrawArgs(0);
+            VatInstance inst = _Instances[GetIndirectInstanceID_Base(svInstanceID)];
+            uint packed = (uint)(inst.pad + 0.5);
+            uint lost = packed & 63u;
+            float gag = floor(inst.tint / 64.0);
+            inst.tint -= gag * 64.0;
+            float roll = fmod(gag, 32.0) * (6.28318530 / 32.0);
+            float sq = fmod(floor(gag / 32.0), 64.0);
+            sq = sq > 31.5 ? sq - 64.0 : sq;
+            float pivot = fmod(floor(gag / 2048.0), 2.0) > 0.5 ? 0.0 : 0.9;
+            float pitch = floor(inst.tint * 0.5) * (6.28318530 / 32.0);
+            float gone = limb > 0.5 && ((lost >> (uint)(limb + 0.5)) & 1u) != 0u ? 1.0 : 0.0;
+            float u = (vertexID + 0.5) / _VertexCount;
+            float3 p;
+            SampleClipPosOnly(u, inst.animRow, inst.animT, p);
+            if (inst.blend > 0.001)
+            {
+                float3 pp;
+                SampleClipPosOnly(u, inst.prevRow, inst.prevT, pp);
+                p = lerp(p, pp, inst.blend);
+            }
+            p = _PosMin.xyz + p * _PosSize.xyz;
+            float coat = _Coat * saturate((0.95 - p.y) / 0.6) * step(0.33, p.y);
+            p.xz += normalize(float2(p.x, p.z) + 1e-4) * coat;
+            float s = sin(inst.yaw), c = cos(inst.yaw);
+            Animated o = (Animated)0;
+            o.positionOS = p;
+            if (pitch != 0.0)
+            {
+                float sp = sin(pitch), cp = cos(pitch);
+                float3 q = p - float3(0.0, pivot, 0.0);
+                p = float3(q.x, q.y * cp - q.z * sp, q.y * sp + q.z * cp) + float3(0.0, pivot, 0.0);
+            }
+            if (roll != 0.0)
+            {
+                float sr = sin(roll), cr = cos(roll);
+                float3 q = p - float3(0.0, pivot, 0.0);
+                p = float3(q.x * cr - q.y * sr, q.x * sr + q.y * cr, q.z) + float3(0.0, pivot, 0.0);
+            }
+            if (sq != 0.0)
+            {
+                float sy = 1.0 + sq * 0.0275;
+                float sxz = clamp(rsqrt(sy), 0.75, 1.8);
+                p = float3(p.x * sxz, pivot + (p.y - pivot) * sy, p.z * sxz);
+            }
+            p *= inst.scale;
+            o.positionWS = inst.pos + float3(p.x * c + p.z * s, p.y, -p.x * s + p.z * c);
+            o.gone = gone;
             return o;
         }
         ENDHLSL
@@ -478,7 +556,7 @@ Shader "TW/VAT Infantry (URP)"
             struct DepthVaryings { float4 positionCS : SV_POSITION; float gone : TEXCOORD0; };
             DepthVaryings vertDepth(uint vertexID : SV_VertexID, float2 limb : TEXCOORD1, uint instanceID : SV_InstanceID)
             {
-                Animated a = Animate(vertexID, instanceID, limb.x);
+                Animated a = AnimatePosOnly(vertexID, instanceID, limb.x);   // depth wears no normal
                 DepthVaryings o; o.positionCS = TransformWorldToHClip(a.positionWS); o.gone = a.gone;
                 return o;
             }

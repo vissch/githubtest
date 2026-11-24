@@ -68,6 +68,9 @@ Shader "TW/GroundMark (URP)"
             }
             half4 frag(Varyings i) : SV_Target
             {
+                // A mark that has faded out (age or range) is drawn with an alpha of at most _Alpha * fade.x <= 0.002,
+                // under one step of an 8-bit frame: skip the shape, the wet mirror and the fog it would have paid for
+                if (i.fade.x <= 0.002) discard;
                 // What the mark is worth spending on. The uniform band above is the artistic call; the screen-space
                 // derivative is the honest one - the moment one period of a fine pattern is down to a pixel it can only
                 // shimmer, so it is faded out on its own. That is what lets the close mark carry detail at all: it is
