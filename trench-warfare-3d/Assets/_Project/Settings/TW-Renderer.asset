@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Active: 1
   injectionPoint: 450
-  fetchColorBuffer: 1
+  fetchColorBuffer: 0
   requirements: 1
   passMaterial: {fileID: 2100000, guid: 14c5e7170dfd6ac4a8ce25ff7f0afe73, type: 2}
   passIndex: 0
@@ -47,7 +47,7 @@ MonoBehaviour:
   m_RendererFeatures:
   - {fileID: -1011912064656085678}
   m_RendererFeatureMap: 52ed3daa56f7f4f1
-  m_UseNativeRenderPass: 0
+  m_UseNativeRenderPass: 1
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   m_AssetVersion: 2
   m_OpaqueLayerMask:

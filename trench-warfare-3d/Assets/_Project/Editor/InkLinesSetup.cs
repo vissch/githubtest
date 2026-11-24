@@ -36,7 +36,7 @@ namespace TW.Editor
             feature.passIndex = 0;
             feature.injectionPoint = FullScreenPassRendererFeature.InjectionPoint.BeforeRenderingTransparents;
             feature.requirements = ScriptableRenderPassInput.Depth;
-            feature.fetchColorBuffer = true;
+            feature.fetchColorBuffer = false;
             feature.bindDepthStencilAttachment = false;
             // the renderer keeps a parallel list of local file ids; let it rebuild that from the features
             var validate = typeof(ScriptableRendererData).GetMethod("ValidateRendererFeatures", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
