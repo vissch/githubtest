@@ -36,6 +36,11 @@ below, which lists statics and inspector fields only.
 
 Both are read only when `StressUnits > 0`, so no other preset sees them.
 
+| Knob | Read at | Default | What it does |
+|---|---|---|---|
+| `props.handmade` | `Presentation/Terrain/BattlefieldKit.Handmade.cs` (once, when the kit is built) | on | The hand-built trench lining: settled sacks, crooked boards, wider placement, and the `_KITJITTER` part jitter in `TW/Toon (URP)`. `0` builds the even panels of 2026-09 (`BuildTrenchVariants`) and the old placement. Presentation only: never in `hash_start`. |
+| `props.grime` | `Presentation/Terrain/BattlefieldKit.Handmade.cs` (once, when the kit is built) | `1` | The lining's grime (`_KitGrime` in `TW/Toon (URP)`): silt packed and cracked in the joints, the wet round it, moss in the crevices, tops rubbed clean, rot along the grain, worn seams. It reads each vertex's distance above the nearest joint (`BattlefieldKit.Joints`, UV1.y). `0` off. Presentation only. |
+
 <!-- gen:flags -->
 | Switch | Kind | Read at (under Assets/_Project) | Effect |
 |---|---|---|---|

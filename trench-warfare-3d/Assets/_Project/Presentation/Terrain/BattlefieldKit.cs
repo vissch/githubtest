@@ -168,12 +168,16 @@ namespace TW.Presentation.Terrain
             var smooth = new List<Vector3>(verts.Length);
             for (int i = 0; i < verts.Length; i++) smooth.Add(sum[keys[i]].normalized);
             m.SetUVs(3, smooth);
-            // Baked pigment variation per part: no texture fetch, material variant or runtime work.
+            // Baked pigment variation per part: no texture fetch, material variant or runtime work. Hand-made (the default):
+            // salted by the mesh's name, so part p is not the same tone in every module, and each part's paint starts at its
+            // own place, so no two boards show the same stretch of grain.
             var colors = new List<Color>(verts.Length);
             var paintUv = new List<Vector2>(verts.Length);
+            int salt = Handmade ? NameSalt(name) : 0;
             for (int p = 0; p < parts.Length; p++)
             {
-                float pigment = 0.83f + 0.21f * Rand(p, 173);
+                float pigment = 0.83f + 0.21f * Rand(p + salt, 173);
+                var paintShift = Handmade ? new Vector2(Rand(p + salt, 174), Rand(p + salt, 175)) : Vector2.zero;
                 var source = parts[p].mesh;
                 var sourceColors = source.colors;
                 var sourceVerts = source.vertices;
@@ -188,13 +192,13 @@ namespace TW.Presentation.Terrain
                     color *= pigment * paintedForm; color.a = 1f;
                     colors.Add(color);
                     if (source.name == "Blob")
-                        paintUv.Add(new Vector2(Mathf.Atan2(sourceVerts[v].z, sourceVerts[v].x) / (2f * Mathf.PI) + .5f, Mathf.Acos(Mathf.Clamp(sourceVerts[v].y * 2f, -1f, 1f)) / Mathf.PI));
+                        paintUv.Add(new Vector2(Mathf.Atan2(sourceVerts[v].z, sourceVerts[v].x) / (2f * Mathf.PI) + .5f, Mathf.Acos(Mathf.Clamp(sourceVerts[v].y * 2f, -1f, 1f)) / Mathf.PI) + paintShift);
                     else
                     {
                         var n = sourceNormals[v];
                         int face = Mathf.Abs(n.x) >= Mathf.Abs(n.y) && Mathf.Abs(n.x) >= Mathf.Abs(n.z) ? 0 : Mathf.Abs(n.y) >= Mathf.Abs(n.z) ? 1 : 2;
                         int u = face == longAxis ? (longAxis + 1) % 3 : longAxis, vertical = 3 - face - u;
-                        paintUv.Add(new Vector2(sourceVerts[v][u] + .5f, sourceVerts[v][vertical] + .5f));
+                        paintUv.Add(new Vector2(sourceVerts[v][u] + .5f, sourceVerts[v][vertical] + .5f) + paintShift);
                     }
                 }
             }
@@ -369,7 +373,8 @@ namespace TW.Presentation.Terrain
             Paint(bunker, BattlefieldPigment.Surface.Concrete);
             // sandbags are woven hessian up close, not a smooth seamed sheet: Sacking rather than Canvas
             Paint(sandbags, BattlefieldPigment.Surface.Sacking);
-            BuildTrenchVariants(cube, sackMesh, timber, sack);
+            if (Handmade) BuildHandmadeTrench(timber, sack);   // BattlefieldKit.Handmade.cs; props.handmade = 0 for the even panels
+            else BuildTrenchVariants(cube, sackMesh, timber, sack);
             foreach (var b in new[] { trunk, snag, fallen, stump, fork }) Paint(b, BattlefieldPigment.Surface.Bark);
             BuildImported();
         }
@@ -810,6 +815,11 @@ namespace TW.Presentation.Terrain
             }
             var mesh = new Mesh { name = "Buried shelter mound", vertices = vertices, uv = uv, colors = colors, triangles = triangles.ToArray() };
             mesh.RecalculateNormals(); mesh.RecalculateBounds(); ownedMeshes.Add(mesh); return mesh;
+        }
+
+        static int NameSalt(string name)
+        {
+            unchecked { int h = 17; foreach (char ch in name) h = h * 31 + ch; return (h & 0x3FFF) * 7; }
         }
 
         static float Rand(int i, int salt)
