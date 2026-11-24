@@ -128,7 +128,7 @@ namespace TW.Presentation.Terrain
         // camera, 2026-11-24), and eight round it with one on the crown, so the top is domed and not a slab
         const int SackStations = 7, SackRing = 8;
         const int SackVerts = SackStations * SackRing, SackTris = (SackStations - 1) * SackRing * 2 + 2 * (SackRing - 2);
-        static readonly float[] SackStation = { -1f, -.88f, -.62f, 0f, .62f, .88f, 1f };
+        static float SackStation(int st) => st switch { 0 => -1f, 1 => -.88f, 2 => -.62f, 3 => 0f, 4 => .62f, 5 => .88f, _ => 1f };
         const float SackAcross = .72f, SackUp = .9f;   // the cross-section's squareness: below 1 squarer (a pillow)
 
         // plan and height along the sack: full most of its length, rounding off, then gathered into the tied neck
@@ -157,7 +157,7 @@ namespace TW.Presentation.Terrain
             var spine = new Vector3[SackStations];
             for (int st = 0; st < SackStations; st++)
             {
-                float t = SackStation[st], e = SackEnvelope(t), eh = SackEnvelopeHeight(t);
+                float t = SackStation(st), e = SackEnvelope(t), eh = SackEnvelopeHeight(t);
                 float bend = s.Bend * (1f - t * t);
                 float ear = Mathf.Pow(Mathf.Abs(t), 6f) * s.Ear;   // the folded ends stand up a little
                 var mid = ToPanel(t * halfL, bend);
@@ -523,9 +523,9 @@ namespace TW.Presentation.Terrain
         /// <summary>How many sacks a course may have and stay no heavier than the even course (4, 3 and 2 sacks of 104
         /// vertices and 168 triangles; the burst course 3), and how tall it may stand (AssetScaleTable kit/TrenchBags at
         /// the composer's tallest scale).</summary>
-        static readonly int[] MaxSacks = { 6, 4, 3 };
+        static int MaxSacks(int variant) => variant == 0 ? 6 : variant == 1 ? 4 : 3;
         const int MaxBurstSacks = 4;
-        static readonly float[] MaxCourseHeight = { .74f, .66f, .56f };
+        static float MaxCourseHeight(int variant) => variant == 0 ? .74f : variant == 1 ? .66f : .56f;
 
         /// <summary>A course as men throw it up under fire: a foot of sacks along the whole length that overlap or leave
         /// a gap, now and then one crosswise; sacks thrown in behind; the rest thrown on top wherever they land, at any
@@ -533,7 +533,7 @@ namespace TW.Presentation.Terrain
         static List<SackSpec> Heap(ref Dice d, Color sack, int variant)
         {
             var list = new List<SackSpec>();
-            int max = MaxSacks[variant];
+            int max = MaxSacks(variant);
             int foot = variant == 2 ? (d.Chance(.45f) ? 2 : 3) : (d.Chance(.3f) ? 3 : 2);
             float x = -1.08f;
             for (int i = 0; i < foot; i++)
@@ -584,7 +584,7 @@ namespace TW.Presentation.Terrain
                     if (burst.Count < MaxBurstSacks) burst.Add(Rolled(ref d, sack, d.Range(-.5f, .5f), d.Range(.8f, 1.05f)));
                     var broken = SackPanel("Burst hand-filled parapet " + variant, burst);
                     Vector3 a = mesh.bounds.size, b = broken.bounds.size;
-                    bool fits = a.x >= 1.9f && a.x <= 2.7f && a.y <= MaxCourseHeight[variant] && Mathf.Abs(mesh.bounds.center.x) < .25f
+                    bool fits = a.x >= 1.9f && a.x <= 2.7f && a.y <= MaxCourseHeight(variant) && Mathf.Abs(mesh.bounds.center.x) < .25f
                         && b.x >= 1.8f && b.x <= a.x * 1.1f && b.z >= a.z * .9f && b.z <= a.z * 1.1f + .6f && b.y <= a.y + .02f && b.y >= a.y * .4f;
                     if (fits || attempt == 40)
                     {
