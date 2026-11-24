@@ -54,8 +54,15 @@ namespace TW.Presentation.Tactical
             ViewNow(out _, out _, out float scale);
             var packs = sapperPacks; packs.Clear();
             var charges = sapperCharges; charges.Clear();
-            for (int slot = 0; slot < w.HighWater && men < SapperKitMax; slot++)
+            // the Sappers the presenter gathered this frame when its lists are this world's at this tick, else every
+            // slot; ascending either way, so the SapperKitMax cap keeps the same men
+            var presenter = Host.Presenter;
+            bool listed = presenter != null && presenter.SlotsMatch(w);
+            int[] sappers = listed ? presenter.SapperSlots : null;
+            int end = listed ? presenter.SapperCount : w.HighWater;
+            for (int idx = 0; idx < end && men < SapperKitMax; idx++)
             {
+                int slot = listed ? sappers[idx] : idx;
                 uint flags = w.Flags[slot];
                 if ((flags & (uint)UnitFlags.Alive) == 0 || (flags & (uint)UnitFlags.Vehicle) != 0) continue;
                 byte archetype = w.Archetype[slot];

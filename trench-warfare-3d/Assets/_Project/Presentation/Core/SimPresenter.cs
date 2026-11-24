@@ -29,6 +29,36 @@ namespace TW.Presentation
         int count;
         bool primed;
 
+        // The slots a few per-frame drawers want, gathered in Interpolate's compaction loop (ascending slot order) so
+        // each does not scan every slot up to HighWater again. Read off the captured tick: a reader checks SlotsMatch
+        // first, and every reader re-tests its own flags per slot, so a slot that changed since is still skipped.
+        readonly int[] vehicleSlots, flamethrowerSlots, atRifleSlots, sentrySlots, sapperSlots;
+        /// <summary>Alive vehicles (Alive and Vehicle), ascending, as captured at the last Interpolate.</summary>
+        public int[] VehicleSlots => vehicleSlots;
+        /// <summary>Alive infantry (not Vehicle) of InfantryArchetype.Flamethrower, ascending.</summary>
+        public int[] FlamethrowerSlots => flamethrowerSlots;
+        /// <summary>Alive infantry (not Vehicle) of InfantryArchetype.AtRifle, ascending.</summary>
+        public int[] AtRifleSlots => atRifleSlots;
+        /// <summary>Alive infantry (not Vehicle) of InfantryArchetype.Sentry, ascending.</summary>
+        public int[] SentrySlots => sentrySlots;
+        /// <summary>Alive infantry (not Vehicle) of InfantryArchetype.Sapper, ascending.</summary>
+        public int[] SapperSlots => sapperSlots;
+        public int VehicleCount { get; private set; }
+        public int FlamethrowerCount { get; private set; }
+        public int AtRifleCount { get; private set; }
+        public int SentryCount { get; private set; }
+        public int SapperCount { get; private set; }
+        /// <summary>The HighWater the slot lists above were gathered at, by the last Interpolate; -1 before the first and
+        /// after a Capture that no Interpolate has followed yet (the lists are then stale).</summary>
+        public int CapturedHighWater { get; private set; } = -1;
+        uint capturedTick, slotsTick;
+        SimWorld capturedWorld, slotsWorld;
+
+        /// <summary>Are the slot lists this world's, at its current tick? False makes a reader scan 0..HighWater as it
+        /// always did (a test stepping a world without Interpolate, a tool's write since the last frame).</summary>
+        public bool SlotsMatch(SimWorld w) =>
+            w != null && CapturedHighWater >= 0 && CapturedHighWater == w.HighWater && slotsTick == w.Tick && ReferenceEquals(slotsWorld, w);
+
         public SimPresenter(int maxSlots)
         {
             prevPos = new NativeArray<float3>(maxSlots, Allocator.Persistent);
@@ -46,11 +76,15 @@ namespace TW.Presentation
             RowIn = new NativeArray<ushort>(maxSlots, Allocator.Persistent);
             PhaseIn = new NativeArray<float>(maxSlots, Allocator.Persistent);
             YawIn = new NativeArray<float>(maxSlots, Allocator.Persistent);
+            vehicleSlots = new int[maxSlots]; flamethrowerSlots = new int[maxSlots]; atRifleSlots = new int[maxSlots];
+            sentrySlots = new int[maxSlots]; sapperSlots = new int[maxSlots];
         }
 
         /// <summary>Call once after every stepped tick.</summary>
         public void Capture(SimWorld w)
         {
+            CapturedHighWater = -1;   // the slot lists are the last Interpolate's: stale until the next one
+            capturedTick = w.Tick; capturedWorld = w;
             count = w.HighWater;
             if (primed)
             {
@@ -81,7 +115,13 @@ namespace TW.Presentation
         public void Interpolate(float alpha, float animTime)
         {
             Alpha = alpha;
-            if (count == 0) { PoseCount = 0; return; }
+            if (count == 0)
+            {
+                PoseCount = 0;
+                VehicleCount = FlamethrowerCount = AtRifleCount = SentryCount = SapperCount = 0;
+                slotsTick = capturedTick; slotsWorld = capturedWorld; CapturedHighWater = count;
+                return;
+            }
             var job = new InterpolateJob
             {
                 PrevPos = prevPos, CurPos = curPos, PrevYaw = prevYaw, CurYaw = curYaw, Stance = stance, Archetype = archetype,
@@ -90,15 +130,24 @@ namespace TW.Presentation
             };
             job.Schedule(count, 128).Complete();
             // compaction (single-threaded, cheap)
-            int n = 0;
+            int n = 0, vehicles = 0, flamers = 0, atRifles = 0, sentries = 0, sappers = 0;
             for (int i = 0; i < count; i++)
             {
-                if ((flags[i] & (uint)UnitFlags.Alive) == 0) continue;
+                uint f = flags[i];
+                if ((f & (uint)UnitFlags.Alive) == 0) continue;
                 Poses[n] = Poses[i];
                 PoseSlot[n] = i;
                 n++;
+                if ((f & (uint)UnitFlags.Vehicle) != 0) { vehicleSlots[vehicles++] = i; continue; }
+                byte a = archetype[i];
+                if (a == InfantryArchetype.Flamethrower) flamethrowerSlots[flamers++] = i;
+                else if (a == InfantryArchetype.AtRifle) atRifleSlots[atRifles++] = i;
+                else if (a == InfantryArchetype.Sentry) sentrySlots[sentries++] = i;
+                else if (a == InfantryArchetype.Sapper) sapperSlots[sappers++] = i;
             }
             PoseCount = n;
+            VehicleCount = vehicles; FlamethrowerCount = flamers; AtRifleCount = atRifles; SentryCount = sentries; SapperCount = sappers;
+            slotsTick = capturedTick; slotsWorld = capturedWorld; CapturedHighWater = count;
         }
 
         /// <summary>Where a slot is drawn this frame (on the sim's ground; the renderer lays it on the drawn ground).</summary>
@@ -154,6 +203,7 @@ namespace TW.Presentation
         {
             prevPos.Dispose(); curPos.Dispose(); prevYaw.Dispose(); curYaw.Dispose(); stance.Dispose(); archetype.Dispose();
             team.Dispose(); flags.Dispose(); target.Dispose(); generation.Dispose(); Poses.Dispose(); PoseSlot.Dispose(); RowIn.Dispose(); PhaseIn.Dispose(); YawIn.Dispose();
+            capturedWorld = null; slotsWorld = null; CapturedHighWater = -1;
         }
     }
 }

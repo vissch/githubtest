@@ -49,8 +49,15 @@ namespace TW.Presentation.Tactical
             atRifles.Clear();
             float scale = FigureScale();
             var anim = Host.Animation;
-            for (int i = 0; i < w.HighWater; i++)
+            // the AT riflemen the presenter gathered this frame when its lists are this world's at this tick, else every
+            // slot; ascending either way, so the instancing cap below keeps the same men
+            var presenter = Host.Presenter;
+            bool listed = presenter != null && presenter.SlotsMatch(w);
+            int[] riflemen = listed ? presenter.AtRifleSlots : null;
+            int end = listed ? presenter.AtRifleCount : w.HighWater;
+            for (int k = 0; k < end; k++)
             {
+                int i = listed ? riflemen[k] : k;
                 if (!w.IsAlive(i) || !Carries(w.Archetype[i])) continue;
                 if ((w.Flags[i] & (uint)UnitFlags.Vehicle) != 0) continue;
                 Vector3 foot = drawnAt != null ? drawnAt(i) : (Vector3)w.Position[i];

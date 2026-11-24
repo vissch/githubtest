@@ -31,6 +31,11 @@ namespace TW.Presentation.Tactical
         public struct PlateSpot { public Vector3 Foot, Fwd; public bool Set; }
 
         PlateSpot[] spots = new PlateSpot[0];
+        /// <summary>Ascending, no repeats: every slot whose plate is set, and every live Sentry not yet given his. A set
+        /// plate is always listed (it is drawn after its man dies, until his slot is reused or ForgetPlates), so the
+        /// draw walks this list and not every slot. plateListed[slot] says a slot is in it (sized with spots).</summary>
+        readonly System.Collections.Generic.List<int> emplacedSlots = new System.Collections.Generic.List<int>(PlateMax * 2);
+        bool[] plateListed = new bool[0];
 
         /// <summary>Where one man's plate stands, for tooling to read (docs/evidence/sentry-look-r2/shoot.py checks a
         /// spot was emplaced before it shoots). An unset spot for a slot that carries no plate.</summary>
@@ -102,7 +107,12 @@ namespace TW.Presentation.Tactical
 
         /// <summary>Forget every emplaced plate, so a still of the same pose can be shot with no plate in it
         /// (docs/evidence/sentry-look-r3/shoot.py shoots the pair and then the empty background).</summary>
-        public void ForgetPlates() { System.Array.Clear(spots, 0, spots.Length); }
+        public void ForgetPlates()
+        {
+            System.Array.Clear(spots, 0, spots.Length);
+            System.Array.Clear(plateListed, 0, plateListed.Length);
+            emplacedSlots.Clear();
+        }
 
         /// <summary>The plate's frame from the way it faces: upright, facing <paramref name="fwd"/> flattened.</summary>
         static void Frame(Vector3 fwd, out Quaternion turn, out Vector3 up)
@@ -130,18 +140,50 @@ namespace TW.Presentation.Tactical
         {
             if (units == null) return;
             var w = Host.Local.World;
-            if (spots.Length < w.HighWater) System.Array.Resize(ref spots, Mathf.Max(w.HighWater, 64));
-            batch.Clear();
-            int men = 0;
-            for (int slot = 0; slot < w.HighWater && men < PlateMax; slot++)
+            if (spots.Length < w.HighWater)
             {
+                int size = Mathf.Max(w.HighWater, 64);
+                System.Array.Resize(ref spots, size);
+                System.Array.Resize(ref plateListed, size);
+            }
+            // Every live Sentry joins the list; the presenter's when its lists are this world's at this tick, else a
+            // sweep of every slot as before. Anyone already listed (his plate set, or waiting under the cap) stays.
+            var presenter = Host.Presenter;
+            if (presenter != null && presenter.SlotsMatch(w))
+            {
+                int[] sentries = presenter.SentrySlots;
+                for (int k = 0, end = presenter.SentryCount; k < end; k++) ListPlate(sentries[k]);
+            }
+            else
+            {
+                for (int slot = 0; slot < w.HighWater; slot++)
+                {
+                    uint f = w.Flags[slot];
+                    if ((f & (uint)UnitFlags.Alive) != 0 && (f & (uint)UnitFlags.Vehicle) == 0 && w.Archetype[slot] == InfantryArchetype.Sentry) ListPlate(slot);
+                }
+            }
+            batch.Clear();
+            Camera cam = null; float scale = 1f;
+            if (emplacedSlots.Count > 0) ViewNow(out cam, out _, out scale);
+            // The list holds, ascending, every slot that could carry a plate this frame; any slot not in it would
+            // have been skipped by the old sweep of every slot, so the PlateMax cap stops at the same man. Slots the
+            // sweep never reaches (past the cap, past HighWater) stay listed as they are.
+            int men = 0, at = 0, keep = 0;
+            for (; at < emplacedSlots.Count && men < PlateMax; at++)
+            {
+                int slot = emplacedSlots[at];
+                if (slot >= w.HighWater) break;                                                      // sorted: nothing further is on the field
                 uint flags = w.Flags[slot];
-                if ((flags & (uint)UnitFlags.Vehicle) != 0) continue;
-                if (w.Archetype[slot] != InfantryArchetype.Sentry) { spots[slot] = default; continue; }   // a reused slot keeps no dead man's plate
-                ViewNow(out var cam, out _, out float scale);
+                if ((flags & (uint)UnitFlags.Vehicle) != 0)
+                {
+                    // the sweep skipped a machine without touching the spot; an unset one need not be held
+                    if (spots[slot].Set) emplacedSlots[keep++] = slot; else plateListed[slot] = false;
+                    continue;
+                }
+                if (w.Archetype[slot] != InfantryArchetype.Sentry) { spots[slot] = default; plateListed[slot] = false; continue; }   // a reused slot keeps no dead man's plate
                 if (!spots[slot].Set)
                 {
-                    if ((flags & (uint)UnitFlags.Alive) == 0) continue;                                   // he died before he could set it down
+                    if ((flags & (uint)UnitFlags.Alive) == 0) { plateListed[slot] = false; continue; }  // he died before he could set it down
                     // the barrel when the sockets answer (read once, so a traverse does not swing the plate round);
                     // beyond VATRenderer.LodDistance the far box soldier carries none, so his sim facing stands in -
                     // otherwise no plate is ever emplaced at T1 or O120 and the Sentry is an MG man double there.
@@ -153,6 +195,7 @@ namespace TW.Presentation.Tactical
                     spot.Foot.y = RenderGround.Sample(Host.Local.Map, spot.Foot.x, spot.Foot.z);
                     spots[slot] = spot;
                 }
+                emplacedSlots[keep++] = slot;
                 float grow = cam != null
                     ? PlateGrow(Vector3.Distance(cam.transform.position, spots[slot].Foot), cam.fieldOfView, Mathf.Max(1, cam.pixelHeight), 1.30f * scale)
                     : 1f;
@@ -160,6 +203,8 @@ namespace TW.Presentation.Tactical
                 for (int k = 0; k < n; k++) batch.Add(platePieces[k]);
                 men++;
             }
+            for (; at < emplacedSlots.Count; at++) emplacedSlots[keep++] = emplacedSlots[at];
+            if (keep < emplacedSlots.Count) emplacedSlots.RemoveRange(keep, emplacedSlots.Count - keep);
             if (batch.Count == 0) return;
             if (!PlateMask)
             {
@@ -172,10 +217,21 @@ namespace TW.Presentation.Tactical
             for (int slot = 0; slot < spots.Length; slot++)
             {
                 if (!spots[slot].Set) continue;
-                ViewNow(out _, out _, out float scale);
                 batch.Add(PlateBar(spots[slot].Foot, spots[slot].Fwd, scale));
             }
             if (batch.Count > 0) Flush(cube, new RenderParams(maskBarMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
+        }
+
+        /// <summary>Put a slot into the ascending plate list once. Sentries arrive in slot order nearly always, so this
+        /// is an append; a slot below the last is placed by binary search.</summary>
+        void ListPlate(int slot)
+        {
+            if (plateListed[slot]) return;
+            plateListed[slot] = true;
+            int count = emplacedSlots.Count;
+            if (count == 0 || slot > emplacedSlots[count - 1]) { emplacedSlots.Add(slot); return; }
+            int at = emplacedSlots.BinarySearch(slot);
+            emplacedSlots.Insert(at < 0 ? ~at : at, slot);
         }
     }
 }

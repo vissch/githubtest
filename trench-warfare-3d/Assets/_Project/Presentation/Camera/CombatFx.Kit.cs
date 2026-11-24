@@ -60,6 +60,8 @@ namespace TW.Presentation.Tactical
         /// <summary>The most highlight bands one man's kit has (one along each tank's lid).</summary>
         public const int KitHighlightMax = 2;
         readonly Matrix4x4[] kitHighlights = new Matrix4x4[KitHighlightMax];
+        /// <summary>The lids of the frame's kits, filled alongside the shared batch in DrawKit's one sweep.</summary>
+        readonly System.Collections.Generic.List<Matrix4x4> kitLit = new System.Collections.Generic.List<Matrix4x4>(KitMax * KitHighlightMax);
 
         /// <summary>
         /// The one lit edge of each fuel tank: a thin band laid along the lid, in the same standing frame the tanks
@@ -91,9 +93,18 @@ namespace TW.Presentation.Tactical
             if (units == null) return;
             var w = Host.Local.World;
             batch.Clear();
+            kitLit.Clear();
+            // The Flamers the presenter gathered this frame, when its lists are this world's at this tick; else every
+            // slot, as before. Either way in ascending slot order, so the KitMax cap keeps the same men.
+            var presenter = Host.Presenter;
+            bool listed = presenter != null && presenter.SlotsMatch(w);
+            int[] flamers = listed ? presenter.FlamethrowerSlots : null;
+            int end = listed ? presenter.FlamethrowerCount : w.HighWater;
             int men = 0;
-            for (int slot = 0; slot < w.HighWater && men < KitMax; slot++)
+            bool sized = false; float scale = 1f;
+            for (int k = 0; k < end && men < KitMax; k++)
             {
+                int slot = listed ? flamers[k] : k;
                 uint flags = w.Flags[slot];
                 if ((flags & (uint)UnitFlags.Alive) == 0 || (flags & (uint)UnitFlags.Vehicle) != 0) continue;
                 byte archetype = w.Archetype[slot];
@@ -101,8 +112,7 @@ namespace TW.Presentation.Tactical
                 // The man's own size, not ViewNow's: ViewNow still carries the old grow-with-zoom formula, while the
                 // men are drawn one size at every zoom (owner, 2026-10-13 - VATRenderer.ScaleAt). Sized by ViewNow
                 // the kit came out a 1.5 m slab over a 1.8 m man at the close view (seen in a still, 2026-10-19).
-                ViewNow(out _, out float zoom, out _);
-                float scale = units.ScaleAt(zoom);
+                if (!sized) { ViewNow(out _, out float zoom, out _); scale = units.ScaleAt(zoom); sized = true; }
                 // The sockets only exist at the near tier, so taking them as a condition hid the kit at the very
                 // views the game is played at. Past the near tier his drawn pose is estimated, as every other piece
                 // hung on a man already does (CombatFx.Bodies.cs), so he reads as a Flamer at T2 and T1 too.
@@ -112,32 +122,17 @@ namespace TW.Presentation.Tactical
                     chest = EstimateChest(slot, scale);
                 }
                 int n = KitPieces(archetype, chest, muzzle, barrel, scale, kitPieces);
-                for (int k = 0; k < n; k++) batch.Add(kitPieces[k]);
+                for (int p = 0; p < n; p++) batch.Add(kitPieces[p]);
+                // the lit lids of the same man, off the same chest and barrel (once a second sweep of every slot)
+                int lit = KitHighlights(archetype, chest, barrel, scale, kitHighlights);
+                for (int p = 0; p < lit; p++) kitLit.Add(kitHighlights[p]);
                 men++;
             }
             KitDrawnLast = men;
-            if (batch.Count == 0) return;
+            if (batch.Count == 0) { kitLit.Clear(); return; }
             Flush(cube, new RenderParams(kitMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
             // One extra draw at the near tier (kits are rare; the ceiling is 300): the lit lids of the same men.
-            batch.Clear();
-            for (int slot = 0, lit = 0; slot < w.HighWater && lit < KitMax; slot++)
-            {
-                uint flags = w.Flags[slot];
-                if ((flags & (uint)UnitFlags.Alive) == 0 || (flags & (uint)UnitFlags.Vehicle) != 0) continue;
-                byte archetype = w.Archetype[slot];
-                if (archetype != InfantryArchetype.Flamethrower) continue;
-                ViewNow(out _, out float zoom, out _);
-                float scale = units.ScaleAt(zoom);
-                if (!units.Sockets(slot, out _, out var barrel, out var chest))
-                {
-                    EstimateMuzzle(slot, -1, scale, out _, out barrel);
-                    chest = EstimateChest(slot, scale);
-                }
-                int n = KitHighlights(archetype, chest, barrel, scale, kitHighlights);
-                for (int k = 0; k < n; k++) batch.Add(kitHighlights[k]);
-                lit++;
-            }
-            if (batch.Count > 0) Flush(cube, new RenderParams(kitHiMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
+            if (kitLit.Count > 0) Flush(cube, kitLit, new RenderParams(kitHiMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
         }
     }
 }

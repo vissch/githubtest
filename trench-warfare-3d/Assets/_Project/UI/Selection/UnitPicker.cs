@@ -53,6 +53,8 @@ namespace TW.UI
         /// <summary>Stand-in for Lift and Hop when the controller is off: a job cannot be scheduled with an
         /// unassigned container (VATRenderer.FillJob keeps the same kind of spare).</summary>
         NativeArray<float> spare;
+        /// <summary>BuildJob's per-pose kept-mask (1 = on the screen), grown to the largest pose count seen.</summary>
+        NativeArray<byte> keep;
 
         public static float Grow(float zoom) => Mathf.Clamp(zoom / GrowFromZoom, 1f, MaxGrow);
 
@@ -72,9 +74,14 @@ namespace TW.UI
             var profiles = kin != null && kin.Profiles.IsCreated ? kin.Profiles : FallbackProfiles();
             float pxPerRad = Screen.height / (2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad));
             bool useLift = controlled && lift.IsCreated && hop.IsCreated;
-            new BuildJob
+            // One pose an index, in parallel, into the list's own storage and a kept-mask; then one sequential pass
+            // closes the gaps in pose order, so Units comes out in exactly the order the one-thread loop wrote it.
+            int count = p.PoseCount;
+            Units.ResizeUninitialized(count);
+            var kept = Keep(count);
+            var build = new BuildJob
             {
-                Poses = p.Poses, PoseSlot = p.PoseSlot, PoseCount = p.PoseCount, Generation = w.Generation,
+                Poses = p.Poses, PoseSlot = p.PoseSlot, Generation = w.Generation,
                 Height = map.Height, Ground = ReferenceEquals(RenderGround.Map, map) && RenderGround.Grid.Heights.IsCreated
                                               ? RenderGround.Grid
                                               : new RenderGroundGrid { Heights = Spare(), Width = 0, Length = 0, Step = 1f },
@@ -82,8 +89,18 @@ namespace TW.UI
                 Profiles = profiles, Man = man, PxPerRad = pxPerRad,
                 CamPos = cam.transform.position, Fwd = cam.transform.forward, Near = cam.nearClipPlane,
                 ToClip = cam.projectionMatrix * cam.worldToCameraMatrix,   // the engine's GetWorldToClipMatrix
-                View = cam.pixelRect, Out = Units,
-            }.Run();
+                View = cam.pixelRect, Out = Units.AsArray(), Kept = kept,
+            }.Schedule(count, 64);
+            new CompactJob { Units = Units, Kept = kept, Count = count }.Schedule(build).Complete();
+        }
+
+        /// <summary>The kept-mask BuildJob writes, grown (never per frame) to the largest pose count seen.</summary>
+        NativeArray<byte> Keep(int count)
+        {
+            if (keep.IsCreated && keep.Length >= count) return keep;
+            if (keep.IsCreated) keep.Dispose();
+            keep = new NativeArray<byte>(Mathf.Max(count, 1024), Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            return keep;
         }
 
         NativeArray<float> Spare()
@@ -107,15 +124,16 @@ namespace TW.UI
             if (Units.IsCreated) Units.Dispose();
             if (fallbackProfiles.IsCreated) fallbackProfiles.Dispose();
             if (spare.IsCreated) spare.Dispose();
+            if (keep.IsCreated) keep.Dispose();
         }
 
-        /// <summary>Z016.1: one man a pose, over the poses the renderer draws from.</summary>
+        /// <summary>Z016.1: one man a pose, over the poses the renderer draws from. Parallel over the poses: pose i
+        /// writes only Out[i] and Kept[i] (1 = on the screen), and CompactJob packs the kept ones in order.</summary>
         [BurstCompile]
-        struct BuildJob : IJob
+        struct BuildJob : IJobParallelFor
         {
             [ReadOnly] public NativeArray<UnitPose> Poses;
             [ReadOnly] public NativeArray<int> PoseSlot;
-            public int PoseCount;
             [ReadOnly] public NativeArray<ushort> Generation;
             [ReadOnly] public NativeArray<float> Lift, Hop;
             [ReadOnly] public NativeArray<VehicleProfile> Profiles;
@@ -126,39 +144,58 @@ namespace TW.UI
             public float3 CamPos, Fwd;
             public Matrix4x4 ToClip;
             public Rect View;
-            [WriteOnly] public NativeList<ScreenUnit> Out;
+            [WriteOnly] public NativeArray<ScreenUnit> Out;
+            [WriteOnly] public NativeArray<byte> Kept;
+
+            public void Execute(int i)
+            {
+                var pose = Poses[i];
+                int slot = PoseSlot[i];
+                float ground = RenderGround.DrawnY(in Height, in Ground, pose.Pos.x, pose.Pos.z,
+                                                   Controlled ? Lift[slot] : 0f, Controlled ? Hop[slot] : 0f, Man);
+                bool vehicle = (pose.Flags & (byte)UnitFlags.Vehicle) != 0;
+                float radiusM, size, bodyM;
+                if (vehicle)
+                {
+                    var prof = Profiles[pose.Archetype];
+                    float half = math.max(prof.HalfLength, prof.HalfWidth);
+                    radiusM = half * 0.8f; size = half * 2.3f; bodyM = VehicleBodyM;
+                }
+                else
+                {
+                    radiusM = ManRadiusM * Man; size = 1.1f * Man; bodyM = ManBodyM * Man;
+                }
+                var body = new Vector3(pose.Pos.x, ground + bodyM, pose.Pos.z);
+                float depth = math.dot((float3)body - CamPos, Fwd);
+                if (depth <= Near || !Project(ToClip, View, body, out Vector2 screen)) { Kept[i] = 0; return; }
+                Out[i] = new ScreenUnit
+                {
+                    Slot = slot, Gen = Generation[slot], Screen = screen, Depth = depth,
+                    RadiusPx = math.max(MinPickPx, radiusM * PxPerRad / depth),
+                    World = body, Size = size, Archetype = pose.Archetype, Ours = (pose.Team & 1) == 0, Vehicle = vehicle,
+                };
+                Kept[i] = 1;
+            }
+        }
+
+        /// <summary>Close the gaps BuildJob left, in pose order (in place: the write index never passes the read one).</summary>
+        [BurstCompile]
+        struct CompactJob : IJob
+        {
+            public NativeList<ScreenUnit> Units;
+            [ReadOnly] public NativeArray<byte> Kept;
+            public int Count;
 
             public void Execute()
             {
-                for (int i = 0; i < PoseCount; i++)
+                int n = 0;
+                for (int i = 0; i < Count; i++)
                 {
-                    var pose = Poses[i];
-                    int slot = PoseSlot[i];
-                    float ground = RenderGround.DrawnY(in Height, in Ground, pose.Pos.x, pose.Pos.z,
-                                                       Controlled ? Lift[slot] : 0f, Controlled ? Hop[slot] : 0f, Man);
-                    bool vehicle = (pose.Flags & (byte)UnitFlags.Vehicle) != 0;
-                    float radiusM, size, bodyM;
-                    if (vehicle)
-                    {
-                        var prof = Profiles[pose.Archetype];
-                        float half = math.max(prof.HalfLength, prof.HalfWidth);
-                        radiusM = half * 0.8f; size = half * 2.3f; bodyM = VehicleBodyM;
-                    }
-                    else
-                    {
-                        radiusM = ManRadiusM * Man; size = 1.1f * Man; bodyM = ManBodyM * Man;
-                    }
-                    var body = new Vector3(pose.Pos.x, ground + bodyM, pose.Pos.z);
-                    float depth = math.dot((float3)body - CamPos, Fwd);
-                    if (depth <= Near) continue;
-                    if (!Project(ToClip, View, body, out Vector2 screen)) continue;
-                    Out.AddNoResize(new ScreenUnit
-                    {
-                        Slot = slot, Gen = Generation[slot], Screen = screen, Depth = depth,
-                        RadiusPx = math.max(MinPickPx, radiusM * PxPerRad / depth),
-                        World = body, Size = size, Archetype = pose.Archetype, Ours = (pose.Team & 1) == 0, Vehicle = vehicle,
-                    });
+                    if (Kept[i] == 0) continue;
+                    if (n != i) Units[n] = Units[i];
+                    n++;
                 }
+                Units.ResizeUninitialized(n);
             }
         }
 
@@ -189,7 +226,18 @@ namespace TW.UI
             for (int i = 0; i < units.Length; i++)
             {
                 var u = units[i];
-                float k = (u.Screen - at).magnitude / u.RadiusPx;
+                float dx = u.Screen.x - at.x, dy = u.Screen.y - at.y;
+                float dSq = dx * dx + dy * dy, r = u.RadiusPx;
+                // Squared rejections first, with a margin far wider than float rounding, so the root and the divide are
+                // taken only for a man the cursor may be on and who may beat the best so far; the decision itself is
+                // the unchanged k test below. Out of his circle (k > 1), or past the tie band (k > bestK + 0.05).
+                if (r > 0f)
+                {
+                    float rSq = r * r;
+                    if (dSq > rSq * 1.001f) continue;
+                    if (best >= 0) { float band = bestK + 0.05f; if (dSq > rSq * band * band * 1.001f) continue; }
+                }
+                float k = Mathf.Sqrt(dSq) / r;
                 if (k > 1f) continue;
                 if (k < bestK - 0.05f || (Mathf.Abs(k - bestK) <= 0.05f && u.Depth < bestDepth)) { best = i; bestK = k; bestDepth = u.Depth; }
             }

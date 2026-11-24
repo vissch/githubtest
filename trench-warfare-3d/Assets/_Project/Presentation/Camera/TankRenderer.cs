@@ -567,6 +567,17 @@ namespace TW.Presentation.Tactical
         static bool IsTank(SimWorld w, int i)
             => (w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) == ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) && ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[i]));
 
+        /// <summary>How far a sweep for tanks runs: the presenter's live vehicles (Alive and Vehicle, ascending) when its
+        /// lists are this world's at this tick, `listed` set to them; else every slot to HighWater, `listed` null. The
+        /// caller still asks IsTank of every slot, so a slot that changed since the capture is skipped as before.</summary>
+        int VehicleSweep(SimWorld w, out int[] listed)
+        {
+            var p = Host != null ? Host.Presenter : null;
+            if (p != null && p.SlotsMatch(w)) { listed = p.VehicleSlots; return p.VehicleCount; }
+            listed = null;
+            return w.HighWater;
+        }
+
         /// <summary>K11: everything the renderer holds of the match that just ended. The branch in LateUpdate used to
         /// drop only the rockets, the views and the ribbons, so a second match started with the first one's wrecks,
         /// shards, flames, riders and pips still in hand. Kept out: the pools and caches that are not of a match
@@ -605,8 +616,10 @@ namespace TW.Presentation.Tactical
             float dt = Mathf.Max(1e-4f, Time.deltaTime), now = Time.time;
             Capture(match);
             foreach (var v in views.Values) v.Seen = false;
-            for (int i = 0; i < w.HighWater; i++)
+            int end = VehicleSweep(w, out int[] listed);
+            for (int k = 0; k < end; k++)
             {
+                int i = listed != null ? listed[k] : k;
                 if (!IsTank(w, i)) continue;
                 var v = ViewFor(w, i, now);
                 v.Seen = true;
@@ -653,8 +666,10 @@ namespace TW.Presentation.Tactical
             if (curYaw == null) { prevYaw = new float[n]; curYaw = new float[n]; prevGun = new float[n * 2]; curGun = new float[n * 2]; }
             if (w.Tick == lastTick) return;
             lastTick = w.Tick;
-            for (int i = 0; i < w.HighWater; i++)
+            int end = VehicleSweep(w, out int[] listed);
+            for (int j = 0; j < end; j++)
             {
+                int i = listed != null ? listed[j] : j;
                 if (!IsTank(w, i)) continue;
                 bool fresh = !views.TryGetValue(i, out var v) || v.Gen != w.Generation[i];
                 prevYaw[i] = fresh ? w.Yaw[i] : curYaw[i]; curYaw[i] = w.Yaw[i];
