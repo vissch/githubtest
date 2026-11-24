@@ -30,6 +30,7 @@ namespace TW.Presentation.Terrain
         bool[] occupied;
         byte[] px;
         Texture2D tex;
+        bool texUploaded;   // tex holds px: Upload skips an unchanged map only once it has sent one
         float nextScan;
         bool subscribed;
         struct Burst { public Vector2 Pos; public float Until; }
@@ -121,10 +122,20 @@ namespace TW.Presentation.Terrain
             }
         }
 
+        /// <summary>The presence map into the texture, but only when a byte of it moved: over a quiet field the map
+        /// settles and stays put for seconds on end, and an unchanged texture re-sent every frame is a GPU upload that
+        /// draws exactly what is there already. The first upload always goes (the texture starts with nothing in it).</summary>
         void Upload()
         {
-            for (int i = 0; i < level.Length; i++) px[i] = (byte)(Mathf.Clamp01(level[i]) * 255f);
+            bool changed = !texUploaded;
+            for (int i = 0; i < level.Length; i++)
+            {
+                byte b = (byte)(Mathf.Clamp01(level[i]) * 255f);
+                if (px[i] != b) { px[i] = b; changed = true; }
+            }
+            if (!changed) return;
             tex.SetPixelData(px, 0); tex.Apply(false, false);
+            texUploaded = true;
         }
 
         void Update()

@@ -23,17 +23,34 @@ namespace TW.Presentation.Terrain
         /// <summary>For a masked module (a house), the chunks of the instance at this matrix to hide, a bit each
         /// (PropDestruction: the chunks it has knocked down). Asked for every visible instance as it is submitted.</summary>
         public System.Func<BattlefieldKit.Module, Matrix4x4, HouseKit.ChunkMask> MaskOf;
-        readonly Vector4[] mergedMask = new Vector4[1023];
         MaterialPropertyBlock maskBlock;
 
         sealed class Batch
         {
             public BattlefieldKit.Module Module;
+            /// <summary>The props this batch draws for, told of every change to it (Changed); null for a batch a test
+            /// builds on its own (BattlefieldReviewTests), which has nobody to tell.</summary>
+            public BattlefieldProps Owner;
             Mesh Mesh => Module.Mesh;
             public readonly List<Matrix4x4[]> Pages = new List<Matrix4x4[]>(); public readonly List<int> Counts = new List<int>();
             public readonly List<Bounds> PageBounds = new List<Bounds>();
             readonly Dictionary<Vector2Int, int> spatialPages = new Dictionary<Vector2Int, int>();
-            public void Clear() { Counts.Clear(); PageBounds.Clear(); spatialPages.Clear(); }
+            /// <summary>What the last cull sent of this module, a submission each: the visible pages' matrices (and, for a
+            /// masked module, their chunk masks), the bounds and the count. Kept so a frame whose view and batches are
+            /// those of the last can send them again as they are (BattlefieldProps.Resubmit) instead of culling and
+            /// copying every page afresh. A submission's array starts small and doubles to the instancing limit as a
+            /// cull needs it, so the steady state allocates nothing.</summary>
+            public Matrix4x4[][] Sent; public Vector4[][] SentMasks; public Bounds[] SentBounds; public int[] SentCounts;
+            public int SentChunks;
+            /// <summary>Every change to the batch is one the next frame must cull for; a change of a page's bounds is
+            /// one PropDestruction's strike index must be rebuilt for (BoundsVersion).</summary>
+            void Changed(bool bounds)
+            {
+                if (Owner == null) return;
+                Owner.drawVersion++;
+                if (bounds) Owner.BoundsVersion++;
+            }
+            public void Clear() { Counts.Clear(); PageBounds.Clear(); spatialPages.Clear(); Changed(true); }
             public int Add(Matrix4x4 m, out int slot)
             {
                 var key = new Vector2Int(Mathf.FloorToInt(m.m03 / Module.PageSize), Mathf.FloorToInt(m.m23 / Module.PageSize));
@@ -57,6 +74,7 @@ namespace TW.Presentation.Terrain
                     Pages[page] = array;
                 }
                 array[slot] = m; Counts[page]++;
+                Changed(true);
                 return page;
             }
             Bounds InstanceBounds(Matrix4x4 m)
@@ -69,10 +87,41 @@ namespace TW.Presentation.Terrain
             public void Set(int page, int slot, Matrix4x4 m)
             {
                 Pages[page][slot] = m;
-                var merged = PageBounds[page]; merged.Encapsulate(InstanceBounds(m)); PageBounds[page] = merged;
+                var was = PageBounds[page];
+                var merged = was; merged.Encapsulate(InstanceBounds(m)); PageBounds[page] = merged;
+                // exact compares (Vector3.Equals, not ==, which forgives 1e-5): the strike index must hear of any growth
+                Changed(!merged.center.Equals(was.center) || !merged.extents.Equals(was.extents));
             }
             /// <summary>Takes one instance out of sight without reshuffling the page: shrunk to nothing deep under the ground.</summary>
-            public void Hide(int page, int slot) => Pages[page][slot] = Matrix4x4.TRS(Pages[page][slot].GetPosition() + Vector3.down * 500f, Quaternion.identity, Vector3.one * 1e-4f);
+            public void Hide(int page, int slot)
+            {
+                Pages[page][slot] = Matrix4x4.TRS(Pages[page][slot].GetPosition() + Vector3.down * 500f, Quaternion.identity, Vector3.one * 1e-4f);
+                Changed(false);
+            }
+
+            /// <summary>Submission `chunk`'s matrix array, with room for `need` (at most the instancing limit); what it
+            /// already holds is kept when it grows.</summary>
+            public Matrix4x4[] Room(int chunk, int need)
+            {
+                if (Sent == null || chunk >= Sent.Length)
+                {
+                    int size = Mathf.Max(chunk + 1, Sent == null ? 1 : Sent.Length * 2);
+                    System.Array.Resize(ref Sent, size); System.Array.Resize(ref SentMasks, size);
+                    System.Array.Resize(ref SentBounds, size); System.Array.Resize(ref SentCounts, size);
+                }
+                var buffer = Sent[chunk];
+                if (buffer == null || buffer.Length < need)
+                {
+                    int size = buffer == null ? 16 : buffer.Length;
+                    while (size < need) size *= 2;
+                    System.Array.Resize(ref buffer, Mathf.Min(size, MaxInstances));
+                    Sent[chunk] = buffer;
+                }
+                return buffer;
+            }
+            /// <summary>Submission `chunk`'s chunk masks: always the full instancing limit long, because a property block's
+            /// array keeps the length it was first set with (it was one 1,023-entry buffer before, so it still is).</summary>
+            public Vector4[] MasksOf(int chunk) => SentMasks[chunk] ??= new Vector4[MaxInstances];
         }
 
         /// <summary>One imported prop as placed this composition: what the Scene view picks and the editor moves (EnvPropEditor).</summary>
@@ -100,17 +149,40 @@ namespace TW.Presentation.Terrain
         readonly HashSet<string> held = new HashSet<string>();
         readonly Plane[] planes = new Plane[6], editorPlanes = new Plane[6];
         /// <summary>
-        /// One buffer, refilled for every module every frame, so the visible pages of a module go to the GPU as one
-        /// submission instead of one per 32 m page. Measured 2026-09-22: the props were spending 271 draw calls on
-        /// 1,706 instances — six instances a call — because a page is a culling unit and was being used as a batching
-        /// unit too. 1023 is the instancing limit of RenderMeshInstanced; a module with more than that submits again.
-        /// Allocated once and reused, because the frame budget bans managed allocation during play.
+        /// The visible pages of a module go to the GPU as one submission instead of one per 32 m page. Measured
+        /// 2026-09-22: the props were spending 271 draw calls on 1,706 instances — six instances a call — because a page
+        /// is a culling unit and was being used as a batching unit too. 1023 is the instancing limit of
+        /// RenderMeshInstanced; a module with more than that submits again. Each module keeps its own submissions
+        /// (Batch.Sent), reused frame to frame, because the frame budget bans managed allocation during play.
         /// </summary>
-        readonly Matrix4x4[] merged = new Matrix4x4[1023];
+        const int MaxInstances = 1023;
+        /// <summary>A frame's culling is skipped while the view stays within this of the last cull's (planes' normals and
+        /// distances, the eye; m): a camera at rest reads the same floats every frame.</summary>
+        const float ViewTolerance = 1e-5f;
+        // The static-frustum cache. A cull (pages tested, matrices copied, masks asked: about 460 KB moved a frame on the
+        // full field) is a pure function of the main camera's frustum and eye, whether the close-up camera is on, the
+        // batches and the house masks. While none of them has changed since the last cull and no editor camera is
+        // drawing too, the last cull's submissions (Batch.Sent) are sent again as they are. Every change to a batch
+        // goes through Batch.Changed (so through Hold, Release, Move, Hide, AddInstance and every composition applied),
+        // and PropDestruction calls MarkMasksDirty where a house loses a chunk.
+        int drawVersion, maskVersion;
+        bool viewCached, cachedHasCam, cachedCloseUp;
+        int cachedDrawVersion, cachedMaskVersion, cachedVisible, cachedVertices;
+        Vector3 cachedEye;
+        readonly Plane[] cachedPlanes = new Plane[6];
+        System.Func<BattlefieldKit.Module, Matrix4x4, HouseKit.ChunkMask> cachedMaskOf;
         bool dirty = true, subscribed;
         public int VisibleInstances { get; private set; }
         public int SubmittedVertices { get; private set; }
         public int DrawCalls { get; private set; }
+        /// <summary>Counts the changes to any page's bounds (a page added, one grown, the batches cleared). Whatever indexes
+        /// the pages by where they lie (PropDestruction's strike index) rebuilds when this or Generation moves.</summary>
+        public int BoundsVersion { get; private set; }
+        /// <summary>A house's chunk mask (MaskOf) has changed: the next frame culls afresh rather than send the masks it
+        /// sent last. PropDestruction calls it where a chunk comes down.</summary>
+        public void MarkMasksDirty() => maskVersion++;
+        /// <summary>The bounds of every page of a module, by page (null when it has none): read by index, never kept.</summary>
+        internal IReadOnlyList<Bounds> PageBoundsOf(BattlefieldKit.Module module) => module != null && batches.TryGetValue(module, out var b) ? b.PageBounds : null;
         public int CompositionCount => composer == null ? 0 : composer.Sites.Count;
         /// <summary>Counts compositions applied. Pages and slots are renumbered by each one, so anything that remembers a
         /// (page, slot) — PropWear's swept squares and knocked props — watches this and throws its own away when it moves.</summary>
@@ -149,7 +221,7 @@ namespace TW.Presentation.Terrain
             SceneHooks.StandingTall = (x, z, within) => Standing(x, z, within, 2.5f, true);   // where a thrown turret may come down (TankRenderer.Deaths)
             foreach (var module in kit.Modules)
             {
-                batches.Add(module, new Batch { Module = module });
+                batches.Add(module, new Batch { Module = module, Owner = this });
                 if (module.Name != null) modulesByName[module.Name] = module;
             }
             if (Layout == null) Layout = Resources.Load<PropLayout>(PropLayout.ResourcePath(DecorationSeed));
@@ -308,7 +380,7 @@ namespace TW.Presentation.Terrain
 
         Batch BatchOf(BattlefieldKit.Module module)
         {
-            if (!batches.TryGetValue(module, out var batch)) { batch = new Batch { Module = module }; batches.Add(module, batch); }
+            if (!batches.TryGetValue(module, out var batch)) { batch = new Batch { Module = module, Owner = this }; batches.Add(module, batch); drawVersion++; BoundsVersion++; }
             return batch;
         }
 
@@ -454,22 +526,26 @@ namespace TW.Presentation.Terrain
             }
             var cam = Camera.main;
             if (cam != null) GeometryUtility.CalculateFrustumPlanes(cam, planes);
-            var editorCam = EditorCamera != null && EditorCamera != cam ? EditorCamera : null;
+            Vector3 eye = cam != null ? cam.transform.position : Vector3.zero;
+            bool closeUp = SceneHooks.CloseUp > 0f;
+            // the view, the batches and the masks as the last cull left them, and no second camera: send what it sent
+            var editorCamera = EditorCamera;
+            if (editorCamera == null && SameView(cam != null, eye, closeUp)) { Resubmit(); return; }
+            var editorCam = editorCamera != null && editorCamera != cam ? editorCamera : null;
             if (editorCam != null) GeometryUtility.CalculateFrustumPlanes(editorCam, editorPlanes);
             VisibleInstances = SubmittedVertices = DrawCalls = 0;
-            Vector3 eye = cam != null ? cam.transform.position : Vector3.zero;
             // Pages are culled one at a time, as they must be, and then merged into one submission per module: the
             // page is the right unit to decide what the camera can see and the wrong unit to hand to the GPU.
             foreach (var b in batches.Values)
             {
                 var module = b.Module;
                 if (!module.Drawn) continue;
-                int held = 0; Bounds union = default; bool any = false;
+                int held = 0, chunk = 0; Bounds union = default; bool any = false;
                 for (int p = 0; p < b.Counts.Count; p++)
                 {
                     float reach = module.MaxDistance; bool small = reach < float.PositiveInfinity;
                     var pageBounds = b.PageBounds[p]; pageBounds.Expand(16f);
-                    bool seen = (!small || SceneHooks.CloseUp > 0f && b.PageBounds[p].SqrDistance(eye) <= reach * reach)   // small things: close camera only
+                    bool seen = (!small || closeUp && b.PageBounds[p].SqrDistance(eye) <= reach * reach)   // small things: close camera only
                         && (cam == null || GeometryUtility.TestPlanesAABB(planes, pageBounds));
                     bool editorSeen = editorCam != null && (!small || b.PageBounds[p].SqrDistance(editorCam.transform.position) <= reach * reach)
                         && GeometryUtility.TestPlanesAABB(editorPlanes, pageBounds);
@@ -482,31 +558,79 @@ namespace TW.Presentation.Terrain
                         // inside the loop, not above it: a page that spills into a second submission has to widen
                         // that one's bounds too, or everything after a full buffer is drawn with bounds of nothing
                         if (any) union.Encapsulate(pageBounds); else { union = pageBounds; any = true; }
-                        int take = Mathf.Min(merged.Length - held, count - from);
-                        System.Array.Copy(b.Pages[p], from, merged, held, take);
+                        int take = Mathf.Min(MaxInstances - held, count - from);
+                        var into = b.Room(chunk, held + take);
+                        System.Array.Copy(b.Pages[p], from, into, held, take);
                         if (module.Masked)
-                            for (int k = 0; k < take; k++) mergedMask[held + k] = MaskOf != null ? MaskOf(module, merged[held + k]).Packed : Vector4.zero;
+                        {
+                            var masks = b.MasksOf(chunk);
+                            for (int k = 0; k < take; k++) masks[held + k] = MaskOf != null ? MaskOf(module, into[held + k]).Packed : Vector4.zero;
+                        }
                         held += take; from += take;
-                        if (held < merged.Length) continue;
-                        Submit(module, union, held); held = 0; any = false;   // full: send it and start the next
+                        if (held < MaxInstances) continue;
+                        Seal(b, chunk++, union, held); held = 0; any = false;   // full: send it and start the next
                     }
                 }
-                if (held > 0) Submit(module, union, held);
+                if (held > 0) Seal(b, chunk++, union, held);
+                b.SentChunks = chunk;
             }
+            // what this cull was a function of, for the next frame to compare with; with a second camera drawing, its
+            // view is in the submissions too, so they are not kept for a frame without it
+            viewCached = editorCamera == null;
+            cachedHasCam = cam != null; cachedEye = eye; cachedCloseUp = closeUp;
+            System.Array.Copy(planes, cachedPlanes, planes.Length);
+            cachedDrawVersion = drawVersion; cachedMaskVersion = maskVersion; cachedMaskOf = MaskOf;
+            cachedVisible = VisibleInstances; cachedVertices = SubmittedVertices;
+        }
+
+        /// <summary>Whether this frame's cull would be the last one's: the same batches and masks (nothing changed through
+        /// Batch.Changed or MarkMasksDirty, the same MaskOf), the same close-up switch, and the main camera where it was
+        /// (eye and all six frustum planes within ViewTolerance), or still none.</summary>
+        bool SameView(bool hasCam, in Vector3 eye, bool closeUp)
+        {
+            if (!viewCached || drawVersion != cachedDrawVersion || maskVersion != cachedMaskVersion || !ReferenceEquals(MaskOf, cachedMaskOf)
+                || hasCam != cachedHasCam || closeUp != cachedCloseUp) return false;
+            if (!hasCam) return true;   // no camera: the cull read neither the planes nor the eye
+            if (!(Mathf.Abs(eye.x - cachedEye.x) <= ViewTolerance && Mathf.Abs(eye.y - cachedEye.y) <= ViewTolerance && Mathf.Abs(eye.z - cachedEye.z) <= ViewTolerance)) return false;
+            for (int i = 0; i < planes.Length; i++)
+            {
+                Plane a = planes[i], c = cachedPlanes[i];
+                Vector3 n = a.normal, m = c.normal;
+                if (!(Mathf.Abs(n.x - m.x) <= ViewTolerance && Mathf.Abs(n.y - m.y) <= ViewTolerance && Mathf.Abs(n.z - m.z) <= ViewTolerance
+                    && Mathf.Abs(a.distance - c.distance) <= ViewTolerance)) return false;
+            }
+            return true;
+        }
+
+        /// <summary>The last cull's submissions again, module by module in the order it made them, and its counters.</summary>
+        void Resubmit()
+        {
+            DrawCalls = 0;
+            foreach (var b in batches.Values)
+                for (int c = 0; c < b.SentChunks; c++) Submit(b, c);
+            VisibleInstances = cachedVisible; SubmittedVertices = cachedVertices;
+        }
+
+        /// <summary>A submission filled: its bounds and count are kept with it, and it is sent.</summary>
+        void Seal(Batch b, int chunk, Bounds bounds, int count)
+        {
+            b.SentBounds[chunk] = bounds; b.SentCounts[chunk] = count;
+            Submit(b, chunk);
         }
 
         /// <summary>One instanced submission of a module, with the bounds of every page that went into it.</summary>
-        void Submit(BattlefieldKit.Module module, Bounds bounds, int count)
+        void Submit(Batch b, int chunk)
         {
-            var rp = new RenderParams(module.Material) { worldBounds = bounds, shadowCastingMode = module.Shadows ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true };
+            var module = b.Module;
+            var rp = new RenderParams(module.Material) { worldBounds = b.SentBounds[chunk], shadowCastingMode = module.Shadows ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true };
             if (module.Masked)
             {
                 // the block is copied when the draw is queued, so one block serves every masked submission
                 maskBlock ??= new MaterialPropertyBlock();
-                maskBlock.SetVectorArray("_ChunkMask", mergedMask);
+                maskBlock.SetVectorArray("_ChunkMask", b.MasksOf(chunk));
                 rp.matProps = maskBlock;
             }
-            FrameBudget.Draw(rp, module.Mesh, 0, merged, count);
+            FrameBudget.Draw(rp, module.Mesh, 0, b.Sent[chunk], b.SentCounts[chunk]);
             DrawCalls++;
         }
     }

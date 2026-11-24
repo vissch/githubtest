@@ -320,6 +320,167 @@ namespace TW.Presentation.Terrain
                 }
             crushable.Clear();
             foreach (var kv in rules) if (kv.Value.Crush) crushable.Add(kv.Key);
+            // the table in the order a scan of the dictionary walks it (insertion order: nothing is ever removed), so
+            // the strike index can hand a strike its rules by number and the strike still takes them in that order
+            ruleModules = new BattlefieldKit.Module[rules.Count]; ruleValues = new Rule[rules.Count]; ruleMark = new int[rules.Count];
+            crushRuleIndices = new int[crushable.Count];
+            int at = 0, crushAt = 0;
+            foreach (var kv in rules)
+            {
+                ruleModules[at] = kv.Key; ruleValues[at] = kv.Value;
+                if (kv.Value.Crush) crushRuleIndices[crushAt++] = at;
+                at++;
+            }
+            markSeq = 0; indexed = false;
+        }
+
+        // ---- the strike index: which rules have a page near a point --------------------------------------------------
+        // A strike asked every one of the ~270 rules for its instances near the burst (props.Within), and a moving tank
+        // asked every crushable one, every tick: page bounds tested by the thousand to find a handful. The index is a
+        // grid of IndexCell squares over the field, each listing (ascending) the rules with a page whose bounds, widened
+        // by IndexMargin, touch it. It is built lazily, again whenever a composition is applied or any page's bounds
+        // change (props.Generation, props.BoundsVersion), so it never misses a page a scan would have found: a page's
+        // bounds already hold every instance in it (BattlefieldProps.Batch), a building and all. A query marks the rules
+        // listed in every cell its circle's square touches (ruleMark[r] == markSeq: each once) and the strike still walks
+        // the table from the top, skipping the unmarked, so what it does, and in what order, is what the scan did.
+
+        /// <summary>The side of a cell of the strike index (m); doubled while the field would need more than
+        /// MaxIndexSide cells a side.</summary>
+        public const float IndexCell = 16f;
+        /// <summary>How far past its bounds a page is entered in the index (m): well over any rounding between the grid's
+        /// arithmetic and Within's.</summary>
+        public const float IndexMargin = 0.5f;
+        const int MaxIndexSide = 256;
+        BattlefieldKit.Module[] ruleModules = System.Array.Empty<BattlefieldKit.Module>();
+        Rule[] ruleValues = System.Array.Empty<Rule>();
+        int[] ruleMark = System.Array.Empty<int>(), crushRuleIndices = System.Array.Empty<int>();
+        int markSeq;
+        bool indexed, indexScansAll;
+        int indexGeneration, indexBounds, indexW, indexH;
+        float indexMinX, indexMinZ, indexMaxX, indexMaxZ, indexStep = IndexCell;
+        int[] strikeCellFirst = System.Array.Empty<int>(), strikeCellFill = System.Array.Empty<int>(), strikeCellOwner = System.Array.Empty<int>(), strikeCellRules = System.Array.Empty<int>();
+        /// <summary>Strike indexes built, for the capture tools and the tests.</summary>
+        public int StrikeIndexBuilds { get; private set; }
+
+        void EnsureStrikeIndex()
+        {
+            if (!indexed || indexGeneration != props.Generation || indexBounds != props.BoundsVersion) BuildStrikeIndex();
+        }
+
+        void BuildStrikeIndex()
+        {
+            indexed = true; indexScansAll = false; indexW = indexH = 0;
+            indexGeneration = props.Generation; indexBounds = props.BoundsVersion;
+            StrikeIndexBuilds++;
+            float minX = float.PositiveInfinity, minZ = float.PositiveInfinity, maxX = float.NegativeInfinity, maxZ = float.NegativeInfinity;
+            for (int r = 0; r < ruleModules.Length; r++)
+            {
+                var pages = props.PageBoundsOf(ruleModules[r]);
+                if (pages == null) continue;
+                for (int p = 0; p < pages.Count; p++)
+                {
+                    var b = pages[p];
+                    Vector3 lo = b.min, hi = b.max;
+                    // a page with no finite bounds is never culled by Within (its sums are NaN): leave every strike to the scan
+                    if (!IsFinite(lo.x) || !IsFinite(lo.z) || !IsFinite(hi.x) || !IsFinite(hi.z)) { indexScansAll = true; return; }
+                    if (lo.x < minX) minX = lo.x; if (lo.z < minZ) minZ = lo.z;
+                    if (hi.x > maxX) maxX = hi.x; if (hi.z > maxZ) maxZ = hi.z;
+                }
+            }
+            if (minX > maxX || minZ > maxZ) return;   // nothing drawn of anything with a rule
+            minX -= IndexMargin; minZ -= IndexMargin; maxX += IndexMargin; maxZ += IndexMargin;
+            if (!IsFinite(maxX - minX) || !IsFinite(maxZ - minZ)) { indexScansAll = true; return; }
+            float step = IndexCell;
+            while ((maxX - minX) / step >= MaxIndexSide || (maxZ - minZ) / step >= MaxIndexSide) step *= 2f;
+            indexMinX = minX; indexMinZ = minZ; indexMaxX = maxX; indexMaxZ = maxZ; indexStep = step;
+            indexW = Mathf.Min(MaxIndexSide, (int)((maxX - minX) / step) + 1);
+            indexH = Mathf.Min(MaxIndexSide, (int)((maxZ - minZ) / step) + 1);
+            int cells = indexW * indexH;
+            if (strikeCellFirst.Length < cells + 1) strikeCellFirst = new int[cells + 1];
+            if (strikeCellFill.Length < cells) { strikeCellFill = new int[cells]; strikeCellOwner = new int[cells]; }
+            System.Array.Clear(strikeCellFirst, 0, cells + 1);
+            // two passes over the pages, counting then filling; a rule goes into a cell once however many of its pages
+            // touch it, and the rules are walked in table order, so every cell's list comes out ascending
+            for (int c = 0; c < cells; c++) strikeCellOwner[c] = -1;
+            for (int r = 0; r < ruleModules.Length; r++)
+            {
+                var pages = props.PageBoundsOf(ruleModules[r]);
+                if (pages == null) continue;
+                for (int p = 0; p < pages.Count; p++)
+                {
+                    CellsOf(pages[p], out int x0, out int z0, out int x1, out int z1);
+                    for (int z = z0; z <= z1; z++)
+                    for (int x = x0; x <= x1; x++)
+                    {
+                        int c = z * indexW + x;
+                        if (strikeCellOwner[c] == r) continue;
+                        strikeCellOwner[c] = r; strikeCellFirst[c + 1]++;
+                    }
+                }
+            }
+            for (int c = 0; c < cells; c++) strikeCellFirst[c + 1] += strikeCellFirst[c];
+            if (strikeCellRules.Length < strikeCellFirst[cells]) strikeCellRules = new int[Mathf.NextPowerOfTwo(strikeCellFirst[cells])];
+            for (int c = 0; c < cells; c++) { strikeCellOwner[c] = -1; strikeCellFill[c] = strikeCellFirst[c]; }
+            for (int r = 0; r < ruleModules.Length; r++)
+            {
+                var pages = props.PageBoundsOf(ruleModules[r]);
+                if (pages == null) continue;
+                for (int p = 0; p < pages.Count; p++)
+                {
+                    CellsOf(pages[p], out int x0, out int z0, out int x1, out int z1);
+                    for (int z = z0; z <= z1; z++)
+                    for (int x = x0; x <= x1; x++)
+                    {
+                        int c = z * indexW + x;
+                        if (strikeCellOwner[c] == r) continue;
+                        strikeCellOwner[c] = r; strikeCellRules[strikeCellFill[c]++] = r;
+                    }
+                }
+            }
+        }
+
+        static bool IsFinite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
+
+        /// <summary>The cells a page touches, its bounds widened by IndexMargin, clamped to the grid.</summary>
+        void CellsOf(in Bounds b, out int x0, out int z0, out int x1, out int z1)
+        {
+            Vector3 lo = b.min, hi = b.max;
+            x0 = Mathf.Clamp(Mathf.FloorToInt((lo.x - IndexMargin - indexMinX) / indexStep), 0, indexW - 1);
+            z0 = Mathf.Clamp(Mathf.FloorToInt((lo.z - IndexMargin - indexMinZ) / indexStep), 0, indexH - 1);
+            x1 = Mathf.Clamp(Mathf.FloorToInt((hi.x + IndexMargin - indexMinX) / indexStep), 0, indexW - 1);
+            z1 = Mathf.Clamp(Mathf.FloorToInt((hi.z + IndexMargin - indexMinZ) / indexStep), 0, indexH - 1);
+        }
+
+        /// <summary>Marks (ruleMark[r] == markSeq) every rule with a page that may hold an instance within radius of
+        /// centre (xz), as Within would find it. Returns how many rules were marked (0: nothing near), or -1 when the
+        /// index cannot say (a page with no finite bounds, or an infinite reach): then every rule is to be looked at.</summary>
+        int MarkNear(Vector2 centre, float radius)
+        {
+            if (++markSeq == int.MaxValue) { System.Array.Clear(ruleMark, 0, ruleMark.Length); markSeq = 1; }
+            if (indexScansAll) return -1;
+            if (indexW == 0) return 0;   // nothing with a rule is drawn anywhere
+            radius = Mathf.Abs(radius);  // Within squares it
+            if (float.IsInfinity(radius) || float.IsInfinity(centre.x) || float.IsInfinity(centre.y)) return -1;   // reaches everything: the scan
+            float lx = centre.x - radius, hx = centre.x + radius, lz = centre.y - radius, hz = centre.y + radius;
+            // no page reaches past the grid, so a circle off it (or a NaN one, which Within finds nothing for) marks nothing
+            if (!(hx >= indexMinX && lx <= indexMaxX && hz >= indexMinZ && lz <= indexMaxZ)) return 0;
+            // clamp to the grid's span before FloorToInt so a huge finite reach cannot overflow int before Clamp sees it
+            int x0 = lx <= indexMinX ? 0 : Mathf.Min(indexW - 1, Mathf.FloorToInt((lx - indexMinX) / indexStep));
+            int x1 = hx >= indexMaxX ? indexW - 1 : Mathf.Max(0, Mathf.FloorToInt((hx - indexMinX) / indexStep));
+            int z0 = lz <= indexMinZ ? 0 : Mathf.Min(indexH - 1, Mathf.FloorToInt((lz - indexMinZ) / indexStep));
+            int z1 = hz >= indexMaxZ ? indexH - 1 : Mathf.Max(0, Mathf.FloorToInt((hz - indexMinZ) / indexStep));
+            int marked = 0;
+            for (int z = z0; z <= z1; z++)
+            for (int x = x0; x <= x1; x++)
+            {
+                int c = z * indexW + x;
+                for (int e = strikeCellFirst[c], end = strikeCellFirst[c + 1]; e < end; e++)
+                {
+                    int r = strikeCellRules[e];
+                    if (ruleMark[r] != markSeq) { ruleMark[r] = markSeq; marked++; }
+                }
+            }
+            return marked;
         }
 
         /// <summary>The key a prop's damage is kept under: a lining twin's is its whole panel's, so the pair share it.</summary>
@@ -387,9 +548,18 @@ namespace TW.Presentation.Terrain
             int n = 0;
             sectionPieces = 0;
             struckSections.Clear();
-            foreach (var kv in rules)
+            EnsureStrikeIndex();
+            int marked = MarkNear(centre, reach + 1f);
+            if (marked == 0) return;
+            bool every = marked < 0;
+            int generation = props.Generation, bounds = props.BoundsVersion;
+            for (int r = 0; r < ruleModules.Length; r++)
             {
-                var module = kv.Key; var rule = kv.Value;
+                // a lining section broken by this very strike puts its twin in (Section), maybe where the index has never
+                // seen that twin; from then on the rest of the table is looked through whole, exactly as the scan did
+                if (!every && (props.BoundsVersion != bounds || props.Generation != generation)) every = true;
+                if (!every && ruleMark[r] != markSeq) continue;   // no page of it anywhere near: Within would find nothing
+                var module = ruleModules[r]; var rule = ruleValues[r];
                 found.Clear();
                 props.Within(module, centre, reach + 1f, found);
                 for (int i = 0; i < found.Count; i++)
@@ -501,9 +671,18 @@ namespace TW.Presentation.Terrain
                 var p = w.Position[v];
                 var centre = new Vector2(p.x, p.z);
                 Vector3 heading = new Vector3(vel.x, 0f, vel.z).normalized;
-                for (int k = 0; k < crushable.Count; k++)
+                // the crushable rules in table order (the order `crushable` lists them in), the index skipping the far ones
+                EnsureStrikeIndex();
+                int marked = MarkNear(centre, CrushReach);
+                if (marked == 0) continue;
+                bool every = marked < 0;
+                int generation = props.Generation, bounds = props.BoundsVersion;
+                for (int k = 0; k < crushRuleIndices.Length; k++)
                 {
-                    var module = crushable[k]; var rule = rules[module];
+                    int r = crushRuleIndices[k];
+                    if (!every && (props.BoundsVersion != bounds || props.Generation != generation)) every = true;
+                    if (!every && ruleMark[r] != markSeq) continue;
+                    var module = ruleModules[r]; var rule = ruleValues[r];
                     found.Clear();
                     props.Within(module, centre, CrushReach, found);
                     for (int i = 0; i < found.Count; i++)
@@ -550,7 +729,7 @@ namespace TW.Presentation.Terrain
         {
             bool chunk = props.Kit != null && props.Kit.HouseChunkOf.ContainsKey(module);
             if (destroyed.Count < MaxRemembered || chunk) destroyed.Add(key);
-            if (chunk) maskCache.Clear();
+            if (chunk) { maskCache.Clear(); props.MarkMasksDirty(); }   // its house's mask has changed: the props' draw cache too
             props.Hide(module, page, slot);
         }
 
