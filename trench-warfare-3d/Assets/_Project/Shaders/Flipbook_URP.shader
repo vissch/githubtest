@@ -124,9 +124,6 @@ Shader "TW/Flipbook (URP)"
                 half4 tex = a;
                 if (_Grid.w < 0.5 && i.tone.z > 0.001)
                     tex = lerp(a, SAMPLE_TEXTURE2D_GRAD(_MainTex, sampler_MainTex, i.uv.zw, dxB, dyB), i.tone.z);
-                // the transparent border of the card is most of its pixels: nothing below can bring it back (each term
-                // only scales the drawing's alpha), so leave before the scene depth is read
-                if (tex.a * i.tone.x <= 0.001) return 0;
                 // a cloud tears apart as it goes: the edges go first and the dense heart last, and what is left thins
                 half gone = 1.0 - i.tone.x;
                 half edge = saturate(length(i.local - 0.5) * 2.0);
@@ -156,6 +153,11 @@ Shader "TW/Flipbook (URP)"
                 half shape = _Erode > 0.5 ? saturate((tex.a - threshold) / 0.45) : tex.a;
                 half shapeStep = max(fwidth(shape), 0.001);
                 half hard = _Hard * (1.0 - _TWClose);
+                // the transparent border of the card is most of its pixels: with the toon cut off nothing below can bring
+                // it back (each term only scales the drawing's alpha), so leave before the scene depth is read. After
+                // the gradient above, and a discard (not a return), so the quad's neighbours keep their derivatives;
+                // the toon cut is excluded: its half-pixel skirt outside the silhouette is drawn from a zero alpha.
+                if (hard <= 0.0 && tex.a * i.tone.x <= 0.001) discard;
                 if (hard > 0.0)
                 {
                     half body = _Erode > 0.5 ? pow(1.0 - gone, 1.5) : i.tone.x;
