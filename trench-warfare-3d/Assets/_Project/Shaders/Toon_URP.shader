@@ -176,9 +176,14 @@ Shader "TW/Toon (URP)"
             // plates on the plane the face looks along, cracks wider where it lies thick
             float3 an = abs(nWS);
             float2 plane = an.y > max(an.x, an.z) ? ws.xz : (an.x > an.z ? ws.zy : ws.xy);
-            float2 cells = TWCells(plane * 24.0 + seed * 3.0);
-            float crack = (1.0 - smoothstep(0.0, 0.05 + 0.10 * saturate(thick), cells.y - cells.x)) * dry;
-            clay *= 1.0 - 0.5 * crack;
+            // The plates are only ever read through silt (the lerp below weighs the clay, cracks and all, by silt * 0.9), so
+            // where there is no silt the 3x3 Worley is not paid for: most of a panel is clear of any joint's silt.
+            if (silt > 0.0)
+            {
+                float2 cells = TWCells(plane * 24.0 + seed * 3.0);
+                float crack = (1.0 - smoothstep(0.0, 0.05 + 0.10 * saturate(thick), cells.y - cells.x)) * dry;
+                clay *= 1.0 - 0.5 * crack;
+            }
             albedo = lerp(albedo, clay, silt * 0.9);
             // the wet held round it, dark, climbing a little further in tongues
             float finger = TWGrimeNoise(float3(ws.x * 11.0, ws.y * 1.8, ws.z * 11.0) + seed * 7.0);
@@ -326,7 +331,8 @@ Shader "TW/Toon (URP)"
                 }
                 else base = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv);
                 half3 albedo = base.rgb * _BaseColor.rgb * i.color.rgb;
-                if (_KitGrime > 0.5) albedo = TWKitGrime(albedo, i.positionWS, normalize(i.normalWS), i.uv, i.kit);   // a per-material branch: the lining only
+                float3 nWS = normalize(i.normalWS);   // once: every use below wants the same unit normal
+                if (_KitGrime > 0.5) albedo = TWKitGrime(albedo, i.positionWS, nWS, i.uv, i.kit);   // a per-material branch: the lining only
                 half gloss = max(_Gloss, 1.0 - base.a);
                 half shore = 0;
                 if (base.a < 0.45)
@@ -347,7 +353,7 @@ Shader "TW/Toon (URP)"
                 if (_DetailBump < 0.5 && _Gloss < 0.5 && _TWWet.x > 0.0)
                 {
                     // everything standing in the rain is wet: bags, timber, trunks, wrecks. Wettest on top.
-                    half soaked = _TWWet.x * saturate(normalize(i.normalWS).y * 0.55 + 0.5);
+                    half soaked = _TWWet.x * saturate(nWS.y * 0.55 + 0.5);
                     gloss = max(gloss, soaked * 0.46 * (1.0 - _Matte));
                     albedo *= 1.0 - 0.28 * soaked;
                 }
@@ -386,7 +392,14 @@ Shader "TW/Toon (URP)"
                 // Snow lies before anything is lit, so it takes the light the surface under it would have taken and
                 // the toon bands break over it the same way. Zero on every biome but winter (uniform branch).
                 albedo = TWWorldPaint(albedo);   // basalt, or cold rock, or on the night field untouched
-                albedo *= TWHeatCrust(i.positionWS, normalize(i.normalWS), saturate(_DetailStrength * 8.0));   // black between the plates
+                // The crust (black between the plates) and the molten glow share one plate edge and one molten field: asked
+                // for together, they are computed once. The glow's exposure waits on the snow (below), which waits on this
+                // albedo, and the glow is linear in its exposure, so it is taken here at the terrain's own exposure and
+                // scaled by (1 - snow) where the snow is known.
+                half heatExposure = saturate(_DetailStrength * 8.0);
+                half heatCrust; half3 heatGlow;
+                TWHeatCrustAndGlow(i.positionWS, nWS, heatExposure, heatExposure, heatCrust, heatGlow);
+                albedo *= heatCrust;   // black between the plates
                 half snow = TWSnowAmount(i.normalWS, i.positionWS);
                 // A CRATER IS BARE EARTH WHEN IT LANDS. The blast throws the snow off and burns what is under it,
                 // and the ground texture already carries that as a burn far darker than any natural texel - so the
@@ -407,12 +420,12 @@ Shader "TW/Toon (URP)"
                     albedo = lerp(albedo, lying, snow);
                     gloss = max(gloss, _TWSnowColor.a * snow);
                 }
-                half wrap = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
+                half wrap = dot(nWS, mainLight.direction) * 0.5 + 0.5;
                 half lit = wrap;
                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;   // broad lit top planes, readable cool side planes
                 // the shaded half is a hemisphere, not a flat tint: what falls from the sky above, what comes back
                 // up off the ground below. On the night field _TWGroundLight is unset and this is the old constant.
-                half3 shade = TWHemisphere(_ShadeColor.rgb * TWShadeTint(), normalize(i.normalWS));
+                half3 shade = TWHemisphere(_ShadeColor.rgb * TWShadeTint(), nWS);
                 half3 color = albedo * lerp(shade, mainLight.color, band);
                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation); // contact shadows must survive the toon thresholds
                 float3 glintR = float3(0, 1, 0); half glintW = 0;   // look.wet: the flames' glints on wet ground (TWLightPools.hlsl), orange near a fire
@@ -422,7 +435,7 @@ Shader "TW/Toon (URP)"
                     // the fine wet sparkle is for the camera among the men: from the standard view (30 m and more) it is
                     // toned down to a third, so lanterns, not the mud, are the brightest things on screen
                     half close = 1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 14.0) / 20.0);
-                    float3 n = normalize(lerp(normalize(i.normalWS), float3(0, 1, 0), _DetailBump > 0.5 || _Gloss > 0.5 ? 0.8 : 0.0));   // water lies flat whatever the ground does; a wet prop keeps its own planes
+                    float3 n = normalize(lerp(nWS, float3(0, 1, 0), _DetailBump > 0.5 || _Gloss > 0.5 ? 0.8 : 0.0));   // water lies flat whatever the ground does; a wet prop keeps its own planes
                     if (_DetailStrength > 0.0)
                     {
                         // liquid mud keeps the clods' broken surface; still water breathes with a slow ripple
@@ -459,7 +472,7 @@ Shader "TW/Toon (URP)"
                 if (_TWWet.z > 0.0)
                 {
                     // raindrops burst on everything that faces the sky: mud, duckboards, sandbags, wrecks. Close range only.
-                    half open = saturate(normalize(i.normalWS).y * 2.0 - 0.7) * (1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 8.0) / 14.0));
+                    half open = saturate(nWS.y * 2.0 - 0.7) * (1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 8.0) / 14.0));
                     // the burst takes the colour of the ground it lands on and of whatever lights that ground, so it is
                     // a wet glint inside a lamp pool and almost nothing out in the dark, instead of a white ring lying
                     // on black mud at the same strength everywhere
@@ -474,8 +487,13 @@ Shader "TW/Toon (URP)"
                 half3 poolLight = 0;
                 if (_TWPoolCount > 0.0)
                 {
-                    half3 glints;
-                    poolLight = max(albedo, 0.16) * TWPoolsAndGlints(i.positionWS, normalize(i.normalWS), glintR, glintW > 0.0, glints) * (_TWLampScale > 0.0 ? _TWLampScale : 1.0);
+                    half3 glints, propRim;
+                    // look.propRim: a stump, a post, a sandbag beside a fire catches its edge warm, as the men do (critique round 13:
+                    // "foreground stumps solid black cutouts"); props only, the ground has _DetailStrength set. Taken in the pools'
+                    // own walk (TWPoolsGlintsAndRim), not a second one. A narrower band than the men's (0.52, not 0.30): at 0.30 a
+                    // big flat face seen at a slant was all "edge" and a concrete slab by a fire lit whole (critique round 15)
+                    bool rimOn = _TWPropRim > 0.0 && _DetailStrength <= 0.0;
+                    poolLight = max(albedo, 0.16) * TWPoolsGlintsAndRim(i.positionWS, nWS, glintR, glintW > 0.0, rimOn, rimOn ? normalize(_WorldSpaceCameraPos - i.positionWS) : half3(0, 0, 0), 0.52, glints, propRim) * (_TWLampScale > 0.0 ? _TWLampScale : 1.0);
                     color += glints * glintW;
                     // look.glintUnblue: a flame's orange glint laid over the moonlit blue mud read pink-lilac (critique
                     // round 23; violet pixels halved with the glints off), so a glint takes that much blue out from under it,
@@ -485,16 +503,7 @@ Shader "TW/Toon (URP)"
                         half take = dot(glints * glintW, half3(0.6, 0.4, 0.0)) * _TWGlintUnblue;
                         color.gb -= min(color.gb * half2(0.3, 0.7), take * half2(0.45, 1.0));
                     }
-                    // look.propRim: a stump, a post, a sandbag beside a fire catches its edge warm, as the men do (critique round 13:
-                    // "foreground stumps solid black cutouts"); props only, the ground has _DetailStrength set
-                    if (_TWPropRim > 0.0 && _DetailStrength <= 0.0)
-                    {
-                        half3 propRim;
-                        // a narrower band than the men's (0.52, not 0.30): at 0.30 a big flat face seen at a slant was all "edge"
-                        // and a concrete slab by a fire lit whole (critique round 15)
-                        TWPoolsOnFigure(i.positionWS, normalize(i.normalWS), normalize(_WorldSpaceCameraPos - i.positionWS), propRim, 0.52);
-                        poolLight += propRim * _TWPropRim;
-                    }
+                    if (rimOn) poolLight += propRim * _TWPropRim;
                 }
                 // look.poolUnblue: amber at the pool's edge, not violet. Only the faint edge: where the pool is strong it would strip the
                 // lit sandbags of all their blue and leave acid yellow, so the take fades out as the pool's light grows
@@ -507,11 +516,11 @@ Shader "TW/Toon (URP)"
                 // snow and lava never share a field but a mask that ignores the other one is a bug waiting to happen.
                 // _DetailStrength is set only by the terrain material, so it is what tells molten ground from a
                 // sandbag standing on it. Passing it as the exposure means props are LIT by the lava and never cracked.
-                color += TWGroundBounce(normalize(i.normalWS), albedo);
+                color += TWGroundBounce(nWS, albedo);
                 // Molten rock is emissive, so it is seen THROUGH the haze rather than repainted by it. Added after
                 // the fog for that reason: while it was added before, ApplyMist and MixFog lerped the glow itself
                 // toward the fog colour and the distant pools came out pale pink instead of orange behind pink.
-                half3 heat = TWHeatGlow(i.positionWS, normalize(i.normalWS), (1.0 - snow) * saturate(_DetailStrength * 8.0));
+                half3 heat = (1.0 - snow) * heatExposure > 0.002 ? heatGlow * (1.0 - snow) : half3(0, 0, 0);
                 // The glow takes the crust's relief, for the reason crustRelief is declared where it is. The
                 // grain multiplies ALBEDO and this is ADDED, so the final pixel is albedo*light*(1+relief) + heat:
                 // as heat grows the relief becomes a vanishing fraction of it, and the nearest, brightest, most

@@ -118,9 +118,13 @@ half3 TWPoolsOnFigure(float3 positionWS, half3 normalWS, half3 viewWS, out half3
 /// The ground's pools and, where it is wet (glintOn), the flames' glints in its reflection r, in ONE pass over the pools:
 /// the two separate loops cost the terrain two walks of 32 pools on every wet pixel (round 12: the pool system measured
 /// 0.4-0.5 ms). The same hard bands as TWPoolsOnFigure, and the same hard highlight toward r as a wet reflection catches.
-half3 TWPoolsAndGlints(float3 positionWS, half3 normalWS, float3 r, bool glintOn, out half3 glints)
+half3 TWPoolsGlintsAndRim(float3 positionWS, half3 normalWS, float3 r, bool glintOn, bool rimOn, half3 viewWS, half edgeLo, out half3 glints, out half3 rimOut)
 {
-    half3 sum = 0; glints = 0;
+    half3 sum = 0; glints = 0; rimOut = 0;
+    // rimOn: a prop's warm rim (look.propRim), what TWPoolsOnFigure(..., edgeLo) gives a figure, taken in this same walk
+    // over the first TW_FIGURE_POOLS pools: it reads the same d and dist2, and its reach (1.25 pools) lies inside the glint
+    // reach (1.6) that the cull below already keeps, so no flame the rim wants is skipped.
+    half rimEdge = rimOn ? 1.0 - saturate(dot(normalWS, viewWS)) : 0.0;
     int count = (int)_TWPoolCount;
     [loop] for (int k = 0; k < count; k++)
     {
@@ -134,6 +138,16 @@ half3 TWPoolsAndGlints(float3 positionWS, half3 normalWS, float3 r, bool glintOn
         float3 dn = d / max(dist, 1e-2);
         if (dist < reach)
             sum += _TWPoolTint[k].rgb * TWPoolBand(dist / reach) * TWPoolFacing(normalWS, dn);
+        if (rimOn && k < TW_FIGURE_POOLS)
+        {
+            float rimReach = reach * 1.25;
+            if (dist2 < rimReach * rimReach)
+            {
+                float t = dist / rimReach;
+                half toward = saturate(dot(normalWS, dn));
+                rimOut += _TWPoolTint[k].rgb * smoothstep(edgeLo, edgeLo + 0.08, rimEdge * toward) * (1.0 - smoothstep(0.45, 1.0, t));
+            }
+        }
         if (glintOn)
         {
             glints += _TWPoolTint[k].rgb * smoothstep(0.86, 0.92, dot(r, dn)) * (1.0 - smoothstep(0.55, 1.0, dist / glintReach));
@@ -164,6 +178,13 @@ half3 TWPoolsAndGlints(float3 positionWS, half3 normalWS, float3 r, bool glintOn
         }
     }
     return TWPoolRoll(sum);
+}
+
+/// The ground and the callers that want no rim: the walk above with the rim switched off.
+half3 TWPoolsAndGlints(float3 positionWS, half3 normalWS, float3 r, bool glintOn, out half3 glints)
+{
+    half3 rimUnused;
+    return TWPoolsGlintsAndRim(positionWS, normalWS, r, glintOn, false, half3(0, 0, 0), 0.0, glints, rimUnused);
 }
 
 #endif

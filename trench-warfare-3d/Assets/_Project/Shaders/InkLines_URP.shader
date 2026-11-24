@@ -24,7 +24,11 @@ Shader "TW/Ink Lines (URP)"
     SubShader
     {
         Tags { "RenderPipeline"="UniversalPipeline" }
-        ZWrite Off ZTest Always Cull Off Blend Off
+        ZWrite Off ZTest Always Cull Off
+        // The pass returns only the ink and its weight: the hardware blend lerps it over the scene (src.rgb * a + dst.rgb * (1 - a)
+        // is exactly lerp(scene, ink, a)), so the colour buffer is never sampled and ColorMask keeps the scene's alpha.
+        Blend SrcAlpha OneMinusSrcAlpha
+        ColorMask RGB
         Pass
         {
             Name "InkLines"
@@ -43,14 +47,16 @@ Shader "TW/Ink Lines (URP)"
             half4 frag(Varyings input) : SV_Target
             {
                 float2 uv = input.texcoord;
-                half4 color = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
-                float2 px = _Thickness / _ScreenParams.xy;
                 float c = SampleSceneDepth(uv);
+                float eye = LinearEyeDepth(c, _ZBufferParams);
+                // Past the fade the line is zero (fade below reaches 0 at max(_FadeEnd, _FadeStart + 1)), the sky included:
+                // leave before the four neighbour taps, the field fog and the blend all cost nothing there.
+                if (eye >= max(_FadeEnd, _FadeStart + 1.0)) return 0;
+                float2 px = _Thickness / _ScreenParams.xy;
                 float l = SampleSceneDepth(uv - float2(px.x, 0)), r = SampleSceneDepth(uv + float2(px.x, 0));
                 float d = SampleSceneDepth(uv - float2(0, px.y)), u = SampleSceneDepth(uv + float2(0, px.y));
                 // second difference, relative to the depth itself so near and far creases weigh the same
                 float bend = (abs(l + r - 2.0 * c) + abs(d + u - 2.0 * c)) / max(c, 1e-6);
-                float eye = LinearEyeDepth(c, _ZBufferParams);
                 float fade = 1.0 - saturate((eye - _FadeStart) / max(1.0, _FadeEnd - _FadeStart));
                 // A trench lip is a crease at any zoom; a two degree facet is not one at any zoom and only
                 // became visible because it got bigger on screen. _TWClose is 0 at the standard view, so that
@@ -61,8 +67,7 @@ Shader "TW/Ink Lines (URP)"
                 // look.inkFade: a line fades as the distance fog closes over what it outlines (linear fog visibility from
                 // the eye depth), or the lifted haze left distant wire and hedgehogs as bare black outlines (critique round 2)
                 if (ink > 0.001 && _TWInkFogFade > 0.0) ink *= lerp(1.0, saturate(eye * unity_FogParams.z + unity_FogParams.w), _TWInkFogFade);
-                color.rgb = lerp(color.rgb, _InkColor.rgb, ink);
-                return color;
+                return half4(_InkColor.rgb, ink);
             }
             ENDHLSL
         }

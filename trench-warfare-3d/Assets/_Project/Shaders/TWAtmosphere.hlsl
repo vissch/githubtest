@@ -233,6 +233,43 @@ half TWHeatCrust(float3 positionWS, float3 normalWS, half exposure)
     return lerp(1.0, lerp(0.38, 0.17, molten), plate * where * exposure);
 }
 
+/// TWHeatCrust and TWHeatGlow in one call, for the one caller that wants both (Toon_URP: the ground): they share the
+/// plate edge (a 3x3 Worley) and the molten field (three value-noise octaves), and each used to compute both on its own.
+/// The same numbers as the pair, each under its own exposure: crust is 1 where crustExposure is spent, glow is 0 where
+/// glowExposure is. Water_URP keeps calling the originals.
+void TWHeatCrustAndGlow(float3 positionWS, float3 normalWS, half crustExposure, half glowExposure, out half crust, out half3 glow)
+{
+    crust = 1.0; glow = half3(0, 0, 0);
+    if (_TWHeat.x <= 0.0 || (crustExposure <= 0.002 && glowExposure <= 0.002)) return;
+    half where = saturate(normalWS.y * 2.2 - 0.5);
+    if (where <= 0.002) return;
+    float2 q = positionWS.xz * _TWHeat.y * float2(1.0, 0.78);
+    half edge = TWPlateEdge(q);
+    half molten = TWMolten(positionWS.xz * 0.032);
+    if (crustExposure > 0.002)
+    {
+        half plate = smoothstep(0.0, max(_TWHeat.z, 1e-3) * 8.0, edge);
+        crust = lerp(1.0, lerp(0.38, 0.17, molten), plate * where * crustExposure);
+    }
+    if (glowExposure > 0.002)
+    {
+        half viewDepth = distance(_WorldSpaceCameraPos, positionWS);
+        half w = max(_TWHeat.z, 1e-3) * (0.4 + 0.9 * (sin(positionWS.x * 0.21 + positionWS.z * 0.17) * 0.5 + 0.5) + 2.6 * molten);
+        half wMin = fwidth(edge) * 1.5;
+        half sub = saturate(w / max(wMin, 1e-5));
+        w = max(w, wMin);
+        half crack = 1.0 - smoothstep(0.0, w, edge);
+        half core = (1.0 - smoothstep(0.0, w * 0.34, edge)) * saturate(1.0 - viewDepth / 45.0);
+        half warm = 1.0 - smoothstep(0.0, w * 8.0, edge);
+        half3 lit = half3(0.30, 0.045, 0.02) * (warm * warm)
+                  + _TWHeatColor.rgb * (crack * crack)
+                  + half3(1.0, 0.86, 0.58) * (core * core * 0.85);
+        lit += lerp(_TWHeatColor.rgb * 0.95, half3(1.0, 0.82, 0.50), saturate(molten * 1.4 - 0.4)) * (pow(molten, 1.25) * 1.45);
+        half far = saturate(1.22 - viewDepth / 230.0);
+        glow = lit * (_TWHeat.x * where * glowExposure * sub * far);
+    }
+}
+
 /// Light thrown UP off the floor onto whatever stands on it: strongest low down and on faces turned toward the
 /// ground. Without it the lava field is a set of black cutouts against a bright floor, which is the one thing the
 /// reference never does - there, every stump and sandbag catches the fire along its underside and its lower edges.
