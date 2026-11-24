@@ -173,6 +173,7 @@ namespace TW.Presentation.Units
         {
             ushort farRow = (ushort)((int)AnimRow.Death0 + (variant & 3));
             int figure = figures != null ? math.clamp(FigureOfArchetype(archetype), 0, figures.Length - 1) : 0;
+            EnsureFigureLoaded(figure);   // a deferred figure's own RowSeconds, and its atlas by the time DrawFallen runs
             near = clipAtlas && clip != Clip.None;
             float seconds = near ? figures[figure].Asset.RowSeconds[(int)clip] : FallSeconds;
             // the clip he was in as he was hit fades out over the death's first moments (the living instance stops drawing him)

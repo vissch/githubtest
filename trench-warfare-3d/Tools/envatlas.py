@@ -1,6 +1,6 @@
 # Packs the Tripo environment sheets (six sets, and the village houses since 2026-09-23) into one atlas, each halved in size.
 #
-# Why: BattlefieldKit was loading Resources/Env/<Set>/<Set>.jpg for each of the six sets, six 2048x2048 sheets
+# Why: BattlefieldKit was loading Env/<Set>/<Set>.jpg (then in Resources, now Art/Env) for each of the six sets, six 2048x2048 sheets
 # importing to about 2.8 MB of compressed VRAM apiece — roughly 17 MB to draw props that are mostly a metre across.
 # Six textures is also six bindings, and SetPass was measured at 321 against 374 draw calls, very nearly one state
 # change per draw.
@@ -31,8 +31,11 @@ from PIL import Image
 SETS = ["Fence", "Plants", "Siege", "Stones", "Weapons", "Wood", "Houses", "Military", "Ruins"]
 CELL = 1024
 COLS, ROWS = 4, 4
-ROOT = os.path.join("Assets", "_Project", "Resources", "Env")
-OUT = os.path.join(ROOT, "EnvAtlas.jpg")   # JPEG like the sheets it replaces: Unity recompresses to DXT anyway,
+# The 2048x2048 source sheets live OUTSIDE Resources/ (Art/Env/<Set>/<Set>.jpg): Resources/ is shipped whole, and these nine
+# sheets (about 25 MB compressed) are only the packer's input; the game samples EnvAtlas.jpg, which stays in Resources/Env.
+SRC_ROOT = os.path.join("Assets", "_Project", "Art", "Env")
+OUT_ROOT = os.path.join("Assets", "_Project", "Resources", "Env")
+OUT = os.path.join(OUT_ROOT, "EnvAtlas.jpg")   # JPEG like the sheets it replaces: Unity recompresses to DXT anyway,
                                            # and a lossless copy would put 7 MB in the repo to buy nothing on the GPU
 SIDECAR = os.path.join("Tools", "envatlas.bake.json")   # what the last bake actually laid down, so EnvAtlasTests can
                                                         # tell a reordered list from the atlas on disk
@@ -57,7 +60,7 @@ def write_sidecar():
 def main():
     atlas = Image.new("RGB", (CELL * COLS, CELL * ROWS), (18, 18, 20))
     for i, name in enumerate(SETS):
-        path = os.path.join(ROOT, name, name + ".jpg")
+        path = os.path.join(SRC_ROOT, name, name + ".jpg")
         if not os.path.exists(path):
             raise SystemExit("missing sheet: " + path)
         sheet = Image.open(path).convert("RGB")
@@ -69,7 +72,7 @@ def main():
         print("%-8s -> cell (%d,%d)  uv offset (%.4f, %.4f)" % (name, col, row, col / COLS, 1.0 - (row + 1) / ROWS))
     atlas.save(OUT, quality=94, subsampling=0, optimize=True)
     write_sidecar()
-    before = sum(os.path.getsize(os.path.join(ROOT, s, s + ".jpg")) for s in SETS)
+    before = sum(os.path.getsize(os.path.join(SRC_ROOT, s, s + ".jpg")) for s in SETS)
     print("\n%s  %dx%d" % (OUT, atlas.width, atlas.height))
     print("on disk: %.1f KB for %d sheets -> %.1f KB for one" % (before / 1024, len(SETS), os.path.getsize(OUT) / 1024))
     # what actually matters is the decompressed cost, which is pixels, not the file

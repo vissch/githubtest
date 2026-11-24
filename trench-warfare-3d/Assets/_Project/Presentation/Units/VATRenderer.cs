@@ -221,6 +221,61 @@ namespace TW.Presentation.Units
             return new Figure { Asset = a, Material = m, Fallen = fallen, Rows = rows, Props = props, FallenProps = fallenProps };
         }
 
+        // lazily decoded figures: per FigureNames slot, the bake still to decode (null once loaded, or never deferred) and its
+        // mid mesh. Until then the slot (and its mid slot) is a Figure over the Soldier's asset, which is never drawn.
+        VatAssetData[] pendingData;
+        Mesh[] pendingMid;
+        Shader vatShader;
+
+        /// <summary>Which figures the units this match can field are drawn with (FigureNames order), from the deployable rosters
+        /// of every player; null when that cannot be known (no world yet, or a test level that may field anything), in which
+        /// case every bake is decoded up front. A unit that arrives some other way is still drawn: its figure loads on first use.</summary>
+        bool[] FiguresFielded()
+        {
+            var host = Host;
+            if (host == null || host.Local == null || host.TestLevel) return null;
+            var w = host.Local.World;
+            if (w == null || w.Init.TestLevel || !w.Roster.IsCreated) return null;
+            var used = new bool[FigureNames.Length];
+            for (int i = 0; i < w.Roster.Length; i++) used[math.clamp(FigureOfArchetype(w.Roster[i].Archetype), 0, used.Length - 1)] = true;
+            return used;
+        }
+
+        /// <summary>Decode a deferred figure now (a no-op for one that is loaded or was never deferred): its own atlas, material
+        /// and row table replace the Soldier-backed stand-ins, its mid slot too. Only the stand-ins' own material, fallen
+        /// material and row buffer are freed: their VatAsset is the Soldier's, which OnDestroy releases once.</summary>
+        void EnsureFigureLoaded(int fig)
+        {
+            if (pendingData == null || fig < 0 || fig >= pendingData.Length || pendingData[fig] == null || figures == null) return;
+            var data = pendingData[fig]; var mid = pendingMid[fig];
+            pendingData[fig] = null; pendingMid[fig] = null;
+            var asset = data.ToAsset();
+            SwapFigure(fig, Make(vatShader, asset));
+            int m = midOf[fig];
+            if (m != fig && mid != null) SwapFigure(m, Make(vatShader, asset.WithMesh(mid)));
+        }
+
+        void SwapFigure(int slot, Figure fresh)
+        {
+            var old = figures[slot];
+            fresh.Near = old.Near; fresh.Start = old.Start;
+            old.Rows?.Dispose();
+            VatAsset.Kill(old.Material); VatAsset.Kill(old.Fallen);
+            figures[slot] = fresh;
+            if (extraProps != null && slot < extraProps.Length)   // the riders' blocks cached the stand-in's range
+            {
+                extraProps[slot].SetVector(PosMinId, fresh.Asset.PosMin); extraProps[slot].SetVector(PosSizeId, fresh.Asset.PosSize);
+            }
+        }
+
+        /// <summary>Before the draw args are built: load every deferred figure that has a man (or his mid mesh) to draw this frame.</summary>
+        void EnsureDrawnFiguresLoaded()
+        {
+            if (pendingData == null) return;
+            for (int k = 1; k < fullFigures; k++)
+                if (pendingData[k] != null && (group[k] > 0 || (midOf[k] != k && group[midOf[k]] > 0))) EnsureFigureLoaded(k);
+        }
+
         float blendZoom = LodTiers.BlendZoom, cullRadius = LodTiers.CullRadius;
         int vertexBudget = LodTiers.VertexBudget;
 
@@ -251,19 +306,32 @@ namespace TW.Presentation.Units
             if (src[0] >= 0)
             {
                 var asset = new VatAsset[FigureNames.Length];
-                for (int k = 0; k < src.Length; k++) asset[src[k]] ??= data[src[k]].ToAsset();   // decode only the distinct sources used
+                // a baked figure no unit of this match will draw (the Frog: ~30 MB of atlas) is decoded when it first has to be
+                // drawn (EnsureFigureLoaded), not now; the Soldier (0) is always decoded here, and what borrows it with it
+                var fielded = FiguresFielded();
+                var defer = new bool[FigureNames.Length];
+                for (int k = 1; k < defer.Length; k++) defer[k] = fielded != null && !fielded[k] && FigureBorrows[k] < 0 && has[k];
+                for (int k = 0; k < src.Length; k++) if (!defer[k]) asset[src[k]] ??= data[src[k]].ToAsset();   // decode only the distinct sources used
                 // the mid figures follow the full ones; a figure without its own mid bake is its own mid. The mid mesh has
                 // the figure's vertices in the same order and fewer triangles: drawn with the figure's own atlas (the shader
                 // reads it by SV_VertexID), so it costs no texture memory
                 int full = FigureNames.Length;
                 midOf = new NativeArray<byte>(full, Allocator.Persistent);
                 var all = new List<VatAsset>();
-                for (int k = 0; k < full; k++) all.Add(asset[src[k]]);
+                pendingData = new VatAssetData[full]; pendingMid = new Mesh[full]; vatShader = shader;
+                for (int k = 0; k < full; k++) all.Add(defer[k] ? asset[0] : asset[src[k]]);   // a deferred slot borrows the Soldier's until it loads
                 for (int k = 0; k < full; k++)
                 {
                     var mid = k < MidNames.Length && has[k] ? Resources.Load<Mesh>("Units/Figure" + MidNames[k] + "Mesh") : null;
-                    if (mid != null && all[k].Mesh != null && mid.vertexCount == all[k].Mesh.vertexCount) { midOf[k] = (byte)all.Count; all.Add(all[k].WithMesh(mid)); }
+                    var baseMesh = defer[k] ? data[k].Mesh : all[k].Mesh;
+                    if (mid != null && baseMesh != null && mid.vertexCount == baseMesh.vertexCount)
+                    {
+                        midOf[k] = (byte)all.Count;
+                        if (defer[k]) { pendingMid[k] = mid; all.Add(asset[0]); }
+                        else all.Add(all[k].WithMesh(mid));
+                    }
                     else midOf[k] = (byte)k;
+                    if (defer[k]) pendingData[k] = data[k];
                 }
                 fullFigures = full;
                 figures = new Figure[all.Count];
@@ -402,6 +470,7 @@ namespace TW.Presentation.Units
             if (DrawnInfantry > 0)
             {
                 // the near records were grouped by figure in the fill job ([V5] GroupByFigure); these are its spans
+                EnsureDrawnFiguresLoaded();   // a figure decoded lazily is swapped in before its args and draw are built
                 for (int k = 0; k < figures.Length; k++) { figures[k].Near = group[k]; figures[k].Start = group[figures.Length + k]; }
                 for (int k = fullFigures; k < figures.Length; k++) DrawnMid += figures[k].Near;
                 int farStart = instances.Length - DrawnFar;
@@ -644,7 +713,7 @@ namespace TW.Presentation.Units
             VatAsset.Kill(tankMatA); tankMatA = null;
             VatAsset.Kill(tankMatB); tankMatB = null;
             VatAsset.Kill(tankMesh); tankMesh = null;
-            figures = null; far = null;
+            figures = null; far = null; pendingData = null; pendingMid = null; vatShader = null;
         }
 
         /// <summary>One figure's buffer, material and (once only) its atlas.</summary>

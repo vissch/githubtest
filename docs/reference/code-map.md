@@ -78,6 +78,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 |---|---|
 | `Art/` | Source art Unity imports but the game does not load by name (figures, clip FBX). |
 | `Art/Characters/` | Owner's Mixamo-rigged figures (Soldier, Sniper) and the ~100 clip FBX the VAT baker reads. |
+| `Art/Env/` | The nine 2048x2048 prop sheets Tools/envatlas.py packs into Resources/Env/EnvAtlas.jpg: kept out of Resources so a build does not ship them. |
 | `Data/` | ScriptableObject schemas and the baker that turns them into sim tables (SIM lane). |
 | `Editor/` | Editor-only tools: scene builder, VAT baker, importers, CaptureRig, Windows build, prop editor. |
 | `Editor/UI/` | Editor tools for the UI skin: placeholder painter, importer, verifier, HUD capture. |

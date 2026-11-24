@@ -58,6 +58,7 @@ AGENTS_MAX_LINES = 40
 # One line per folder, two levels under Assets/_Project. A new folder fails --check until it has a line here.
 PURPOSE = {
     'Art': 'Source art Unity imports but the game does not load by name (figures, clip FBX).',
+    'Art/Env': 'The nine 2048x2048 prop sheets Tools/envatlas.py packs into Resources/Env/EnvAtlas.jpg: kept out of Resources so a build does not ship them.',
     'Art/Characters': "Owner's Mixamo-rigged figures (Soldier, Sniper) and the ~100 clip FBX the VAT baker reads.",
     'Data': 'ScriptableObject schemas and the baker that turns them into sim tables (SIM lane).',
     'Editor': 'Editor-only tools: scene builder, VAT baker, importers, CaptureRig, Windows build, prop editor.',
