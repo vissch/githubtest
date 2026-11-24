@@ -64,7 +64,9 @@ namespace TW.Presentation.Units
         {
             muzzle = inst.Pos; dir = Vector3.forward;
             if (!clipAtlas || figures == null || figures.Length == 0) return false;
-            var asset = figures[math.clamp(figure, 0, figures.Length - 1)].Asset;
+            int fig = math.clamp(figure, 0, figures.Length - 1);
+            EnsureFigureLoaded(fig);
+            var asset = figures[fig].Asset;
             if (asset.Sockets == null || !nearRowOf.IsCreated) return false;
             int row = nearRowOf[math.clamp((int)inst.AnimRow, 0, nearRowOf.Length - 1)];
             if (!asset.Socket(row, inst.AnimT, VatAsset.Muzzle, out var m) || !asset.Socket(row, inst.AnimT, VatAsset.Barrel, out var b)) return false;
@@ -132,6 +134,7 @@ namespace TW.Presentation.Units
                 }
                 else extraByFigure[math.clamp(figureOfExtra != null && i < figureOfExtra.Length ? figureOfExtra[i] : 0, 0, figures.Length - 1)].Add(i);
             }
+            for (int k = 0; k < figures.Length; k++) if (extraByFigure[k].Count > 0) EnsureFigureLoaded(k);
             int near = 0;
             for (int k = 0; k < figures.Length; k++)
             {

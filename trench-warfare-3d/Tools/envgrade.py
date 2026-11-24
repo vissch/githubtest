@@ -1,5 +1,5 @@
 # Grades the owner's Tripo environment set textures (Downloads/env sets, 2026-09-22) into the painted field's range and
-# writes them as Assets/_Project/Resources/Env/<Set>/<Set>.jpg (2048): the sets are painted much brighter and more
+# writes them as Assets/_Project/Art/Env/<Set>/<Set>.jpg (2048): the sets are painted much brighter and more
 # saturated than the night battlefield (orange gabions, lime moss, red and blue boards read as toys among the mud).
 # Saturation is cut per set, greens hardest; the poppies' reds are kept; values are pulled a little toward a warm grey.
 # usage: python envgrade.py <folder with the unzipped sets>   (sub-folders siege, weapon, stones, wooden, fence, plant)
@@ -7,7 +7,7 @@ import glob, os, sys
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "..", "Assets", "_Project", "Resources", "Env")
+OUT = os.path.join(HERE, "..", "Assets", "_Project", "Art", "Env")
 # set key: (folder, base colour glob, saturation kept, value kept)
 SETS = {
     "siege": ("Siege", "fantasy+siege+props+3d+model.fbm/*basecolor.jpg", .55, .92),

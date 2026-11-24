@@ -274,7 +274,7 @@ def build(P: Path, code: dict, notes: dict):
         placed_by = code['placed_fields'].get('biplane')
         a = new_asset('Biplane', 'vehicle', kind='extra', set=h['set'])
         a['blurb'] = 'Not a unit: the strafing aircraft, and a crashed landmark on the field.'
-        tex = P / 'Resources/Env' / h['set'] / f'{h["set"]}.jpg'
+        tex = P / 'Art/Env' / h['set'] / f'{h["set"]}.jpg'
         a['models'] = [dict(form='battle', lods=[dict(lod=0, path=f'Resources/Env/{h["set"]}/Biplane.fbx', tris=h['tris'])],
                             texture=src_files.rel(tex, P) if tex.exists() else None, manifest=h['manifest'], parts=[], sockets=[], size_m=None,
                             chunks=h['chunks'], whole=f'Resources/Env/{h["set"]}/Biplane.fbx')]
@@ -309,7 +309,7 @@ def build(P: Path, code: dict, notes: dict):
         in_kit = set_name in code['building_sets'] and (h is not None) or field is not None
         placed_by = code['placed_sets'].get(set_name) if h and set_name != 'Siege' else code['placed_fields'].get(field)
         where = river if set_name == 'Houses' else grounds
-        tex = P / 'Resources/Env' / set_name / f'{set_name}.jpg'
+        tex = P / 'Art/Env' / set_name / f'{set_name}.jpg'
         a['models'] = [dict(form='battle', lods=[dict(lod=0, path=f'Resources/Env/{set_name}/', tris=h['tris'] if h else None)],
                             texture=src_files.rel(tex, P) if tex.exists() else None, manifest=h['manifest'] if h else None,
                             parts=[], sockets=[], size_m=None, chunks=h['chunks'] if h else 0, whole=src_files.rel(whole, P) if whole.exists() else None)]

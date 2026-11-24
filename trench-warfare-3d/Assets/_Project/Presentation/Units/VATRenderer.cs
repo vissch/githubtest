@@ -242,11 +242,21 @@ namespace TW.Presentation.Units
         }
 
         /// <summary>Decode a deferred figure now (a no-op for one that is loaded or was never deferred): its own atlas, material
-        /// and row table replace the Soldier-backed stand-ins, its mid slot too. Only the stand-ins' own material, fallen
-        /// material and row buffer are freed: their VatAsset is the Soldier's, which OnDestroy releases once.</summary>
+        /// and row table replace the Soldier-backed stand-ins, its mid slot too. Accepts a mid slot index as well, resolving it
+        /// back to its full figure via midOf. Only the stand-ins' own material, fallen material and row buffer are freed: their
+        /// VatAsset is the Soldier's, which OnDestroy releases once.</summary>
         void EnsureFigureLoaded(int fig)
         {
-            if (pendingData == null || fig < 0 || fig >= pendingData.Length || pendingData[fig] == null || figures == null) return;
+            if (pendingData == null || fig < 0 || figures == null) return;
+            if (fig >= fullFigures)
+            {
+                if (!midOf.IsCreated) return;
+                int owner = -1;
+                for (int f = 0; f < fullFigures; f++) if (midOf[f] == fig) { owner = f; break; }
+                if (owner < 0) return;
+                fig = owner;
+            }
+            if (fig >= pendingData.Length || pendingData[fig] == null) return;
             var data = pendingData[fig]; var mid = pendingMid[fig];
             pendingData[fig] = null; pendingMid[fig] = null;
             var asset = data.ToAsset();
@@ -262,7 +272,7 @@ namespace TW.Presentation.Units
             old.Rows?.Dispose();
             VatAsset.Kill(old.Material); VatAsset.Kill(old.Fallen);
             figures[slot] = fresh;
-            if (extraProps != null && slot < extraProps.Length)   // the riders' blocks cached the stand-in's range
+            if (extraProps != null && slot < extraProps.Length && extraProps[slot] != null)   // the riders' blocks cached the stand-in's range
             {
                 extraProps[slot].SetVector(PosMinId, fresh.Asset.PosMin); extraProps[slot].SetVector(PosSizeId, fresh.Asset.PosSize);
             }
@@ -517,7 +527,9 @@ namespace TW.Presentation.Units
             if (!clipAtlas || figures == null || anim == null || !Host.UseAnimationController || Host.Presenter == null || Host.Local == null) return false;
             var w = Host.Local.World;
             if (slot < 0 || slot >= w.HighWater || slot >= anim.Row.Length || (w.Flags[slot] & (uint)UnitFlags.Vehicle) != 0) return false;
-            var asset = figures[math.clamp(FigureOfArchetype(w.Archetype[slot]), 0, fullFigures - 1)].Asset;
+            int fig = math.clamp(FigureOfArchetype(w.Archetype[slot]), 0, fullFigures - 1);
+            EnsureFigureLoaded(fig);
+            var asset = figures[fig].Asset;
             if (asset.Sockets == null) return false;
             float3 p = Host.Presenter.Drawn(slot);
             var map = Host.Local.Map;
