@@ -137,8 +137,8 @@ namespace TW.UI
             [ReadOnly] public NativeArray<ushort> Generation;
             [ReadOnly] public NativeArray<float> Lift, Hop;
             [ReadOnly] public NativeArray<VehicleProfile> Profiles;
-            public Heightfield Height;
-            public RenderGroundGrid Ground;
+            [ReadOnly] public Heightfield Height;
+            [ReadOnly] public RenderGroundGrid Ground;
             public bool Controlled;
             public float Man, PxPerRad, Near;
             public float3 CamPos, Fwd;
