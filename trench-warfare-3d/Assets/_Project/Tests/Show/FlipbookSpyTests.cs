@@ -104,6 +104,41 @@ namespace TW.Tests
         }
 
         [Test]
+        public void ExpiredCardsLeaveInOnePass_AndTheSurvivorsKeepTheirDrawOrder()
+        {
+            var fx = NewFx(out var mats);
+            ulong was = FlipbookFx.Spied;
+            try
+            {
+                Assume.That(fx.Ready, "the flipbook shader and sheets load in the editor");
+
+                var book = FlipbookFx.Book.JetCore;
+                FlipbookFx.Spied = 1UL << (int)book;
+                fx.Add(book, new Vector3(1f, 0f, 0f), 2f, 1f);                                          // lives
+                fx.Add(book, new Vector3(2f, 0f, 0f), 2f, 0.02f);                                       // expired by the draw
+                fx.Add(book, new Vector3(3f, 0f, 0f), 2f, 1f, velocity: new Vector3(4f, 0f, 0f));       // lives, drifts
+                fx.Add(book, new Vector3(4f, 0f, 0f), 2f, 0.02f);                                       // expired by the draw
+                fx.Add(book, new Vector3(5f, 0f, 0f), 2f, 1f);                                          // lives
+                fx.Add(book, new Vector3(6f, 0f, 0f), 2f, 1f, delay: 10f);                              // not born yet: kept, not drawn
+                Assert.AreEqual(6, fx.Alive);
+                FlipbookFx.SpiedCards.Clear();
+                fx.Draw(Time.time + 0.5f, new Bounds(Vector3.zero, Vector3.one * 1000f));
+
+                Assert.AreEqual(4, fx.Alive, "the two expired cards are gone, the unborn one stays");
+                Assert.AreEqual(3, FlipbookFx.SpiedCards.Count, "the three born survivors are drawn");
+                Assert.AreEqual(1f, FlipbookFx.SpiedCards[0].m03, 1e-4f, "first survivor first");
+                Assert.GreaterOrEqual(FlipbookFx.SpiedCards[1].m03, 3f, "the drifting card only moves forward along its velocity");
+                Assert.AreEqual(5f, FlipbookFx.SpiedCards[2].m03, 1e-4f, "last survivor last: the draw order is the order the cards were added");
+            }
+            finally
+            {
+                FlipbookFx.Spied = was;
+                FlipbookFx.SpiedCards.Clear();
+                Dispose(mats);
+            }
+        }
+
+        [Test]
         public void CardMaskCoversTheAreaTheLensSays()
         {
             var go = new GameObject("spy test camera");

@@ -1,11 +1,12 @@
 // Phase: B2 (implemented) — what the river sheet (TW/Water) and the puddles painted on the ground (TW/Toon) share: the
 // painted depth bands with a pale shore and lapping rings, and the rings thrown by wading men and shell bursts.
-// WaterRings.cs owns _TWRings / _TWNow; with none in the scene every ring is long dead and the loop adds nothing.
+// WaterRings.cs owns _TWRings / _TWRingCount / _TWNow; with none in the scene the count is 0 and the loop does not run.
 #ifndef TW_WATER_INCLUDED
 #define TW_WATER_INCLUDED
 
 #define TW_RING_COUNT 16
-float4 _TWRings[TW_RING_COUNT];   // x, z, start time, size in metres
+float4 _TWRings[TW_RING_COUNT];   // x, z, start time, size in metres; the live ones first, in slot order (WaterRings.Update)
+float _TWRingCount;               // how many of _TWRings are worth reading; never set = 0 = no rings, as the old all-zero array drew
 float _TWNow;
 // The water's own clock. A capture shoots the same throw twice seconds apart, and the lapping, the drift and the
 // raindrops would move ~1,600 px between the two runs by themselves, which is noise nothing can measure through.
@@ -18,7 +19,8 @@ float _TWWaterClock;
 half TWRings(float2 xz, out half stir, out half trough)
 {
     half sum = 0; stir = 0; trough = 0;
-    for (int k = 0; k < TW_RING_COUNT; k++)
+    int ringCount = min((int)_TWRingCount, TW_RING_COUNT);
+    [loop] for (int k = 0; k < ringCount; k++)
     {
         float4 r = _TWRings[k];
         float age = (_TWNow - r.z) / (0.9 + r.w * 0.4);

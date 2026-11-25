@@ -146,7 +146,9 @@ namespace TW.Presentation.Units
 
         sealed class Figure
         {
-            public VatAsset Asset; public Material Material, Fallen; public GraphicsBuffer Rows; public int Near, Start;
+            // Fallen: the corpse that lost a limb (Cull Off, _TW_FALLEN + _TW_LIMBCUT: it clips); FallenWhole: every other corpse
+            // (Cull Off, _TW_FALLEN only: the same pixels with no clip(), so the GPU early-depth-rejects what is hidden)
+            public VatAsset Asset; public Material Material, Fallen, FallenWhole; public GraphicsBuffer Rows; public int Near, Start;
             public MaterialPropertyBlock Props, FallenProps;
         }
         Figure[] figures;            // the near tier(s): the baked figures, then their mid figures; one box-soldier figure when nothing is baked
@@ -189,6 +191,7 @@ namespace TW.Presentation.Units
         {
             f.Material.SetFloat(CoatId, coat); f.Material.SetColor(KitId, kit);
             f.Fallen.SetFloat(CoatId, coat); f.Fallen.SetColor(KitId, kit);
+            f.FallenWhole.SetFloat(CoatId, coat); f.FallenWhole.SetColor(KitId, kit);
         }
 
         static Figure Make(Shader shader, VatAsset a, bool withFallen = true)
@@ -201,24 +204,31 @@ namespace TW.Presentation.Units
             rows.SetData(a.RowTable);
             // the fallen are drawn from the same atlas with both sides: where a shell took a limb off the inside shows (dark),
             // not the field through a hollow shell. Cull is render state, not a property block value, hence a second material.
-            // [V6] only the near figures need it: the far tier's fallen draw goes through far.Material with
-            // far.FallenProps (VATRenderer.Fallen.cs), so a second far material was built and killed unused.
-            Material fallen = null;
+            // Every figure, the far box soldier too, has both: the far corpse draw (VATRenderer.Fallen.cs) uses them, and a
+            // figure made without them left far.Fallen null, a draw with no material.
+            // Two materials, one look: `fallen` clips (a limb a shell took off is not drawn), `fallenWhole` has no clip() at
+            // all, so a corpse that lost nothing keeps early-Z. Both are _TW_FALLEN (the dead's look, VAT_URP).
+            Material fallen = null, fallenWhole = null;
             if (withFallen)
             {
                 fallen = new Material(m) { hideFlags = HideFlags.HideAndDontSave };
                 fallen.SetFloat(CullId, (float)CullMode.Off);
-                fallen.EnableKeyword("_TW_LIMBCUT");   // and only they can have lost a limb: the living draw with no clip() (VAT_URP)
+                fallen.EnableKeyword("_TW_FALLEN");
+                fallen.EnableKeyword("_TW_LIMBCUT");   // only they can have lost a limb: the living draw with no clip() (VAT_URP)
                 // new Material(m) copies only what the shader declares: _PosMin/_PosSize are not in its Properties block, and
                 // without them every vertex decodes to the origin (the fallen drew as a dot). Set them again.
                 fallen.SetVector(PosMinId, a.PosMin); fallen.SetVector(PosSizeId, a.PosSize);
+                fallenWhole = new Material(m) { hideFlags = HideFlags.HideAndDontSave };
+                fallenWhole.SetFloat(CullId, (float)CullMode.Off);
+                fallenWhole.EnableKeyword("_TW_FALLEN");   // no _TW_LIMBCUT: a corpse whose record packs no lost limb has nothing to clip
+                fallenWhole.SetVector(PosMinId, a.PosMin); fallenWhole.SetVector(PosSizeId, a.PosSize);
             }
             // the range goes on the property blocks too: a shader reload during Play resets a material's values to the
             // shader's defaults (every man then decodes to a 1 m box or a point), and a block is never touched by that
             var props = new MaterialPropertyBlock(); var fallenProps = new MaterialPropertyBlock();
             props.SetVector(PosMinId, a.PosMin); props.SetVector(PosSizeId, a.PosSize);
             fallenProps.SetVector(PosMinId, a.PosMin); fallenProps.SetVector(PosSizeId, a.PosSize);
-            return new Figure { Asset = a, Material = m, Fallen = fallen, Rows = rows, Props = props, FallenProps = fallenProps };
+            return new Figure { Asset = a, Material = m, Fallen = fallen, FallenWhole = fallenWhole, Rows = rows, Props = props, FallenProps = fallenProps };
         }
 
         // lazily decoded figures: per FigureNames slot, the bake still to decode (null once loaded, or never deferred) and its
@@ -270,7 +280,7 @@ namespace TW.Presentation.Units
             var old = figures[slot];
             fresh.Near = old.Near; fresh.Start = old.Start;
             old.Rows?.Dispose();
-            VatAsset.Kill(old.Material); VatAsset.Kill(old.Fallen);
+            VatAsset.Kill(old.Material); VatAsset.Kill(old.Fallen); VatAsset.Kill(old.FallenWhole);
             figures[slot] = fresh;
             if (extraProps != null && slot < extraProps.Length && extraProps[slot] != null)   // the riders' blocks cached the stand-in's range
             {
@@ -348,8 +358,8 @@ namespace TW.Presentation.Units
                 for (int k = 0; k < all.Count; k++) figures[k] = Make(shader, all[k]);
                 SetKit(figures[3], DeathBnCoat, DeathBnKit);   // the Death Battalion's greatcoat and darker cloth, on the living and on their corpses
                 clipAtlas = asset[0].ClipAtlas;
-                far = Make(shader, ProceduralSoldier.Build(), withFallen: false);
-                far.Material.SetFloat(LerpId, 0f);
+                far = Make(shader, ProceduralSoldier.Build());
+                far.Material.SetFloat(LerpId, 0f); far.Fallen.SetFloat(LerpId, 0f); far.FallenWhole.SetFloat(LerpId, 0f);   // nearest frame, as the living far men
                 if (clipAtlas) Clips.Apply(asset[0].RowSeconds);   // the controller times its one-shots by the bake
             }
             else { clipAtlas = false; figures = new[] { Make(shader, ProceduralSoldier.Build()) }; }
@@ -498,7 +508,7 @@ namespace TW.Presentation.Units
                     var f = figures[k];
                     if (f.Near == 0) continue;
                     f.Material.SetFloat(LerpId, zoom > blendZoom ? 0f : 1f);
-                    f.Fallen.SetFloat(LerpId, zoom > blendZoom ? 0f : 1f);
+                    f.Fallen.SetFloat(LerpId, zoom > blendZoom ? 0f : 1f); f.FallenWhole.SetFloat(LerpId, zoom > blendZoom ? 0f : 1f);
                     f.Props.SetBuffer("_Instances", instanceBuffer); f.Props.SetBuffer("_RowTable", f.Rows);
                     var rp = new RenderParams(f.Material) { worldBounds = bounds, shadowCastingMode = ShadowsThisFrame ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, matProps = f.Props };
                     FrameBudget.DrawIndirect(rp, f.Asset.Mesh, argsBuffer, 1, k);
@@ -733,7 +743,7 @@ namespace TW.Presentation.Units
         {
             if (f == null) return;
             f.Rows?.Dispose();
-            VatAsset.Kill(f.Material); VatAsset.Kill(f.Fallen);
+            VatAsset.Kill(f.Material); VatAsset.Kill(f.Fallen); VatAsset.Kill(f.FallenWhole);
             if (f.Asset != null && freed.Add(f.Asset)) f.Asset.Release();
         }
     }

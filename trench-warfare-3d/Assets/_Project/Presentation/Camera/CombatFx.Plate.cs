@@ -128,6 +128,7 @@ namespace TW.Presentation.Tactical
         {
             var shader = Shader.Find("Universal Render Pipeline/Unlit");
             var mat = shader != null ? new Material(shader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave } : Painted(color, 0f);
+            if (shader == null) mat.SetShaderPassEnabled("SRPDefaultUnlit", false);   // the Painted stand-in is TW/Toon at outline width 0: its back-face pass draws nothing the front does not
             mat.SetColor("_BaseColor", color);
             if (mat.HasProperty("_Emission")) mat.SetColor("_Emission", color);
             return mat;

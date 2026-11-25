@@ -488,6 +488,8 @@ namespace TW.Presentation.Tactical
                 fallen[k] = TW.Presentation.Units.ProceduralSoldier.BuildFallen(k & 3, k < 4 ? new Color(0.47f, 0.40f, 0.24f) : new Color(0.34f, 0.38f, 0.40f));
             fallenMat = Painted(Color.white, 1.2f);
             brassMat = Painted(new Color(0.80f, 0.60f, 0.24f), 0f); brassMat.SetColor("_Emission", new Color(0.20f, 0.14f, 0.04f));
+            // outline width 0: the Cull Front pass would only redraw the cube's back faces where its front faces already are
+            brassMat.SetShaderPassEnabled("SRPDefaultUnlit", false);
             helmetMat = Painted(new Color(0.25f, 0.28f, 0.23f), 0.9f);
             // a man's kit is steel, not mud: dirtMat put the Flamer's tanks 6.6 luma steps DARKER than his own
             // khaki torso at night, so the thing that tells him apart read as a smudge. Cold pale steel with a

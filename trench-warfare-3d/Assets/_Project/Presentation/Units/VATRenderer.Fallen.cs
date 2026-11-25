@@ -70,8 +70,12 @@ namespace TW.Presentation.Units
         GraphicsBuffer fallenBuffer, fallenArgs;
         NativeArray<VatInstance> fallenInstances;
         Vector3[] fallenDrawAt;   // the near men's drawn position this frame, so the near loop need not recompute FallenAt
+        Vector3[] fallenFarAt;    // the far men's drawn position this frame (kept apart from fallenDrawAt: FallenPos reads that one)
         GraphicsBuffer.IndirectDrawIndexedArgs[] fallenArgsData;
-        readonly List<int>[] fallenByFigure = new List<int>[8];
+        // Each draw is split in two: the corpses that lost a limb (the material that clips) and the rest (the one with no
+        // clip(), so the GPU keeps early-Z for them). fallenByFigure / fallenFarIdx hold the first, the Whole lists the second.
+        readonly List<int>[] fallenByFigure = new List<int>[8], fallenWholeByFigure = new List<int>[8];
+        readonly List<int> fallenFarIdx = new List<int>(64), fallenFarWholeIdx = new List<int>(64);
         int pileW, pileL;
 
         int PileCell(Vector3 at)
@@ -166,6 +170,12 @@ namespace TW.Presentation.Units
                 if (fallenMen.Count < fallenDrawAt.Length) fallenDrawAt[fallenMen.Count] = Vector3.zero;
             }
         }
+
+        /// <summary>Whether a corpse's record can make VAT_URP's VAT_CLIP_LOST discard a pixel: only a lost limb can. The
+        /// shader's `gone` is 1 on a vertex of a limb whose bit is set in the record's Pad bits 0-5 (VatPad.Lost), and 0
+        /// everywhere when none is set, so clip(0.5 - 0) never fires: a corpse with no lost limb draws with the material that
+        /// has no clip(). gib is FallenMan.Gib, which Fallen() packs into the Pad through VatPad.Pack.</summary>
+        public static bool FallenNeedsClip(int gib) => (gib & VatPad.LimbBits) != 0;
 
         /// <summary>The shared setup every AddFallen overload starts from: his figure, which row, whether the clip he was
         /// in fades out, and how long he lies. out near: the gag path needs it again for its own rate tweak.</summary>
@@ -276,25 +286,22 @@ namespace TW.Presentation.Units
             {
                 fallenInstances = new NativeArray<VatInstance>(MaxFallen, Allocator.Persistent);
                 fallenDrawAt = new Vector3[fallenInstances.Length];
+                fallenFarAt = new Vector3[fallenInstances.Length];
                 fallenBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, MaxFallen, 48);
-                fallenArgs = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, figures.Length + 1, GraphicsBuffer.IndirectDrawIndexedArgs.size);
-                fallenArgsData = new GraphicsBuffer.IndirectDrawIndexedArgs[figures.Length + 1];
-                for (int k = 0; k < fallenByFigure.Length; k++) fallenByFigure[k] = new List<int>(64);
+                // two commands per figure and for the far tier: [k] the corpses that clip, [figures.Length] the far ones that clip,
+                // then the same again without the clip from figures.Length + 1
+                fallenArgs = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 2 * (figures.Length + 1), GraphicsBuffer.IndirectDrawIndexedArgs.size);
+                fallenArgsData = new GraphicsBuffer.IndirectDrawIndexedArgs[2 * (figures.Length + 1)];
+                for (int k = 0; k < fallenByFigure.Length; k++) { fallenByFigure[k] = new List<int>(64); fallenWholeByFigure[k] = new List<int>(64); }
             }
             // the mud takes them: a body lies its time, then it is gone (they are in the order they fell, so the front of the list goes first)
             if (FallenSeconds > 0f)
             {
-                // each man lies his own 0.7-1.3 of the time, so a barrage's dead do not all go under together
-                float now0 = Time.time;
-                for (int i = fallenMen.Count - 1; i >= 0; i--)
-                {
-                    var f = fallenMen[i];
-                    if (now0 - f.Born > (f.Lies > 0.01f ? f.Lies : FallenSeconds)) Remove(i);
-                }
+                DropExpired(Time.time);
                 if (fallenMen.Count == 0) return;
             }
-            for (int k = 0; k < figures.Length; k++) fallenByFigure[k].Clear();
-            int farCount = 0, last = fallenInstances.Length - 1;
+            for (int k = 0; k < figures.Length; k++) { fallenByFigure[k].Clear(); fallenWholeByFigure[k].Clear(); }
+            fallenFarIdx.Clear(); fallenFarWholeIdx.Clear();
             Vector3 eye = cam != null ? cam.transform.position : Vector3.zero;
             float now = Time.time, nearSq = far != null && cam != null ? FallenNearDistance * FallenNearDistance : float.MaxValue;
             for (int i = 0; i < fallenMen.Count && i < fallenInstances.Length; i++)
@@ -310,35 +317,78 @@ namespace TW.Presentation.Units
                 // a frog stays a frog dead at any range: the far tier is the soldier's, and at the play zoom the frogs lay
                 // there as pale dead men (frog critic rounds 12-13)
                 bool distant = f.Figure != FrogFigure && f.Gag != (byte)DeathGag.Planted && (at - eye).sqrMagnitude > nearSq;   // and a planted man only ever plays near (the box tier has no gag)
-                if (distant) { if (farCount < fallenInstances.Length) fallenInstances[last - farCount++] = Fallen(f, far.Asset, f.FarRow, now, scale, at); }
-                else { fallenDrawAt[i] = at; fallenByFigure[math.min(f.Figure, figures.Length - 1)].Add(i); }
+                bool clips = FallenNeedsClip(f.Gib);
+                if (distant) { fallenFarAt[i] = at; (clips ? fallenFarIdx : fallenFarWholeIdx).Add(i); }
+                else { fallenDrawAt[i] = at; (clips ? fallenByFigure : fallenWholeByFigure)[math.min(f.Figure, figures.Length - 1)].Add(i); }
             }
+            // the records: per figure the corpses that clip first, then the rest, each a span of its own for its own draw
+            int farCount = fallenFarIdx.Count + fallenFarWholeIdx.Count, figs = figures.Length, whole = figs + 1, cap = fallenInstances.Length;   // args: [k] clip, [figs] far clip, [whole + k] no clip, [whole + figs] far no clip
             int near = 0;
-            for (int k = 0; k < figures.Length; k++)
+            for (int k = 0; k < figs; k++)
             {
                 int start = near;
-                foreach (int i in fallenByFigure[k]) { if (near + farCount >= fallenInstances.Length) break; var f = fallenMen[i]; fallenInstances[near++] = Fallen(f, figures[k].Asset, f.Row, now, scale, fallenDrawAt[i]); }
+                foreach (int i in fallenByFigure[k]) { if (near + farCount >= cap) break; var f = fallenMen[i]; fallenInstances[near++] = Fallen(f, figures[k].Asset, f.Row, now, scale, fallenDrawAt[i]); }
                 fallenArgsData[k] = Args(figures[k].Asset.Mesh, near - start, start);
+                start = near;
+                foreach (int i in fallenWholeByFigure[k]) { if (near + farCount >= cap) break; var f = fallenMen[i]; fallenInstances[near++] = Fallen(f, figures[k].Asset, f.Row, now, scale, fallenDrawAt[i]); }
+                fallenArgsData[whole + k] = Args(figures[k].Asset.Mesh, near - start, start);
             }
             if (near + farCount == 0) return;
-            int farStart = fallenInstances.Length - farCount;
+            int farStart = cap - farCount;
+            if (far != null)
+            {
+                int at = farStart;
+                foreach (int i in fallenFarIdx) { var f = fallenMen[i]; fallenInstances[at++] = Fallen(f, far.Asset, f.FarRow, now, scale, fallenFarAt[i]); }
+                fallenArgsData[figs] = Args(far.Asset.Mesh, at - farStart, farStart);
+                int wholeStart = at;
+                foreach (int i in fallenFarWholeIdx) { var f = fallenMen[i]; fallenInstances[at++] = Fallen(f, far.Asset, f.FarRow, now, scale, fallenFarAt[i]); }
+                fallenArgsData[whole + figs] = Args(far.Asset.Mesh, at - wholeStart, wholeStart);
+            }
+            else { fallenArgsData[figs] = default; fallenArgsData[whole + figs] = default; }   // no far tier: nothing was sent to it
             if (near > 0) fallenBuffer.SetData(fallenInstances, 0, 0, near);
             if (farCount > 0) fallenBuffer.SetData(fallenInstances, farStart, farStart, farCount);
-            if (far != null) fallenArgsData[figures.Length] = Args(far.Asset.Mesh, farCount, farStart);
             fallenArgs.SetData(fallenArgsData);
-            for (int k = 0; k < figures.Length; k++)
+            // opaque draws (ZWrite On, Queue Geometry), one per span, so the order between them changes nothing
+            for (int k = 0; k < figs; k++)
             {
-                if (fallenArgsData[k].instanceCount == 0) continue;
+                bool anyClip = fallenArgsData[k].instanceCount != 0, anyWhole = fallenArgsData[whole + k].instanceCount != 0;
+                if (!anyClip && !anyWhole) continue;
                 var fig = figures[k];
-                fig.FallenProps.SetBuffer("_Instances", fallenBuffer); fig.FallenProps.SetBuffer("_RowTable", fig.Rows);
-                FrameBudget.DrawIndirect(new RenderParams(fig.Fallen) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fig.FallenProps }, fig.Asset.Mesh, fallenArgs, 1, k);
+                fig.FallenProps.SetBuffer("_Instances", fallenBuffer); fig.FallenProps.SetBuffer("_RowTable", fig.Rows);   // one block serves both draws: same values
+                if (anyClip) FrameBudget.DrawIndirect(new RenderParams(fig.Fallen) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fig.FallenProps }, fig.Asset.Mesh, fallenArgs, 1, k);
+                if (anyWhole) FrameBudget.DrawIndirect(new RenderParams(fig.FallenWhole) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fig.FallenProps }, fig.Asset.Mesh, fallenArgs, 1, whole + k);
             }
             if (farCount > 0 && far != null)
             {
                 far.FallenProps.SetBuffer("_Instances", fallenBuffer); far.FallenProps.SetBuffer("_RowTable", far.Rows);
-                // far.Fallen, like the near figures: both sides and the limb cut
-                FrameBudget.DrawIndirect(new RenderParams(far.Fallen) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = far.FallenProps }, far.Asset.Mesh, fallenArgs, 1, figures.Length);
+                // far.Fallen / far.FallenWhole, like the near figures: both sides, the limb cut where there is a limb to cut
+                if (fallenArgsData[figs].instanceCount != 0) FrameBudget.DrawIndirect(new RenderParams(far.Fallen) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = far.FallenProps }, far.Asset.Mesh, fallenArgs, 1, figs);
+                if (fallenArgsData[whole + figs].instanceCount != 0) FrameBudget.DrawIndirect(new RenderParams(far.FallenWhole) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = far.FallenProps }, far.Asset.Mesh, fallenArgs, 1, whole + figs);
             }
+        }
+
+        /// <summary>The mud takes the bodies whose time is up, in one pass that keeps the order of the rest (each man lies
+        /// his own 0.7-1.3 of the time, so a barrage's dead do not all go under together). What a Remove(i) per body did, with
+        /// one move per survivor instead of a list shift per body: fallenMen and the drawn positions (fallenDrawAt, read back by
+        /// index) both close up, and the slots past the new end are zeroed.</summary>
+        void DropExpired(float now)
+        {
+            int count = fallenMen.Count, keep = 0;
+            int drawn = fallenDrawAt != null ? fallenDrawAt.Length : 0;
+            for (int r = 0; r < count; r++)
+            {
+                var f = fallenMen[r];
+                if (now - f.Born > (f.Lies > 0.01f ? f.Lies : FallenSeconds)) continue;
+                if (keep != r)
+                {
+                    fallenMen[keep] = f;
+                    if (r < drawn) fallenDrawAt[keep] = fallenDrawAt[r];
+                }
+                keep++;
+            }
+            if (keep == count) return;
+            fallenMen.RemoveRange(keep, count - keep);
+            if (drawn > keep) System.Array.Clear(fallenDrawAt, keep, System.Math.Min(count, drawn) - keep);
         }
 
         /// <summary>The pitch step (0..PitchSteps-1) a fallen man is drawn at now: turning end over end while he flies,

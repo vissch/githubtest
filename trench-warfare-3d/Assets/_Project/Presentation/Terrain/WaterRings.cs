@@ -18,6 +18,7 @@ namespace TW.Presentation.Terrain
         public const int Count = 16;
         const int SlotsPerStep = 3;
         readonly Vector4[] rings = new Vector4[Count];
+        readonly Vector4[] packed = new Vector4[Count];   // what the shader reads: the rings that can still show, slot order kept
         int next, cursor;
         readonly int[] picks = new int[SlotsPerStep];
         System.Func<int, bool> rippling;
@@ -25,7 +26,7 @@ namespace TW.Presentation.Terrain
         float nextStep;
         bool subscribed;
         static readonly int RingsId = Shader.PropertyToID("_TWRings"), NowId = Shader.PropertyToID("_TWNow"),
-            ClockId = Shader.PropertyToID("_TWWaterClock");
+            ClockId = Shader.PropertyToID("_TWWaterClock"), CountId = Shader.PropertyToID("_TWRingCount");
 
         /// <summary>Freeze the water's own animation (lapping, drift, raindrops) at this second, so two capture runs
         /// seconds apart see the same sheet and a probe can measure what changed. 0 lets it run. The caller puts it
@@ -37,9 +38,27 @@ namespace TW.Presentation.Terrain
         /// <summary>What to push to the shader this frame: the pinned second when one is set, else the live one.</summary>
         public static float ClockToPush(float now) => PinnedClock > 0f ? PinnedClock : now;
 
+        /// <summary>False only for a ring the shader (TWWater.hlsl TWRings) would draw as exactly nothing: no size, not yet born,
+        /// or past its life of 0.9 + 0.4 * size seconds. The margins are wide on purpose: a ring kept by mistake adds 0 there, so
+        /// skipping only the surely dead ones leaves the picture bit for bit as it was.</summary>
+        public static bool CanShow(Vector4 r, float now)
+        {
+            float dt = now - r.z;
+            return r.w > 0.005f && dt >= -0.05f && dt <= (0.9f + 0.4f * r.w) * 1.02f + 0.05f;
+        }
+
+        /// <summary>Copies the rings that can still show into `into`, in slot order, and returns how many.</summary>
+        public static int Pack(Vector4[] from, Vector4[] into, float now)
+        {
+            int n = 0;
+            for (int i = 0; i < from.Length; i++)
+                if (CanShow(from[i], now)) into[n++] = from[i];
+            return n;
+        }
+
         void Awake()
         {
-            for (int i = 0; i < Count; i++) rings[i] = new Vector4(0f, 0f, -1000f, 0f);
+            for (int i = 0; i < Count; i++) { rings[i] = new Vector4(0f, 0f, -1000f, 0f); packed[i] = rings[i]; }
             rippling = Rippling;   // built once: the step itself must allocate nothing
         }
 
@@ -74,7 +93,7 @@ namespace TW.Presentation.Terrain
         {
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.IsWater = null; SceneHooks.WaterY = null; SceneHooks.AddRing = null;
-            Awake(); Shader.SetGlobalVectorArray(RingsId, rings);
+            Awake(); Shader.SetGlobalVectorArray(RingsId, packed); Shader.SetGlobalFloat(CountId, 0f);
             Shader.SetGlobalFloat(ClockId, 0f);   // no live sheet: the water goes back to its own clock
         }
 
@@ -108,7 +127,9 @@ namespace TW.Presentation.Terrain
                     Add(p.x, p.z, (scanWorld.Flags[i] & (uint)UnitFlags.Vehicle) != 0 ? 3.2f : 1.15f);
                 }
             }
-            Shader.SetGlobalVectorArray(RingsId, rings);
+            int live = Pack(rings, packed, Time.time);   // the shader loops to `live` only; stale entries past it are never read
+            Shader.SetGlobalVectorArray(RingsId, packed);
+            Shader.SetGlobalFloat(CountId, live);
             Shader.SetGlobalFloat(NowId, Time.time);
             Shader.SetGlobalFloat(ClockId, ClockToPush(Time.time));
         }

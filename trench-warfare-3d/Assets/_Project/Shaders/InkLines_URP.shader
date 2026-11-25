@@ -51,7 +51,9 @@ Shader "TW/Ink Lines (URP)"
                 float eye = LinearEyeDepth(c, _ZBufferParams);
                 // Past the fade the line is zero (fade below reaches 0 at max(_FadeEnd, _FadeStart + 1)), the sky included:
                 // leave before the four neighbour taps, the field fog and the blend all cost nothing there.
-                if (eye >= max(_FadeEnd, _FadeStart + 1.0)) return 0;
+                // discard, not return 0: with Blend SrcAlpha OneMinusSrcAlpha and ColorMask RGB an alpha of 0 leaves the destination
+                // unchanged (rgb = src*0 + dst*1, alpha not written), so skipping the pixel skips the blend read+write too.
+                if (eye >= max(_FadeEnd, _FadeStart + 1.0)) discard;
                 float2 px = _Thickness / _ScreenParams.xy;
                 float l = SampleSceneDepth(uv - float2(px.x, 0)), r = SampleSceneDepth(uv + float2(px.x, 0));
                 float d = SampleSceneDepth(uv - float2(0, px.y)), u = SampleSceneDepth(uv + float2(0, px.y));
@@ -67,6 +69,8 @@ Shader "TW/Ink Lines (URP)"
                 // look.inkFade: a line fades as the distance fog closes over what it outlines (linear fog visibility from
                 // the eye depth), or the lifted haze left distant wire and hedgehogs as bare black outlines (critique round 2)
                 if (ink > 0.001 && _TWInkFogFade > 0.0) ink *= lerp(1.0, saturate(eye * unity_FogParams.z + unity_FogParams.w), _TWInkFogFade);
+                // no ink at all: the blend would write dst*1 + src*0 back unchanged, so do not touch the pixel (see the Blend line)
+                if (ink <= 0) discard;
                 return half4(_InkColor.rgb, ink);
             }
             ENDHLSL

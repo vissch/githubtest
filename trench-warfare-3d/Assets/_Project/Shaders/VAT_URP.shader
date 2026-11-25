@@ -5,7 +5,8 @@
 // out (prevRow, prevT, blend = its weight) and the yaw. A row whose frame count is negative plays once and holds its
 // last frame; a positive one loops. _Lerp = 1 blends two frames (near), 0 samples the nearest frame (zoomed out).
 // Vertex colour: rgb = albedo, a = 1 where the team colour multiplies it.
-// Only the fallen's material carries _TW_LIMBCUT (the lost-limb and wound clips); the living draw with no clip() at all.
+// Only the fallen's material carries _TW_LIMBCUT (the lost-limb clip) and only a corpse that lost a limb gets that material;
+// every corpse carries _TW_FALLEN (the dead's look). The living, and a corpse with nothing to clip, draw with no clip() at all.
 // Look: the same two-step cartoon light, haze and ink outline as TW/Toon, so the men sit in the painted field.
 Shader "TW/VAT Infantry (URP)"
 {
@@ -71,9 +72,11 @@ Shader "TW/VAT Infantry (URP)"
         struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; float scale; float gone; float cut; float3 grime; float wound; };
 
         // Only the fallen lose limbs (a living man's record packs none: VatPad, VATRenderer), so only their material
-        // enables _TW_LIMBCUT. A shader that can discard is depth-tested after it has run, not before, so the clip that
-        // never fired on a living man still turned early-Z off for all 3,000 of them, in every pass, and gave their
-        // shadow pass pixel work to do. Without the keyword no pass of theirs can discard.
+        // enables _TW_LIMBCUT, and only a corpse whose record packs a lost limb (VATRenderer.Fallen: VatPad.Lost != 0).
+        // A shader that can discard is depth-tested after it has run, not before, so the clip that never fired on a
+        // living man still turned early-Z off for all 3,000 of them, in every pass, and gave their shadow pass pixel
+        // work to do. Without the keyword no pass of theirs can discard. _TW_LIMBCUT gates this clip and nothing else:
+        // what makes a corpse look like a corpse is _TW_FALLEN (ForwardLit), which every fallen material enables.
         #if defined(_TW_LIMBCUT)
             #define VAT_CLIP_LOST(gone) clip(0.5 - (gone))
         #else
@@ -279,6 +282,7 @@ Shader "TW/VAT Infantry (URP)"
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile_fog
             #pragma multi_compile_local_fragment _ _TW_LIMBCUT
+            #pragma multi_compile_local_fragment _ _TW_FALLEN   // the dead's look (snow dusting, own colour at night); no clip: see VAT_CLIP_LOST
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Assets/_Project/Shaders/TWWater.hlsl"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
@@ -375,7 +379,7 @@ Shader "TW/VAT Infantry (URP)"
                 // his own seed (grime.y, the per-man byte from VatPad) and nothing else: a world-space term put a seam
                 // in his snow that jumped as he walked, which is the one thing positionOS was chosen to avoid.
                 half snow = TWSnowAmount(i.normalWS, i.positionOS * 7.0 + i.grime.y * float3(0.271, 0.618, 0.382));
-            #if defined(_TW_LIMBCUT)
+            #if defined(_TW_FALLEN)
                 // the fallen lie face up to the sky, all of them snow's side: at 0.7 a corpse went pale grey all over and
                 // read as nobody in particular (frog critic round 3: the dead frogs lost their green); a dusting only
                 if (snow > 0.0) albedo = lerp(albedo, _TWSnowColor.rgb, snow * 0.2);
@@ -420,7 +424,7 @@ Shader "TW/VAT Infantry (URP)"
                 half menClose = 1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 14.0) / 20.0);
                 half menRead = _TWMenRead * menClose;
                 color = color * (1.0 + menRead) + albedo * 0.25 * menRead;
-            #if defined(_TW_LIMBCUT)
+            #if defined(_TW_FALLEN)
                 // the dead keep their own colour on the night field, as blood and thrown parts do (frog critic round 14: the dead
                 // frogs dissolved into the dark mud, only the red stars showed where they lay); by day the floor is under the light
                 color = max(color, albedo * 0.5 * saturate(1.0 - dot(TWShadeTint(), half3(0.3, 0.59, 0.11))));

@@ -180,7 +180,21 @@ namespace TW.Presentation.Units
         /// <summary>Read a baked atlas; the mesh is supplied by the asset that carries the bytes.</summary>
         public static VatAsset Decode(byte[] bytes, Mesh mesh, string name, bool keepReadable = false)
         {
-            using (var ms = new MemoryStream(bytes))
+            using (var ms = new MemoryStream(bytes)) return DecodeStream(ms, mesh, name, keepReadable);
+        }
+
+        /// <summary>
+        /// The same decode straight from a TextAsset's own memory (TextAsset.GetData&lt;byte&gt;()): TextAsset.bytes makes a fresh
+        /// managed copy of the whole 20-24 MB atlas on every call, this reads it in place. The array must stay alive for the call.
+        /// </summary>
+        public static unsafe VatAsset Decode(NativeArray<byte> data, Mesh mesh, string name, bool keepReadable = false)
+        {
+            using (var ms = new UnmanagedMemoryStream((byte*)Unity.Collections.LowLevel.Unsafe.NativeArrayUnsafeUtility.GetUnsafeReadOnlyPtr(data), data.Length))
+                return DecodeStream(ms, mesh, name, keepReadable);
+        }
+
+        static VatAsset DecodeStream(Stream ms, Mesh mesh, string name, bool keepReadable)
+        {
             using (var gz = new GZipStream(ms, CompressionMode.Decompress))
             using (var r = new BinaryReader(gz))
             {

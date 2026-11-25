@@ -772,13 +772,20 @@ namespace TW.Presentation.Tactical
             if (!Ready) return;
             if (Spied != 0UL) SpiedCards.Clear();
             float dt = Time.deltaTime;
-            for (int i = cards.Count - 1; i >= 0; i--)
+            // One order-preserving pass: survivors slide down to the write index, the tail goes in one RemoveRange. RemoveAt(i)
+            // per expired card shifted the rest of the list (up to MaxCards ~100-byte structs) each time. Cards are independent,
+            // so the visiting order does not matter; the survivors keep their order, and with it the draw order.
+            int keepAt = 0, count = cards.Count;
+            for (int i = 0; i < count; i++)
             {
                 var c = cards[i];
-                if (now - c.Born > (c.Cut > 0f ? CardEnd(c.Life, c.Cut) : c.Life)) { cards.RemoveAt(i); continue; }   // AOSA C109: a cut card goes at its cut
-                if (now < c.Born) continue;   // not born yet
-                if (c.Vel.sqrMagnitude > 0f) { c.Pos += c.Vel * dt; c.Vel = Vector3.Lerp(c.Vel, Vector3.zero, dt * 0.6f); cards[i] = c; }   // the throw slows; the drift on a long card stays
+                if (now - c.Born > (c.Cut > 0f ? CardEnd(c.Life, c.Cut) : c.Life)) continue;   // AOSA C109: a cut card goes at its cut
+                bool moved = false;
+                if (now >= c.Born && c.Vel.sqrMagnitude > 0f) { c.Pos += c.Vel * dt; c.Vel = Vector3.Lerp(c.Vel, Vector3.zero, dt * 0.6f); moved = true; }   // not born yet: untouched; the throw slows; the drift on a long card stays
+                if (moved || keepAt != i) cards[keepAt] = c;
+                keepAt++;
             }
+            if (keepAt < count) cards.RemoveRange(keepAt, count - keepAt);
             var layCam = Camera.main;   // a laid card is placed from the eye; headless, it is drawn as stored
             Vector3 layRight = layCam != null ? layCam.transform.right : Vector3.zero, layUp = layCam != null ? layCam.transform.up : Vector3.zero;
             bool canLay = layCam != null;

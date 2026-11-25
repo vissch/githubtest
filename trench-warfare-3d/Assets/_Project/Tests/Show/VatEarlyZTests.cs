@@ -45,11 +45,11 @@ namespace TW.Tests
         {
             string src = File.ReadAllText(FallenPath);
             var matches = Regex.Matches(src, @"new RenderParams\(([^)]*)\)");
-            Assert.That(matches.Count, Is.EqualTo(2),
-                "[found-draw-far-tier-fallen-corpses-with-far-fallen-20261017-0] expected exactly two fallen draws: the near figures' and the far tier's");
+            Assert.That(matches.Count, Is.EqualTo(4),
+                "[found-draw-far-tier-fallen-corpses-with-far-fallen-20261017-0] expected exactly four fallen draws: the near figures' and the far tier's, each as the corpses that clip (.Fallen) and the ones with nothing to clip (.FallenWhole)");
             foreach (Match m in matches)
             {
-                Assert.That(m.Groups[1].Value.Trim(), Does.EndWith(".Fallen"),
+                Assert.That(m.Groups[1].Value.Trim(), Does.EndWith(".Fallen").Or.EndWith(".FallenWhole"),
                     "[found-draw-far-tier-fallen-corpses-with-far-fallen-20261017-0] the far corpses draw with the living's material: Cull On, no _TW_LIMBCUT, so a far corpse lies whole and unwounded");
             }
             Assert.That(src, Does.Not.Contain("RenderParams(far.Material)"),
