@@ -12,6 +12,8 @@ namespace TW.Perf
     {
         /// <summary>Riflemen deployed by EACH side through SimHost's stress preset.</summary>
         public int Stress = 1500;
+        /// <summary>The crowd fixture fields its own formations before warm-up. Other runs use the historical stress preset.</summary>
+        public int StressPerSide => Scenario == BenchScenario.Crowd2000 ? 0 : Stress;
         /// <summary>The window opens at this sim tick (the armies deployed and in contact), reached fast-forwarded.</summary>
         public int SettleTicks = 1800;
         /// <summary>Sim ticks recorded, at 1x. 400 ticks = 20 s of battle.</summary>
@@ -165,12 +167,13 @@ namespace TW.Perf
                 case "vfx": return BenchScenario.Vfx;
                 case "beam": return BenchScenario.Beam;
                 case "lineup": return BenchScenario.Lineup;
+                case "crowd2000": return BenchScenario.Crowd2000;
                 default: return BenchScenario.None;
             }
         }
 
         /// <summary>The name the report writes: "none", "barrage", "armour", "vfx", "beam".</summary>
-        public static string ScenarioName(BenchScenario s) => s == BenchScenario.Barrage ? "barrage" : s == BenchScenario.Armour ? "armour" : s == BenchScenario.Vfx ? "vfx" : s == BenchScenario.Beam ? "beam" : s == BenchScenario.Lineup ? "lineup" : "none";
+        public static string ScenarioName(BenchScenario s) => s == BenchScenario.Barrage ? "barrage" : s == BenchScenario.Armour ? "armour" : s == BenchScenario.Vfx ? "vfx" : s == BenchScenario.Beam ? "beam" : s == BenchScenario.Lineup ? "lineup" : s == BenchScenario.Crowd2000 ? "crowd2000" : "none";
 
         /// <summary>A Ground by its enum name, any case (`WinterLine`, `winterline`), or by a short name: `forest`, `winter`, `narrows`.
         /// Numbers are refused, so `ground=1` cannot quietly mean a map. False for anything else.</summary>
@@ -224,5 +227,5 @@ namespace TW.Perf
     }
 
     /// <summary>What the measured window stages on top of the stress battle (PerfBench, BenchScenarios).</summary>
-    public enum BenchScenario { None = 0, Barrage = 1, Armour = 2, Vfx = 3, Beam = 4, Lineup = 5 }
+    public enum BenchScenario { None = 0, Barrage = 1, Armour = 2, Vfx = 3, Beam = 4, Lineup = 5, Crowd2000 = 6 }
 }

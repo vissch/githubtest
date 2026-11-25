@@ -693,6 +693,16 @@ Last verified 2026-09-23 by the performance pass; not re-run on 2026-09-25.
   `TW.Editor.CaptureRig.Bench("... out=<abs path>.json")` with GreyboxCorridor open. Two reports with the same
   `hash_start` measured the same battle. Look at the `shot=` image before trusting numbers. Pass `quality=` always:
   the default (-1) takes whatever the machine's `settings.json` says.
+- For the 1080p crowd budget, run `python Tools/aosa/aosa.py bench crowd-lowend --player --scenario crowd2000 --extra "settle_ticks=60 ticks=200" --repeats 3`.
+  This fixture places two formations of 1,100 riflemen at the held camera before warm-up. They have 100,000 HP and zero
+  walking speed so damage and travel do not empty the view. The ordinary combat and animation systems run.
+  Check `window.vat_drawn_start` and `window.crowd_vat_drawn_min`. Exit 2 rejects any observed frame with fewer than
+  2,000 living infantry submitted by the main camera's VAT renderer. These are frustum counts and can include occluded
+  men. The fixture pins effects detail before pool allocation from the requested quality (the highest when omitted),
+  or from an explicit `fx.quality` knob. Match `config.fx_quality`, `config.quality`, resolution, backend, camera and
+  both battle hashes across builds.
+  For a historical build, apply the same benchmark-only patch to each revision and record the original revision plus
+  the harness delta. Use the ordinary stress, barrage or VFX scenarios to measure attrition and effects separately.
 - **Compare two reports:** `python Tools/perfcmp.py before.json after.json`. Noise on two editor runs of one fight
   (2026-09-23): p50 within about 1%, p95 up to about 12%, p99 and one system's per-tick ms up to about 25%, hitches 2
   vs 5. Run each side twice; trust p50; believe a per-system change only past about 30% and in both runs.

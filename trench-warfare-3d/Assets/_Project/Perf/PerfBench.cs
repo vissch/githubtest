@@ -96,7 +96,8 @@ namespace TW.Perf
             ClearStaleReport(o);   // F7: a hung run must not leave the previous report where a reader takes it for this one's
             // presentation knobs before the scene loads, so every Awake/Start that reads one sees the bench's value
             if (!string.IsNullOrEmpty(o.Knobs)) Knobs.Parse(o.Knobs);
-            SimHost.StressOverride = o.Stress;
+            if (o.Scenario == BenchScenario.Crowd2000) PinCrowdEffects(o, QualitySettings.names.Length);
+            SimHost.StressOverride = o.StressPerSide;
             if (o.Canary >= 0) SimHost.CanaryOverride = o.Canary == 1;
             // a player boots to the main menu as it always does, and the bench launches the match from there the way the
             // Skirmish button does (MatchLaunch.Start): jumping straight to the battle scene left the menu shell in its
@@ -107,6 +108,17 @@ namespace TW.Perf
             Running.Options = o;
             Debug.Log("[PerfBench] armed: " + raw);
             if (o.GroundUnknown) Debug.LogError("[PerfBench] " + UnknownGroundWhy(o));   // the run stops on its first frame (WaitHost)
+        }
+
+        /// <summary>Run before the scene loads: effect pools read this in Awake/Start. The knob also wins when
+        /// ShellBoot reapplies the saved EFFECTS DETAIL. An explicit fx.quality still takes precedence.</summary>
+        public static void PinCrowdEffects(BenchOptions o, int levels)
+        {
+            int highest = Mathf.Max(0, levels - 1);
+            o.Quality = o.Quality < 0 ? highest : Mathf.Min(o.Quality, highest);
+            var tier = FxQuality.Resolve(-1, o.Quality, levels, Knobs.Get(FxQuality.Knob, -1));
+            Knobs.Set(FxQuality.Knob, ((int)tier).ToString(CultureInfo.InvariantCulture));
+            FxQuality.Set(tier);
         }
 
         /// <summary>[F16] the `-twbench` command line value: null when the flag is absent, "" when it is the last
@@ -154,6 +166,7 @@ namespace TW.Perf
         readonly BenchScenarios.Log scenarioLog = new BenchScenarios.Log();
         BenchLineup lineup;   // scenario=lineup: its staged fire, queued each window tick
         int aliveStart;
+        int visibleStart = -1, crowdVisibleMin = -1;
         double startRealtime;
         bool prevTicked, allFocused = true;
         int gcCollectionsStart;
@@ -244,7 +257,7 @@ namespace TW.Perf
             host.TimeScale = Options.FastForward;
             TakeCamera();
             Enter(Stage.Settle);
-            Debug.Log($"[PerfBench] settling to tick {Options.SettleTicks} at {Options.FastForward}x with {Options.Stress} a side");
+            Debug.Log($"[PerfBench] settling to tick {Options.SettleTicks} at {Options.FastForward}x with {Options.StressPerSide} a side");
         }
 
         void Settle()
@@ -273,6 +286,18 @@ namespace TW.Perf
             HoldShake();
             if (Options.Weather >= 0f) Atmosphere.PinnedClock = Options.Weather;
             warmLeft = Mathf.Max(1, Options.Warm);
+            if (Options.Scenario == BenchScenario.Crowd2000)
+            {
+                if (float.IsNaN(Options.FocusX) || float.IsNaN(Options.FocusZ))
+                    focus = (Vector2)host.Local.Map.SizeMeters * .5f;
+                bool room = true;
+                bool aligned = host.WriteWorlds(m => room &= BenchScenarios.TrySpawnCrowd(m.World, focus));
+                if (!aligned || !room) { Finish(2, "crowd2000: worlds could not align or fit the formations"); return; }
+                scenarioLog.Writes.Add($"spawned {BenchScenarios.CrowdSpawns} durable riflemen at the focus before warm-up");
+                // WriteWorlds captured the new poses in LateUpdate. The next Update interpolates them and the VAT
+                // renderer submits them after us, so even warm=1 needs two Warm frames before we read DrawnInfantry.
+                warmLeft = Mathf.Max(2, warmLeft);
+            }
             Enter(Stage.Warm);
         }
 
@@ -283,13 +308,22 @@ namespace TW.Perf
             var w = host.Local.World;
             OpenRecorders();
             t0 = w.Tick; lastTick = t0;
-            hashStart = w.Hash(); hashStartTaken = true;
             aliveStart = w.AliveCount;
+            visibleStart = VisibleInfantry();
+            if (Options.Scenario == BenchScenario.Crowd2000 && !CheckCrowd(visibleStart)) return;
+            hashStart = w.Hash();
+            if (Options.Scenario == BenchScenario.Crowd2000 && host.Peer != null &&
+                (host.Peer.World.Tick != t0 || host.Peer.World.Hash() != hashStart))
+            {
+                Finish(4, "crowd2000: the staged worlds differ before the window");
+                return;
+            }
+            hashStartTaken = true;
             // the scenario, after hash_start and before the match resumes: nothing it does can reach the battle the
             // window opened on, and its orders land on the same tick in every run (its few allocations happen before
             // the GC and mono baselines below)
             if (Options.Scenario == BenchScenario.Lineup) lineup = BenchLineup.Stage(host, focus, scenarioLog);   // it ticks with the window (Sample)
-            else if (Options.Scenario != BenchScenario.None) BenchScenarios.Issue(Options.Scenario, host, focus, scenarioLog);
+            else if (Options.Scenario != BenchScenario.None && Options.Scenario != BenchScenario.Crowd2000) BenchScenarios.Issue(Options.Scenario, host, focus, scenarioLog);
             // C72: an image run logs its shots (allocated here, before the GC baselines; never in a perf run)
             if (Options.ShotTick >= 0 && !string.IsNullOrEmpty(Options.Shot))
             {
@@ -663,10 +697,24 @@ namespace TW.Perf
 #endif
         }
 
+        // The last complete frame, for the host and camera this bench actually holds. Without a main camera the
+        // VAT job disables frustum culling, so its count could otherwise certify an entirely offscreen formation.
+        int VisibleInfantry() => vat != null && vat.isActiveAndEnabled && vat.Host == host && cam != null &&
+            cam.isActiveAndEnabled && cam == ViewEye.Main ? vat.DrawnInfantry : -1;
+
+        bool CheckCrowd(int visible)
+        {
+            crowdVisibleMin = crowdVisibleMin < 0 ? visible : Mathf.Min(crowdVisibleMin, visible);
+            if (visible >= BenchScenarios.CrowdVisibleFloor) return true;
+            Finish(2, $"crowd2000 needs {BenchScenarios.CrowdVisibleFloor} visible infantry, VAT submitted {visible}");
+            return false;
+        }
+
         void Sample()
         {
             var w = host.Local.World;
             uint tick = w.Tick;
+            if (Options.Scenario == BenchScenario.Crowd2000 && !CheckCrowd(VisibleInfantry())) return;
             int stepped = (int)(tick - lastTick);
             lastTick = tick;
             // F2: the window's set-up frame is no sample, and its baselines are re-taken on it
@@ -677,7 +725,11 @@ namespace TW.Perf
             if (Options.ShotTick >= 0 && tick >= t0 + (uint)Options.ShotTick) Shoot("window");
             if (ShotLog.On && heldFrameTimes != null && framesShot >= heldFrameTimes.Length) ShotLog.Stop();   // C72: the last held frame is shot
             if (host.Desync) { Finish(4, "DESYNC during the window at tick " + tick); return; }
-            if (tick >= t0 + (uint)Options.Ticks) Finish(0, "ok");
+            if (tick >= t0 + (uint)Options.Ticks)
+            {
+                if (Options.Scenario == BenchScenario.Crowd2000 && frames == 0) Finish(2, "crowd2000: no timed frames");
+                else Finish(0, "ok");
+            }
         }
 
         /// <summary>F2: the window's baselines, re-taken on a frame that is not a sample.</summary>
@@ -963,6 +1015,7 @@ namespace TW.Perf
                 "mono";
 #endif
             sb.Append("  \"config\": { \"quality\": ").Append(Q(QualitySettings.names[QualitySettings.GetQualityLevel()]))
+              .Append(", \"fx_quality\": ").Append(Q(FxQuality.Tier.ToString()))
               .Append(", \"vsync\": ").Append(QualitySettings.vSyncCount).Append(", \"target_fps\": ").Append(Application.targetFrameRate)
               .Append(", \"screen\": [").Append(Screen.width).Append(", ").Append(Screen.height).Append("], \"fullscreen\": ").Append(Q(Screen.fullScreenMode.ToString()))
               .Append(", \"backend\": ").Append(Q(backend)).Append(", \"gc_incremental\": ").Append(UnityEngine.Scripting.GarbageCollector.isIncremental ? "true" : "false")
@@ -977,7 +1030,7 @@ namespace TW.Perf
               .Append(", \"night\": ").Append(SceneMood.Night ? "true" : "false")
               .Append(", \"map_m\": [").Append(N(size.x)).Append(", ").Append(N(size.y)).Append("] },\n");
             sb.Append("  \"scenario\": { \"scene\": ").Append(Q(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name))
-              .Append(", \"stress_per_side\": ").Append(Options.Stress)
+              .Append(", \"stress_per_side\": ").Append(Options.StressPerSide)
               .Append(", \"seed\": ").Append(host != null ? host.Seed : 0).Append(", \"battlefield_seed\": ").Append(host != null ? host.BattlefieldSeed : 0)
               .Append(", \"generated\": ").Append(host != null && host.GeneratedBattlefield ? "true" : "false")
               .Append(", \"bombardment_per_min\": ").Append(N(host != null ? host.BombardmentNow : 0))
@@ -1004,6 +1057,8 @@ namespace TW.Perf
               .Append(", \"hash_end\": ").Append(hashEndTaken ? Q(hashEnd.ToString("X16")) : "null")
               .Append(", \"hash_end_tick\": ").Append(hashEndTaken ? hashEndTick.ToString(Inv) : "null")
               .Append(", \"alive_peak_before\": ").Append(alivePeak)
+              .Append(", \"vat_drawn_start\": ").Append(visibleStart >= 0 ? visibleStart.ToString(Inv) : "null")
+              .Append(", \"crowd_vat_drawn_min\": ").Append(crowdVisibleMin >= 0 ? crowdVisibleMin.ToString(Inv) : "null")
               .Append(", \"alive_start\": ").Append(aliveStart).Append(", \"alive_end\": ").Append(w != null ? w.AliveCount : 0)
               .Append(", \"frames\": ").Append(frames).Append(", \"frames_dropped\": ").Append(WindowSamples.SetupFrames).Append(", \"seconds\": ").Append(N(seconds))
               .Append(", \"fps_mean\": ").Append(N(seconds > 0 ? frames / seconds : 0))

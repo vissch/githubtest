@@ -39,6 +39,29 @@ namespace TW.Perf
             public readonly List<string> Warnings = new List<string>();
         }
 
+        public const int CrowdVisibleFloor = 2000;
+        const int CrowdColumns = 55, CrowdRows = 40;
+        public const int CrowdSpawns = CrowdColumns * CrowdRows;
+
+        /// <summary>Two dense formations at the held view. Durability and zero walking speed keep living figures
+        /// in the window while targeting, firing, hits, separation and animation run. This is a density workload.
+        /// Refuse a full world before changing it. Called through SimHost.WriteWorlds before warm-up and hash_start.</summary>
+        public static bool TrySpawnCrowd(SimWorld w, Vector2 focus)
+        {
+            if (w.Config.MaxSlots - w.AliveCount < CrowdSpawns) return false;
+            for (int row = 0; row < CrowdRows; row++)
+            {
+                byte team = (byte)(row < CrowdRows / 2 ? 0 : 1);
+                float z = focus.y + (row - (CrowdRows - 1) * .5f) * .75f + (team == 0 ? -1.5f : 1.5f);
+                for (int col = 0; col < CrowdColumns; col++)
+                {
+                    float x = focus.x + (col - (CrowdColumns - 1) * .5f) * .75f;
+                    w.Spawn(team, InfantryArchetype.Rifle, new Unity.Mathematics.float3(x, 0f, z), 100000f, 0f, false);
+                }
+            }
+            return true;
+        }
+
         struct Order { public byte Player; public SimCommand Command; public string Text; }
 
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;

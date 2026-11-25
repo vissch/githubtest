@@ -90,6 +90,23 @@ namespace TW.Tests
         }
 
         [Test]
+        public void ACrowdBelowTheVisibleFloorRefusesTheSampleAndReportsTheMinimum()
+        {
+            bench.Options.Scenario = BenchScenario.Crowd2000;
+            SetStage("Warm");
+            Field("aliveStart").SetValue(bench, 2200);
+            Call(bench, "CheckCrowd", 2000);
+            Assert.AreEqual("Warm", Stage());
+            Call(bench, "CheckCrowd", 1999);
+            Assert.AreEqual("Done", Stage());
+            Assert.AreEqual(2, PerfBench.LastExitCode);
+            var report = File.ReadAllText(outPath);
+            StringAssert.Contains("\"alive_start\": 2200", report);
+            StringAssert.Contains("\"crowd_vat_drawn_min\": 1999", report);
+            StringAssert.Contains("\"hash_start\": null", report);
+        }
+
+        [Test]
         public void ANeverOpenedWindowWritesHashStartNull()   // [F7]
         {
             Call(bench, "Finish", 2, "[F7] the bad-option path");

@@ -21,10 +21,59 @@ namespace TW.Tests
         [Test]
         public void EveryScenarioNameRoundTrips()
         {
-            foreach (var s in new[] { BenchScenario.None, BenchScenario.Barrage, BenchScenario.Armour, BenchScenario.Vfx, BenchScenario.Beam, BenchScenario.Lineup })
+            foreach (var s in new[] { BenchScenario.None, BenchScenario.Barrage, BenchScenario.Armour, BenchScenario.Vfx, BenchScenario.Beam, BenchScenario.Lineup, BenchScenario.Crowd2000 })
                 Assert.AreEqual(s, BenchOptions.Parse("scenario=" + BenchOptions.ScenarioName(s)).Scenario, BenchOptions.ScenarioName(s));
             Assert.AreEqual(BenchScenario.Armour, BenchOptions.Parse("scenario=armor").Scenario, "the American spelling");
             Assert.AreEqual(BenchScenario.Vfx, BenchOptions.Parse("scenario=VFX").Scenario, "case does not matter");
+        }
+
+        [Test]
+        public void CrowdEffectsArePinnedBeforePoolCreationAndSurviveSavedSettings()
+        {
+            var original = FxQuality.Tier;
+            try
+            {
+                Knobs.Set(FxQuality.Knob, "-1");
+                FxQuality.Set(FxTier.Low);
+                var opts = BenchOptions.Parse("scenario=crowd2000 quality=5");
+                PerfBench.PinCrowdEffects(opts, 6);
+                Assert.AreEqual(FxTier.Epic, FxQuality.Tier, "pools allocated before the menu opens see the requested tier");
+                Assert.AreEqual(FxTier.Epic, FxQuality.Resolve(0, 0, 6, Knobs.Get(FxQuality.Knob, -1)),
+                    "a saved Low effects detail applied after bench boot must still use the pinned tier");
+                Knobs.Set(FxQuality.Knob, "1");
+                PerfBench.PinCrowdEffects(opts, 6);
+                Assert.AreEqual(FxTier.Medium, FxQuality.Tier, "an explicit bench knob still wins");
+            }
+            finally { Knobs.Clear(); FxQuality.Set(original); }
+        }
+
+        [Test]
+        public void CrowdFixtureFieldsBothSidesAtReproduciblePositionsBeforeTiming()
+        {
+            Assert.AreEqual(0, BenchOptions.Parse("stress=1500 scenario=crowd2000").StressPerSide);
+            Assert.AreEqual(1500, BenchOptions.Parse("stress=1500 scenario=barrage").StressPerSide);
+            var focus = new UnityEngine.Vector2(45f, 120f);
+            using var a = new TW.Sim.SimWorld(TW.Sim.SimConfig.Default, default);
+            using var b = new TW.Sim.SimWorld(TW.Sim.SimConfig.Default, default);
+            Assert.IsTrue(BenchScenarios.TrySpawnCrowd(a, focus));
+            Assert.IsTrue(BenchScenarios.TrySpawnCrowd(b, focus));
+            int left = 0, right = 0;
+            var positions = new System.Collections.Generic.HashSet<UnityEngine.Vector2>();
+            for (int i = 0; i < a.HighWater; i++)
+            {
+                if (!a.IsAlive(i) || a.Archetype[i] != TW.Sim.InfantryArchetype.Rifle) continue;
+                var p = a.Position[i];
+                if (a.Team[i] == 0 && p.z < focus.y) left++;
+                if (a.Team[i] == 1 && p.z > focus.y) right++;
+                positions.Add(new UnityEngine.Vector2(p.x, p.z));
+            }
+            Assert.AreEqual(1100, left);
+            Assert.AreEqual(1100, right);
+            Assert.AreEqual(2200, positions.Count);
+            Assert.AreEqual(a.Hash(), b.Hash());
+            ulong before = a.Hash();
+            Assert.IsFalse(BenchScenarios.TrySpawnCrowd(a, focus), "a second fixture cannot fit");
+            Assert.AreEqual(before, a.Hash(), "a refused fixture must leave no partial formation");
         }
 
         [Test]
