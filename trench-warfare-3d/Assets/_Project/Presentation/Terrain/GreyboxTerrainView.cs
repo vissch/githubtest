@@ -286,9 +286,6 @@ namespace TW.Presentation.Terrain
             }
         }
 
-        /// <summary>Between Geometry (2000) and the water and sea (Geometry+10 = 2010); see Toon.</summary>
-        const int GroundQueue = 2005;
-
         static Texture2D mudDetail, ripples;
 
         /// <summary>A ground material: toon shading, the mud's grain and relief in world space, no hull outline.</summary>
@@ -302,10 +299,9 @@ namespace TW.Presentation.Terrain
             mat.SetFloat("_DetailStrength", 0.20f);
             mat.SetFloat("_DetailBump", 1f);
             mat.SetShaderPassEnabled("SRPDefaultUnlit", false);
-            // Drawn after the men and props (Geometry, 2000), whose big bounds keep them out of the front-to-back sort, so the
-            // dearest opaque pixel is only shaded where nothing already stands in front of it. Still before the water and sea
-            // (Geometry+10), and every other queue in use is 2960 or later, so the image is the same.
-            mat.renderQueue = GroundQueue;
+            // Not moved to a later queue (tried 2026-11-25): the men and tanks write stencil bit 8 where they pass depth, and the
+            // ground drawn after them would cover a man behind a trench lip but leave his bit, cutting holes in a tank ring's
+            // hidden part (TankDisc). It needs the ground to clear that bit, and stills, first.
             owned.Add(mat);
             return mat;
         }

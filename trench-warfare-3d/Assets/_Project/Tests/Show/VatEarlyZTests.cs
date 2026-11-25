@@ -1,6 +1,6 @@
 // Phase: tooling (perf pass, 2026-09-24) — the living are drawn with no clip(), so the GPU depth-tests a man before it
 // shades him; the fallen keep the limb cut. Only the fallen can have lost a limb (VatPad: a living man's record packs
-// none), so only the fallen's material enables _TW_LIMBCUT, the keyword the lost-limb and wound clips sit behind. A clip
+// none), so only the fallen's material enables _TW_LIMBCUT, the keyword the lost-limb clip sits behind (the dead's look is _TW_FALLEN). A clip
 // anywhere in a pass, even one that never fires, makes the GPU run the whole shader before the depth test: in the
 // benchmark's held frame that was 1.5 ms of a 3.5 ms opaque pass (docs/05). Nothing but this test would notice it
 // coming back, because the picture is the same either way. The keyword only helps the material that is actually
