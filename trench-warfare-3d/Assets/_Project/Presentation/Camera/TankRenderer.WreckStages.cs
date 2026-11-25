@@ -311,7 +311,7 @@ namespace TW.Presentation.Tactical
             // claims HeavyWork and composes the map over several frames (:404-427), so the stand-ins go then, not in
             // this frame. Only ask when a husk was adopted: a whole-map composition is not free (review 2b, N7.c).
             if (adopted > 0)
-                foreach (var mb in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)) if (mb.GetType().Name == "BattlefieldProps") mb.SendMessage("Recompose", SendMessageOptions.DontRequireReceiver);
+                AskPropsToRecompose();
         }
     }
 }

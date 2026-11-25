@@ -208,6 +208,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVectorArray(PoolsId, poolAt);
             Shader.SetGlobalVectorArray(PoolTintId, poolTint);
             Shader.SetGlobalFloat(PoolCountId, n);
+            UploadPoolGrid(n);   // the cell masks that let a pixel visit only the pools that reach it (NightLights.PoolGrid.cs)
             poolsSet = true;
         }
 
@@ -281,6 +282,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalFloat(ThroughHazeId, 0f); Shader.SetGlobalFloat(PoolSoftId, 0f); Shader.SetGlobalFloat(PropRimId, 0f); Shader.SetGlobalFloat(UnblueId, 0f); Shader.SetGlobalFloat(PoolShoulderId, 0f); Shader.SetGlobalFloat(PoolFigureId, 0f); Shader.SetGlobalFloat(StreakId, 0f); Shader.SetGlobalFloat(GlintUnblueId, 0f);
             firePools.Clear();
             Shader.SetGlobalFloat(PoolCountId, 0f);
+            ReleasePoolGrid();
         }
     }
 }

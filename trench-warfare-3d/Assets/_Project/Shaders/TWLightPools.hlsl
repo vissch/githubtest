@@ -14,6 +14,13 @@
 float4 _TWPools[TW_MAX_POOLS];
 float4 _TWPoolTint[TW_MAX_POOLS];
 float _TWPoolCount;
+// The pool grid (NightLights.PoolGrid.cs): a coarse world-space grid whose cell holds a 32-bit mask of the pools whose cull
+// circle (the widest any loop below uses, 2.6 reaches, plus a margin) touches the cell. R32_UInt, read with Load.
+//   _TWPoolGrid      x, y the grid's origin (world x, z), z 1 / cell size (m)
+//   _TWPoolGridSize  x, y the grid's width and height in cells; x = 0 (the default: no grid set) means no grid
+Texture2D<uint> _TWPoolGridTex;
+float4 _TWPoolGrid;
+float4 _TWPoolGridSize;
 float _TWWetLook;   // look.wet (Atmosphere.NightLook.cs): 0 today
 #ifndef TW_POOLSOFT_DECLARED
 #define TW_POOLSOFT_DECLARED
@@ -37,6 +44,27 @@ float _TWMudSheen;   // look.mudSheen: the night mud's own share of the moon's b
                      // Unlit wet mud out-brightened every soldier (2026-10-17: mud luma p95 0.567 against the men's 0.444, mud B:R 1.77).
 float _TWPoolUnblue;   // look.poolUnblue: where a pool adds warm light it takes that much blue out of the moonlit ground under it,
                        // or its thin rim of orange over blue read violet (critique round 15: 1.5 % of pixels violet, all at pool edges)   // look.propRim: a prop's (not the ground's) warm rim toward the nearest pools, like the men's; 0 = none   // look.poolsThroughHaze: the share of a pool's light added after the haze, so a lamp far off still lights its mud through it
+
+/// The pools a pixel at positionWS may be reached by, as a bit set (bit k = pool k), never more than the first `count`.
+/// No grid set, or a pixel outside it: every one of the first `count` (the full loop, as before the grid).
+///
+/// WHY THE LIGHT IS BIT-IDENTICAL. The loops below walk the set bits of this mask in ASCENDING index order, so the pools
+/// that are visited are visited in the same order as the old `for k = 0 .. count-1` and the floating-point sums accumulate
+/// in the same order. Each visited pool runs the old per-pool maths unchanged, INCLUDING its own cull test (`dist2 >= cull^2`
+/// then `continue`). A pool the mask leaves out is one whose cull circle (in xz, radius at least the loop's cull radius,
+/// plus a margin) does not touch this pixel's cell: its 3D distance is at least its xz distance, so dist2 >= cull^2 and the
+/// old loop would have taken the `continue` before it touched any sum, a glint, a rim or any other state. The iterations
+/// the mask skips are exactly iterations the old loop rejected with no side effect. The mask is only ever too wide, never
+/// too narrow (the builder is conservative and a test pins it against brute force), and too wide costs a rejected visit.
+/// NaN or infinite pools set every bit (a NaN pool passes the old cull test, so it must stay visited).
+uint TWPoolMask(float3 positionWS, int count)
+{
+    uint full = count >= 32 ? 0xFFFFFFFFu : ((1u << (uint)max(count, 0)) - 1u);
+    if (_TWPoolGridSize.x <= 0.0) return full;
+    float2 g = floor((positionWS.xz - _TWPoolGrid.xy) * _TWPoolGrid.z);
+    if (!(g.x >= 0.0 && g.y >= 0.0 && g.x < _TWPoolGridSize.x && g.y < _TWPoolGridSize.y)) return full;   // outside (or NaN): every pool
+    return _TWPoolGridTex.Load(int3((int)g.x, (int)g.y, 0)) & full;
+}
 
 /// A pool's weight at t (0 under the flame, 1 at its rim): the three hard bands, softened toward a smooth falloff by
 /// look.poolSoft (the bands' edges widen and a squared falloff takes over).
@@ -89,8 +117,11 @@ half3 TWPoolsOnFigure(float3 positionWS, half3 normalWS, half3 viewWS, out half3
     half edge = 1.0 - saturate(dot(normalWS, viewWS));
     int count = min((int)_TWPoolCount, TW_FIGURE_POOLS);
     half facingLo = lerp(0.6, 0.85, figureCut), facingHi = lerp(0.4, 0.15, figureCut);
-    [loop] for (int k = 0; k < count; k++)
+    uint mask = TWPoolMask(positionWS, count);   // the pools that can reach this cell; see TWPoolMask for why this changes nothing
+    [loop] while (mask != 0u)
     {
+        int k = (int)firstbitlow(mask);
+        mask &= mask - 1u;   // clear the lowest set bit: pools are visited in ascending order, as the old for loop did
         float3 d = _TWPools[k].xyz - positionWS;
         float reach = _TWPools[k].w * 1.25;
         float dist2 = dot(d, d);
@@ -126,8 +157,11 @@ half3 TWPoolsGlintsAndRim(float3 positionWS, half3 normalWS, float3 r, bool glin
     // reach (1.6) that the cull below already keeps, so no flame the rim wants is skipped.
     half rimEdge = rimOn ? 1.0 - saturate(dot(normalWS, viewWS)) : 0.0;
     int count = (int)_TWPoolCount;
-    [loop] for (int k = 0; k < count; k++)
+    uint mask = TWPoolMask(positionWS, count);   // the pools that can reach this cell; see TWPoolMask for why this changes nothing
+    [loop] while (mask != 0u)
     {
+        int k = (int)firstbitlow(mask);
+        mask &= mask - 1u;   // clear the lowest set bit: pools are visited in ascending order, as the old for loop did
         float3 d = _TWPools[k].xyz - positionWS;
         float reach = _TWPools[k].w;
         float dist2 = dot(d, d);

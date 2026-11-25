@@ -23,7 +23,7 @@ namespace TW.Presentation.Terrain
         /// <summary>For a masked module (a house), the chunks of the instance at this matrix to hide, a bit each
         /// (PropDestruction: the chunks it has knocked down). Asked for every visible instance as it is submitted.</summary>
         public System.Func<BattlefieldKit.Module, Matrix4x4, HouseKit.ChunkMask> MaskOf;
-        MaterialPropertyBlock maskBlock;
+        static readonly int ChunkMaskId = Shader.PropertyToID("_ChunkMask");
 
         sealed class Batch
         {
@@ -42,6 +42,10 @@ namespace TW.Presentation.Terrain
             /// cull needs it, so the steady state allocates nothing.</summary>
             public Matrix4x4[][] Sent; public Vector4[][] SentMasks; public Bounds[] SentBounds; public int[] SentCounts;
             public int SentChunks;
+            /// <summary>A masked submission's own property block, holding its SentMasks array as last set, and whether the
+            /// array has changed since (SentMasks[c] is written only by the cull, and only a differing value marks it).
+            /// One block per submission because a block's array is set only when that submission's masks changed.</summary>
+            public MaterialPropertyBlock[] SentBlocks; public bool[] SentMasksDirty;
             /// <summary>Every change to the batch is one the next frame must cull for; a change of a page's bounds is
             /// one PropDestruction's strike index must be rebuilt for (BoundsVersion).</summary>
             void Changed(bool bounds)
@@ -108,6 +112,7 @@ namespace TW.Presentation.Terrain
                     int size = Mathf.Max(chunk + 1, Sent == null ? 1 : Sent.Length * 2);
                     System.Array.Resize(ref Sent, size); System.Array.Resize(ref SentMasks, size);
                     System.Array.Resize(ref SentBounds, size); System.Array.Resize(ref SentCounts, size);
+                    System.Array.Resize(ref SentBlocks, size); System.Array.Resize(ref SentMasksDirty, size);
                 }
                 var buffer = Sent[chunk];
                 if (buffer == null || buffer.Length < need)
@@ -564,7 +569,14 @@ namespace TW.Presentation.Terrain
                         if (module.Masked)
                         {
                             var masks = b.MasksOf(chunk);
-                            for (int k = 0; k < take; k++) masks[held + k] = MaskOf != null ? MaskOf(module, into[held + k]).Packed : Vector4.zero;
+                            bool changed = false;
+                            for (int k = 0; k < take; k++)
+                            {
+                                var mask = MaskOf != null ? MaskOf(module, into[held + k]).Packed : Vector4.zero;
+                                ref var slot = ref masks[held + k];
+                                if (!slot.Equals(mask)) { slot = mask; changed = true; }   // exact, bit for bit; the array keeps what it held
+                            }
+                            if (changed) b.SentMasksDirty[chunk] = true;
                         }
                         held += take; from += take;
                         if (held < MaxInstances) continue;
@@ -625,10 +637,12 @@ namespace TW.Presentation.Terrain
             var rp = new RenderParams(module.Material) { worldBounds = b.SentBounds[chunk], shadowCastingMode = module.Shadows ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true };
             if (module.Masked)
             {
-                // the block is copied when the draw is queued, so one block serves every masked submission
-                maskBlock ??= new MaterialPropertyBlock();
-                maskBlock.SetVectorArray("_ChunkMask", b.MasksOf(chunk));
-                rp.matProps = maskBlock;
+                // the block is copied when the draw is queued; each submission keeps its own, so its array (16 KB) is
+                // set again only when the cull wrote a different mask into it (or the block is new)
+                var block = b.SentBlocks[chunk];
+                if (block == null) { block = b.SentBlocks[chunk] = new MaterialPropertyBlock(); b.SentMasksDirty[chunk] = true; }
+                if (b.SentMasksDirty[chunk]) { block.SetVectorArray(ChunkMaskId, b.MasksOf(chunk)); b.SentMasksDirty[chunk] = false; }
+                rp.matProps = block;
             }
             FrameBudget.Draw(rp, module.Mesh, 0, b.Sent[chunk], b.SentCounts[chunk]);
             DrawCalls++;

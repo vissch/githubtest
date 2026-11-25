@@ -385,15 +385,104 @@ namespace TW.Presentation.Terrain
         /// <summary>How much of a watercourse the drainage found in height cell (x, z), 0 .. 1, before Rill's wander.</summary>
         public float DrainedAt(int x, int z) => drained == null ? 0f : drained[z * width + x];
 
+        // A hollow candidate: a floor cell that passes every per-cell test (strict minimum, off the banks, deep enough),
+        // with the pool it would make. All of it is a pure function of the heights within HollowWindowCells of the
+        // cell, so a rescan after a crater keeps every candidate the crater did not reach and re-derives the rest.
+        // What stays order-dependent (a candidate within 3 m of an earlier kept one is dropped; the index a pool is
+        // stamped under) is the short pass over this list, which always runs whole.
+        struct Candidate { public int Cell; public Hollow Pool; }
+        List<Candidate> candidates;
+        readonly List<Candidate> candidateScratch = new List<Candidate>();
+        short[] heightScratch;
+        /// <summary>Height cells the candidate scan of the last RefreshHollows call visited (tests: a regional rescan
+        /// visits a small rectangle, the whole scan every cell).</summary>
+        public int HollowCellsScanned { get; private set; }
+
+        /// <summary>How far, in cells, a candidate's result reads: the 3 x 3 minimum test, the ring at 5 m (cells x-5 ..
+        /// x+6 at the widest bilinear read) and the shoulder at up to 5.25 m (cells x-6 .. x+6; every offset is a
+        /// multiple of a quarter metre, so the floor is exact), plus one cell of slack. BankDistance reads the ctor's
+        /// nearEdge and Edges, which never change.</summary>
+        const int HollowWindowCells = 7;
+
+        /// <summary>The whole-map scan: every cell, from scratch. The start-up call and the fallback for any change whose
+        /// area is not known.</summary>
         public void RefreshHollows()
         {
-            Hollows.Clear(); for (int i = 0; i < nearHollow.Length; i++) nearHollow[i] = -1;
-            var hf = map.Height;
             heightCm ??= new short[width * length];
-            hf.Cm.CopyTo(heightCm);
-            var cm = heightCm;
-            for (int z = 3; z < length - 3; z++)
-            for (int x = 3; x < width - 3; x++)
+            map.Height.Cm.CopyTo(heightCm);
+            candidates ??= new List<Candidate>();
+            candidates.Clear();
+            ScanCandidates(3, 3, width - 4, length - 4, candidates);
+            PlaceHollows();
+        }
+
+        /// <summary>The ground changed somewhere inside this rectangle of height cells (inclusive); anywhere else it is as
+        /// it was at the last RefreshHollows. Re-derives only the candidates whose window the rectangle touches, then
+        /// does what the whole scan does with them: the same Hollows, nearHollow and drainage, bit for bit. Falls back to
+        /// the whole scan when there is no earlier scan to build on.</summary>
+        public void RefreshHollowsRegion(int cellX0, int cellZ0, int cellX1, int cellZ1)
+        {
+            if (candidates == null || heightCm == null) { RefreshHollows(); return; }
+            map.Height.Cm.CopyTo(heightCm);
+            RescanRegion(cellX0, cellZ0, cellX1, cellZ1);
+            PlaceHollows();
+        }
+
+        /// <summary>RefreshHollows after the ground changed, wherever it did: compares the heights with the copy the last
+        /// scan took, and rescans only the rectangle that holds every difference. No trigger has to know its area (a shell
+        /// that lands in a hole widens that hole, far from where it fell), so none can get it wrong. The result is the
+        /// whole scan's, bit for bit.</summary>
+        public void RefreshHollowsChanged()
+        {
+            if (candidates == null || heightCm == null) { RefreshHollows(); return; }
+            heightScratch ??= new short[width * length];
+            map.Height.Cm.CopyTo(heightScratch);
+            int x0 = width, z0 = length, x1 = -1, z1 = -1;
+            for (int z = 0; z < length; z++)
+            {
+                int row = z * width;
+                if (System.MemoryExtensions.SequenceEqual(new System.ReadOnlySpan<short>(heightScratch, row, width), new System.ReadOnlySpan<short>(heightCm, row, width))) continue;
+                int lo = 0; while (heightScratch[row + lo] == heightCm[row + lo]) lo++;
+                int hi = width - 1; while (heightScratch[row + hi] == heightCm[row + hi]) hi--;
+                if (lo < x0) x0 = lo;
+                if (hi > x1) x1 = hi;
+                if (z < z0) z0 = z;
+                z1 = z;
+            }
+            var old = heightCm; heightCm = heightScratch; heightScratch = old;   // heightCm now holds the heights being scanned
+            if (x1 >= 0) RescanRegion(x0, z0, x1, z1); else HollowCellsScanned = 0;
+            PlaceHollows();
+        }
+
+        void RescanRegion(int cellX0, int cellZ0, int cellX1, int cellZ1)
+        {
+            int x0 = Mathf.Max(3, cellX0 - HollowWindowCells), z0 = Mathf.Max(3, cellZ0 - HollowWindowCells);
+            int x1 = Mathf.Min(width - 4, cellX1 + HollowWindowCells), z1 = Mathf.Min(length - 4, cellZ1 + HollowWindowCells);
+            // candidates inside the rectangle are re-derived; every other one read only ground that did not change
+            int kept = 0;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                var c = candidates[i]; int cx = c.Cell % width, cz = c.Cell / width;
+                if (cx >= x0 && cx <= x1 && cz >= z0 && cz <= z1) continue;
+                candidates[kept++] = c;
+            }
+            candidates.RemoveRange(kept, candidates.Count - kept);
+            candidateScratch.Clear();
+            ScanCandidates(x0, z0, x1, z1, candidateScratch);
+            if (candidateScratch.Count > 0)
+            {
+                candidates.AddRange(candidateScratch);
+                candidates.Sort((a, b) => a.Cell.CompareTo(b.Cell));   // the scan order; cells are unique
+            }
+        }
+
+        /// <summary>The candidates among cells x0..x1 by z0..z1 (inclusive, inside 3 .. size - 4), in scan order.</summary>
+        void ScanCandidates(int x0, int z0, int x1, int z1, List<Candidate> into)
+        {
+            var hf = map.Height; var cm = heightCm;
+            HollowCellsScanned = x1 < x0 || z1 < z0 ? 0 : (x1 - x0 + 1) * (z1 - z0 + 1);
+            for (int z = z0; z <= z1; z++)
+            for (int x = x0; x <= x1; x++)
             {
                 // A hollow's floor is a strict minimum: every neighbour at least half a centimetre above it. Heights are
                 // whole centimetres, so that is every neighbour's centimetres above its own (the float test it was is
@@ -406,20 +495,34 @@ namespace TW.Presentation.Terrain
                 if (BankDistance(wx, wz) < 4f) continue;
                 float ring = (hf.Sample(wx - 5f, wz) + hf.Sample(wx + 5f, wz) + hf.Sample(wx, wz - 5f) + hf.Sample(wx, wz + 5f)) * .25f;
                 float depth = ring - h; if (depth < .42f) continue;
-                bool overlap = false;
-                foreach (var other in Hollows) if (Vector2.Distance(other.Center, new Vector2(wx, wz)) < 3f) overlap = true;
-                if (overlap) continue;
                 float radius = 1.5f;
                 for (; radius < 5.5f; radius += .25f)
                 {
                     float shoulder = (hf.Sample(wx - radius, wz) + hf.Sample(wx + radius, wz) + hf.Sample(wx, wz - radius) + hf.Sample(wx, wz + radius)) * .25f;
                     if (shoulder - h > depth * .86f) break;
                 }
-                int mark = Hollows.Count;
                 // most holes hold water, each to its own level; hashed on the cell so a hole keeps its water when others land
                 uint hash = (uint)x * 0x9E3779B1u ^ (uint)z * 0x85EBCA77u; hash ^= hash >> 15; hash *= 0x2C1B3C6Du; hash ^= hash >> 12;
                 float roll = (hash & 0xFFFF) / 65535f, fill = .40f + .28f * ((hash >> 16) & 0xFF) / 255f;
-                Hollows.Add(new Hollow { Center = new Vector2(wx, wz), Radius = radius, Depth = depth, Level = roll < Flooding ? h + depth * fill : -1000f });
+                into.Add(new Candidate { Cell = c, Pool = new Hollow { Center = new Vector2(wx, wz), Radius = radius, Depth = depth, Level = roll < Flooding ? h + depth * fill : -1000f } });
+            }
+        }
+
+        /// <summary>The part of the scan that depends on order: keep a candidate unless an earlier kept one is within 3 m,
+        /// stamp each kept pool into nearHollow under its index, then the drainage. Whole every time, and short: it
+        /// visits the candidates and the squares of the pools it keeps.</summary>
+        void PlaceHollows()
+        {
+            Hollows.Clear(); for (int i = 0; i < nearHollow.Length; i++) nearHollow[i] = -1;
+            foreach (var candidate in candidates)
+            {
+                var pool = candidate.Pool; float wx = pool.Center.x, wz = pool.Center.y, radius = pool.Radius;
+                int x = candidate.Cell % width, z = candidate.Cell / width;
+                bool overlap = false;
+                foreach (var other in Hollows) if (Vector2.Distance(other.Center, new Vector2(wx, wz)) < 3f) overlap = true;
+                if (overlap) continue;
+                int mark = Hollows.Count;
+                Hollows.Add(pool);
                 // a cell more than radius + 1.5 m off along one axis is more than that away, so it is skipped below: the
                 // pool's own square (7 .. 15 cells a side) is all the stamp visits, not 17 x 17
                 int reach = (int)(radius + 1.5f);

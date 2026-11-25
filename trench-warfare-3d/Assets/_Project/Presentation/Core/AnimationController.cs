@@ -267,14 +267,14 @@ namespace TW.Presentation
             actOn = new NativeArray<int>(maxSlots, Allocator.Persistent);
             prevPos = new float3[maxSlots]; heading = new float2[maxSlots];
             active = new NativeArray<int>(maxSlots, Allocator.Persistent);
-            AllocateDeaths(maxSlots);
+            AllocateDeaths(maxSlots); AllocateJobs();
         }
 
         public void Dispose()
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
             shotThisTick.Dispose(); gasHere.Dispose(); threw.Dispose(); leapSeconds.Dispose(); leapMetres.Dispose(); Lunge.Dispose(); blow.Dispose(); blocked.Dispose(); layUntil.Dispose(); shotAt.Dispose(); act.Dispose(); actOn.Dispose(); pinnedAt.Dispose(); active.Dispose();
-            DisposeDeaths(); DisposePins(); DisposeRally();
+            DisposeDeaths(); DisposePins(); DisposeRally(); DisposeJobs();
         }
 
         // ------------------------------------------------------------------------------------------------------ tick
@@ -413,34 +413,13 @@ namespace TW.Presentation
                         break;
                     case SimEventType.Explosion:
                     {
-                        // Inside the ring the sim throws men in (0.85 of the radius), and for anyone it killed, the burst
-                        // is this tick's. Past it the reaction runs out through the men at WaveSpeed, so a line flinches
-                        // one man after the next instead of all on one tick, and it reaches WaveReach past the radius,
-                        // where the sim stops. Everyone within six metres of the edge wears some of the earth it threw.
-                        float r = e.Scalar, reach = r + WaveReach, reach2 = reach * reach, inner = 0.85f * r, dirty = r + 6f;
-                        // an aircraft's rounds (BlastShape.Strafe, in dir.y) kill where men stand: they flinch from it but nobody
-                        // is latched for a throw (its 5 m radius passed the 4 m throw test, so the sim's no-knock fix still threw
-                        // them 1.8-7.5 m on screen: critic r6, 2026-09-27)
-                        bool rounds = (int)math.round(e.Dir.y) == (int)TW.Sim.Combat.BlastShape.Strafe;
-                        float perTick = WaveSpeed * tickSeconds;
-                        for (int i = 0; i < count; i++)
-                        {
-                            bool alive = (w.Flags[i] & (uint)UnitFlags.Alive) != 0;
-                            if (!alive && (State[i].Dead || State[i].Generation != w.Generation[i])) continue;   // the men it killed this tick are still in it
-                            float3 d = w.Position[i] - e.Pos; d.y = 0f; float dd = math.lengthsq(d);
-                            if (dd >= reach2) continue;
-                            float dist = math.sqrt(dd);
-                            if (dist < dirty) { float close = 1f - dist / dirty; Grime[i] = math.min(1f, Grime[i] + 0.5f * close * close); }
-                            if (!alive || dist < inner)
-                            {
-                                if (!rounds && (blastRadius[i] <= 0f || dist < blastDist[i])) { blastRadius[i] = r; blastDist[i] = dist; hitDir[i] = -math.normalizesafe(d, new float3(0, 0, 1)); }
-                            }
-                            else if (waveAt[i] == 0u || dist < waveD[i])
-                            {
-                                waveAt[i] = tick + 1u + (uint)((dist - inner) / perTick) + (Hash(State[i].Seed, tick + 71u) < 0.5f ? 0u : 1u);
-                                waveR[i] = r; waveD[i] = dist;
-                            }
-                        }
+                        // one Burst job (AnimationController.Jobs.cs, ExplosionJob) for the whole run of consecutive Explosion events,
+                        // in event order: a later shell reads what an earlier one latched on the same man. A Hit or MeleeBlow between
+                        // two shells ends the run, because they write the same hitDir.
+                        int end = k + 1;
+                        while (end < ev.Length && ev[end].Type == SimEventType.Explosion) end++;
+                        LatchExplosions(w, ev.AsArray(), k, end);
+                        k = end - 1;
                         break;
                     }
                 }
@@ -1239,68 +1218,7 @@ namespace TW.Presentation
         /// <summary>Move every frame on, close the cross-fades, end the one-shots; then the stand-in row and phase per slot.</summary>
         public void Advance(float dt)
         {
-            for (int at = 0; at < activeCount; at++)
-            {
-                int i = active[at];
-                var s = State[i];
-                var info = Clips.Table[(int)s.Clip];
-                if (s.Clip == Clip.None) { Row[i] = (ushort)Clip.Idle; Phase[i] = 0f; Blend[i] = 0f; continue; }
-                s.Frame += dt * s.Rate;
-                if (info.Loop) { if (s.Frame >= info.Seconds) s.Frame -= info.Seconds * math.floor(s.Frame / info.Seconds); }
-                else if (s.Frame > info.Seconds) s.Frame = info.Seconds;
-                if (s.Blend > 0f) s.Blend -= dt;
-                // the feet come round to the body yaw at a turn's pace; a turn clip holds the old facing until it ends
-                if (s.Rung != Rung.Turn || Clips.Table[(int)s.Clip].Loop)
-                {
-                    float d = s.BodyYaw - s.ShownYaw; while (d > math.PI) d -= 2f * math.PI; while (d < -math.PI) d += 2f * math.PI;
-                    float step = math.min(math.abs(d), dt * (s.Clip == Clip.DiveAway ? 14f : s.Rung == Rung.Locomotion ? 7f : s.Rung == Rung.Fire ? 6f : 3f));
-                    s.ShownYaw += math.sign(d) * step;
-                    while (s.ShownYaw > math.PI) s.ShownYaw -= 2f * math.PI; while (s.ShownYaw < -math.PI) s.ShownYaw += 2f * math.PI;
-                }
-                if (i == FollowSlot) { timeIn.TryGetValue(s.Clip, out float t); timeIn[s.Clip] = t + dt; }
-                bool climb = s.Rung == Rung.Trench && (s.Clip == Clip.ClimbOut || s.Clip == Clip.ClimbLadder || s.Clip == Clip.ClimbHold);
-                if (climb) s.ClimbTime += dt; else s.ClimbTime = 0f;
-                Lift[i] = climb ? math.saturate(s.ClimbTime / 0.8f) : 0f;   // the sim holds him on the trench floor for the vault: he is drawn rising up the wall
-                State[i] = s;
-                Row[i] = (ushort)s.Clip;
-                float ph = info.Seconds > 0f ? s.Frame / info.Seconds : 0f;
-                Phase[i] = info.Loop ? math.frac(ph) : math.min(ph, 1f);
-                Yaw[i] = s.ShownYaw;
-                // blown off his feet: a parabola over the first HopSeconds of his fall (Frame runs at Rate, so measure in clip seconds)
-                float hop = 0f;
-                if (s.HopHeight > 0f && (s.Clip == Clip.Trip || s.Clip == Clip.DiveAway || s.Clip == Clip.JumpDown) && s.ClipStart <= s.HopTick)
-                {
-                    float u = math.saturate((s.Frame - s.HopFrame) / ((s.HopFor > 0f ? s.HopFor : HopSeconds) * math.max(0.1f, s.Rate)));
-                    hop = s.HopHeight * 4f * u * (1f - u);
-                    if (u >= 1f) { s.HopHeight = 0f; State[i] = s; }
-                }
-                if (s.LeapTick != 0)
-                {
-                    float u = (tick - s.LeapTick) * tickSeconds / s.LeapSeconds;
-                    if (u < 1f) hop = math.max(hop, s.LeapHeight * 4f * u * (1f - u));
-                    else { s.LeapTick = 0; State[i] = s; }
-                }
-                Hop[i] = hop;
-                // hand to hand: he steps into the blow he strikes and back out of it; struck, he is driven back and recovers
-                float2 lunge = default;
-                if (s.Clip == Clip.MeleeStab || s.Clip == Clip.MeleePunch || s.Clip == Clip.MeleeSmash)
-                {
-                    float u = info.Seconds > 0f ? s.Frame / info.Seconds : 1f;
-                    lunge = new float2(math.sin(s.ShownYaw), math.cos(s.ShownYaw)) * (LungeMetres * math.sin(math.PI * math.saturate((u - 0.08f) / 0.62f)));
-                }
-                if (s.RecoilTick != 0)
-                {
-                    float since = (tick - s.RecoilTick) * tickSeconds;
-                    if (since < RecoilSeconds) { float k = 1f - since / RecoilSeconds; lunge += s.RecoilDir * (RecoilMetres * math.sin(math.PI * math.sqrt(1f - k))); }
-                    else { s.RecoilTick = 0; State[i] = s; }
-                }
-                Lunge[i] = lunge;
-                var prev = Clips.Table[(int)s.PrevClip];
-                PrevRow[i] = (ushort)s.PrevClip;
-                float pp = prev.Seconds > 0f ? s.PrevFrame / prev.Seconds : 0f;
-                PrevPhase[i] = prev.Loop ? math.frac(pp) : math.min(pp, 1f);
-                Blend[i] = s.Blend > 0f && s.Fade > 0f ? math.saturate(s.Blend / s.Fade) : 0f;
-            }
+            RunAdvance(dt);   // a Burst job over the active slots (AnimationController.Jobs.cs, AdvanceJob)
         }
 
         // ----------------------------------------------------------------------------------------------------- trace

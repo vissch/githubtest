@@ -644,7 +644,7 @@ namespace TW.Presentation.Terrain
             bool rescanned = false;
             if (hollowsDirty && HeavyWork.TryClaim())
             {
-                TW.Sim.PerfMarkers.TerrainHollows.Begin(); Surface.RefreshHollows(); hollowsDirty = false; TW.Sim.PerfMarkers.TerrainHollows.End();
+                TW.Sim.PerfMarkers.TerrainHollows.Begin(); Surface.RefreshHollowsChanged(); hollowsDirty = false; TW.Sim.PerfMarkers.TerrainHollows.End();
                 // Only a chunk the pending craters could have changed needs restarting: OnSimEvent already restarted
                 // it per crater, so this is a safety net, not the main path. Every other chunk keeps its rows.
                 if (pendingAny)

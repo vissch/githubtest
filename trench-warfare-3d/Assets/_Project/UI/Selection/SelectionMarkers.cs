@@ -39,6 +39,10 @@ namespace TW.UI
         readonly List<Mark> pool = new List<Mark>(64);
         int used;
         Camera cam;
+        // the camera's matrices, read once a frame in Begin: Add projects with them (UnitPicker.Project) instead of asking
+        // the engine four times a unit. camera.projectionMatrix x worldToCameraMatrix is what WorldToScreenPoint uses.
+        Matrix4x4 toClip, toView;
+        Rect view;
 
         /// <param name="toHud">Screen px (bottom-left origin) to the HUD's layout px, as SelectionController.ToHud.</param>
         public SelectionMarkers(VisualElement root, System.Func<Vector2, Vector2> toHud)
@@ -55,7 +59,16 @@ namespace TW.UI
             if (hex != null) Object.Destroy(hex);
         }
 
-        public void Begin(Camera c) { cam = c; used = 0; }
+        public void Begin(Camera c)
+        {
+            cam = c; used = 0;
+            if (c == null) return;
+            toView = c.worldToCameraMatrix; toClip = c.projectionMatrix * toView; view = c.pixelRect;
+        }
+
+        /// <summary>Camera.WorldToScreenPoint's x and y (px, bottom-left origin) from the cached matrices; where the point is
+        /// on or behind the eye plane the engine is asked, as it always was.</summary>
+        Vector2 ToScreen(Vector3 p) => UnitPicker.Project(in toClip, view, p, out Vector2 s) ? s : (Vector2)cam.WorldToScreenPoint(p);
 
         /// <summary>One mark this frame: its bracket, and a bar at hp (0..1) unless hp is negative.</summary>
         public void Add(ScreenUnit u, Kind kind, float hp)
@@ -66,14 +79,16 @@ namespace TW.UI
             float body = u.Vehicle ? UnitPicker.VehicleBodyM : UnitPicker.ManBodyM * scale;
             Vector3 feet = new Vector3(u.World.x, u.World.y - body, u.World.z);
             Vector3 head = u.Vehicle ? feet + Vector3.up * 2.6f : feet + Vector3.up * (HeadM * scale);
-            Vector3 sf = cam.WorldToScreenPoint(feet);
-            if (sf.z <= cam.nearClipPlane) return;
+            // WorldToScreenPoint's z: the distance from the camera plane (the view matrix looks down -z)
+            float depth = -(toView.m20 * feet.x + toView.m21 * feet.y + toView.m22 * feet.z + toView.m23);
+            if (depth <= cam.nearClipPlane) return;
+            Vector2 sf = ToScreen(feet);
             // the hexagon lies on the ground: its screen width from the camera's right, its height from the ground ahead
             float r = u.Size * 0.5f;
             Vector3 right = cam.transform.right; right.y = 0f; right = right.sqrMagnitude > 1e-6f ? right.normalized : Vector3.right;
             Vector3 ahead = Vector3.Cross(right, Vector3.up);
             Vector2 pf = toHud(sf);
-            Vector2 pr = toHud(cam.WorldToScreenPoint(feet + right * r)), pa = toHud(cam.WorldToScreenPoint(feet + ahead * r));
+            Vector2 pr = toHud(ToScreen(feet + right * r)), pa = toHud(ToScreen(feet + ahead * r));
             float w = 2f * (pr - pf).magnitude, h = 2f * Mathf.Abs((pa - pf).y);
             h = Mathf.Max(h, w * 0.25f);   // never flatter than a quarter, or it vanishes when the camera lies low
             float grow = w < MinHexPx ? MinHexPx / Mathf.Max(1f, w) : w > MaxHexPx ? MaxHexPx / w : 1f;
@@ -95,7 +110,7 @@ namespace TW.UI
             int pct = Mathf.Clamp(Mathf.CeilToInt(hp * 100f), 0, 100);
             if (pct != m.Pct) { m.Pct = pct; m.Fill.style.width = Length.Percent(pct); }
             // over the head, or over the bracket's far edge if the camera looks so steeply down that the head is lower
-            Vector2 ph = toHud(cam.WorldToScreenPoint(head));
+            Vector2 ph = toHud(ToScreen(head));
             float top = Mathf.Min(ph.y, pf.y - h * 0.5f) - BarGapPx - BarHeightPx - pf.y;
             m.Bar.transform.position = new Vector3(-(u.Vehicle ? VehicleBarPx : ManBarPx) * 0.5f + (ph.x - pf.x), top, 0f);
         }
