@@ -586,6 +586,7 @@ namespace TW.Presentation.Tactical
         void ForgetMatch()
         {
             rockets.Clear();
+            propLayers.Clear();   // found again on the next ask (AskPropsToRecompose)
             ribbonPool.AddRange(ribbons); ribbons.Clear();
             rV.Clear(); rC.Clear(); rI.Clear();
             views.Clear(); wrecks.Clear(); debris.Clear(); pops.Clear(); flames.Clear(); fireballs.Clear(); gone.Clear();
