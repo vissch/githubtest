@@ -45,6 +45,9 @@ namespace TW.Presentation.Terrain
         // BuildDrainage's scratch, kept so a rescan after every salvo allocates nothing
         float[] flowGround, flowWater;
         int[] flowTo, flowPending, flowStack;
+        // Every upstream cell contributes one unit of rain. At 90 the watercourse has reached full strength.
+        const int FullCatchment = 90;
+        readonly float[] watercourseByCatchment = new float[FullCatchment + 1];
         // RefreshHollows' copy of the heights (the centimetres HeightAtCell reads), the heights the drainage last ran
         // on, and per row the span of cells whose height has changed since: the drainage re-derives only those (C40)
         short[] heightCm, drainedCm;
@@ -53,6 +56,7 @@ namespace TW.Presentation.Terrain
         public BattlefieldSurface(MapData map, float flooding = 0f)
         {
             Flooding = flooding;
+            for (int i = 7; i <= FullCatchment; i++) watercourseByCatchment[i] = Watercourse(i);
             this.map = map; width = map.Height.Width; length = map.Height.Length;
             nearEdge = new int[width * length]; nearHollow = new int[width * length];
             for (int i = 0; i < nearEdge.Length; i++) nearEdge[i] = nearHollow[i] = -1;
@@ -318,7 +322,7 @@ namespace TW.Presentation.Terrain
                 int x = i % width, z = i / width;
                 int cell = map.NavIndex(Mathf.Min((int)((x + .5f) / MapData.NavCellSize), map.NavWidth - 1), Mathf.Min((int)((z + .5f) / MapData.NavCellSize), map.NavLength - 1));
                 bool dug = ((NavLayer)map.NavLayers[cell] & (NavLayer.Trench | NavLayer.Link)) != 0;
-                drained[i] = dug ? 0f : Watercourse(flowWater[i]);
+                drained[i] = dug ? 0f : watercourseByCatchment[Mathf.Min((int)flowWater[i], FullCatchment)];
             }
         }
 
@@ -374,7 +378,7 @@ namespace TW.Presentation.Terrain
         public static float Watercourse(float water)
         {
             if (water <= 6f) return 0f;
-            if (water >= 90f) return 1f;
+            if (water >= FullCatchment) return 1f;
             return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(Mathf.Log(6f), Mathf.Log(90f), Mathf.Log(water)));
         }
 
@@ -516,23 +520,26 @@ namespace TW.Presentation.Terrain
             Hollows.Clear(); for (int i = 0; i < nearHollow.Length; i++) nearHollow[i] = -1;
             foreach (var candidate in candidates)
             {
-                var pool = candidate.Pool; float wx = pool.Center.x, wz = pool.Center.y, radius = pool.Radius;
+                var pool = candidate.Pool;
                 int x = candidate.Cell % width, z = candidate.Cell / width;
-                bool overlap = false;
-                foreach (var other in Hollows) if (Vector2.Distance(other.Center, new Vector2(wx, wz)) < 3f) overlap = true;
-                if (overlap) continue;
+                // Every kept pool stamps at least 3 m (the minimum radius is 1.5 m). If a centre is
+                // within 3 m of this cell, its nearest stamped centre must be within 3 m too.
+                int previous = nearHollow[candidate.Cell];
+                if (previous >= 0 && (Hollows[previous].Center - pool.Center).sqrMagnitude < 9f) continue;
                 int mark = Hollows.Count;
                 Hollows.Add(pool);
                 // a cell more than radius + 1.5 m off along one axis is more than that away, so it is skipped below: the
                 // pool's own square (7 .. 15 cells a side) is all the stamp visits, not 17 x 17
-                int reach = (int)(radius + 1.5f);
+                float stampRadius = pool.Radius + 1.5f;
+                int reach = (int)stampRadius;
                 for (int zz = Mathf.Max(0, z - reach); zz <= Mathf.Min(length - 1, z + reach); zz++)
                 for (int xx = Mathf.Max(0, x - reach); xx <= Mathf.Min(width - 1, x + reach); xx++)
                 {
                     int i = zz * width + xx;
-                    float distance = Vector2.Distance(new Vector2(xx + .5f, zz + .5f), new Vector2(wx, wz));
-                    if (distance > radius + 1.5f) continue;
-                    if (nearHollow[i] < 0 || distance < Vector2.Distance(new Vector2(xx + .5f, zz + .5f), Hollows[nearHollow[i]].Center)) nearHollow[i] = mark;
+                    int dx = xx - x, dz = zz - z, squared = dx * dx + dz * dz;
+                    if (squared > stampRadius * stampRadius) continue;
+                    int old = nearHollow[i];
+                    if (old < 0 || squared < (new Vector2(xx + .5f, zz + .5f) - Hollows[old].Center).sqrMagnitude) nearHollow[i] = mark;
                 }
             }
             BuildDrainage();
