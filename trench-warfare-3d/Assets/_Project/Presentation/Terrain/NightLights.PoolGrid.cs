@@ -9,6 +9,7 @@
 // texture holds 24 bits of integer at most), read with Load, never sampled.
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
 namespace TW.Presentation.Terrain
 {
@@ -25,6 +26,7 @@ namespace TW.Presentation.Terrain
 
         static readonly int PoolGridId = Shader.PropertyToID("_TWPoolGrid"), PoolGridSizeId = Shader.PropertyToID("_TWPoolGridSize"), PoolGridTexId = Shader.PropertyToID("_TWPoolGridTex");
         Texture2D poolGridTex;
+        RenderTexture poolGridTarget;
         uint[] poolGridCells;
         int poolGridW, poolGridH, poolGridKeyN = -1;
         float poolGridOx, poolGridOz, poolGridCellM;
@@ -69,6 +71,29 @@ namespace TW.Presentation.Terrain
 
         static bool Finite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
 
+        bool CreatePoolTextures()
+        {
+            var uploadFormat = GraphicsFormat.R32_UInt;
+            if (!SystemInfo.IsFormatSupported(uploadFormat, FormatUsage.Sample))
+            {
+                // D3D11 supports integer loads from this render target, but Unity rejects a sampled R32_UInt
+                // Texture2D. Copy the raw words between views of the same 32-bit format family. No float is sampled.
+                uploadFormat = GraphicsFormat.R32_SFloat;
+                if (SystemInfo.graphicsDeviceType != GraphicsDeviceType.Direct3D11 ||
+                    (SystemInfo.copyTextureSupport & CopyTextureSupport.TextureToRT) == 0 ||
+                    !SystemInfo.IsFormatSupported(uploadFormat, FormatUsage.Sample) ||
+                    !SystemInfo.IsFormatSupported(GraphicsFormat.R32_UInt, FormatUsage.Render)) return false;
+
+                var desc = new RenderTextureDescriptor(poolGridW, poolGridH, GraphicsFormat.R32_UInt, 0)
+                    { msaaSamples = 1, useMipMap = false, autoGenerateMips = false };
+                poolGridTarget = new RenderTexture(desc)
+                    { name = "TWPoolMaskUInt", filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
+            }
+            poolGridTex = new Texture2D(poolGridW, poolGridH, uploadFormat, TextureCreationFlags.None)
+                { name = "TWPoolGrid", filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
+            return poolGridTex.graphicsFormat == uploadFormat;
+        }
+
         /// <summary>Builds and hands the grid for the n pools just set in poolAt, for the map this scene stands on. Called
         /// per camera, straight after the pool arrays; unchanged pools are not rebuilt or re-uploaded. Any trouble (no map,
         /// no R32_UInt) leaves _TWPoolGridSize.x at 0, which is the full loop.</summary>
@@ -79,16 +104,20 @@ namespace TW.Presentation.Terrain
             {
                 var map = Host != null && Host.Local != null ? Host.Local.Map : null;
                 if (map == null) { Shader.SetGlobalVector(PoolGridSizeId, Vector4.zero); return; }
-                if (!SystemInfo.IsFormatSupported(GraphicsFormat.R32_UInt, FormatUsage.Sample)) { poolGridOff = true; Shader.SetGlobalVector(PoolGridSizeId, Vector4.zero); return; }
                 float sx = map.SizeMeters.x + 2f * PoolGridPad, sz = map.SizeMeters.y + 2f * PoolGridPad;
                 float cell = Mathf.Max(PoolGridCell, Mathf.Max(sx, sz) / PoolGridMaxSide);
                 poolGridW = Mathf.Clamp(Mathf.CeilToInt(sx / cell), 1, PoolGridMaxSide);
                 poolGridH = Mathf.Clamp(Mathf.CeilToInt(sz / cell), 1, PoolGridMaxSide);
                 poolGridCellM = cell; poolGridOx = -PoolGridPad; poolGridOz = -PoolGridPad;
+                if (!CreatePoolTextures()) { poolGridOff = true; ReleasePoolGrid(); return; }
                 poolGridCells = new uint[poolGridW * poolGridH];
-                poolGridTex = new Texture2D(poolGridW, poolGridH, GraphicsFormat.R32_UInt, TextureCreationFlags.None)
-                { name = "TWPoolGrid", filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
                 poolGridKeyN = -1;
+            }
+            if (poolGridTarget != null && !poolGridTarget.IsCreated())
+            {
+                if (!poolGridTarget.Create()) { Shader.SetGlobalVector(PoolGridSizeId, Vector4.zero); return; }
+                if (poolGridTarget.graphicsFormat != GraphicsFormat.R32_UInt) { poolGridOff = true; ReleasePoolGrid(); return; }
+                poolGridKeyN = -1;   // the OS can discard a render target even when the lights have not moved
             }
             bool same = n == poolGridKeyN;
             for (int k = 0; same && k < n; k++)   // exact floats: Vector4 == is approximate
@@ -98,10 +127,11 @@ namespace TW.Presentation.Terrain
                 BuildPoolMasks(poolAt, n, poolGridCells, poolGridW, poolGridH, poolGridOx, poolGridOz, poolGridCellM, PoolMaskReachScale, PoolMaskMargin);
                 poolGridTex.SetPixelData(poolGridCells, 0);
                 poolGridTex.Apply(false, false);
+                if (poolGridTarget != null) Graphics.CopyTexture(poolGridTex, 0, 0, poolGridTarget, 0, 0);
                 for (int k = 0; k < n; k++) poolGridKey[k] = poolAt[k];
                 poolGridKeyN = n;
             }
-            Shader.SetGlobalTexture(PoolGridTexId, poolGridTex);
+            Shader.SetGlobalTexture(PoolGridTexId, poolGridTarget != null ? (Texture)poolGridTarget : poolGridTex);
             Shader.SetGlobalVector(PoolGridId, new Vector4(poolGridOx, poolGridOz, 1f / poolGridCellM, 0f));
             Shader.SetGlobalVector(PoolGridSizeId, new Vector4(poolGridW, poolGridH, 0f, 0f));
         }
@@ -111,6 +141,7 @@ namespace TW.Presentation.Terrain
         {
             Shader.SetGlobalVector(PoolGridSizeId, Vector4.zero);
             if (poolGridTex != null) { Destroy(poolGridTex); poolGridTex = null; }
+            if (poolGridTarget != null) { poolGridTarget.Release(); Destroy(poolGridTarget); poolGridTarget = null; }
             poolGridCells = null; poolGridKeyN = -1;
         }
     }
