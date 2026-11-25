@@ -1702,25 +1702,18 @@ namespace TW.Presentation.Tactical
         // The prop layer's BattlefieldProps (found by type name: that assembly is not referenced from here), kept between
         // asks instead of found by FindObjectsByType<MonoBehaviour> each time, which built an array of every MonoBehaviour
         // in the scene per wreck removed. Resolved on an ask when nothing is held, or when a held one has been destroyed
-        // or a scene has loaded since; an empty result is not kept, so a prop layer that appears later is still found.
+        //; an empty result is not kept, so a prop layer that appears later is still found.
         // The ask itself is the same SendMessage as before, so a component that is now inactive still gets nothing.
-        static readonly List<MonoBehaviour> propLayers = new List<MonoBehaviour>();
-        static bool propLayersStale = true, propLayersWatching;
-        static void AskPropsToRecompose()
+        // Instance state, not static: this renderer dies with its scene, so a new scene starts with nothing held.
+        readonly List<MonoBehaviour> propLayers = new List<MonoBehaviour>();
+        void AskPropsToRecompose()
         {
-            if (!propLayersWatching)
-            {
-                propLayersWatching = true;
-                UnityEngine.SceneManagement.SceneManager.sceneLoaded += (_, __) => propLayersStale = true;
-                UnityEngine.SceneManagement.SceneManager.sceneUnloaded += _ => propLayersStale = true;
-            }
-            bool fresh = propLayers.Count > 0 && !propLayersStale;
+            bool fresh = propLayers.Count > 0;
             for (int i = 0; fresh && i < propLayers.Count; i++) if (propLayers[i] == null) fresh = false;
             if (!fresh)
             {
                 propLayers.Clear();
                 foreach (var mb in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)) if (mb != null && mb.GetType().Name == "BattlefieldProps") propLayers.Add(mb);
-                propLayersStale = false;
             }
             for (int i = 0; i < propLayers.Count; i++) propLayers[i].SendMessage("Recompose", SendMessageOptions.DontRequireReceiver);
         }

@@ -16,6 +16,9 @@ namespace TW.Tests
 {
     public class ExplosionLatchJobTests
     {
+        // Mono runs the managed loop with wider intermediates than Burst's strict 32-bit floats (seen: grime differs in the
+        // last bit, 5e-10), so the floats are held to a tolerance far under anything drawn; ticks and rows stay exact.
+        const float Tol = 1e-5f;
         static readonly float3 Centre = new float3(150f, 0f, 300f);
 
         sealed class Rig : IDisposable
@@ -132,13 +135,13 @@ namespace TW.Tests
             for (int i = 0; i < count; i++)
             {
                 var l = r.A.LatchedBlast(i);
-                Assert.AreEqual(grime[i], r.A.Grime[i], 0f, "grime of slot " + i);
-                Assert.AreEqual(radius[i], l.Radius, 0f, "blast radius of slot " + i);
-                Assert.AreEqual(dist[i], l.Dist, 0f, "blast distance of slot " + i);
-                Assert.AreEqual(dir[i].x, l.Dir.x, 0f, "blast dir x of slot " + i); Assert.AreEqual(dir[i].y, l.Dir.y, 0f, "blast dir y of slot " + i); Assert.AreEqual(dir[i].z, l.Dir.z, 0f, "blast dir z of slot " + i);
+                Assert.AreEqual(grime[i], r.A.Grime[i], Tol, "grime of slot " + i);
+                Assert.AreEqual(radius[i], l.Radius, Tol, "blast radius of slot " + i);
+                Assert.AreEqual(dist[i], l.Dist, Tol, "blast distance of slot " + i);
+                Assert.AreEqual(dir[i].x, l.Dir.x, Tol, "blast dir x of slot " + i); Assert.AreEqual(dir[i].y, l.Dir.y, Tol, "blast dir y of slot " + i); Assert.AreEqual(dir[i].z, l.Dir.z, Tol, "blast dir z of slot " + i);
                 Assert.AreEqual(waveAt[i], l.WaveAt, "wave tick of slot " + i);
-                Assert.AreEqual(waveR[i], l.WaveR, 0f, "wave radius of slot " + i);
-                Assert.AreEqual(waveD[i], l.WaveD, 0f, "wave distance of slot " + i);
+                Assert.AreEqual(waveR[i], l.WaveR, Tol, "wave radius of slot " + i);
+                Assert.AreEqual(waveD[i], l.WaveD, Tol, "wave distance of slot " + i);
                 if (radius[i] > 0f || waveAt[i] != 0u || grime[i] > 0f) touched++;
             }
             Assert.Greater(touched, 20, "the shells must reach a crowd, or the comparison proves nothing");
@@ -172,13 +175,13 @@ namespace TW.Tests
                     var p = info[(int)s.PrevClip];
                     float pp = p.Seconds > 0f ? s.PrevFrame / p.Seconds : 0f;
                     var after = r.A.State[i];
-                    Assert.AreEqual(s.Frame, after.Frame, 0f, "frame of slot " + i);
-                    Assert.AreEqual(s.Blend, after.Blend, 0f, "blend left of slot " + i);
+                    Assert.AreEqual(s.Frame, after.Frame, Tol, "frame of slot " + i);
+                    Assert.AreEqual(s.Blend, after.Blend, Tol, "blend left of slot " + i);
                     Assert.AreEqual((ushort)s.Clip, r.Row[i], "row of slot " + i);
-                    Assert.AreEqual(c.Loop ? math.frac(ph) : math.min(ph, 1f), r.Phase[i], 0f, "phase of slot " + i);
+                    Assert.AreEqual(c.Loop ? math.frac(ph) : math.min(ph, 1f), r.Phase[i], Tol, "phase of slot " + i);
                     Assert.AreEqual((ushort)s.PrevClip, r.A.PrevRow[i], "previous row of slot " + i);
-                    Assert.AreEqual(p.Loop ? math.frac(pp) : math.min(pp, 1f), r.A.PrevPhase[i], 0f, "previous phase of slot " + i);
-                    Assert.AreEqual(s.Blend > 0f && s.Fade > 0f ? math.saturate(s.Blend / s.Fade) : 0f, r.A.Blend[i], 0f, "blend of slot " + i);
+                    Assert.AreEqual(p.Loop ? math.frac(pp) : math.min(pp, 1f), r.A.PrevPhase[i], Tol, "previous phase of slot " + i);
+                    Assert.AreEqual(s.Blend > 0f && s.Fade > 0f ? math.saturate(s.Blend / s.Fade) : 0f, r.A.Blend[i], Tol, "blend of slot " + i);
                 }
             }
             // the followed man's time in each clip is still kept (it lives outside the job)
