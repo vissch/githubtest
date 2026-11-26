@@ -82,7 +82,7 @@ namespace TW.Tests
             for (int z = 0; z < length; z++)
             for (int x = 0; x < width; x++)
             {
-                if (surface.At(x + .5f, z + .5f).Hollow != near[z * width + x]) nearDiffer++;
+                if (surface.HollowAt(x + .5f, z + .5f) != near[z * width + x]) nearDiffer++;
                 if (Bits(surface.DrainedAt(x, z)) != Bits(whole.DrainedAt(x, z))) { drainDiffer++; if (first < 0) first = z * width + x; }
                 if (surface.DrainedAt(x, z) > 0f) rills++;
             }
@@ -90,6 +90,22 @@ namespace TW.Tests
             Assert.AreEqual(0, drainDiffer, $"{what}: {drainDiffer} cells differ in drainage from a whole re-derivation" +
                 (first >= 0 ? $", first at {first % width},{first / width}" : ""));
             return rills;
+        }
+
+        [Test]
+        public void WetnessAtInterpolatesTheSimHeightAndRespectsDryGround()
+        {
+            using var map = new MapData(19, new float2(16f, 18f), Allocator.Temp);
+            for (int z = 0; z < map.Height.Length; z++)
+                for (int x = 0; x < map.Height.Width; x++)
+                    map.Height.Cm[map.Height.Index(x, z)] = (short)(20 * x);
+            var surface = new BattlefieldSurface(map);
+            map.WaterLevel = .2f;
+            Assert.AreEqual(1f, surface.WetnessAt(.5f, 3.5f));
+            Assert.That(surface.WetnessAt(3f, 3.5f), Is.EqualTo(.5f).Within(1e-6f));
+            Assert.AreEqual(0f, surface.WetnessAt(5.5f, 3.5f));
+            map.WaterLevel = MapData.NoWater;
+            Assert.AreEqual(0f, surface.WetnessAt(.5f, 3.5f));
         }
 
         [Test]

@@ -29,8 +29,7 @@ namespace TW.Presentation.Terrain
                 int i = input.Index(x, z);
                 float cx = ScatterInput.CentreX(x), cz = ScatterInput.CentreZ(z);
                 input.Nav[i] = map.NavLayers[map.NavIndex(x, z)];
-                var at = surface.At(cx, cz);
-                input.BankDistance[i] = at.BankDistance; input.Wetness[i] = at.Wetness; input.Hollow[i] = at.Hollow >= 0;
+                input.BankDistance[i] = surface.BankDistance(cx, cz); input.Wetness[i] = surface.WetnessAt(cx, cz); input.Hollow[i] = surface.HollowAt(cx, cz) >= 0;
                 input.Mound[i] = BattlefieldSurface.Mound(cx, cz);
                 if (dist)
                 {
@@ -139,7 +138,7 @@ namespace TW.Presentation.Terrain
             {
                 var s = scatter[i];
                 if (s.X < 0.5f || s.Z < 0.5f || s.X > w - 0.5f || s.Z > l - 0.5f) continue;
-                if (surface.At(s.X, s.Z).Hollow >= 0) continue;   // a shell hole since: the grass and the kit went with the earth
+                if (surface.HollowAt(s.X, s.Z) >= 0) continue;   // a shell hole since: the grass and the kit went with the earth
                 var module = ModuleOf(s, out float sink, out float size);
                 if (module == null) continue;
                 var at = new Vector3(s.X, surface.VisualHeight(s.X, s.Z) - sink, s.Z);

@@ -148,7 +148,7 @@ namespace TW.Presentation.Terrain
                 if (Rand(key, 880) > (flooded ? .14f : .30f) || h.Radius < 1.2f) continue;
                 float angle = Rand(key, 881) * Mathf.PI * 2f, off = h.Radius * (flooded ? .72f + .14f * Rand(key, 882) : .3f * Rand(key, 882));
                 float x = h.Center.x + Mathf.Cos(angle) * off, z = h.Center.y + Mathf.Sin(angle) * off;
-                if (!Clear(map, x, z) || surface.At(x, z).Hollow < 0) continue;
+                if (!Clear(map, x, z) || surface.HollowAt(x, z) < 0) continue;
                 emit(kit.dudShell, Matrix4x4.TRS(new Vector3(x, surface.Bed(x, z) - .22f, z), Quaternion.Euler((Rand(key, 883) - .5f) * 30f, Rand(key, 884) * 360f, (Rand(key, 885) - .5f) * 30f), Vector3.one * (.6f + Rand(key, 886) * .2f)));
             }
         }
@@ -160,7 +160,7 @@ namespace TW.Presentation.Terrain
         static bool StillFits(MapData map, BattlefieldSurface surface, Vector3 p)
         {
             if (p.x < 0f || p.z < 0f || p.x >= map.SizeMeters.x || p.z >= map.SizeMeters.y) return true;
-            return Clear(map, p.x, p.z) && surface.At(p.x, p.z).Hollow < 0;
+            return Clear(map, p.x, p.z) && surface.HollowAt(p.x, p.z) < 0;
         }
 
         void Horizon(MapData map)

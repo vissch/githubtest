@@ -386,7 +386,7 @@ namespace TW.Presentation.Terrain
         bool Room(MapData map, BattlefieldSurface surface, Vector3 centre, Quaternion rotation, float halfX, float halfZ, bool offMap = false, float rise = 0f)
         {
             bool Inside(float x, float z) => x >= 0f && z >= 0f && x < map.SizeMeters.x && z < map.SizeMeters.y;
-            if (Inside(centre.x, centre.z) && surface.At(centre.x, centre.z).Hollow >= 0) return false;
+            if (Inside(centre.x, centre.z) && surface.HollowAt(centre.x, centre.z) >= 0) return false;
             int nx = Mathf.CeilToInt(halfX * 4f), nz = Mathf.CeilToInt(halfZ * 4f);
             float lo = float.MaxValue, hi = float.MinValue;
             for (int iz = 0; iz <= nz; iz++)
@@ -399,7 +399,7 @@ namespace TW.Presentation.Terrain
                 {
                     if (!Clear(map, p.x, p.z)) return false;
                     h = surface.VisualHeight(p.x, p.z);
-                    if (h < map.WaterLevel + .15f || surface.At(p.x, p.z).Wetness > .45f) return false;
+                    if (h < map.WaterLevel + .15f || surface.WetnessAt(p.x, p.z) > .45f) return false;
                 }
                 lo = Mathf.Min(lo, h); hi = Mathf.Max(hi, h);
             }

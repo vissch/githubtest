@@ -29,19 +29,18 @@ namespace TW.Presentation.Terrain
                 // Litter gathers: thick in some stretches and absent in others (a slow noise), thicker again round shell
                 // holes and along the trench, where things get thrown, dropped and blown.
                 float gather = Mathf.PerlinNoise(x * .045f + 17f, z * .045f + 3f);
-                var near = surface.At(x, z);
-                float chance = gather * gather * 1.15f + (near.Hollow >= 0 ? .45f : 0f) + (near.BankDistance < 7f ? .30f : 0f);
+                float bankDistance = surface.BankDistance(x, z);
+                float chance = gather * gather * 1.15f + (surface.HollowAt(x, z) >= 0 ? .45f : 0f) + (bankDistance < 7f ? .30f : 0f);
                 if (Rand(k, 61) > chance) continue;
                 var layer = (NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(z / MapData.NavCellSize), 0, map.NavLength - 1))];
                 if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked | NavLayer.Wire)) != 0) continue;
-                var at = surface.At(x, z);
-                if (at.Wetness > .35f || at.BankDistance < 1.2f) continue;
+                if (surface.WetnessAt(x, z) > .35f || bankDistance < 1.2f) continue;
                 if (Taken(x, z)) continue;   // not inside a house or a site (review call B8)
                 float pick = Rand(k, 64), ground = surface.VisualHeight(x, z);
                 var yaw = Quaternion.Euler(0f, Rand(k, 65) * 360f, 0f);
                 var tilt = Quaternion.Euler((Rand(k, 67) - .5f) * 8f, 0f, (Rand(k, 68) - .5f) * 8f);   // bedded unevenly in the mud
                 float size = DebrisSizeMin + Rand(k, 66) * DebrisSizeRange;
-                if (at.BankDistance < 7f)
+                if (bankDistance < 7f)
                 {
                     // by the trench: spent cases, sacks fallen off the parapet, sheets of iron, boards
                     if (pick < .30f) emit(kit.shellCases, Matrix4x4.TRS(new Vector3(x, ground + .01f, z), yaw, Vector3.one * size));
@@ -87,18 +86,16 @@ namespace TW.Presentation.Terrain
             for (float gz = 4f; gz < map.SizeMeters.y - 4f; gz += grid)
             for (float gx = 3f; gx < map.SizeMeters.x - 3f; gx += grid, k++)
             {
+                if (Rand(k, 134) >= .07f) continue;   // only the graves are left to this step
                 float x = gx + Rand(k, 132) * (grid - .6f), z = gz + Rand(k, 133) * (grid - .6f);
-                var at = surface.At(x, z);
-                bool byTrench = at.BankDistance < 6f;
+                if (surface.BankDistance(x, z) < 6f || surface.HollowAt(x, z) >= 0) continue;
                 float gather = Mathf.PerlinNoise(x * .06f + 41f, z * .06f + 9f);
-                float chance = gather * gather * .34f + (at.Hollow >= 0 ? .22f : 0f) + (byTrench ? .34f : 0f);
+                float chance = gather * gather * .34f;
                 if (Rand(k, 131) > chance) continue;
                 var layer = (NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(z / MapData.NavCellSize), 0, map.NavLength - 1))];
                 if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked)) != 0) continue;
-                if (at.Wetness > .35f || at.BankDistance < 1.1f) continue;
+                if (surface.WetnessAt(x, z) > .35f) continue;
                 if (Taken(x, z)) continue;   // not inside a house or a site (review call B8)
-                float pick = Rand(k, 134);
-                if (byTrench || pick >= .07f || at.Hollow >= 0) continue;   // only the graves are left to this step
                 var module = kit.graveMarker;
                 const float sink = .06f;
                 emit(module, Matrix4x4.TRS(new Vector3(x, surface.VisualHeight(x, z) - sink, z), Quaternion.Euler(0f, Rand(k, 135) * 360f, 0f), Vector3.one * (.92f + Rand(k, 136) * .16f)));   // 0.92-1.08: at 1.12 the tallest crossed 0.70 SU
@@ -111,8 +108,7 @@ namespace TW.Presentation.Terrain
             var layer = (NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(z / MapData.NavCellSize), 0, map.NavLength - 1))];
             if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked)) != 0) return false;
             if (Taken(x, z)) return false;   // not inside a house or a site (review call B8)
-            var at = surface.At(x, z);
-            return at.Wetness < .3f && at.BankDistance > 1.3f && at.Hollow < 0;
+            return surface.WetnessAt(x, z) < .3f && surface.BankDistance(x, z) > 1.3f && surface.HollowAt(x, z) < 0;
         }
 
         /// <summary>One gathering of small and medium shapes round a big one: scrub close in, grass and stones thinning
@@ -203,18 +199,18 @@ namespace TW.Presentation.Terrain
                 var c = new Vector2(2f + Rand(d, 121) * (map.SizeMeters.x - 4f), 2f + Rand(d, 122) * (map.SizeMeters.y - 4f));
                 var layer = (NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(c.x / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(c.y / MapData.NavCellSize), 0, map.NavLength - 1))];
                 if ((layer & (NavLayer.Trench | NavLayer.Link)) != 0) continue;
-                var at = surface.At(c.x, c.y);
-                if (at.BankDistance < 2.5f) continue;
+                if (surface.BankDistance(c.x, c.y) < 2.5f) continue;
+                int hollow = surface.HollowAt(c.x, c.y);
                 float bed = surface.Bed(c.x, c.y);
                 bool shore = river && bed > map.WaterLevel + .03f && bed < map.WaterLevel + .40f;
                 bool rim = false;
-                if (!shore && at.Hollow >= 0)
+                if (!shore && hollow >= 0)
                 {
-                    var h = surface.Hollows[at.Hollow];
+                    var h = surface.Hollows[hollow];
                     float r = (c - h.Center).magnitude / h.Radius;
                     rim = h.Level > -100f && r > .80f && r < 1.12f && bed > h.Level - .05f;
                 }
-                bool seep = !shore && !rim && at.Hollow < 0 && surface.Rill(c.x, c.y) > .7f && Rand(d, 123) < .35f;
+                bool seep = !shore && !rim && hollow < 0 && surface.Rill(c.x, c.y) > .7f && Rand(d, 123) < .35f;
                 if (!shore && !rim && !seep) continue;
                 bool crowded = false;
                 foreach (var other in stands) if ((other - c).sqrMagnitude < 12.25f) { crowded = true; break; }
@@ -252,8 +248,7 @@ namespace TW.Presentation.Terrain
             for (float gx = 2f; gx < map.SizeMeters.x - 2f; gx += grid, k++)
             {
                 float x = gx + Rand(k, 181) * (grid - .35f), z = gz + Rand(k, 182) * (grid - .35f);
-                var at = surface.At(x, z);
-                if (at.Wetness > .5f) continue;
+                if (surface.WetnessAt(x, z) > .5f) continue;
                 var layer = (NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(z / MapData.NavCellSize), 0, map.NavLength - 1))];
                 if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked)) != 0) continue;
                 float gather = Mathf.PerlinNoise(x * .085f + 17f, z * .085f + 61f);
@@ -263,7 +258,7 @@ namespace TW.Presentation.Terrain
                 // and that is precisely where the field had nothing standing on it. So open ground gets them
                 // too, at about a third the rate and gathered by the same density noise the litter uses, so
                 // the drifts run in belts rather than peppering the map evenly.
-                bool lee = at.BankDistance < 4.5f || at.Hollow >= 0;
+                bool lee = surface.BankDistance(x, z) < 4.5f || surface.HollowAt(x, z) >= 0;
                 float driftChance = lee ? .44f : .10f + gather * gather * .26f;
                 BattlefieldKit.Module module;
                 if (pick < driftChance) module = kit.drift;

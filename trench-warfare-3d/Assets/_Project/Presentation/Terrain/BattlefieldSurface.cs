@@ -254,6 +254,14 @@ namespace TW.Presentation.Terrain
             return height + rise;
         }
 
+        /// <summary>Nearest stamped hollow for this height cell, or -1 if it has none.</summary>
+        public int HollowAt(float x, float z) => nearHollow[Index(x, z)];
+
+        /// <summary>Wetness from the raw simulation heightfield, as returned by At.</summary>
+        public float WetnessAt(float x, float z) => map.WaterLevel > MapData.NoWater ? Wetness(map.Height.Sample(x, z)) : 0f;
+
+        float Wetness(float height) => Mathf.Clamp01(1f - (height - map.WaterLevel) / .6f);
+
         public Sample At(float x, float z)
         {
             var hf = map.Height; float h = hf.Sample(x, z);
@@ -262,9 +270,9 @@ namespace TW.Presentation.Terrain
             float bz = (hf.Sample(x, z - 3f) + hf.Sample(x, z + 3f)) * .5f - h;
             int nx = Mathf.Clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1), nz = Mathf.Clamp((int)(z / MapData.NavCellSize), 0, map.NavLength - 1);
             return new Sample { Height = h, Slope = Mathf.Sqrt(dx * dx + dz * dz) * .5f, Concavity = Mathf.Min(bx, bz),
-                BankDistance = BankDistance(x, z), Hollow = nearHollow[Index(x, z)],
+                BankDistance = BankDistance(x, z), Hollow = HollowAt(x, z),
                 Trench = ((NavLayer)map.NavLayers[map.NavIndex(nx, nz)] & NavLayer.Trench) != 0,
-                Wetness = map.WaterLevel > MapData.NoWater ? Mathf.Clamp01(1f - (h - map.WaterLevel) / .6f) : 0f };
+                Wetness = map.WaterLevel > MapData.NoWater ? Wetness(h) : 0f };
         }
 
         /// <summary>How much of a watercourse runs through this point, 0 (none) .. 1 (a gully), wandering a little so it is not cell-straight.</summary>

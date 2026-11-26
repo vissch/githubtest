@@ -209,7 +209,7 @@ namespace TW.Presentation.Terrain
                 for (float e = 0f; e <= 1f && dry; e += .5f)
                 {
                     float ze = z + away * e;
-                    dry = surface.VisualHeight(x, ze) > map.WaterLevel + .3f && surface.At(x, ze).Wetness <= .45f;
+                    dry = surface.VisualHeight(x, ze) > map.WaterLevel + .3f && surface.WetnessAt(x, ze) <= .45f;
                 }
                 if (dry) return z;
             }
